@@ -1800,6 +1800,9 @@ Reference: `Art/quartile minecraft illustration.png`
         him: a live switch, placed and named by him, a checkbox in the panel's Light section under "sky light",
         called **"light by rays"**. Both ways draw build 160's pictures byte for byte; not flown, as nothing a frame
         does changed. The switch goes when the rays' light is cut, on his word after the look.
+      - **His look** (2026-11-14, to Counsel, build 161): "column light is actually cleaner, i prefer it". The column
+        light is kept on his eye as well as its pass mark. The cut itself (the rays' light, its hand-down, the
+        checkbox) asked of him in so many words before anything goes.
     - **[LATER] The vanishing sea line:** at a 4 base, the thin blue line of sea on the horizon low over the sea isn't
       there. David watched: "i didnt notice anything". Cause unknown after three tries (not the step limit, not the
       sky's weight, not the map's edge); to be found before a finer base is ever kept.
