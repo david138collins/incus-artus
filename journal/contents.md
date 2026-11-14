@@ -82,6 +82,7 @@ when `docs/` was the record.
 | `oracle-review.md` | The Oracle's review (2026-11-11), and its second part, "before the first line". The one file the Oracle writes. |
 | `oracle-return.md` | Counsel's brief for the Oracle's return at the fork (plan 2.3): what we've learned since its review, and our questions. Kept from 2026-11-11. |
 | `oracle-prompt-2026-11-12.md` | A prompt calling the Oracle midway through the far eye (2.2), drafted by Counsel at David's ask: the new engine, what it measured and learned, what's left to try, his bars, twelve questions. |
+| `oracle-prompt-2026-11-14.md` | A prompt calling the Oracle at the finer cells (2.2), drafted by Counsel at David's ask: what came of her third part's order, the rings and the grazing rays' wall, the next few steps, twelve questions, and a hunt for something for nothing. |
 | `watch-list.md` | Problems seen coming, and what would head each off (2026-10-26 on). |
 | `projection.md` | The guiding principle (David, 2026-11-01): the form and its projection into blocks, "so that 1 always equals 1". |
 

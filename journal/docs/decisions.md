@@ -1818,6 +1818,19 @@ Reference: `Art/quartile minecraft illustration.png`
       the 4s cost the plain what the 8s did it stands near 1.7 ms, and the 2s would take it past his 2. Her advice:
       look at the grazing rays' steps before building the 4s. Counsel agrees: the per-column height skip for
       skimming rays has been on the list to price since build 140.
+    - *A correction, in the open (Counsel, the same day):* the line above is wrong about the height skip, and Counsel
+      said it to David too. The Oracle's third part (section 4) moved it to go with the skyline by cover: a ray summing
+      the haze one cell deep over the ground can't skip the haze it sums, and inside the rings that haze is the 8s'
+      and 16s'. So the skyline look (haze or cover) and the grazing rays' cost are tied; the cut (her step 4) is the
+      lever that keeps the haze. Put to the Oracle in the prompt of 2026-11-14.
+    - **[DECIDED 2026-11-14] A deep dive before the 4s and 2s** (David, to Builder): "lets take a deep dive into how we
+      can get the finer rays working simultaniously in time with the rest of them." And: "lmk if i need to start a
+      testing software for you" (not yet; Nsight if the cut is built). Builder's reading: the rings add no short rays,
+      they lengthen rays already long; the way to have the near work beside the far is the Oracle's step 4, shelved
+      when the gate was met, the ray cut into lengths at the rings' edge, marched side by side in the one dispatch,
+      joined front to back; whether it pays turns on whether the card is waiting or working on the plain. Build 172:
+      two measuring switches, three flights (whole, the near length alone to 1,024 blocks, the far alone from 1,024),
+      its pass mark written first.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
