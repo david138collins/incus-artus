@@ -3024,3 +3024,10 @@ first, then the hands-off flight.
 textures are in.) Builder's next, put to him: unticked becomes the default in the next build, with a launch switch
 for the old way so the two can be flown against each other, hands off; the checkbox stays till he says to cut it;
 the texture making is the build after.
+
+**Build 165 (unflown, not handed over): the rock switch off by default.** From David's look ("unticked rock switch
+looks a lot better, with the hardware blend"). The checkbox stays (ticked: as it was); `INCUS_FAR_ROCK=1` starts it
+on, for flying against. The new default draws byte for byte what build 164 drew unticked (the mountain top, the
+plain, high over the spawn, the sea), and the old way still draws build 163's (the plain). Its flight (the pass mark
+above: within 1% either way) waits for the texture making, which changes no shader, so one pair of hands-off flights
+prices the switch after both.

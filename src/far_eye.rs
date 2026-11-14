@@ -93,9 +93,10 @@ pub struct FarLook {
     /// scattered by chance, as it was; 1 woven, an even pattern; 2 blue noise; 3 woven with blue noise in it), the
     /// weave's side as a power of two, how much blue noise goes into the weave, and how far the starts spread (of a
     /// step: at 0 every ray begins alike, and the rings the scatter was for come back).
-    /// The rock switch (as it was, on): a spot none of whose eight cells shows surface is drawn as bare unlit rock. Off,
-    /// it takes the colour and facing borrowed from the nearest cell that does (David, 2026-11-14: the flat plates with
-    /// straight edges in thin haze).
+    /// The rock switch: on (as it was till build 165), a spot none of whose eight cells shows surface is drawn as bare
+    /// unlit rock. Off, the default, it takes the colour and facing borrowed from the nearest cell that does [David,
+    /// 2026-11-14, of the flat plates with straight edges it drew in thin haze: "unticked rock switch looks a lot
+    /// better, with the hardware blend"]. `INCUS_FAR_ROCK=1` starts it on, for flying against.
     pub rock_switch: bool,
     pub start_pattern: u32,
     pub weave_bits: u32,
@@ -127,7 +128,7 @@ impl FarLook {
         sky_light: true,
         sky_strength: SKY_STRENGTH,
         sky_tint: SKY_TINT,
-        rock_switch: true,
+        rock_switch: false,
         start_pattern: 0,
         weave_bits: 2,
         start_blue: 0.25,
@@ -312,6 +313,7 @@ impl FarEye {
         };
         look.shadows = !set("INCUS_SIGHT_NO_SHADOWS");
         look.sky_light = !set("INCUS_SIGHT_NO_SKY");
+        look.rock_switch = std::env::var("INCUS_FAR_ROCK").as_deref() == Ok("1");
         // Change 1 (`INCUS_FAR_BLEND`): `code` makes no far textures and blends by the code (old's); otherwise they're made
         // and blend once they're in. The detail at launch (`INCUS_FAR_DETAIL`), for measuring.
         let textures = std::env::var("INCUS_FAR_BLEND").as_deref() != Ok("code");
@@ -438,8 +440,8 @@ impl FarEye {
         }
         // Where the rays' steps begin, if not as it was (scattered, over a whole step).
         let look = &self.look;
-        if !look.rock_switch {
-            rays += ", no rock switch";
+        if look.rock_switch {
+            rays += ", the rock switch on";
         }
         if look.start_pattern != 0 || look.start_spread != 1.0 {
             let side = 1 << look.weave_bits.clamp(1, 4);
@@ -982,9 +984,9 @@ mod tests {
         if let Some(weight) = std::env::var("FAR_TEST_SKY_WEIGHT").ok().and_then(|w| w.parse().ok()) {
             eye.look.sky_weight = weight;
         }
-        // Without the rock switch, if asked (`FAR_TEST_ROCK=0`).
-        if std::env::var("FAR_TEST_ROCK").as_deref() == Ok("0") {
-            eye.look.rock_switch = false;
+        // With the rock switch, if asked (`FAR_TEST_ROCK=1`).
+        if std::env::var("FAR_TEST_ROCK").as_deref() == Ok("1") {
+            eye.look.rock_switch = true;
         }
         // Where the rays' steps begin, if asked (`FAR_TEST_START`: the pattern, then the weave's bits, the blue noise
         // in the weave and the spread, as many as given).
@@ -1067,7 +1069,7 @@ mod tests {
             for y in 0..screen.1 {
                 raw.extend_from_slice(&pixels[(y * row) as usize..(y * row + screen.0 * 4) as usize]);
             }
-            let _ = std::fs::write(std::path::Path::new(&folder).join(format!("far eye {} {}x{} weight {}{} blend {} detail {}", mark.name, screen.0, screen.1, eye.look.sky_weight, if std::env::var_os("INCUS_SIGHT_NO_SHADOWS").is_some() { " unlit" } else { "" }, eye.look.blend, eye.look.detail) + &std::env::var("FAR_TEST_START").map_or(String::new(), |s| format!(" start {s}")) + if eye.look.rock_switch { "" } else { " no rock switch" } + if eye_asked.is_some() { " eye" } else { "" } + ".rgba"), raw);
+            let _ = std::fs::write(std::path::Path::new(&folder).join(format!("far eye {} {}x{} weight {}{} blend {} detail {}", mark.name, screen.0, screen.1, eye.look.sky_weight, if std::env::var_os("INCUS_SIGHT_NO_SHADOWS").is_some() { " unlit" } else { "" }, eye.look.blend, eye.look.detail) + &std::env::var("FAR_TEST_START").map_or(String::new(), |s| format!(" start {s}")) + if eye.look.rock_switch { " rock switch" } else { "" } + if eye_asked.is_some() { " eye" } else { "" } + ".rgba"), raw);
         }
         let (top, bottom) = (average(0..20), average(screen.1 - 20..screen.1));
         eprintln!("The far eye's test picture: the top rows {top:?}, the bottom rows {bottom:?} (red, green, blue of 255)");

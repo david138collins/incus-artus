@@ -159,8 +159,8 @@ fn render(ui: &mut egui::Ui, readings: &Readings, look: Option<&mut FarLook>) {
                 });
             }
         });
-        // The rock switch (ticked, as it was): bare unlit rock where no cell near shows surface. Placed and named with
-        // David, 2026-11-14.
+        // The rock switch (ticked, as it was till build 165): bare unlit rock where no cell near shows surface. Placed
+        // and named with David, 2026-11-14; unticked by default from his look at build 164.
         ui.checkbox(&mut look.rock_switch, "rock switch");
         ui.add(egui::Slider::new(&mut look.detail, -3..=4).text("detail (levels finer)"));
         ui.horizontal(|ui| {
