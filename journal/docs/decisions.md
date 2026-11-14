@@ -1893,7 +1893,13 @@ Reference: `Art/quartile minecraft illustration.png`
           to 1.8% less at every standing mark, inside the pass mark. Said in the open: fast across the world 4%
           dearer (a moving mark that varies about that much between flights of the same code); the mountain top's
           99th 15% wider, one frame at 2.03 ms, in a stretch with a 45 ms hitch while David was typing, taken as
-          disturbed, not the build's.
+          disturbed, not the build's; a hands-off flight owed for it. The flight took off before Builder told him
+          it was up (her lapse, said in the open in the journal and the shared memory).
+        - *The sharp blocky sections, narrowed* (Builder, off the screen at his first spot, 904aa65): the code's and
+          the hardware's blends show them alike (not seams between bricks); with every face lit alike they stay (not
+          the light); with no switch to bare rock nothing changes. What's left is the blend's own creases, which the
+          eased blend (way 4) goes after. She asks him whether to build it next, on a switch, and where its control
+          goes. His second screenshot (flat plates in a hazy spire) may have another cause; she needs its place.
     - **[LATER] The vanishing sea line:** at a 4 base, the thin blue line of sea on the horizon low over the sea isn't
       there. David watched: "i didnt notice anything". Cause unknown after three tries (not the step limit, not the
       sky's weight, not the map's edge); to be found before a finer base is ever kept.
