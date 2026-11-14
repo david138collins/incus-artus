@@ -985,7 +985,9 @@ bending, to get crazy looking things that happen deep down instantly in the engi
     it stops being vertex and becomes rays that shatter and fade". The three ways in one sequence: struck, its own
     pixels flash; it pixelates, coarser by steps (2, 4, 8); at the coarsest it's handed over to cells of the same
     size, so the switch from triangles to rays doesn't show; the cells fly apart, cool and fade. It ends as the stuff
-    the far land is drawn from. The flying cells could share the FX Lab's particles.
+    the far land is drawn from. The flying cells could share the FX Lab's particles. And: "if cheap and not
+    overused, maybe even a more common type of effect for some things." Kept for a family of things (spirits,
+    summons, things made of magic), so it stays a sign of what they are.
   - The per-pixel tag is the same thing his pixel weights want ("being able to weight different kinds of pixels may
     be a very cheap and useful tool", 2026-11-12).
 - Belongs with the FX Lab and the polish passes, after the speed plan settles.
