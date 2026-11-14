@@ -2834,3 +2834,21 @@ checkbox in the panel's Light section, under "sky light", called "light by rays"
 far light is now made and kept up while the light is by rays too (40 MB, a sweep a sun step), so the switch shows
 at once. Both ways draw build 160's pictures byte for byte (high over the spawn and the mountain top, off the
 screen). Not flown: nothing a frame does has changed. The switch goes when the rays' light is cut.
+
+**David's look** (2026-11-14, flipping the two in build 161): "column light actually looks better." To Counsel:
+"column light is actually cleaner, i prefer it". The cut waits on his word, which Counsel is asking for.
+
+**What he raised from the same look** (a screenshot close against a mountainside, north -959, east -90, up 499,
+the 32-block cells some hundreds of pixels across): "i know that this will be more of a polish thing, but its
+significant enough, close enough to the basic functions of the graphics engine, i'd like to have a talk about it; the
+way that these whorls work out from the average of the rays, even if its hard to see at a distance, if these were
+just more *orderly* , the way they compress into the distance would improve. im interested in ways that we could get
+that sort of tuned, ideally without incurring a whole lot of extra costs in the process." Builder's reading of where
+the shapes come from, given to him: a cell holds how full of land it is, the march gathers that as mist, and between
+cell centres the card blends the eight nearest in straight lines; the outline is where the mist hides what's behind,
+and it bows, pinches and kinks on the cells' grid, not the land's. The speckled fringes are each pixel's own random
+start along its ray and the layers brought up crisp. Ways put to him, cheapest first: the panel's "brought up"
+(free, now); an even pattern for the pixel's start in place of the random one (free on the card); a firmer rule
+from fullness to cover (a few sums a step; thin things may suffer); a blend eased at the cell centres with no more
+fetches; and the dear ones (a truly smooth blend at eight times the fetches; a cell holding how far the surface is
+in place of how full). Nothing built; talked through first.
