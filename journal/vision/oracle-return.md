@@ -392,6 +392,12 @@ surface, and the horizon band over a few frames (`journal/docs/decisions.md`, 20
 section 2 as they land, for its third part. *The third part, written the same day:* "waiting, not working", in
 `journal/vision/oracle-review.md`. This file goes on gathering for the fork after 2.3.
 
+**At the finer cells (2026-11-14):** David called the Oracle again, with `journal/vision/oracle-prompt-2026-11-14.md`
+(the wall the 8s' ring found on the plain, the next steps, "something for nothing"). Its first reply is kept verbatim
+at that file's end: strides sized by how fast the haze changes before the cut; ring width, not count, sets the facets'
+size; the 4s and 2s decided with the near eye; five questions for David, three for Builder. Its fourth part waits on
+the answers.
+
 ## 6. The message to send at the fork
 
 A draft for David to edit when the time comes:

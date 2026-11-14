@@ -178,3 +178,73 @@ First, reply with your understanding and your questions. When I've answered, wri
 - every "something for nothing" you can find, with what it buys, what it costs and how sure you are;
 - your answers to the questions above;
 - anything we're doing that you'd stop, and anything we're not doing that you'd start.
+
+---
+
+## The Oracle's first reply  [verbatim, as David pasted it to Builder, relayed to Counsel, 2026-11-14]
+
+David, I've read the plan, Counsel's brief, the record from build 142 on, your decisions of the 13th and 14th, the far
+eye's code at build 172, and the rings' flight logs. Nothing was changed. Below is my understanding and my questions;
+the fourth part waits on your answers.
+
+### My understanding
+
+#### What you've done
+
+- **You followed the order, and the far eye met your bar.** The lean step's halves paid less than I guessed, 1d paid
+  most, and one dispatch over all three layers took 33 to 38% off the worst marks. Everything is under 2 ms.
+- **Light moved to the processor** and now costs the card about nothing. You prefer how it looks.
+- **Two rings are in:** the 16s within about 1,024 blocks and the 8s within about 512, each made off the frame.
+- **The 8s found a wall on the plain:** 0.54 to 0.96 ms, with the eye on the ground looking level.
+
+#### How I read the wall, for now
+
+Four things stand out. I hold all four loosely.
+
+1. **The plain's cost grew more than its rays did.** The longest ray went from 396 steps to 536, about a third more,
+   while the time went up 80% (`logs/flight-1794697843` and `-1794697458`). Something besides ray length changed, and
+   I can't tell what from the reports.
+2. **The rings as sized sit mostly inside the near eye's ground.** Each ring is 128 cells a side, so the 4s would reach
+   256 blocks and the 2s 128. Old drew blocks out to about 336. Once the near eye draws, the far eye's 4s and 2s would
+   lie under it.
+3. **Ring width, not ring count, sets how big the star facets look.** At a ring's outer edge a cell is about 10 screen
+   pixels wide, and about 21 where the next ring takes over. That holds for every ring. Finer rings move the facets
+   nearer without shrinking them on the screen.
+4. **Flat ground is where rays run long, and it's also where long strides are exact.** Over ground that isn't
+   changing, one long stride through the haze sums what many short ones do. So a height table can help while the haze
+   stays, by telling a ray the haze ahead isn't changing; that corrects my section 4. The table can't let a ray skip
+   haze, which is what I ruled out there.
+
+#### What I'd expect to advise
+
+- **For grazing rays:** try strides sized by how fast the haze changes, before the cut. It keeps your look and reduces
+  work, where the cut adds work.
+- **For the creases:** I suspect they come from storing "how full" a cell is with a hard stop at empty and full. Stored
+  without the stop, the same single fetch may draw clean slopes. This is untested and needs a look at your
+  mountainside.
+- **For the 4s and 2s:** decide them with the near eye, not as far-eye rings.
+- **For switches that cost when off:** fix them when the program is built, so an off path isn't in the program at all.
+
+### Questions
+
+**For you:**
+
+1. **Between the blocks' edge (about 340 blocks) and a kilometre, what should the far eye show once the near eye
+   draws?** Today's rings give soft cells 10 to 20 screen pixels wide there, as old did. Do you want that kept, or that
+   stretch finer? It decides ring width, memory, and where the 4s and 2s belong.
+2. **Is "looks the same to you" still enough,** where pixel for pixel can't hold? Long strides change the sum by a hair
+   on flat ground.
+3. **What should the per-pixel tag say,** and what are your "pixel weights"? I couldn't find either in the decisions.
+4. **Which Render page controls do you still want live?** Anything you've stopped changing could be fixed into the
+   program and cost nothing. Changing it later would take a moment's rebuild.
+5. **Does the near eye still draw blocks out to about 336 blocks,** where a block is one 2 × 2 square?
+
+**For Builder, before I write:**
+
+6. **Build 172's three flights** (whole, near alone, far alone). They say whether the plain's frame is waiting or
+   working.
+7. **The longest ray's steps by kind,** at the plain with the 8s on and off: skips, strides through air, steps in haze,
+   back-ups after a first touch, and blends that fell back to the code. That should say what the 8s added beyond
+   length.
+8. **Watts as a steady reading.** The plain read 106 W in its first standing and 71 to 72 W in the four after it, at
+   the same spot and the same card time. The first looks like carry-over from the mark before.

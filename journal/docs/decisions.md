@@ -1831,6 +1831,23 @@ Reference: `Art/quartile minecraft illustration.png`
       joined front to back; whether it pays turns on whether the card is waiting or working on the plain. Build 172:
       two measuring switches, three flights (whole, the near length alone to 1,024 blocks, the far alone from 1,024),
       its pass mark written first.
+- **[2026-11-14] The Oracle called at the finer cells, and its first reply** (David sent Counsel's prompt,
+  `journal/vision/oracle-prompt-2026-11-14.md`; the reply, verbatim, is kept at its end). Its reading, held loosely:
+  the plain's time grew more than its longest ray (a third more steps, 80% more time), so something besides length
+  changed; the 4s and 2s at 128 cells a side would lie under the near eye's ground; **ring width, not ring count, sets
+  how big the facets look** (a cell about 10 screen pixels at a ring's edge, 21 where the next takes over); and over
+  flat ground long strides through the haze are exact, so a height table *can* help while the haze stays, by telling a
+  ray the haze ahead isn't changing (correcting its own section 4, and so Counsel's correction above). What it expects
+  to advise: strides sized by how fast the haze changes, before the cut; the creases from storing "how full" with a
+  hard stop at empty and full, to be tried without the stop on his mountainside; the 4s and 2s decided with the near
+  eye; switches fixed when the program is built. Its five questions for David and three for Builder are in the file.
+  - *Builder's reading, to David* ("what do you think, Builder?"): she agrees on ring width (her "about a pixel" for
+    near land was wrong at these ring sizes), on deciding the 4s and 2s with the near eye (the near eye's 336 not
+    confirmed from old's code), and on trying the creases' storage off the screen. She adds: the plain's extra cost is
+    likely the number of long rays (130 to 921 over 256 steps), which the steps-by-kind counter will test; strides put
+    logic in the hottest loop, to be priced by flight; switches fixed at build, strongly. Her order: build 172's
+    flights, the counter and a steady watts reading, the 4s and 2s held for his answers to questions 1 and 5, then the
+    no-hard-stop storage off the screen.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
