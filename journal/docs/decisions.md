@@ -1807,6 +1807,7 @@ Reference: `Art/quartile minecraft illustration.png`
     at either ring's edge (under 1 of 255); a moved pair of rings matches one made in place to a last digit; the
     sea's far edge whole; at his first spot the small facets smooth into a slope. The 8s' first ring 1.4 to 2.1 s at
     load. Owed: his look, then fourteen minutes hands off, both rings against the 16s alone.
+    - *His look* (to Builder): "looks pretty good". The flights next, on his go.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
