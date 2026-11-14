@@ -3235,3 +3235,19 @@ guessed that; it wasn't that either.
   wants about a third more bricks in the textures (Builder's estimate from the ring: some 160 MB more on the card),
   so it's put to David first.
 - All 28 tests pass; with the ring off the picture is still byte for byte build 167's.
+
+### Build 170 to come: a brick wherever a blend may read from one, in the 32s and up (the pass mark, before the code)
+
+David, told the flaw stands in the levels laid over the map too and what mending it costs: "yeah 160mb is no biggie.
+go ahead and launch" (build 169 launched for his look at the ring; this is the build after).
+- **To build:** the textures get a brick wherever the hardware's blend may read from one: band in its own cells, or
+  in the cells one past it north, east or up (the ring's rule, build 169). For the 32s and the 64s, which follow the
+  window, the textures' bricks come and go by region with the window, not by the pool's bricks.
+- **Checks:** at a mountainside crossing a brick's floor (David's first spot, near 500 up: the 32s' bricks start at
+  512), the pixels that are to the byte the initial blend's fall to a few in a hundred, as the ring's did (8,644 of
+  17,485 to 436); the far pictures at the five marks change only there. A look step: Builder's look off the screen,
+  then David's.
+- **Builder's guesses** [low]: about a third more bricks in the textures, 160 MB more on the card; the textures made
+  and sent in under a second still; the card's time within 1% at every mark (the march is untouched; more texels
+  only); bricks brought as the eye moves a third dearer on the frame's own thread, still under build 163's figures
+  (95th 1.5 ms, 99th 6.7 at fast across the world).
