@@ -1759,6 +1759,13 @@ Reference: `Art/quartile minecraft illustration.png`
   guesses (written before code): far-looking marks within 2% of build 167, ground marks 5 to 15% dearer, under 30 MB
   on the card. Then the scatter stage's woods, then shapes placed by hand, each placed with him. The plan's order
   changed to match.
+  - *Built:* build 168 (72653a9), unflown, checked off the screen: every 32 exactly its eight 16s added (163,840
+    cells); the ring off, byte for byte build 167's; on, no hole or line at its edge, skylines and near slopes
+    crisper, and at his first spot the star facets half the size; a moved ring draws byte for byte what one made in
+    place does. **A miss, in the open:** the first ring takes 2.3 to 3.6 s while the world loads (guessed half a
+    second), off the frame; a short move 0.06 to 0.12 s. A shading flaw written down: inside the ring the light is
+    still the 32s'. Owed: his look, then fourteen minutes hands off for the ring on against off (the card's time
+    and memory).
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
