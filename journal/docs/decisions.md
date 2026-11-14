@@ -1789,6 +1789,18 @@ Reference: `Art/quartile minecraft illustration.png`
     unless its indicative of a problem that should be addressed, i think you got it." Builder, off the screen: the
     initial blend's own (a brighter line at the ring's edge by it, none by the hardware's), seen only till the
     textures are in. Written down, not mended.
+  - *Flown* (build 170, on "sweet, good work. go ahead with your flights."; ring on `logs/flight-1794690079`, off
+    `-1794690468`; checked by Counsel). The 16s' ring on, against build 167, the card's whole at the median: the spawn
+    31% more, the sea 18%, the sea nodding 24%, a player's run and high over the spawn 12%, the mountain top 5%; the
+    bare plain 31% *less*. Every median at or under 1.35 ms, every 99th at or under 1.57; nothing more on the card
+    (1,015 MB in use, ring or no ring). **Misses, in the open:** far-looking marks guessed within 2% (5 to 18%
+    dearer), the spawn 5 to 15% (31%), the plain dearer (a third cheaper); the ring's code costs 2 to 3% with the
+    ring off. Flags: one frame at 2.24 ms high over the spawn (its 99th 0.99, not explained); over the sea the
+    4 × 4's longest ray reaches the step limit (768), no hole in the picture, to watch at the 8s; fast across the
+    world, putting the far cells on the card a fifth dearer at the 99th in both flights (build 170's bricks, most
+    likely). Builder advises the 8s alone next, flown before the 4s and 2s; his word asked.
+    - *Counsel, to watch:* the sea nodding's 99th at 1.57 leaves about 0.4 ms under his 2 ms bar for the 8s, 4s and
+      2s together, if each costs what the 16s did. Lazy rays come after them and aim at exactly that time.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
