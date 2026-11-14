@@ -38,6 +38,10 @@ Practical things learned the hard way. Each has its reason, so a later session c
 - **Look at the picture yourself before handing it over.** Draw it off the screen in a test, save it and look;
   compare before and after side by side. It's cheaper than a launch, and it catches what numbers don't.
 - **Medians don't add.** The passes' medians don't sum to the frame's; read the whole from its own clock.
+- **Ask what else is on the card before any flight.** A second display (a TV), a video playing, or anything decoding
+  shares the same card when it drives the screens; a night of flights once ran 4 to 18% slow, its worst frames
+  doubled, while the laptop played videos on a TV. Before an unattended run: nothing else plugged in or playing,
+  plugged in, the power mode checked, kept awake.
 - **Compare within one session, alternating.** Two builds flown back to back, A B A B, agreed to about 1%; the same
   builds compared across sessions (other heat, other runs) differed by up to about 5%, and once showed a 7.5% "cost"
   that wasn't there. Small differences are only real inside one session.

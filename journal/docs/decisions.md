@@ -1765,6 +1765,21 @@ Reference: `Art/quartile minecraft illustration.png`
         (re-priced for the polish list). Each flight stopped if not ended in 15 minutes; rounds repeated so a starved
         hour shows; reports name the commit. His list: plugged in, Turbo, kept awake with the screen on. Starts on his
         word.
+      - **The night queue, flown on his word** (2026-11-13, 19:41 to 21:20; Builder's write-up in
+        `journal/docs/experiments.md`). Medians: the column light costs what no light costs (within 0.02 ms at every
+        mark), 0.12 to 0.49 ms under the rays, 0.33 to 1.21 ms in all; the one dispatch is worth 20 to 35% with the
+        light's rays gone (the plain 5% dearer by it); the finer base costs 0.35 to 1.33 ms. Not readable: the 99ths.
+        From half an hour in every standing's 99th ran 1.5 to 2.5 times its median, no light included; the night ran
+        4 to 18% slower than the afternoon for the same picture; the first two flights flew starved. So his 2 ms bar
+        is shown for build 159's rays, not yet for build 160.
+      - **The likely cause** (David, 2026-11-14 morning, to Builder): "only thing i can think is either the nightlight
+        mode, or some awful parasitic nonsense hidden in my pc, or a considerate bitcoin miner virus that runs when i
+        sleep. i did close the lid and open it again. oh wait, i plug the laptop into my TV to play space noise sound
+        videos. i bet its just the card running another display. all yesterday it outside with no other display".
+        Builder's reading: it fits (on "NVIDIA GPU only" a second screen and a video's decoding are the same card's
+        work), not proven. **Owed:** two day flights with him at the machine, nothing else plugged in, Turbo on (the
+        column light and the rays, fourteen minutes), to read the 99ths; the rays' light code stays in the march until
+        his word.
     - **[LATER] The vanishing sea line:** at a 4 base, the thin blue line of sea on the horizon low over the sea isn't
       there. David watched: "i didnt notice anything". Cause unknown after three tries (not the step limit, not the
       sky's weight, not the map's edge); to be found before a finer base is ever kept.
