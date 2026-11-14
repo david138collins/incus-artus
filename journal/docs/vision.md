@@ -932,6 +932,10 @@ bread and a blank diary. Birds sing and flit about.
     sleeping, and keeping strangers out. Here none of that comes up: it's the host's world, and you're a guest
     at their table. A primitive model in the best sense, like the earliest networked games.
 - Moddable: text IDs, content packs as folders, readable TOML.
+- **[DECIDED 2026-11-14] The engine shipped with the game** (David): "i'd like to deliver not only a game but the full
+  game engine for people to do things of their own with". Nothing about the content hardcoded (people's minds,
+  effects); the editor extensible without touching the code; scripts to extend the mechanics. The game is the first
+  mod. Details and the language question: `decisions.md`, "Data & Modding".
 
 ## Bending the lens  [IDEA, David 2026-11-14]
 
@@ -988,6 +992,8 @@ bending, to get crazy looking things that happen deep down instantly in the engi
     the far land is drawn from. The flying cells could share the FX Lab's particles. And: "if cheap and not
     overused, maybe even a more common type of effect for some things." Kept for a family of things (spirits,
     summons, things made of magic), so it stays a sign of what they are.
+  - David, after: "there's a bit of mysticism in rays vs triangles, if it's used deliberately. but, i agree this
+    will be for later, because i'll need things to actually play with to tune it."
   - The per-pixel tag is the same thing his pixel weights want ("being able to weight different kinds of pixels may
     be a very cheap and useful tool", 2026-11-12).
 - Belongs with the FX Lab and the polish passes, after the speed plan settles.

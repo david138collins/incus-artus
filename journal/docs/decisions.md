@@ -803,6 +803,39 @@ Reference: `Art/quartile minecraft illustration.png`
   placeholder; a deleted file's block stays until restart (block numbers never change while running).
 - **[DECIDED]** Live reload covers data files *and* block texture PNGs (checked every second, real time).
 - **[LATER]** A "write this tweak into the block's file" button on the Blocks page (keeping comments).
+- **[DECIDED 2026-11-14] Ship the engine, not only the game; nothing about the content hardcoded** (David, to
+  Counsel): "i have some thoughts about how the editor should work; i really think it should be fully featured
+  enough to be extended without touching the code itself. that means nothing about the game content is hardcoded,
+  like npc ai's and vfx. it gets complicated to make it extensible with a gui, and im not sure if there's some
+  specific type of scripting we should have the editor take for some sections. Not for me, because i'd just have
+  Builder extend the editor to give me the ability to use the gui to add behaviors or items or fx, but in the end,
+  i'd like to deliver not only a game but the full game engine for people to do things of their own with, and having
+  the ability to extend the given game mechanics with their own scripts could give it an order of more value to the
+  world over the years".
+  - *What it moves on from:* 2026-10-30's "scripting without a scripting language, at first" (`vision/toy-factory.md`:
+    the editor's wiring is the script, a real language only if wiring stops being enough). Shipping the engine for
+    others to extend the mechanics is that case, so a real language is now planned, at the edges.
+  - *Counsel's recommendation,* for the content's first systems: (1) **the game is the first mod**: everything of
+    David's (items, people, behaviours, effects) comes in through the same door a modder's pack does (old already
+    had the base game as the pack `incus`); (2) **three layers over one store**: data files for things, the
+    editor's wiring for behaviour made of pieces, scripts for new pieces, which then show in the editor's menus like
+    built-in ones; the editor and the files are two views of the same thing; (3) **scripts decide, the engine does
+    the heavy work**: the simulation and the drawing stay Rust and WGSL, scripts run at events and choices, never in
+    the per-block, per-frame loops; (4) **sandboxed**: a stranger's pack can't read files or reach the net;
+    (5) effects as pieces with settings first, the card's own code from strangers much later if ever.
+  - *The language, open:* Counsel's pick is **Luau** (Roblox's open, sandboxed, optionally typed Lua; the Lua family
+    is the most widely known modding language: Factorio, World of Warcraft, Don't Starve, Garry's Mod), with
+    WebAssembly as a later door for heavy mods in any language. Chosen when the first behaviour needs it.
+  - *Beside it:* at the regroup he said "the editor is for me until the best use of our time is serving eager
+    modders. thats a ways off." That still holds for now; this is where it ends up.
+  - **[IDEA 2026-11-14] Modders' own layers in world gen** (David, straight after): "like, what would we need to do
+    to let people create their own topographical layers in the world gen". *Counsel's sketch:* the stages listed in
+    data, not in code, so a pack can put its own between two of David's; each stage declaring the named fields it
+    reads and writes (height, rock, water, and new ones of its own), only ever from earlier stages (the linear
+    pipeline); a stage built from the editor's pieces without code (noise, masks, curves, stamps painted as
+    pictures), or a script that decides where and what while the engine's pieces do the per-column work; seeded,
+    so a seed always makes the same world; each stage's result shown on the World Gen page. David's own stages go
+    through the same door. Cheapest if world gen is rebuilt that way from the start.
 
 ## Saving
 
@@ -1839,6 +1872,16 @@ Reference: `Art/quartile minecraft illustration.png`
           and a spread slider. Builder's own look off the screen: the patterns change only the speckled patches
           where rays graze land; **the whorls themselves don't change**, being the blend's, which the eased blend
           (next) is for.
+        - *His look at build 163* (to Builder): "well, the stuff we added didn't hurt. they look good together, but
+          its very subtle. its kind of these sharp blocky sections that bother me a little. idk if there's anything
+          that can be done about that." Builder is finding out off the screen what makes the sharp blocky sections
+          (the code's and the hardware's blends show them alike, so not seams between bricks).
+        - *Flown at its defaults* (on his standing word, "you can run the tests that you have qeued after i take a
+          look"; `logs/flight-1794676498`, checked by Counsel): against build 160's day flight, the card's whole 0.7
+          to 1.8% less at every standing mark, inside the pass mark. Said in the open: fast across the world 4%
+          dearer (a moving mark that varies about that much between flights of the same code); the mountain top's
+          99th 15% wider, one frame at 2.03 ms, in a stretch with a 45 ms hitch while David was typing, taken as
+          disturbed, not the build's.
     - **[LATER] The vanishing sea line:** at a 4 base, the thin blue line of sea on the horizon low over the sea isn't
       there. David watched: "i didnt notice anything". Cause unknown after three tries (not the step limit, not the
       sky's weight, not the map's edge); to be found before a finer base is ever kept.
