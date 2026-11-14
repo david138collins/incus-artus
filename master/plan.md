@@ -52,9 +52,10 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** what he sees with the "initial blend" in a blocky area (build 167, launched again for it). His
-  look at the rings is met: "i can't see any rings"; a longer hand-over "looks nice when i pull it down, but its
-  slower, so i'll save that for last" (the polish list). The gate's line now owes only the Intel card's numbers; then the skyline look, talked through with Builder first (haze or cover); later, one budget at the fork, and lazy rays fixed to the world or the
+- **Waiting on David:** the skyline talk with Builder (haze or cover is his), next. Behind us today: his look at the
+  rings met ("i can't see any rings"; a longer hand-over saved for his polish list); the blocks "go away mostly with
+  the hardware blend, after it loads in"; the rock switch cut and the textures sound (build 167, flown). The gate's
+  line owes only the Intel card's numbers; then the skyline look, talked through with Builder first (haze or cover); later, one budget at the fork, and lazy rays fixed to the world or the
   screen; whether `CLAUDE.md` points at the map. His desktop has two launchers: "Play Incus Artus" (the new game) and
   "Play old Incus Artus" (`old\`).
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look. Counsel gathers

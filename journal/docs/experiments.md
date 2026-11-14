@@ -3145,3 +3145,11 @@ when i pull it down, but its slower, so i'll save that for last." So the gate's 
 hand-over (0.80); a longer hand-over ("levels hand over from", pulled down) is his for the polish list, priced
 when he takes it up. Still owed for the gate's line: the Intel card's numbers, for the record. He asked for the
 game again at once to try the "initial blend", which he'd forgotten.
+
+**The initial blend, David's look** (build 167, a third launch; the first of them he closed at 26 s, before the
+textures were in, where the far blend's second choice is still greyed and both draw the initial blend: "i couldn't
+tell the difference but noticed i couldn't press back after i hit initial blend, except by default"). With both to
+flip: "ah yes. the blocks go away mostly with the hardware blend, after it loads in. you don't need to do anything
+with it." So the blocks he saw are mostly the initial blend's (its own rock switch among them), drawn only till the
+textures are in; and the greyed second choice while loading stays as it is, on his word (Builder had offered to
+let either be picked at any time).
