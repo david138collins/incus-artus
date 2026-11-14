@@ -453,7 +453,7 @@ impl FarEye {
                 rays += &format!(" over {} of a step", look.start_spread);
             }
         }
-        format!("bricks of {}, {window}, {rays}, blended by {}, detail {:+}", self.store.side, if self.look.blend == 1 && self.atlas.is_some() { "the hardware (spread)" } else { "the code (old's)" }, self.look.detail)
+        format!("bricks of {}, {window}, {rays}, blended by {}, detail {:+}", self.store.side, if self.look.blend == 1 && self.atlas.is_some() { "the hardware (spread)" } else { "the initial blend (the code's, old's)" }, self.look.detail)
     }
 
     /// How the far cells are coming in, for the panel and the flight's report.

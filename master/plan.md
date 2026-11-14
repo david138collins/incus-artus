@@ -52,9 +52,9 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** the name and place of the rock switch's control (build 164 in the making: the switch to bare
-  unlit rock is what draws the flat straight-edged plates he saw, and greys the near ground at the sea and the plain;
-  the texture making is the step after); at his next launch, a reminder he asked for: find a blocky area and try "far
+- **Waiting on David:** his look at build 164's "rock switch" (a checkbox in "The picture"; unticked, no more bare
+  unlit rock: the flat straight-edged plates he saw mostly go, and the near ground keeps its colour at the sea and the
+  plain; the texture making is the step after); at that launch, a reminder he asked for: find a blocky area and try "far
   blend" on "old's (code)"; a hands-off flight (the mountain top's 99th, and the switch priced); then his look at the rings where levels hand over, and the skyline look, talked through with Builder first (haze or cover); later, one budget at the fork, and lazy rays fixed to the world or the
   screen; whether `CLAUDE.md` points at the map. His desktop has two launchers: "Play Incus Artus" (the new game) and
   "Play old Incus Artus" (`old\`).

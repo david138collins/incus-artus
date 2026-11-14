@@ -3010,3 +3010,11 @@ across bricks, so neighbours agree; time at load only).
 - **Its flight** (after his look, hands off, with the mountain top's 99th that's owed): Builder's guess [medium]:
   nothing either way, within 1% at every standing mark with the switch on or off (one compare a step, no reads
   more).
+
+**Build 164 handed over** (2026-11-14). David, asked whether a checkbox called "rock switch" under "far blend",
+ticked as it is today, was the name and place he wanted, and told why the code's blend can't be cut whole (it draws
+till the textures are in, and wherever a brick isn't in them): "ah, i see about old codes blend. maybe it could be
+called \"initial blend\". i think you know what to do, proceed". So: the checkbox "rock switch" in "The picture"
+under "far blend" (ticked by default); the far blend's first choice renamed from "old's (code)" to "initial blend",
+on the panel and in a flight's header. The default's picture still byte for byte build 163's. Unflown; his look
+first, then the hands-off flight.

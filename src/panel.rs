@@ -145,18 +145,23 @@ fn render(ui: &mut egui::Ui, readings: &Readings, look: Option<&mut FarLook>) {
     egui::ScrollArea::vertical().max_height(560.0).show(ui, |ui| {
         ui.horizontal(|ui| {
             ui.strong("The picture");
-            let differs = (look.blend, look.detail, look.bring_up, look.view, look.sky_weight) != (d.blend, d.detail, d.bring_up, d.view, d.sky_weight);
-            section_default(ui, look, differs, |l| (l.blend, l.detail, l.bring_up, l.view, l.sky_weight) = (d.blend, d.detail, d.bring_up, d.view, d.sky_weight));
+            let differs = (look.blend, look.rock_switch, look.detail, look.bring_up, look.view, look.sky_weight) != (d.blend, d.rock_switch, d.detail, d.bring_up, d.view, d.sky_weight);
+            section_default(ui, look, differs, |l| (l.blend, l.rock_switch, l.detail, l.bring_up, l.view, l.sky_weight) = (d.blend, d.rock_switch, d.detail, d.bring_up, d.view, d.sky_weight));
         });
-        // Change 1: the far cells blended by the code (old's) or the texture hardware (greyed till its textures are in).
+        // Change 1: the far cells blended by the code (old's: the "initial blend", David's name for it, 2026-11-14, as
+        // it's what draws till the textures are in and wherever a brick isn't in them) or the texture hardware (greyed
+        // till its textures are in).
         ui.horizontal(|ui| {
             ui.label("far blend");
-            for (k, name) in ["old's (code)", "the hardware's"].iter().enumerate() {
+            for (k, name) in ["initial blend", "the hardware's"].iter().enumerate() {
                 ui.add_enabled_ui(readings.blends[k], |ui| {
                     ui.selectable_value(&mut look.blend, k as u32, *name);
                 });
             }
         });
+        // The rock switch (ticked, as it was): bare unlit rock where no cell near shows surface. Placed and named with
+        // David, 2026-11-14.
+        ui.checkbox(&mut look.rock_switch, "rock switch");
         ui.add(egui::Slider::new(&mut look.detail, -3..=4).text("detail (levels finer)"));
         ui.horizontal(|ui| {
             ui.label("brought up");
