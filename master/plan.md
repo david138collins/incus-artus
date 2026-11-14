@@ -27,13 +27,14 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   under 2 ms**, David's bar, and his look: "fantastic". Light now comes from the processor (build 160, the column
   light, 40 MB): on the card it costs what no light costs, and flown by day everything stays under 2 ms (medians 0.29
   to 1.15 ms, no frame over 1.56); his look, A/B against the rays: "column light is actually cleaner, i prefer it".
-  The rays' light is cut from the march (build 162, his word: "Yes, cut them"; the picture unchanged, its flight
-  owed). The whorls talk's first step is built (build 163, unflown): where a ray's steps begin, on the Render page's
-  "Ray start" (scattered as it was, woven, blue noise, or both); his look, then the flights. After it: the eased blend
-  on a switch, the firmer rule as a slider once there's finished content; then the gate's two owed
-  items on the far eye as it then stands (his look at the rings where levels hand over; the Intel
-  numbers next time Optimus is on); the skyline look (haze or cover, talked through with him first); then the cells
-  of 2 to 16 with scattered detail, and lazy rays. Both near drawers are flown before the fork ("Yes, fly both").
+  The rays' light is cut from the march (build 162, his word: "Yes, cut them"). Close up he asked for the "whorls" to
+  be more orderly: where a ray's steps begin is on a switch ("very subtle"); the switch to bare rock that drew flat
+  plates is cut, and empty cells borrow colour across bricks (builds 163 to 167; build 167 flown within 0.7% of build
+  163). His look at the rings where levels hand over: "i can't see any rings"; the gate owes only the Intel card's
+  numbers (next time Optimus is on). Now: the cells of 2 to 16 with scattered detail, the 16s' ring alone first; then
+  the skyline talk (haze or cover) with them on the screen, since the soft skyline is as wide as the cells it's read
+  from (his word: "yes and yes, you can proceed"); then lazy rays. Both near drawers are flown before the fork ("Yes,
+  fly both").
 - **Just closed:** 2.1, done enough to go on (David: "yes, close 2.1. let us proceed."). Old is packed into `old\`
   and still runs; the journal is in `journal/`. The new project runs from the top of the folder (build 120; the
   numbers carry on from old's): a flying camera on old's keys, the panel (F3), the clocks a pass at a time, and the
@@ -52,10 +53,12 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** the skyline talk with Builder (haze or cover is his), next. Behind us today: his look at the
+- **Waiting on David:** nothing now: Builder is building the 16s' ring (pictures off the screen before any look or
+  flight); then his look at it. Behind us today: his look at the
   rings met ("i can't see any rings"; a longer hand-over saved for his polish list); the blocks "go away mostly with
   the hardware blend, after it loads in"; the rock switch cut and the textures sound (build 167, flown). The gate's
-  line owes only the Intel card's numbers; then the skyline look, talked through with Builder first (haze or cover); later, one budget at the fork, and lazy rays fixed to the world or the
+  line owes only the Intel card's numbers; the skyline look, talked through with Builder first (haze or cover), after
+  the cells of 2 to 16; later, one budget at the fork, and lazy rays fixed to the world or the
   screen; whether `CLAUDE.md` points at the map. His desktop has two launchers: "Play Incus Artus" (the new game) and
   "Play old Incus Artus" (`old\`).
 - **The Oracle comes back** after experiment 6 (step 2.3), with the flight logs and David's look. Counsel gathers
@@ -315,11 +318,15 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
         step 4 not needed. His look at the rings where levels hand over: *met* (build 167, "i can't see any
         rings"). Still owed for the gate's line: the Intel card's numbers for the final form, for the record; both after light moves to the processor ("why don't we
         skip 1. we're putting light on the processor, probably.")
+  - [ ] The cells of 2 to 16 in the far eye's march, each in its own ring; a scatter stage behind the doorway (a
+        wood, rows of posts, towers, slabs and an arch), off by default; marks from it. Before the fork. First the
+        16s' ring alone (128 × 128 columns round the eye, old's size), to prove the moving ring, the store, the march
+        and the light on one level before the other three reuse them; then the scatter stage's woods; then shapes
+        placed by hand, each placed with David
   - [ ] The looks (David's "2, 3 and 4"): the skyline by cover, with a column-height table (haze or cover is his);
         if cover, the sheet (plain far land as rings of mesh) flown as the far levels' rival; the horizon band over
-        frames comes as lazy rays
-  - [ ] The cells of 2 to 16 in the far eye's march, each in its own ring; a scatter stage behind the doorway (a
-        wood, rows of posts, towers, slabs and an arch), off by default; marks from it. Before the fork
+        frames comes as lazy rays. After the cells of 2 to 16, so it's judged on them (David, 2026-11-14: "yes and
+        yes, you can proceed")
   - [ ] Lazy rays (David's lead: "spread out any rays that can be lazy"), by lengths of distance, under the Oracle's
         nine rules (a ray in flight always finishes; light and fog put on every frame; the gate read moving); its
         tests amended (the store, once whole, equals a full march of its own directions; the lag; card time moving,

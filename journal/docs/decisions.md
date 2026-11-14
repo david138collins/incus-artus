@@ -1748,6 +1748,17 @@ Reference: `Art/quartile minecraft illustration.png`
         press back after i hit initial blend, except by default" (the far blend's choice sticks while the textures
         load); then "ah yes. the blocks go away mostly with the hardware blend, after it loads in. you don't need to
         do anything with it." So the sticking stays as it is, on his word.
+- **[DECIDED 2026-11-14] The cells of 2 to 16 before the skyline look; the 16s' ring alone first** (David, to Builder,
+  asked whether to swap the plan's order and whether the first build is one ring alone): "yes and yes, you can
+  proceed. hopefully all this work, being much shorter than the longest rays, goes on pretty much alongside everything
+  else and doesn't cost much in time." Why (Builder, Counsel agreeing): the soft skyline is as wide as the cells it's
+  read from, and near land is read from 32-block cells today, so the finer cells change the very picture the skyline
+  talk would judge; and he'd said he'd wait for them to judge the blocky shapes. The first build: a ring of 128 × 128
+  columns of 16 round the eye (old's size), made on a thread of its own, the frame only sending what it's handed and
+  moving the ring when it's whole; the 32s past its edge with a blended edge; the 32s' column light for now. Builder's
+  guesses (written before code): far-looking marks within 2% of build 167, ground marks 5 to 15% dearer, under 30 MB
+  on the card. Then the scatter stage's woods, then shapes placed by hand, each placed with him. The plan's order
+  changed to match.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
