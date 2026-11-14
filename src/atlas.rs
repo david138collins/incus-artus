@@ -5,8 +5,9 @@
 //! blends the eight cells round a point in one fetch, across a brick's edge too. Under a band every cell is solid, over it empty, as the bands say.
 //!
 //! How solid and how watery (true, unspread, 16-bit floats), and beside them the colour and the six faces' shares the
-//! spread way (the Oracle's): each cell that shows no surface takes the colour and faces of the nearest one that does,
-//! in the brick, filtered unweighted, in 8 bits, the surface kept beside the colour. Build 128 flew it against the exact
+//! spread way (the Oracle's): each cell that shows no surface takes the colour and faces of the nearest one that does
+//! (within three cells, whichever brick it's in, so bricks agree where they meet: build 166), filtered unweighted, in 8
+//! bits, the surface kept beside the colour. Build 128 flew it against the exact
 //! way (colour and faces times surface, 16-bit, one divide after the filter: old's blend to the hardware's precision)
 //! and David saw no difference ("as far as the far blend, they all look the same"), so spread was kept: a little faster,
 //! and 1.1 GB lighter on the card (`journal/docs/experiments.md`, change 1).
@@ -17,7 +18,6 @@
 
 use crate::bricks::{Level, NOT_SUMMED};
 use crate::far::Cell;
-use std::collections::VecDeque;
 
 /// Bricks a side of an atlas layer (north and east).
 pub const ACROSS: u32 = 64;
@@ -48,25 +48,6 @@ impl Kept {
         if let Some(at) = l.entry(cx, cy) {
             self.columns[level - crate::far::FIRST][(at - l.entries_at) as usize] = (entry, cells);
         }
-    }
-
-    /// The cell at a place, as the far eye reads it: none if its column isn't summed; past the level, under the world,
-    /// under a band (solid) and over it (empty) as the bands say.
-    fn cell(&self, level: &Level, cx: i32, cy: i32, cz: i32) -> Option<Look> {
-        let Some(at) = level.entry(cx, cy) else { return Some(Look::default()) };
-        let (entry, cells) = &self.columns[level.level - crate::far::FIRST][(at - level.entries_at) as usize];
-        if *entry == NOT_SUMMED {
-            return None;
-        }
-        let low = (*entry & 0xFFFF) as u16 as i16 as i32;
-        let count = (*entry >> 16) as i32;
-        if cz < 0 || (cz < low && low > 0) {
-            return Some(Look { solid: 1.0, ..Look::default() });
-        }
-        if cz < low || cz >= low + count {
-            return Some(Look::default());
-        }
-        Some(Look::of(&cells[(cz - low) as usize]))
     }
 }
 
@@ -227,59 +208,196 @@ fn bricks(kept: &Kept) -> Vec<Brick> {
     list
 }
 
-/// A brick's looks, `side` a side (x fastest, then y, then z), its border the next cells over.
-fn texels(kept: &Kept, brick: &Brick, side: u32) -> Vec<Look> {
+/// How far a cell with no surface borrows its colour and faces from, in six-way steps: three, so all eight cells round
+/// any point beside a cell that shows surface hold a colour (the far corner of the eight is three steps off).
+const BORROW: i32 = 3;
+
+/// Rock's colour (`far.wgsl`'s `ROCK`): what a texel holds that no surface is near.
+const ROCK: [f32; 3] = [0.25, 0.24, 0.22];
+
+/// A brick's looks and `BORROW` cells more on every side (x fastest, then y, then z): `side + 2 * BORROW` a side, the
+/// brick's own first cell at `BORROW` each way. `side` holds its border, the next cells over.
+fn texels(kept: &Kept, brick: &Brick, side: u32, out: &mut Vec<Look>) {
     let l = &kept.levels[brick.level - crate::far::FIRST];
-    let side = side as i32;
-    let mut out = Vec::with_capacity((side * side * side) as usize);
-    for k in 0..side {
+    let (from, to) = (-BORROW, side as i32 + BORROW);
+    let w = (to - from) as usize;
+    out.clear();
+    out.resize(w * w * w, Look::default());
+    // A column at a time, its band found once, then its cells up it, as the far eye reads them: a column not summed or
+    // past the level, empty; under the world or under a band, solid; over the band, empty.
+    for j in from..to {
+        for i in from..to {
+            let Some(at) = l.entry(brick.origin[0] + i, brick.origin[1] + j) else { continue };
+            let (entry, cells) = &kept.columns[l.level - crate::far::FIRST][(at - l.entries_at) as usize];
+            if *entry == NOT_SUMMED {
+                continue;
+            }
+            let low = (*entry & 0xFFFF) as u16 as i16 as i32;
+            let count = (*entry >> 16) as i32;
+            let column = (i - from) as usize + (j - from) as usize * w;
+            for k in from..to {
+                let cz = brick.origin[2] + k;
+                let look = &mut out[column + (k - from) as usize * w * w];
+                if cz < 0 || (cz < low && low > 0) {
+                    look.solid = 1.0;
+                } else if cz >= low && cz < low + count {
+                    *look = Look::of(&cells[(cz - low) as usize]);
+                }
+            }
+        }
+    }
+}
+
+/// A thread's working room for making bricks, used again for each brick (made afresh for every brick, the threads
+/// waited on one another for memory: 3.9 s of making for the whole world, build 166's first try).
+#[derive(Default)]
+struct Bench {
+    /// The looks round the brick (`texels`).
+    wide: Vec<Look>,
+    /// Each of those cells' source (its index in `wide`; `NO_SOURCE` none near), that source's place in the world's
+    /// order, and how many steps off it is.
+    from: Vec<u32>,
+    first: Vec<u64>,
+    steps: Vec<u8>,
+    edge: Vec<usize>,
+    next: Vec<usize>,
+}
+
+const NO_SOURCE: u32 = u32::MAX;
+
+/// The spread way's borrowing, for the looks round a brick (`texels`; `origin` the brick's first cell, `side` its texels
+/// a side): each cell's source, the nearest cell that shows surface (itself, if it does).
+///
+/// The nearest is looked for in the world, not the brick [David, 2026-11-14: "i think we seriously need to take a look
+/// at rock switch and texture making"]: within `BORROW` six-way steps, and of equally near cells the one first in the
+/// world's own order. So a cell borrows the same in every brick that holds it, and the hardware's blend runs across a
+/// brick's edge without a seam. No surface that near: none (rock's colour, no faces).
+fn borrow(bench: &mut Bench, side: u32, origin: [i32; 3]) {
+    let Bench { wide, from, first, steps, edge, next } = bench;
+    let w = side as i32 + 2 * BORROW;
+    let at = |i: i32, j: i32, z: i32| (i + j * w + z * w * w) as usize;
+    // A cell's place in the world's order (up, then east, then north; never negative).
+    let place = |i: i32, j: i32, z: i32| {
+        let far = 1i64 << 20;
+        ((((origin[2] - BORROW + z) as i64 + far) as u64) << 42) | ((((origin[1] - BORROW + j) as i64 + far) as u64) << 21) | ((origin[0] - BORROW + i) as i64 + far) as u64
+    };
+    from.clear();
+    from.resize(wide.len(), NO_SOURCE);
+    first.clear();
+    first.resize(wide.len(), u64::MAX);
+    steps.clear();
+    steps.resize(wide.len(), u8::MAX);
+    edge.clear();
+    for z in 0..w {
+        for j in 0..w {
+            for i in 0..w {
+                let k = at(i, j, z);
+                if wide[k].surface > 0.0 {
+                    from[k] = k as u32;
+                    first[k] = place(i, j, z);
+                    steps[k] = 0;
+                    edge.push(k);
+                }
+            }
+        }
+    }
+    // A step at a time, every cell a step off done before any two steps off, so each takes the first in the world's
+    // order of its nearest.
+    for step in 1..=BORROW as u8 {
+        next.clear();
+        for &k in edge.iter() {
+            let (i, j, z) = (k as i32 % w, (k as i32 / w) % w, k as i32 / w / w);
+            for (di, dj, dz) in [(1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)] {
+                let (a, b, c) = (i + di, j + dj, z + dz);
+                if a < 0 || b < 0 || c < 0 || a >= w || b >= w || c >= w {
+                    continue;
+                }
+                let n = at(a, b, c);
+                if steps[n] == u8::MAX {
+                    steps[n] = step;
+                    next.push(n);
+                }
+                // Reached at this step (now, or by another cell of the edge): the first in the world's order stays.
+                if steps[n] == step && first[k] < first[n] {
+                    from[n] = from[k];
+                    first[n] = first[k];
+                }
+            }
+        }
+        std::mem::swap(edge, next);
+    }
+}
+
+/// A cell's look the spread way (`k` its index among the looks round the brick): with no surface, the colour and faces
+/// of its source, its own surface kept (none); no source near, rock's colour and no faces.
+fn spread_look(bench: &Bench, k: usize) -> Look {
+    let mut look = bench.wide[k];
+    if look.surface <= 0.0 {
+        if bench.from[k] == NO_SOURCE {
+            (look.colour, look.plus, look.minus) = (ROCK, [0.0; 3], [0.0; 3]);
+        } else {
+            let source = &bench.wide[bench.from[k] as usize];
+            (look.colour, look.plus, look.minus) = (source.colour, source.plus, source.minus);
+        }
+    }
+    look
+}
+
+/// A brick's `side`³ looks the spread way, out of the looks round it (for the tests).
+#[cfg(test)]
+fn spread(wide: &[Look], side: u32, origin: [i32; 3]) -> Vec<Look> {
+    let mut bench = Bench { wide: wide.to_vec(), ..Bench::default() };
+    borrow(&mut bench, side, origin);
+    let (side, w) = (side as i32, side as i32 + 2 * BORROW);
+    let mut out = Vec::new();
+    for z in 0..side {
         for j in 0..side {
             for i in 0..side {
-                out.push(kept.cell(l, brick.origin[0] + i, brick.origin[1] + j, brick.origin[2] + k).unwrap_or_default());
+                out.push(spread_look(&bench, ((i + BORROW) + (j + BORROW) * w + (z + BORROW) * w * w) as usize));
             }
         }
     }
     out
 }
 
-/// Rock's colour (`far.wgsl`'s `ROCK`): what a texel holds that no surface in its brick reaches.
-const ROCK: [f32; 3] = [0.25, 0.24, 0.22];
+/// A brick's four textures' bytes (`side` texels a side, x fastest, then y, then z): how solid and how watery as they
+/// are, and the colour and faces the spread way.
+fn brick_bytes(kept: &Kept, brick: &Brick, side: u32, bench: &mut Bench) -> [Vec<u8>; 4] {
+    texels(kept, brick, side, &mut bench.wide);
+    borrow(bench, side, brick.origin);
+    let (side, w) = (side as i32, side as i32 + 2 * BORROW);
+    let texels = (side * side * side) as usize;
+    let mut bytes = [Vec::with_capacity(texels * 4), Vec::with_capacity(texels * 4), Vec::with_capacity(texels * 4), Vec::with_capacity(texels * 4)];
+    for z in 0..side {
+        for j in 0..side {
+            for i in 0..side {
+                let k = ((i + BORROW) + (j + BORROW) * w + (z + BORROW) * w * w) as usize;
+                for (b, word) in bytes.iter_mut().zip(texel_bytes(&bench.wide[k], &spread_look(bench, k))) {
+                    b.extend_from_slice(&word);
+                }
+            }
+        }
+    }
+    bytes
+}
 
-/// The spread way: each texel with no surface takes the colour and faces of the nearest one with surface (six-way steps
-/// through the brick), its own surface kept (none). In a brick where nothing shows surface: rock's colour, no faces
-/// (what the march's rock switch draws there; without the switch it's read from here).
-fn spread(looks: &[Look], side: u32) -> Vec<Look> {
-    let side = side as i32;
-    let mut out = looks.to_vec();
-    let mut from: Vec<Option<usize>> = looks.iter().enumerate().map(|(k, l)| (l.surface > 0.0).then_some(k)).collect();
-    let mut queue: VecDeque<usize> = (0..looks.len()).filter(|&k| looks[k].surface > 0.0).collect();
-    while let Some(k) = queue.pop_front() {
-        let (i, j, z) = (k as i32 % side, (k as i32 / side) % side, k as i32 / side / side);
-        for (di, dj, dz) in [(1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)] {
-            let (a, b, c) = (i + di, j + dj, z + dz);
-            if a < 0 || b < 0 || c < 0 || a >= side || b >= side || c >= side {
-                continue;
-            }
-            let n = (a + b * side + c * side * side) as usize;
-            if from[n].is_none() {
-                from[n] = from[k];
-                queue.push_back(n);
-            }
-        }
-    }
-    for (k, source) in from.iter().enumerate() {
-        if let Some(s) = source
-            && looks[k].surface <= 0.0
-        {
-            out[k].colour = looks[*s].colour;
-            out[k].plus = looks[*s].plus;
-            out[k].minus = looks[*s].minus;
-        }
-        if source.is_none() {
-            out[k].colour = ROCK;
-        }
-    }
-    out
+/// Each item's answer, worked out on as many threads as the machine spares (all but two), each with a bench of its own.
+fn in_parallel<T: Sync, R: Send>(items: &[T], f: impl Fn(&mut Bench, &T) -> R + Sync) -> Vec<R> {
+    let threads = std::thread::available_parallelism().map_or(1, |n| n.get().saturating_sub(2).max(1));
+    let per = items.len().div_ceil(threads).max(1);
+    let f = &f;
+    std::thread::scope(|scope| {
+        let parts: Vec<_> = items
+            .chunks(per)
+            .map(|part| {
+                scope.spawn(move || {
+                    let mut bench = Bench::default();
+                    part.iter().map(|item| f(&mut bench, item)).collect::<Vec<R>>()
+                })
+            })
+            .collect();
+        parts.into_iter().flat_map(|part| part.join().expect("a brick's textures made")).collect()
+    })
 }
 
 /// Builds the atlas from what's kept and sends it to the card, an atlas layer (64 × 64 bricks) at a time: the bricks
@@ -296,21 +414,30 @@ pub fn build(device: &wgpu::Device, queue: &wgpu::Queue, kept: &Kept, keep: impl
     let made = textures(device, size);
     let texels_a_layer = (size[0] * size[1] * side) as usize;
     let mut slots = vec![NO_SLOT; kept.levels.last().map_or(0, |l| (l.index_at + (l.bricks * l.bricks * l.bricks_up) as u32) as usize)];
+    // Where the time goes, for the log: the bricks made, laid into their layers, and sent.
+    let (mut making, mut laying, mut sending) = (0.0f32, 0.0f32, 0.0f32);
     for (layer, chunk) in list.chunks(per_layer).enumerate() {
+        let clock = std::time::Instant::now();
         let mut bytes = [vec![0u8; texels_a_layer * 4], vec![0u8; texels_a_layer * 4], vec![0u8; texels_a_layer * 4], vec![0u8; texels_a_layer * 4]];
-        for (k, brick) in chunk.iter().enumerate() {
+        let made_bricks = in_parallel(chunk, |bench, brick| brick_bytes(kept, brick, side, bench));
+        making += clock.elapsed().as_secs_f32();
+        let clock = std::time::Instant::now();
+        for (k, (brick, made_brick)) in chunk.iter().zip(&made_bricks).enumerate() {
             let (sx, sy) = (k as u32 % ACROSS, k as u32 / ACROSS);
             slots[brick.place as usize] = slot((layer * per_layer + k) as u32);
-            let looks = texels(kept, brick, side);
-            let spread_looks = spread(&looks, side);
-            for (t, look) in looks.iter().enumerate() {
-                let (i, j, z) = (t as u32 % side, (t as u32 / side) % side, t as u32 / side / side);
-                let at = ((sx * side + i) + (sy * side + j) * size[0] + z * size[0] * size[1]) as usize;
-                for (b, word) in bytes.iter_mut().zip(texel_bytes(look, &spread_looks[t])) {
-                    b[at * 4..at * 4 + 4].copy_from_slice(&word);
+            let row = side as usize * 4;
+            for (b, brick_b) in bytes.iter_mut().zip(made_brick) {
+                for z in 0..side {
+                    for j in 0..side {
+                        let at = ((sx * side) + (sy * side + j) * size[0] + z * size[0] * size[1]) as usize * 4;
+                        let from = ((j + z * side) * side) as usize * 4;
+                        b[at..at + row].copy_from_slice(&brick_b[from..from + row]);
+                    }
                 }
             }
         }
+        laying += clock.elapsed().as_secs_f32();
+        let clock = std::time::Instant::now();
         for (texture, b) in made.iter().zip(&bytes) {
             queue.write_texture(
                 wgpu::TexelCopyTextureInfo { texture, mip_level: 0, origin: wgpu::Origin3d { x: 0, y: 0, z: layer as u32 * side }, aspect: wgpu::TextureAspect::All },
@@ -320,7 +447,9 @@ pub fn build(device: &wgpu::Device, queue: &wgpu::Queue, kept: &Kept, keep: impl
             );
         }
         queue.submit([]);
+        sending += clock.elapsed().as_secs_f32();
     }
+    log::info!("The far textures: {} bricks made in {making:.2} s, laid in {laying:.2} s, sent in {sending:.2} s", list.len());
     let slots_buffer = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the far bricks' slots in the atlas"), size: (slots.len() as u64 * 4).max(16), usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
     queue.write_buffer(&slots_buffer, 0, &slots.iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
     queue.submit([]);
@@ -348,6 +477,7 @@ impl Atlas {
     /// new one if not (the atlas grown first if it's full).
     pub fn add(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, kept: &Kept, bricks: &[Brick]) {
         let side = self.side;
+        let mut bench = Bench::default();
         for brick in bricks {
             let s = match self.free.pop() {
                 Some(s) => s,
@@ -359,14 +489,7 @@ impl Atlas {
                     slot(self.made - 1)
                 }
             };
-            let looks = texels(kept, brick, side);
-            let spread_looks = spread(&looks, side);
-            let mut bytes = [Vec::new(), Vec::new(), Vec::new(), Vec::new()];
-            for (look, spread_look) in looks.iter().zip(&spread_looks) {
-                for (b, word) in bytes.iter_mut().zip(texel_bytes(look, spread_look)) {
-                    b.extend_from_slice(&word);
-                }
-            }
+            let bytes = brick_bytes(kept, brick, side, &mut bench);
             let origin = wgpu::Origin3d { x: (s & 0xFF) * side, y: ((s >> 8) & 0xFF) * side, z: (s >> 16) * side };
             for (texture, b) in self.textures.iter().zip(&bytes) {
                 queue.write_texture(
@@ -421,7 +544,127 @@ impl Atlas {
 
 #[cfg(test)]
 mod tests {
-    use super::half;
+    use super::*;
+
+    /// A scattered world of cells: one in twenty-three shows surface, with a colour and faces of its own.
+    fn scattered(x: i32, y: i32, z: i32) -> Look {
+        let h = (x as u32).wrapping_mul(0x9E37_79B1) ^ (y as u32).wrapping_mul(0x85EB_CA77) ^ (z as u32).wrapping_mul(0xC2B2_AE3D);
+        let h = (h ^ (h >> 15)).wrapping_mul(0x2C1B_3C6D);
+        let h = h ^ (h >> 12);
+        if h % 23 != 0 {
+            return Look::default();
+        }
+        let byte = |shift: u32| ((h >> shift) & 255) as f32 / 255.0;
+        Look { solid: 0.5, surface: 1.0, colour: [byte(8), byte(16), byte(24)], plus: [byte(4), byte(12), 0.1], minus: [byte(20), 0.2, 0.1], ..Look::default() }
+    }
+
+    /// The looks round a brick at `origin` in a world (as `texels` gathers them from the cells kept).
+    fn round(world: impl Fn(i32, i32, i32) -> Look, origin: [i32; 3], side: u32) -> Vec<Look> {
+        let (from, to) = (-BORROW, side as i32 + BORROW);
+        let mut out = Vec::new();
+        for k in from..to {
+            for j in from..to {
+                for i in from..to {
+                    out.push(world(origin[0] + i, origin[1] + j, origin[2] + k));
+                }
+            }
+        }
+        out
+    }
+
+    /// The way it was till build 166, for the control: the nearest cell with surface looked for in the brick alone.
+    fn spread_in_the_brick(world: impl Fn(i32, i32, i32) -> Look, origin: [i32; 3], side: i32) -> Vec<Look> {
+        let mut looks = Vec::new();
+        for k in 0..side {
+            for j in 0..side {
+                for i in 0..side {
+                    looks.push(world(origin[0] + i, origin[1] + j, origin[2] + k));
+                }
+            }
+        }
+        let mut from: Vec<Option<usize>> = looks.iter().enumerate().map(|(k, l)| (l.surface > 0.0).then_some(k)).collect();
+        let mut queue: std::collections::VecDeque<usize> = (0..looks.len()).filter(|&k| looks[k].surface > 0.0).collect();
+        while let Some(k) = queue.pop_front() {
+            let (i, j, z) = (k as i32 % side, (k as i32 / side) % side, k as i32 / side / side);
+            for (di, dj, dz) in [(1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)] {
+                let (a, b, c) = (i + di, j + dj, z + dz);
+                if a < 0 || b < 0 || c < 0 || a >= side || b >= side || c >= side {
+                    continue;
+                }
+                let n = (a + b * side + c * side * side) as usize;
+                if from[n].is_none() {
+                    from[n] = from[k];
+                    queue.push_back(n);
+                }
+            }
+        }
+        let mut out = looks.clone();
+        for (k, source) in from.iter().enumerate() {
+            if let Some(s) = source {
+                out[k].colour = looks[*s].colour;
+            }
+        }
+        out
+    }
+
+    /// Two bricks hold the cells where they meet (the first's border is the second's first cells): both must have
+    /// borrowed the same for them, north, east and up. The control: looked for in the brick alone, as it was, they
+    /// don't, in this same world (so the check can fail).
+    #[test]
+    fn bricks_borrow_alike_where_they_meet() {
+        let side = 9u32;
+        let s = side as usize;
+        let mut seams_before = 0;
+        for origin in [[0, 0, 0], [-16, 8, 0], [40, -24, 16]] {
+            let here = spread(&round(scattered, origin, side), side, origin);
+            let before = spread_in_the_brick(scattered, origin, side as i32);
+            for way in 0..3 {
+                let mut next = origin;
+                next[way] += 8;
+                let there = spread(&round(scattered, next, side), side, next);
+                let there_before = spread_in_the_brick(scattered, next, side as i32);
+                for b in 0..s {
+                    for a in 0..s {
+                        // The first brick's border texels this way, and the second's first.
+                        let (mine, yours) = match way {
+                            0 => (8 + a * s + b * s * s, a * s + b * s * s),
+                            1 => (a + 8 * s + b * s * s, a + b * s * s),
+                            _ => (a + b * s + 8 * s * s, a + b * s),
+                        };
+                        assert_eq!(here[mine].colour, there[yours].colour, "the colour borrowed differs where bricks meet (brick {origin:?}, way {way})");
+                        assert_eq!(here[mine].plus, there[yours].plus, "the faces borrowed differ where bricks meet");
+                        assert_eq!(here[mine].minus, there[yours].minus, "the faces borrowed differ where bricks meet");
+                        if before[mine].colour != there_before[yours].colour {
+                            seams_before += 1;
+                        }
+                    }
+                }
+            }
+        }
+        assert!(seams_before > 0, "the control found no seams the old way: the check proves nothing");
+        eprintln!("The textures' borrowing: no cell borrows differently in two bricks; the old way, {seams_before} of {} did in this world", 3 * 3 * 81);
+    }
+
+    /// Round one cell that shows surface: every cell within three six-way steps takes its colour and faces (so all eight
+    /// cells round any point beside it do); a cell four steps off holds rock, no faces; its own are its own.
+    #[test]
+    fn a_cell_borrows_from_three_steps_and_no_further() {
+        let source = Look { solid: 0.3, surface: 0.5, colour: [0.9, 0.1, 0.4], plus: [0.5, 0.2, 0.1], minus: [0.1, 0.05, 0.05], ..Look::default() };
+        let alone = |x: i32, y: i32, z: i32| if (x, y, z) == (4, 4, 4) { source } else { Look::default() };
+        let side = 9u32;
+        let looks = spread(&round(alone, [0, 0, 0], side), side, [0, 0, 0]);
+        let at = |x: usize, y: usize, z: usize| &looks[x + y * 9 + z * 81];
+        for (x, y, z) in [(4, 4, 4), (4, 4, 7), (5, 5, 5), (3, 5, 3), (1, 4, 4), (4, 6, 5)] {
+            assert_eq!(at(x, y, z).colour, source.colour, "({x}, {y}, {z}) is within three steps");
+            assert_eq!(at(x, y, z).plus, source.plus);
+        }
+        for (x, y, z) in [(4, 4, 8), (6, 6, 4), (0, 4, 4), (5, 6, 6)] {
+            assert_eq!(at(x, y, z).colour, ROCK, "({x}, {y}, {z}) is four steps off or more");
+            assert_eq!(at(x, y, z).plus, [0.0; 3]);
+        }
+        assert_eq!(at(4, 4, 4).surface, 0.5);
+        assert_eq!(at(4, 4, 5).surface, 0.0, "a borrower shows no surface of its own");
+    }
 
     /// The 16-bit floats are the standard's (spot values against known bit patterns).
     #[test]

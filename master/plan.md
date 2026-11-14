@@ -52,9 +52,10 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** his word that he's done with build 164 (his look: "unticked rock switch looks a lot better,
-  with the hardware blend"), so Builder can make unticked the default (build 165) and fly it against the old way,
-  hands off; then the texture making (build 166); still owed from that launch, a reminder he asked for: find a blocky area and try "far
+- **Waiting on David:** fourteen minutes hands off, for two flights of build 166 (the rock switch off, now the
+  default from his look: "unticked rock switch looks a lot better, with the hardware blend"; against the old way; and
+  the mountain top's clean 99th). The texture making is in (build 166: bricks now borrow alike where they meet;
+  next to nothing to see, and the textures are made in 0.6 s where they took 2.1). Still owed, a reminder he asked for: find a blocky area and try "far
   blend" on "initial blend" (once "old's (code)"); a hands-off flight (the mountain top's 99th, and the switch priced); then his look at the rings where levels hand over, and the skyline look, talked through with Builder first (haze or cover); later, one budget at the fork, and lazy rays fixed to the world or the
   screen; whether `CLAUDE.md` points at the map. His desktop has two launchers: "Play Incus Artus" (the new game) and
   "Play old Incus Artus" (`old\`).

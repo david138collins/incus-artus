@@ -3031,3 +3031,33 @@ on, for flying against. The new default draws byte for byte what build 164 drew 
 plain, high over the spawn, the sea), and the old way still draws build 163's (the plain). Its flight (the pass mark
 above: within 1% either way) waits for the texture making, which changes no shader, so one pair of hands-off flights
 prices the switch after both.
+
+### Build 166 (unflown): the texture making, borrowing that reaches across bricks
+
+The second of the two steps put to David ("i think we seriously need to take a look at rock switch and texture
+making"; "i think you know what to do, proceed").
+- **What was wrong:** a cell with no surface borrowed the colour and facing of the nearest cell with some, looked
+  for inside its own brick of 8 and its border. So the same cell could borrow one thing in its own brick and
+  another as the next brick's border: a seam the hardware's blend can't smooth. In a scattered test world, 486 of
+  729 shared cells borrowed differently in the two bricks that hold them.
+- **Built:** the nearest is looked for in the world: within three six-way steps (three, so all eight cells round
+  any point beside a surfaced cell hold a colour), and of equally near cells the first in the world's own order.
+  A cell then borrows the same in every brick that holds it. No surface that near: rock's colour, no faces.
+- **Its tests** (`atlas.rs`): no cell borrows differently in two bricks, north, east or up, with the old way as
+  the control (it does, so the check can fail); and a lone cell lends to three steps and no further.
+- **In the pictures it barely shows.** Against build 165: at David's first spot 4% of the pixels differ at all, by
+  3 of 255 at most; at the marks at most 3% differ, by 11 at most (the mountain top), 0.1% by 4 or more. The seams
+  were real in the textures and next to nothing on the screen at these views. Said to David plainly: this step is
+  for soundness, not for a look.
+- **At load it came out faster, after a false start.** Reading three cells more on every side made the first try
+  take 4.4 s to make and send the textures (2.0 to 2.3 s before, like for like in the picture test), though spread
+  over the machine's threads. Timed in three parts: 3.9 s making the bricks, 0.12 s laying them into layers, 0.04
+  s sending. Reading the cells a column at a time changed nothing (4.7 s). The hold-up was memory: every brick
+  asked for its working room afresh and the threads waited on one another for it. With a bench a thread, used
+  again for each brick: **0.22 s making, 0.6 s in all** for the whole world's 32,886 bricks, the picture byte for
+  byte the first try's. The log now carries the three parts.
+- All 27 tests pass. The shader isn't touched, so the card's time can't have moved: the pair of hands-off flights
+  owed (the new default against `INCUS_FAR_ROCK=1`) prices the rock switch for builds 165 and 166 alike.
+- **Not looked at yet:** bricks the window brings as the eye moves are made one at a time on the frame's own
+  thread, each now reading the cells round it too; "fast across the world" in the flight will show if putting them
+  on the card got dearer.
