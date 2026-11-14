@@ -2723,6 +2723,14 @@ simultaniously, i'm just saying i'd err on the side of getting it right."
   hardware is a pre-alpha build: about 10 players on their own machines, each sending back a report
   file with how it ran (the session log already holds most of it).
 - **[OPEN]** What the report file holds and how players send it.
+- **[DECIDED 2026-11-14] No 980 Ti machine bought; players' logs check it** (David, to Counsel, after looking at
+  workstations with a 980 Ti, one a Precision 5820 at about $650): "honestly i think if we do our very best on the
+  graphics engine, it doesn't really matter does it? it has to look at least so good, and we can make it as fast as
+  we can, and that's really all we can do, beyond adding lower settings in the end for people to turn on if they
+  need to." Counsel: it already isn't a floor to design to; what only the real card shows is whether it runs at all,
+  surprises of an older card, and which lower settings help. David: "i think i'll be able to find some people to try
+  it out and send me a performance log by the time its important". So the pre-alpha's players (above) are the
+  980 Ti's check; till then it's weighed by reasoning and the library's default limits. The plan's targets say so.
 
 ## Performance Plan (for reference)
 

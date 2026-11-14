@@ -422,7 +422,8 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
 - **The laptop** (RTX 5070 Ti, 2,560 × 1,600, 240 Hz): a median of 237 fps, dips to about 180 fine, 120 the floor.
   Its budget: 4.2 ms a frame.
 - **A GTX 980 Ti at 1080p:** a smooth 60, loosely. "If you have one, you should be able to play this game."
-  Not a floor to design to.
+  Not a floor to design to. No machine bought for it: players with one send their performance logs "by the time its
+  important" (David, 2026-11-14); till then it's weighed by reasoning, and the library's default limits.
 - **The laptop's Intel card** (integrated graphics): flown for information, not a target. "i don't expect someone to
   be able to play this game on an igpu without turning some settings way down" (David, 2026-11-13). A step that
   helps the NVIDIA and costs the Intel is weighed by the NVIDIA and the 980 Ti.
