@@ -1948,6 +1948,12 @@ Reference: `Art/quartile minecraft illustration.png`
           no frame over 1.8 ms; bricks brought as the eye moves no dearer with the wider borrowing; the textures made
           and sent in 0.5 s (3.8 s in build 163's flight). Builder asks him next for his word to cut the checkbox
           (his control), then one hands-off flight to show the march gets it back.
+      - **[DECIDED 2026-11-14] Cut the rock switch** (David, to Builder): "yeah, we can cut it and move on". Build 167
+        (9868d0d), unflown: the flag and its compare in the march, the "rock switch" checkbox and `INCUS_FAR_ROCK`
+        gone; the far view always borrows, as he preferred; the picture byte for byte build 166's at all five marks.
+        The initial blend keeps its own switch. Pass mark: the march gives back the 1.2 to 3.6%, each standing mark
+        at build 163's median or within 1% of it; if not, the builds between are flown apart. One hands-off flight,
+        seven minutes, on his go.
     - **[LATER] The vanishing sea line:** at a 4 base, the thin blue line of sea on the horizon low over the sea isn't
       there. David watched: "i didnt notice anything". Cause unknown after three tries (not the step limit, not the
       sky's weight, not the map's edge); to be found before a finer base is ever kept.
