@@ -3354,3 +3354,6 @@ says how many rings (0 none, 1 the 16s alone).
 - **The makers:** the 8s' first ring made in 1.4 to 2.1 s while the world loads (the guess: under 3 s); 395 bricks
   over the sea to 866 at the mountain top, about as many as the 16s' ring.
 - All 29 tests pass. Not flown yet, and not looked at by David.
+
+**David's look at build 171** (2026-11-14, about a minute in the game, both rings on the card within five seconds):
+"looks pretty good". Its flights (both rings against the 16s alone) wait on his go.

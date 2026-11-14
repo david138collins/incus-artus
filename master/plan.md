@@ -53,8 +53,8 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** his look at build 171 (the 8s' ring beside the 16s', checked off the screen from the ground
-  and from straight above), then fourteen minutes hands off for its flights (both rings against the 16s alone). The
+- **Waiting on David:** his go for build 171's flights, fourteen minutes hands off (both rings against the 16s
+  alone). His look at the 8s' ring beside the 16s': "looks pretty good". The
   16s' ring is flown (build 170): nothing more on the card, 31% more of the card's time at the spawn, 18% at the sea,
   31% less on the plain, every 99th at or under 1.57 ms. Behind us today: his look at the
   rings met ("i can't see any rings"; a longer hand-over saved for his polish list); the blocks "go away mostly with
