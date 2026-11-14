@@ -53,9 +53,10 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** his look at build 168, the 16s in a ring round the eye (built and checked off the screen: no
-  hole, no line at the ring's edge, a moved ring drawing byte for byte what a fresh one does), then fourteen minutes
-  hands off for its flights (the ring on against off). Behind us today: his look at the
+- **Waiting on David:** his look at build 169 (the square he saw round the eye in build 168 is mended: the
+  hardware's blend had no brick to read just under ground lying at a brick's floor); his word on mending the same
+  flaw in the 32s and up (about a third more bricks in the textures, some 160 MB by Builder's estimate); then
+  fourteen minutes hands off for the ring's flights. Behind us today: his look at the
   rings met ("i can't see any rings"; a longer hand-over saved for his polish list); the blocks "go away mostly with
   the hardware blend, after it loads in"; the rock switch cut and the textures sound (build 167, flown). The gate's
   line owes only the Intel card's numbers; the skyline look, talked through with Builder first (haze or cover), after

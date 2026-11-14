@@ -3203,3 +3203,35 @@ to the 16s once the ring is on the card, only inside it, and over its 8 outermos
   ring-off flight against build 167 prices that on its own.
 - **Written down, not mended** (a shading flaw, by David's rule): inside the ring the light is still the 32s' column
   light. The ring's own light comes with the 8s, 4s and 2s.
+
+### David's look at build 168, and the square it showed (build 169, unflown)
+
+David, with a screenshot looking straight down from height: "looks good, i think you already know about this in the
+pic?"; "referring to the square border with the light bleeding around it". The ring showed as a square on the
+ground: greyer inside, a lighter line along its edge. **Builder's "no line at the ring's edge" was wrong:** every
+picture checked was from near the ground; none looked down. Builder had flagged the ring's light (the 32s') and
+guessed that; it wasn't that either.
+- **Drawn off the screen** (straight down from 1,850 over the bare plain): the square is there, and stays with the
+  sun's shadows off and with the sky light off too. Not the light. Inside it the blue of the ground is up by 5 of
+  255, the cast the initial blend's rock switch gives; and half the pixels inside are, to the byte, the initial
+  blend's picture, though the hardware's blend was chosen.
+- **The cause:** a blend of the eight cells round a point is read from the brick holding the least of them. Bricks
+  are made only where they hold band of their own, so where ground lies at a brick's floor there's no brick to
+  read just under it, and the march falls back to the initial blend, which keeps its rock switch. The 16s' bricks
+  start every 128 blocks up, and that plain lies at about 130.
+- **Mended for the ring:** its maker makes a brick wherever a blend may read from one (band in its own cells, or
+  in the cells one past it north, east or up). The square is gone: the ground's colour inside matches the land
+  without a ring (the blue 53.0 against 53.6, where it was 58.6), and 436 of 17,485 pixels inside are the initial
+  blend's, where 8,644 were. The ring holds about a third more bricks for it (445 over that plain, 694 at the spawn).
+- **Found on the way:** the ring's bricks were sent to the card in no fixed order, so two runs put them in
+  different places in the textures and a picture could differ by 1 of 255 in a few pixels (the card's filter, a
+  last digit). Sent in order of place now: the same ring gives the same picture to the byte, run after run. A ring
+  that has moved still stands elsewhere in the textures than one made in place, and draws the same to that last
+  digit (1 of 255 in 0.1% of pixels), not to the byte as build 168's check happened to find.
+- **The same flaw stands in the levels laid over the map** (the 32s and up), wherever land crosses one of their
+  bricks' floors or edges (every 256 blocks up at the 32s): there too the hardware's blend falls back to the
+  initial blend, and since build 165 the two no longer look alike. It may be what's left of the flat plates David
+  saw on the mountainside near 500 up ("the blocks go away mostly with the hardware blend"). Not mended yet: it
+  wants about a third more bricks in the textures (Builder's estimate from the ring: some 160 MB more on the card),
+  so it's put to David first.
+- All 28 tests pass; with the ring off the picture is still byte for byte build 167's.

@@ -17,7 +17,7 @@ use crate::atlas::{Atlas, Bench, Brick, Kept, NO_SLOT};
 use crate::bricks::{Level, NO_BRICK, RING, RING_LEVEL, Store, row};
 use crate::doorway::{Doorway, Tile};
 use crate::far::{Cell, FarColours};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::mpsc;
@@ -64,10 +64,12 @@ pub struct Ring {
     readies: mpsc::Receiver<Result<Ready, String>>,
     /// The ring last asked of the maker (its least column).
     asked: Option<[i32; 2]>,
-    /// The ring handed over and not yet moved to; its new bricks still to send; and every brick sent.
+    /// The ring handed over and not yet moved to; its new bricks still to send; and every brick sent. (Kept in order
+    /// of place, so bricks are sent, and their places in the pool and the atlas taken and given back, in the same
+    /// order every run: the same ring is then the same on the card to the last texel, and so is its picture.)
     coming: Option<Ready>,
-    waiting: HashMap<[i32; 3], Made>,
-    held: HashMap<[i32; 3], Held>,
+    waiting: BTreeMap<[i32; 3], Made>,
+    held: BTreeMap<[i32; 3], Held>,
     /// The ring on the card: its least column (none yet), and its bricks.
     pub from: Option<[i32; 2]>,
     on_card: Vec<[i32; 3]>,
@@ -89,7 +91,7 @@ impl Ring {
         let (asks, asked) = mpsc::channel();
         let (made, readies) = mpsc::channel();
         std::thread::Builder::new().name("making the far ring".into()).spawn(move || maker(folder, level, side, asked, made)).map_err(|error| format!("a thread for the far ring: {error}"))?;
-        Ok(Self { asks, readies, asked: None, coming: None, waiting: HashMap::new(), held: HashMap::new(), from: None, on_card: Vec::new(), unsent: 0, stale: false, moves: 0, made_in: 0.0, failed: false })
+        Ok(Self { asks, readies, asked: None, coming: None, waiting: BTreeMap::new(), held: BTreeMap::new(), from: None, on_card: Vec::new(), unsent: 0, stale: false, moves: 0, made_in: 0.0, failed: false })
     }
 
     /// The ring's least column for an eye at `eye` (north, east): the eye's column in the middle, to a step.
@@ -319,7 +321,12 @@ impl Making {
         let squares = &self.squares;
         let column = |cx: i32, cy: i32| -> &Column { &squares[&[cx.div_euclid(STEP), cy.div_euclid(STEP)]][(cy.rem_euclid(STEP) * STEP + cx.rem_euclid(STEP)) as usize] };
         let entries: Vec<u32> = (0..RING * RING).map(|k| column(from[0] + k % RING, from[1] + k / RING).0).collect();
-        // The ring's bricks: one wherever some column of it has band in its heights (as the store's own are made).
+        // The ring's bricks: one wherever a blend may read from it. A blend of the eight cells round a point is read
+        // from the brick holding the least of them, so that's every brick with band in its own cells, or in the cells
+        // one past it north, east or up. (Made only where a brick has band of its own, as the store's bricks over the
+        // map are, the hardware's blend had no brick to read just under ground lying at a brick's floor, and fell
+        // back to the initial blend, rock switch and all: a square round the eye over plains 130 blocks up, the 16s'
+        // bricks starting at 128. David, build 168: "the square border with the light bleeding around it".)
         let band = |c: &Column| {
             let low = (c.0 & 0xFFFF) as u16 as i16 as i32;
             (low, low + (c.0 >> 16) as i32)
@@ -332,9 +339,10 @@ impl Making {
                 for bz in 0..level.bricks_up {
                     let (z0, z1) = (bz * level.tall, ((bz + 1) * level.tall).min(level.up));
                     let (cx0, cy0) = ((first[0] + bx) * level.wide, (first[1] + by) * level.wide);
-                    let any = (0..level.wide * level.wide).any(|k| {
-                        let (low, top) = band(column(cx0 + k % level.wide, cy0 + k / level.wide));
-                        low.max(z0) < top.min(z1)
+                    let reach = level.wide + 1;
+                    let any = (0..reach * reach).any(|k| {
+                        let (low, top) = band(column(cx0 + k % reach, cy0 + k / reach));
+                        low.max(z0) < top.min(z1 + 1)
                     });
                     if !any {
                         continue;
