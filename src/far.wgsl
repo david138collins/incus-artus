@@ -39,8 +39,8 @@ struct Camera {
     // texture hardware: change 1).
     layer: vec4<f32>,
     // x: 1 if a finer layer's rays start a little short of the nearest touch round their parent pixel; y: 1 for sun
-    // shadows; z: the finest level the march asks for (5, the 32s; 4 once the 16s' ring is on the card); w: 1 if rays
-    // end at the map's edge.
+    // shadows; z: the finest level the march asks for (5, the 32s; 4 once the 16s' ring is on the card, 3 once the 8s' is); w: 1
+    // if rays end at the map's edge.
     follow: vec4<f32>,
     // The pyramid's steps: x this layer's factor over the one above's; y the one below's over this one's. For measuring
     // (the Oracle's test): z the most steps a ray takes (768). w: free (it chose the light by rays, then
@@ -51,7 +51,7 @@ struct Camera {
     // old's; more: a pixel the land only partly covers gives more of itself to the sky).
     fade: vec4<f32>,
     // Sky light: x 1 for it on, y its strength (how dark a place seeing no sky goes), z the tint (0 white, 1 a sky
-    // blue). (w isn't the sky's: the ring's fade, blocks: its level gives way to the 32s over that much of its edge.)
+    // blue). w free.
     sky: vec4<f32>,
     // Fog: x its thickness at sea level (a block's worth; 0 none), y how fast it thins going up, z sea level, w how much
     // warmer it is towards the sun.
@@ -69,9 +69,10 @@ struct Camera {
     // woven with blue noise in it); y the weave's side as a power of two (2: 4 x 4); z how much blue noise goes into
     // the weave (0 to 1); w how far the starts spread, of a step (1: all of it; 0: every ray begins alike).
     ray_start: vec4<f32>,
-    // The ring of 16s round the eye as it is on the card (`far_ring.rs`): its least and most blocks north and east (xy
-    // and zw), a cell in from its edge; an empty box (xy over zw) while there's none.
-    ring: vec4<f32>,
+    // The rings round the eye as they are on the card (`far_ring.rs`), the 16s' first, then the 8s' (and room for the
+    // 4s' and the 2s'): each its least and most blocks north and east (xy and zw), a cell in from its edge; an empty
+    // box (xy over zw) while it isn't there.
+    rings: array<vec4<f32>, 4>,
 }
 
 @group(0) @binding(0) var<uniform> camera: Camera;
@@ -207,7 +208,7 @@ fn cell_of(w: vec4<u32>) -> Look {
 
 // A level's number `k` in the table.
 fn table(level: i32, k: i32) -> i32 {
-    // The levels laid over the map first (the 32s' row 0), then the ring's (the 16s').
+    // The levels laid over the map first (the 32s' row 0), then the rings' (the 16s', then the 8s').
     let row = select(level - FIRST, TOP - FIRST + 1 + (FIRST - 1 - level), level < FIRST);
     return levels[row * TABLE + k];
 }
@@ -443,12 +444,33 @@ fn spot_soft(k: ptr<function, Kept>, place: Place, level: i32, p: vec3<f32>) -> 
     return Spot(2, level, (origin + local + f + 0.5) / camera.atlas.xyz);
 }
 
+// A ring fades into the next level over this many of its outermost cells.
+const RING_FADE: f32 = 8.0;
+
+// How far inside a ring's box `p` is (blocks; under 0 outside it): the ring of `level` (under the first laid over the
+// map).
+fn in_ring(level: i32, p: vec3<f32>) -> f32 {
+    let box = camera.rings[FIRST - 1 - level];
+    return min(min(p.x - box.x, box.z - p.x), min(p.y - box.y, box.w - p.y));
+}
+
+// The level to read at `p` for a level asked: a ring's level only inside its ring as it is on the card; outside it the
+// next level up, and so on to the 32s.
+fn ring_level(level: i32, p: vec3<f32>) -> i32 {
+    var l = level;
+    while (l < FIRST && in_ring(l, p) < 0.0) {
+        l += 1;
+    }
+    return l;
+}
+
 // Where a blend reads round `p`, from numbers in hand: by the code (old's, `blend`) or the texture hardware, as chosen
 // (`camera.layer.w`: 0 the code, 1 the hardware). Where the level isn't on the card round `p` (outside the window, or
 // the window behind), the next coarser that is: coarser cells, never a hole (the usable regions, step 4: `keep_place`).
 fn spot_kept(k: ptr<function, Kept>, place: Place, level: i32, p: vec3<f32>) -> Spot {
     var l = level;
-    // (The ring's level, under the first laid over the map, is asked for only inside the ring: the march sees to it.)
+    // A ring's level only inside its ring as it is on the card.
+    l = ring_level(l, p);
     while (l >= FIRST && l - FIRST < i32(camera.window.x) && (place.usable & (1u << u32(l - FIRST))) == 0u) {
         l += 1;
     }
@@ -753,10 +775,8 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32, end: f32) -> Seen {
             lv_hand = exp2(f32(lv) - camera.reach.y + camera.fade.z) / camera.view.z * 0.99999;
         }
         var level = lv;
-        // The ring's level only inside the ring as it is on the card: past it the 32s, as before there was a ring.
-        if (level < FIRST && (any(p.xy < camera.ring.xy) || any(p.xy > camera.ring.zw))) {
-            level = FIRST;
-        }
+        // A ring's level only inside its ring as it is on the card: past it the next level up.
+        level = ring_level(level, p);
         keep_place(&place, p);
         // A coarse level not built over here yet (it waits for all its regions): the regions' own level. A region not
         // summed yet holds nothing to draw: skipped whole.
@@ -828,12 +848,11 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32, end: f32) -> Seen {
         if (level < TOP && (t > lv_hand || level != lv)) {
             over = log2(max(t * camera.view.z, 1.0)) + camera.reach.y - f32(level);
         }
-        // How much of the next level is mixed in: the hand-over's share; and for the ring's level its edge's too (it
-        // gives way to the 32s over the ring's outermost cells, so the ring's edge is no seam).
+        // How much of the next level is mixed in: the hand-over's share; and for a ring's level its edge's too (it
+        // gives way to the next level over the ring's outermost cells, so the ring's edge is no seam).
         var mixed = (over - camera.fade.z) / (1.0 - camera.fade.z);
         if (level < FIRST) {
-            let inside = min(min(p.x - camera.ring.x, camera.ring.z - p.x), min(p.y - camera.ring.y, camera.ring.w - p.y));
-            mixed = max(mixed, 1.0 - inside / camera.sky.w);
+            mixed = max(mixed, 1.0 - in_ring(level, p) / (RING_FADE * f32(1 << u32(level))));
         }
         var look: Look;
         if (mixed > 0.0) {

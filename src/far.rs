@@ -721,6 +721,31 @@ mod tests {
         eprintln!("The cells of 16: {cells_checked} cells of 32 are exactly their eight cells of 16 added");
     }
 
+    /// And the cells of 8 add up to the cells of 16, the same way (the 8s' ring): over squares of the map at the spawn,
+    /// on a mountain, by the sea and at the map's edge.
+    #[test]
+    fn the_cells_of_8_add_up_to_the_cells_of_16() {
+        let mut doorway = Doorway::open(&crate::doorway::test_world()).unwrap();
+        let colours = FarColours::load(&mut doorway).unwrap();
+        let (from, _) = regions_of(&doorway);
+        let size = 1 << REGION;
+        let mut cells_checked = 0;
+        for at in [[0, 0], [-640, 64], [-2048 - 512, -3072], [from[0] * size, from[1] * size]] {
+            let sixteens = cells(&doorway, &colours, 16, at, 32, |tx, ty| doorway.tile(tx, ty).map(std::rc::Rc::new)).unwrap();
+            let eights = cells(&doorway, &colours, 8, at, 64, |tx, ty| doorway.tile(tx, ty).map(std::rc::Rc::new)).unwrap();
+            for (k, parent) in sixteens.iter().enumerate() {
+                let (x, y) = (k % 32, k / 32);
+                let child = |a: usize, b: usize| &eights[(y * 2 + b) * 64 + x * 2 + a];
+                let made = parent_of([child(0, 0), child(1, 0), child(0, 1), child(1, 1)], 8);
+                for z in 0..(doorway.height() / 16) {
+                    assert_eq!(made.at(z, 16), parent.at(z, 16), "the square at {at:?}, the cell column {x} {y} of 16, cell {z} up");
+                    cells_checked += 1;
+                }
+            }
+        }
+        eprintln!("The cells of 8: {cells_checked} cells of 16 are exactly their eight cells of 8 added");
+    }
+
     #[test]
     fn the_compact_form_follows_old_s_rule() {
         let sums = Sums { faces: [1, 1, 0, 0, 0, 0], colour: [200, 200, 200], height: 10, height_squared: 4 * 4 + 6 * 6, ..Sums::default() };

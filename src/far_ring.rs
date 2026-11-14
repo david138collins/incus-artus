@@ -1,10 +1,10 @@
-//! The far eye's ring (plan 2.2, the cells of 2 to 16; first of them, the 16s): cells too fine to lay over the whole
-//! map, kept round the eye and moved with it.
+//! The far eye's rings (plan 2.2, the cells of 2 to 16; so far the 16s and the 8s): cells too fine to lay over the
+//! whole map, each level kept in a ring round the eye and moved with it.
 //!
 //! Old kept its live levels 128 cells a side round the camera (`old/src/sight/store.rs`); the ring is that, carried as
-//! a result: 128 × 128 cell columns of 16, so the 16s reach about 1,024 blocks from the eye. Past its edge the march
-//! reads the 32s as before, and over its outermost cells the two are blended, so the ring's edge is no seam
-//! (`far.wgsl`, `spot_kept` and the march's hand-over).
+//! a result: 128 × 128 cell columns a ring, so the 16s reach about 1,024 blocks from the eye and the 8s about 512.
+//! Past a ring's edge the march reads the next level up, and over the ring's outermost cells the two are blended, so
+//! its edge is no seam (`far.wgsl`, `ring_level` and the march's hand-over).
 //!
 //! **Made off the frame.** A thread of its own (the ring's maker) sums the ring's cells from the doorway, a square of
 //! columns at a time, kept while the ring is over them, and makes each new brick's cells and textures. The frame only
@@ -14,7 +14,7 @@
 //! longest rays, goes on pretty much alongside everything else and doesn't cost much in time"].
 
 use crate::atlas::{Atlas, Bench, Brick, Kept, NO_SLOT};
-use crate::bricks::{Level, NO_BRICK, RING, RING_LEVEL, Store, row};
+use crate::bricks::{Level, NO_BRICK, RING, Store, row};
 use crate::doorway::{Doorway, Tile};
 use crate::far::{Cell, FarColours};
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -29,8 +29,17 @@ const STEP: i32 = 8;
 /// Cell columns the maker keeps round the ring, for its bricks' textures: a brick's border and its borrowing reach
 /// past the brick (`atlas.rs`).
 const MARGIN: i32 = 8;
-/// The ring's level fades into the 32s over this many of its outermost cells.
+/// A ring's level fades into the next over this many of its outermost cells (`far.wgsl`'s `RING_FADE`).
+#[allow(dead_code)]
 pub const FADE: i32 = 8;
+
+/// The rings to keep, the coarsest first: all of `bricks::RING_LEVELS`, or the first so many of them if
+/// `INCUS_FAR_RING` says (0: none; 1: the 16s alone, as build 170).
+pub fn rings_asked() -> Vec<usize> {
+    let all = crate::bricks::RING_LEVELS;
+    let count = std::env::var("INCUS_FAR_RING").ok().and_then(|n| n.parse::<usize>().ok()).unwrap_or(all.len()).min(all.len());
+    all[..count].to_vec()
+}
 
 /// A brick the maker made: where it is in the world (in bricks of its level: north, east, up), its cells for the pool
 /// and its four textures' bytes.
@@ -58,8 +67,10 @@ struct Held {
     textures: Option<[Vec<u8>; 4]>,
 }
 
-/// The ring as the frame keeps it.
+/// A ring as the frame keeps it.
 pub struct Ring {
+    /// Its level (4: cells of 16).
+    pub level: usize,
     asks: mpsc::Sender<[i32; 2]>,
     readies: mpsc::Receiver<Result<Ready, String>>,
     /// The ring last asked of the maker (its least column).
@@ -91,7 +102,7 @@ impl Ring {
         let (asks, asked) = mpsc::channel();
         let (made, readies) = mpsc::channel();
         std::thread::Builder::new().name("making the far ring".into()).spawn(move || maker(folder, level, side, asked, made)).map_err(|error| format!("a thread for the far ring: {error}"))?;
-        Ok(Self { asks, readies, asked: None, coming: None, waiting: BTreeMap::new(), held: BTreeMap::new(), from: None, on_card: Vec::new(), unsent: 0, stale: false, moves: 0, made_in: 0.0, failed: false })
+        Ok(Self { level: level.level, asks, readies, asked: None, coming: None, waiting: BTreeMap::new(), held: BTreeMap::new(), from: None, on_card: Vec::new(), unsent: 0, stale: false, moves: 0, made_in: 0.0, failed: false })
     }
 
     /// The ring's least column for an eye at `eye` (north, east): the eye's column in the middle, to a step.
@@ -104,7 +115,7 @@ impl Ring {
     /// Whether the ring round `eye` is on the card whole, its textures too if the atlas is in (for a picture).
     #[cfg(test)]
     pub fn settled(&self, store: &Store, eye: [f32; 2], atlas_in: bool) -> bool {
-        self.from == Some(Self::wanted(&store.levels[row(RING_LEVEL)], eye)) && self.coming.is_none() && (!atlas_in || self.unsent == 0)
+        self.from == Some(Self::wanted(&store.levels[row(self.level)], eye)) && self.coming.is_none() && (!atlas_in || self.unsent == 0)
     }
 
     /// The ring brought to the eye, for at most `ms` of the frame: the maker asked for the ring round `eye` if that
@@ -113,7 +124,7 @@ impl Ring {
     pub fn follow(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, store: &mut Store, mut atlas: Option<&mut Atlas>, eye: [f32; 2], ms: f32) {
         let started = Instant::now();
         let in_time = || started.elapsed().as_secs_f32() * 1000.0 < ms;
-        let level = store.levels[row(RING_LEVEL)];
+        let level = store.levels[row(self.level)];
         let wanted = Self::wanted(&level, eye);
         if self.asked != Some(wanted) && self.asks.send(wanted).is_ok() {
             self.asked = Some(wanted);
@@ -186,7 +197,7 @@ impl Ring {
                 index[place] = held.start as u32;
                 slots[place] = held.slot;
             }
-            store.ring_switch(queue, ready.from, &ready.entries, &index);
+            store.ring_switch(queue, self.level, ready.from, &ready.entries, &index);
             if let Some(atlas) = atlas.as_deref_mut() {
                 atlas.place(queue, level.index_at, &slots);
             }
@@ -204,7 +215,7 @@ impl Ring {
                 }
             }
             if self.from.is_none() {
-                log::info!("The far ring: the 16s round the eye on the card, {} bricks, made in {:.2} s", ready.holds.len(), ready.seconds);
+                log::info!("The far ring: the {}s round the eye on the card, {} bricks, made in {:.2} s", 1 << self.level, ready.holds.len(), ready.seconds);
             }
             self.from = Some(ready.from);
             self.on_card = ready.holds;
@@ -238,8 +249,8 @@ impl Ring {
     /// The ring in words, for a report.
     pub fn state(&self) -> String {
         match self.from {
-            Some(_) => format!("the 16s in a ring of {RING} round the eye ({} bricks, moved {} times, the last made in {:.3} s)", self.on_card.len(), self.moves, self.made_in),
-            None => "the 16s' ring not on the card yet".to_string(),
+            Some(_) => format!("the {}s in a ring of {RING} round the eye ({} bricks, moved {} times, the last made in {:.3} s)", 1 << self.level, self.on_card.len(), self.moves, self.made_in),
+            None => format!("the {}s' ring not on the card yet", 1 << self.level),
         }
     }
 }

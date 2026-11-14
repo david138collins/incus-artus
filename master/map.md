@@ -341,9 +341,9 @@ flowchart TB
 ### making the far ring
 
 - **A pass** in loading, on the processor.
-- **What it is:** On a thread of its own, as the eye moves: the cells of 16 in a ring round the eye (128 x 128 cell columns, as old kept its live levels) summed from the doorway a square of columns at a time, and each new brick's cells and textures made. The frame only sends what it's handed, a little a frame, and moves the ring over at once when the new one is whole on the card.
+- **What it is:** On threads of their own, as the eye moves: the cells of 16 and of 8, each in a ring round the eye (128 x 128 cell columns, as old kept its live levels), summed from the doorway a square of columns at a time, and each new brick's cells and textures made. The frame only sends what it's handed, a little a frame, and moves a ring over at once when the new one is whole on the card.
 - **Reads:** a tile's columns. **Writes:** the far bricks and the far textures.
-- **Switch** `INCUS_FAR_RING`: 0: no ring of 16s round the eye (the far eye as it was till build 168: nothing finer than the 32s).
+- **Switch** `INCUS_FAR_RING`: how many rings round the eye: 0 none (the far eye as it was till build 168: nothing finer than the 32s), 1 the 16s alone (build 170); unset, all of them (the 16s and the 8s).
 - **Cost, last measured** (`kept logs/flight-1794589790.txt`): not measured.
 - **Files:** src/far_ring.rs.
 

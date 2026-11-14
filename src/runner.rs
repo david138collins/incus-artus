@@ -172,11 +172,13 @@ impl Runner {
             let near = self.marks.get(self.first_mark).map_or([0.0, 0.0], |mark| mark.at);
             let threads = std::thread::available_parallelism().map_or(2, |n| n.get()).saturating_sub(2).max(1);
             let lane = crate::far::Lane::start(crate::doorway::test_world(), near, threads).map_err(|error| log::error!("The far cells couldn't be summed: {error}")).ok();
-            // The ring of 16s round the eye, its maker on a thread of its own (none with `INCUS_FAR_RING=0`).
-            let ring = (std::env::var("INCUS_FAR_RING").as_deref() != Ok("0"))
-                .then(|| crate::far_ring::Ring::start(crate::doorway::test_world(), store.levels[crate::bricks::row(crate::bricks::RING_LEVEL)], store.kept.side()).map_err(|error| log::error!("The far ring couldn't be started: {error}")).ok())
-                .flatten();
-            FarEye::new(&card.device, card.config.format, store, lane, ring)
+            // The rings round the eye (the 16s' and the 8s'), each its maker on a thread of its own (as many as
+            // `INCUS_FAR_RING` says: 0 none).
+            let rings = crate::far_ring::rings_asked()
+                .into_iter()
+                .filter_map(|level| crate::far_ring::Ring::start(crate::doorway::test_world(), store.levels[crate::bricks::row(level)], store.kept.side()).map_err(|error| log::error!("A far ring couldn't be started: {error}")).ok())
+                .collect();
+            FarEye::new(&card.device, card.config.format, store, lane, rings)
         });
         self.running = Some(Running { window, card, card_clock, egui_ctx, egui_state, egui_renderer, to_free: Vec::new(), refresh, far, memory: None, memory_at: None });
     }

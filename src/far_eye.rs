@@ -53,7 +53,7 @@ const WATER_CLARITY: f32 = 16.0;
 /// The most a frame spends putting regions on the card (ms), so the view sharpens in without holding the frame up.
 const PUTTING_MS: f32 = 3.0;
 /// Numbers in the march's camera (`far.wgsl`'s `Camera`): rows of four.
-const CAMERA_ROWS: usize = 20;
+const CAMERA_ROWS: usize = 23;
 /// The most of a frame the ring's sending takes (ms): its maker works off the frame, the frame only hands its bricks on.
 const RING_MS: f32 = 0.3;
 
@@ -178,8 +178,9 @@ struct Targets {
 pub struct FarEye {
     pub store: Store,
     lane: Option<Lane>,
-    /// The ring of 16s round the eye (`far_ring.rs`; none with `INCUS_FAR_RING=0`), and where the eye last was.
-    ring: Option<crate::far_ring::Ring>,
+    /// The rings round the eye (`far_ring.rs`), the 16s' first, then the 8s' (as many as `INCUS_FAR_RING` says: 0
+    /// none), and where the eye last was.
+    rings: Vec<crate::far_ring::Ring>,
     eye: [f32; 2],
     start: wgpu::ComputePipeline,
     march: wgpu::ComputePipeline,
@@ -234,7 +235,7 @@ pub struct FarEye {
 }
 
 impl FarEye {
-    pub fn new(device: &wgpu::Device, format: wgpu::TextureFormat, store: Store, lane: Option<Lane>, ring: Option<crate::far_ring::Ring>) -> Self {
+    pub fn new(device: &wgpu::Device, format: wgpu::TextureFormat, store: Store, lane: Option<Lane>, rings: Vec<crate::far_ring::Ring>) -> Self {
         let module = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some("the far eye"), source: wgpu::ShaderSource::Wgsl(include_str!("far.wgsl").into()) });
         let compute = wgpu::ShaderStages::COMPUTE;
         let storage = |binding: u32, read_only: bool| wgpu::BindGroupLayoutEntry { binding, visibility: compute, ty: wgpu::BindingType::Buffer { ty: wgpu::BufferBindingType::Storage { read_only }, has_dynamic_offset: false, min_binding_size: None }, count: None };
@@ -403,14 +404,14 @@ impl FarEye {
         let tally_counts = LAYERS.iter().map(|_| device.create_buffer(&wgpu::BufferDescriptor { label: Some("a far layer's longest ray"), size: 16, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false })).collect();
         let tally_back = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the longest rays read back"), size: 16 * LAYERS.len() as u64, usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let tally_state = std::sync::Arc::new(std::sync::atomic::AtomicU8::new(0));
-        Self { store, lane, ring, eye: [0.0; 2], start, march, up, layout, up_layout, sampler, targets: None, look, textures, atlas: None, building: None, stand_ins, light: None, lighting: None, sweeping: None, sun_asked, light_stand_ins, blue, blue_bytes, edge, layers, one, parity: 0, fresh: false, haze_step, most_steps, tally, tally_counts, tally_back, tally_state }
+        Self { store, lane, rings, eye: [0.0; 2], start, march, up, layout, up_layout, sampler, targets: None, look, textures, atlas: None, building: None, stand_ins, light: None, lighting: None, sweeping: None, sun_asked, light_stand_ins, blue, blue_bytes, edge, layers, one, parity: 0, fresh: false, haze_step, most_steps, tally, tally_counts, tally_back, tally_state }
     }
 
     /// Whether every region is on the card, the window's regions round the eye too, and the far textures if they're made.
     pub fn whole(&self) -> bool {
-        // (The ring: once it's been on the card, with its textures if the atlas is in. Not held to the eye's place: a
+        // (The rings: once each has been on the card, with its textures if the atlas is in. Not held to the eye's place: a
         // moving mark outruns it, as it does the window.)
-        self.lane.as_ref().is_none_or(|lane| lane.done == lane.total) && (self.atlas.is_some() || !self.textures) && self.store.behind == 0 && self.lit() && self.ring.as_ref().is_none_or(|ring| ring.from.is_some() || ring.failed)
+        self.lane.as_ref().is_none_or(|lane| lane.done == lane.total) && (self.atlas.is_some() || !self.textures) && self.store.behind == 0 && self.lit() && self.rings.iter().all(|ring| ring.from.is_some() || ring.failed)
     }
 
     /// Whether the far light is in.
@@ -434,8 +435,9 @@ impl FarEye {
         let mut rays = if self.edge { "rays ended at the map's edge".to_string() } else { "rays marched past the map's edge".to_string() };
         rays += &format!(", thin haze stepped by {} of a cell; the layers {} x {}, {} x {} and {} x {} screen pixels", self.haze_step, self.layers[0], self.layers[0], self.layers[1], self.layers[1], self.layers[2], self.layers[2]);
         rays += ", light read from the cell";
-        if self.ring.is_some() {
-            rays += ", the 16s in a ring round the eye";
+        if !self.rings.is_empty() {
+            let sizes: Vec<String> = self.rings.iter().map(|ring| format!("{}s", 1 << ring.level)).collect();
+            rays += &format!(", the {} in rings round the eye", sizes.join(" and the "));
         }
         rays += if self.one.is_some() { ", marched by one dispatch (a finer layer led by the frame before's coarser)" } else { ", marched one after another" };
         if self.most_steps != 768.0 {
@@ -470,7 +472,7 @@ impl FarEye {
             (None, Some(_)) => "; the atlas being built".to_string(),
             (None, None) => String::new(),
         };
-        let ring = self.ring.as_ref().map_or(String::new(), |ring| format!("; {}", ring.state()));
+        let ring: String = self.rings.iter().map(|ring| format!("; {}", ring.state())).collect();
         let light = self.light.as_ref().map_or(String::new(), |l| format!("; the far light {:.0} MB, its tops and sky made in {:.2} s, its last shadow swept and sent in {:.3} s", l.bytes as f64 / 1e6, l.made_in, l.swept_in));
         format!("{lane}{} bricks, {:.0} MB of {:.0} MB{atlas}{ring}{light}", self.store.bricks, used as f64 / 1e6, size as f64 / 1e6)
     }
@@ -539,16 +541,16 @@ impl FarEye {
                 }
             }
         }
-        // The ring brought to the eye: what its maker has handed over sent on, a little a frame.
-        if let Some(ring) = &mut self.ring {
+        // The rings brought to the eye: what their makers have handed over sent on, a little a frame each.
+        for ring in &mut self.rings {
             ring.follow(device, queue, &mut self.store, self.atlas.as_mut(), eye, RING_MS);
         }
     }
 
-    /// Whether the ring round the eye is on the card whole (true with no ring), for a picture.
+    /// Whether the rings round the eye are on the card whole (true with none), for a picture.
     #[cfg(test)]
     pub fn ring_settled(&self) -> bool {
-        self.ring.as_ref().is_none_or(|ring| ring.settled(&self.store, self.eye, self.atlas.is_some()))
+        self.rings.iter().all(|ring| ring.settled(&self.store, self.eye, self.atlas.is_some()))
     }
 
     /// The far light kept up (read from the cell): made once every region is in, on a thread of its own; and a new
@@ -770,13 +772,16 @@ impl FarEye {
             let v = c as f32 / 255.0;
             if v <= 0.04045 { v / 12.92 } else { ((v + 0.055) / 1.055).powf(2.4) }
         });
-        // The ring as it is on the card: the finest level the march asks for, the ring's box, and its edge's fade.
-        let ring_level = self.store.levels[crate::bricks::row(crate::bricks::RING_LEVEL)];
-        let (finest, ring_box) = match &self.ring {
-            Some(ring) if ring.from.is_some() => (crate::bricks::RING_LEVEL as f32, ring.reach(&ring_level)),
-            _ => (crate::far::FIRST as f32, [1.0, 1.0, 0.0, 0.0]),
-        };
-        let ring_fade = (crate::far_ring::FADE << crate::bricks::RING_LEVEL) as f32;
+        // The rings as they are on the card: each one's box (an empty one while it isn't there), and the finest level
+        // the march asks for (the finest ring's on the card).
+        let mut ring_boxes = [[1.0f32, 1.0, 0.0, 0.0]; 4];
+        let mut finest_level = crate::far::FIRST;
+        for ring in &self.rings {
+            if ring.from.is_some() {
+                ring_boxes[crate::far::FIRST - 1 - ring.level] = ring.reach(&self.store.levels[crate::bricks::row(ring.level)]);
+                finest_level = finest_level.min(ring.level);
+            }
+        }
         for (k, layer) in targets.layers.iter().enumerate() {
             let pixel = 2.0 * tan_half / layer.size.1 as f32;
             let above = (k > 0).then(|| &targets.layers[k - 1]);
@@ -796,17 +801,20 @@ impl FarEye {
                 [REACH, -look.detail as f32, look.view as f32, self.store.highest],
                 [targets.tiles.0 as f32, targets.tiles.1 as f32, (TILE as f32 / layer.factor).max(1.0), screen_pixel * (TILE as f32 * 0.5 * std::f32::consts::SQRT_2 + 1.0)],
                 [above.map_or(0.0, |a| a.size.0 as f32), if below.is_some() { 1.0 } else { 0.0 }, 1.0, blend as f32],
-                [1.0, if look.shadows && direct > 0.0 { 1.0 } else { 0.0 }, finest, if self.edge { 1.0 } else { 0.0 }],
+                [1.0, if look.shadows && direct > 0.0 { 1.0 } else { 0.0 }, finest_level as f32, if self.edge { 1.0 } else { 0.0 }],
                 [above.map_or(0.0, |a| layer.factor / a.factor), below.map_or(0.0, |b| b.factor / layer.factor), self.most_steps, 0.0],
                 [fade[0].max(0.1), fade[1].max(0.05), look.hand_over.clamp(0.3, 0.95), look.sky_weight.max(0.0)],
-                [if look.sky_light { 1.0 } else { 0.0 }, look.sky_strength.clamp(0.0, 1.0), look.sky_tint.clamp(0.0, 1.0), ring_fade],
+                [if look.sky_light { 1.0 } else { 0.0 }, look.sky_strength.clamp(0.0, 1.0), look.sky_tint.clamp(0.0, 1.0), 0.0],
                 [if look.fog { 3.0 / look.fog_reach.max(10.0) } else { 0.0 }, std::f32::consts::LN_2 / look.fog_height.max(1.0), sea_level, look.fog_warmth.clamp(0.0, 1.0)],
                 [direct, NIGHT_LIGHT + (1.0 - NIGHT_LIGHT) * glow, glow, NIGHT_LIGHT],
                 [water[0], water[1], water[2], 20f32.ln() / WATER_CLARITY],
                 [atlas_size[0], atlas_size[1], atlas_size[2], self.atlas.as_ref().map_or(1.0, |a| a.side as f32)],
                 [window_levels, regions.1 as f32, regions.0[0] as f32, regions.0[1] as f32],
                 [look.start_pattern.min(3) as f32, look.weave_bits.clamp(1, 4) as f32, look.start_blue.clamp(0.0, 1.0), look.start_spread.clamp(0.0, 1.0)],
-                ring_box,
+                ring_boxes[0],
+                ring_boxes[1],
+                ring_boxes[2],
+                ring_boxes[3],
             ];
             let bytes = numbers.iter().flatten().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>();
             queue.write_buffer(&layer.camera, 0, &bytes);
@@ -979,9 +987,9 @@ mod tests {
             None
         };
         let format = wgpu::TextureFormat::Rgba8Unorm;
-        // The ring of 16s, as the game starts it (none with `INCUS_FAR_RING=0`).
-        let ring = (std::env::var("INCUS_FAR_RING").as_deref() != Ok("0")).then(|| crate::far_ring::Ring::start(crate::doorway::test_world(), store.levels[crate::bricks::row(crate::bricks::RING_LEVEL)], store.kept.side()).unwrap());
-        let mut eye = FarEye::new(&device, format, store, lane, ring);
+        // The rings, as the game starts them (as many as `INCUS_FAR_RING` says: 0 none).
+        let rings = crate::far_ring::rings_asked().into_iter().map(|level| crate::far_ring::Ring::start(crate::doorway::test_world(), store.levels[crate::bricks::row(level)], store.kept.side()).unwrap()).collect();
+        let mut eye = FarEye::new(&device, format, store, lane, rings);
         // The whole world: put on the card as it's summed, till every region and the window round the eye are in, the
         // writes handed to the card each time round as a frame would (held, their copies pile up till it runs out).
         while eye.lane.is_some() || eye.store.behind > 0 {

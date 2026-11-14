@@ -3334,3 +3334,23 @@ David, advised the 8s alone next and flown before the 4s and 2s: "yes".
   dearer; the plain within 10% either way; the mountain top and high over the spawn within 5%. Every 99th still
   under 2 ms. On the card under 60 MB more, likely none allocated (the pool and the textures hold spare room). The
   8s' first ring made in under 3 s, a move in under a tenth.
+
+### Build 171 (unflown): the 8s' ring, and the ring's code made to hold several
+
+Built as its pass mark set out: the store, the maker and the march hold a list of rings (the 16s' and the 8s' now,
+room in the camera for the 4s' and the 2s'); the march falls from a ring's level to the next one up wherever it's
+outside that ring's box (`ring_level` in `far.wgsl`), and each ring fades over its 8 outermost cells. `INCUS_FAR_RING`
+says how many rings (0 none, 1 the 16s alone).
+- **Every 16 is exactly its eight 8s added:** 163,840 cells of 16 over four squares of the map. *Met.*
+- **With one ring the picture is byte for byte build 170's** (the spawn, the plain, the sea). *Met.*
+- **From straight above, the check build 168 lacked:** over the plain from 830 up and the spawn from 1,100, both
+  rings against none: across each ring's edge the colour changes by under 1 of 255 on average, with no step. No
+  square. (Amplified ten times a faint line shows at each edge; at its true size it's a part in 255.)
+- **A moved pair of rings draws what a pair made in place does** to a last digit (the spawn: 1 of 255 at most; the
+  sea: the same to the byte).
+- **The sea's far edge** drawn at the flight's size: whole, no rays out of steps showing.
+- **Builder's look:** at David's first spot the mountainside's small facets (the 16s') smooth into a slope with fine
+  contour lines; near skylines sharper again.
+- **The makers:** the 8s' first ring made in 1.4 to 2.1 s while the world loads (the guess: under 3 s); 395 bricks
+  over the sea to 866 at the mountain top, about as many as the 16s' ring.
+- All 29 tests pass. Not flown yet, and not looked at by David.
