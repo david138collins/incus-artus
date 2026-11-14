@@ -933,6 +933,29 @@ bread and a blank diary. Birds sing and flit about.
     at their table. A primitive model in the best sense, like the earliest networked games.
 - Moddable: text IDs, content packs as folders, readable TOML.
 
+## Bending the lens  [IDEA, David 2026-11-14]
+
+David, to Counsel: "do the rays have... HSL that i could cheaply manipulate for effects? could i put a domain warp
+on them somehow? im thinking about odd ways i could make the graphics engine creatively 'malfunction', like circuit
+bending, to get crazy looking things that happen deep down instantly in the engine".
+
+- **The bends are the projection's, never the world's** (`journal/vision/projection.md`): the tablet stays true; only
+  how it's seen goes strange. Uses to find: magic, visions, madness, horror, the gods.
+- **Counsel's first sketch, by where in a ray's life the bend sits** (nothing priced; Builder to price when it's taken
+  up):
+  - *Where the ray starts* (its direction): a warp of the screen before the march, so heat shimmer, water, a lens, a
+    kaleidoscope. Once per pixel: about free.
+  - *What it brings home* (its colour, how covered it is, how far it went, how many steps it took): hue, saturation,
+    lightness, posterising, colour by distance, the steps made visible (the horizon glows where the rays work hard).
+    Once per pixel: about free.
+  - *Inside the march* (each step): rays that curve as they go, the cells read from the wrong place or the wrong
+    level (a world that shears, melts or turns to mosaic), steps that stutter. Paid every step, and in this
+    register-bound shader code costs even when switched off, so each would be built as its own compiled version of
+    the shader, costing nothing while unused.
+  - *Between frames:* the finer layers led by the frame before, and lazy rays resuming, can be fed stale on purpose:
+    smears and trails, like datamoshing.
+- Belongs with the FX Lab and the polish passes, after the speed plan settles.
+
 ## Sound  [IDEA, David 2026-11-09]
 
 - **David makes it himself:** Omnisphere (its modelled objects, its resynthesis of his own recordings,
