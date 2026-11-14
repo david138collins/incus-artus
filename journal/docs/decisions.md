@@ -1954,6 +1954,12 @@ Reference: `Art/quartile minecraft illustration.png`
         The initial blend keeps its own switch. Pass mark: the march gives back the 1.2 to 3.6%, each standing mark
         at build 163's median or within 1% of it; if not, the builds between are flown apart. One hands-off flight,
         seven minutes, on his go.
+        - *Flown* (on "alright, lets proceed."; `logs/flight-1794683091`, checked by Counsel): **the pass mark met**,
+          every standing mark within 0.7% of build 163's median and 1.0 to 3.1% under build 166's, so the
+          checkbox's compare was the cost and the cut gave it back. The plates gone, the textures sound and made in
+          0.5 s, the march where it was. Not quite hands off (David wrote to Counsel during it); no big hitch on the
+          frame clock; the 99ths match build 163's but at the mountain top, where the card's clock dipped and one
+          frame of some 19,000 read 2.02 ms (build 166's two hands-off flights: nothing over 1.8 ms there).
     - **[LATER] The vanishing sea line:** at a 4 base, the thin blue line of sea on the horizon low over the sea isn't
       there. David watched: "i didnt notice anything". Cause unknown after three tries (not the step limit, not the
       sky's weight, not the map's edge); to be found before a finer base is ever kept.

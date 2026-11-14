@@ -565,6 +565,13 @@ and moddable, with lightweight graphics so the computer's effort goes into makin
   - *To decide later:* whether new levels grow above the boss or the boss sinks deeper; whether a cleared dungeon
     stays dead or can be taken over by something else; whether it sends things out, as goblin dens raid. Its
     rooms, traps, enemies and growth rules as data, with room for modders later.
+  - *His answers, the same day:* "the boss would sink with depth, and once cleared its just blocks. i dont think it
+    would send things out very far, only in a small area. it would be like a mini-diablo structure i guess".
+  - *Its ancestor* (David): "i loved Dungeonkeeper as a kid and it has a lot of the biggest shape of incus artus i
+    think. it does kind of combine minecraft and df in a very rudimentary form." Counsel: it had the three things
+    together, digging the world block by block, creatures with minds of their own drawn by the rooms you built,
+    and possession, dropping into one body from the manager's view. The growing dungeon is it turned inside out:
+    the dungeon keeps itself, and the player is the hero going down.
 
 ## Magic  [IDEA]
 

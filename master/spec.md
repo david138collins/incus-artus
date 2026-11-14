@@ -974,7 +974,7 @@ Where the sources disagree. Each version is given with its ref; nothing here is 
 - Evil grows on its own; each hostile site type has its own growth mechanics, and savage factions advance in the lite sim, so difficulty rises naturally: "adding natural difficulty scaling". [idea] (vision.md:116-118; conv:196)
 - A goblin den at 1 hour might hold 3 goblins and a shaman; at 80 hours, 20 goblins, shamans, a chieftain and an ogre; the bigger the den, the higher-level its goblins. [idea] (vision.md:131-133; from-grok.md:77; conv:196)
 - Ignored, attacks become urgent only after longer than most people play a Minecraft world; you can still keep a farmstead while the cities burn. [idea] (vision.md:118-119)
-- Dungeons as an imaginary faction: each in its own bounded area, growing slowly like a procedural roguelike, deeper and worse (traps, enemies, at every level) until the boss at the bottom is cleared: "natural difficulty scaling". [idea] (vision.md, Threats and horror, 2026-11-14)
+- Dungeons as an imaginary faction: each in its own bounded area, growing slowly like a procedural roguelike, deeper and worse (traps, enemies, at every level) until the boss at the bottom is cleared: "natural difficulty scaling". The boss sinks as it grows; cleared, "its just blocks"; it sends things out only a little way: "like a mini-diablo structure". [idea] (vision.md, Threats and horror, 2026-11-14)
 
 ## 10 Magic, lore, fate and religion
 
