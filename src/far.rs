@@ -383,9 +383,16 @@ pub fn region(doorway: &Doorway, colours: &FarColours, region: [i32; 2]) -> Resu
 /// A region's cell columns of 32.
 fn cells_of_32(doorway: &Doorway, colours: &FarColours, region: [i32; 2]) -> Result<Vec<CellColumn>, String> {
     let size = 1 << REGION;
-    let cell = 1 << FIRST;
-    let at = [region[0] * size, region[1] * size];
-    // The region's columns and one round it: ground (−1 past the map), water, profile.
+    cells(doorway, colours, 1 << FIRST, [region[0] * size, region[1] * size], (size >> FIRST) as usize, |tx, ty| doorway.tile(tx, ty).map(std::rc::Rc::new))
+}
+
+/// The cell columns of `cell` blocks a side over a square of the map, `across` columns each way from the block `at`
+/// (north fastest): summed from the doorway's columns (and those one round the square, for the faces at its edge),
+/// each tile asked of `tile` (the doorway's own reading, or a reader that keeps the last few: the ring's maker asks
+/// for the same tiles again and again).
+pub fn cells(doorway: &Doorway, colours: &FarColours, cell: i32, at: [i32; 2], across: usize, mut tile_of: impl FnMut(i32, i32) -> Result<std::rc::Rc<crate::doorway::Tile>, String>) -> Result<Vec<CellColumn>, String> {
+    let size = cell * across as i32;
+    // The square's columns and one round it: ground (−1 past the map), water, profile.
     let side = (size + 2) as usize;
     let mut grounds = vec![-1i32; side * side];
     let mut waters = vec![0i32; side * side];
@@ -394,7 +401,7 @@ fn cells_of_32(doorway: &Doorway, colours: &FarColours, region: [i32; 2]) -> Res
     let tiles = |from: i32, to: i32, axis: usize| (from - least[axis]).div_euclid(tile)..=(to - least[axis]).div_euclid(tile);
     for tx in tiles(at[0] - 1, at[0] + size, 0) {
         for ty in tiles(at[1] - 1, at[1] + size, 1) {
-            let answer = doorway.tile(tx, ty)?;
+            let answer = tile_of(tx, ty)?;
             let base = [least[0] + tx * tile, least[1] + ty * tile];
             let (n0, n1) = (base[0].max(at[0] - 1), (base[0] + tile).min(at[0] + size + 1));
             let (e0, e1) = (base[1].max(at[1] - 1), (base[1] + tile).min(at[1] + size + 1));
@@ -411,11 +418,10 @@ fn cells_of_32(doorway: &Doorway, colours: &FarColours, region: [i32; 2]) -> Res
     }
     let height = doorway.height();
     let up = (height / cell) as usize;
-    let across = (size / cell) as usize;
     let mut columns = Vec::with_capacity(across * across);
     for cy in 0..across {
         for cx in 0..across {
-            let mut cells = vec![Sums::default(); up];
+            let mut sums = vec![Sums::default(); up];
             for j in 0..cell as usize {
                 for i in 0..cell as usize {
                     let k = (cx * cell as usize + i + 1) + (cy * cell as usize + j + 1) * side;
@@ -423,18 +429,18 @@ fn cells_of_32(doorway: &Doorway, colours: &FarColours, region: [i32; 2]) -> Res
                         continue;
                     }
                     let beside = [grounds[k + 1], grounds[k - 1], grounds[k + side], grounds[k - side]];
-                    add_column(&mut cells, doorway, colours, (grounds[k], waters[k], profiles[k]), beside)?;
+                    add_column(&mut sums, cell, doorway, colours, (grounds[k], waters[k], profiles[k]), beside)?;
                 }
             }
-            columns.push(CellColumn::trimmed(cells, cell));
+            columns.push(CellColumn::trimmed(sums, cell));
         }
     }
     Ok(columns)
 }
 
-/// One column's blocks added to its cells of 32 (`cells`, bottom up): its ground, water and profile, and the grounds
-/// beside it (north, south, east, west; −1 past the map).
-fn add_column(cells: &mut [Sums], doorway: &Doorway, colours: &FarColours, (ground, water, number): (i32, i32, u32), beside: [i32; 4]) -> Result<(), String> {
+/// One column's blocks added to its cells of `cell` blocks (`cells`, bottom up): its ground, water and profile, and
+/// the grounds beside it (north, south, east, west; −1 past the map).
+fn add_column(cells: &mut [Sums], cell: i32, doorway: &Doorway, colours: &FarColours, (ground, water, number): (i32, i32, u32), beside: [i32; 4]) -> Result<(), String> {
     let height = doorway.height();
     if ground >= height {
         return Err(format!("a column's ground ({ground}) is above the world's height"));
@@ -444,12 +450,12 @@ fn add_column(cells: &mut [Sums], doorway: &Doorway, colours: &FarColours, (grou
         return Err(format!("profile {number} has water among its solid blocks, which the far cells don't count"));
     }
     // Solid from bedrock to the ground; water above it to the sea or the river's or lake's top.
-    add_range(cells, 0, ground, |sums, from, to| sums.solid += (to - from + 1) as u64);
+    add_range(cells, cell, 0, ground, |sums, from, to| sums.solid += (to - from + 1) as u64);
     let water_top = water.max(doorway.sea_level).min(height) - 1;
-    add_range(cells, ground + 1, water_top, |sums, from, to| sums.water += (to - from + 1) as u64);
+    add_range(cells, cell, ground + 1, water_top, |sums, from, to| sums.water += (to - from + 1) as u64);
     // The top block's face looking up (above it is water or air).
     let up = colours.colour(top, true);
-    add_range(cells, ground, ground, |sums, from, to| sums.add_faces(UP, from, to, up));
+    add_range(cells, cell, ground, ground, |sums, from, to| sums.add_faces(UP, from, to, up));
     // The column's solid blocks bottom up, as runs: stone, each layer under the top (deepest first), the top.
     let deepest = under.last().map_or(0, |(_, depth)| *depth);
     let mut runs: [(i32, i32, Block); 6] = [(0, -1, 0); 6];
@@ -479,16 +485,16 @@ fn add_column(cells: &mut [Sums], doorway: &Doorway, colours: &FarColours, (grou
             let (a, b) = (run_from.max(from), run_to.min(ground));
             if a <= b {
                 let side = colours.colour(block, false);
-                add_range(cells, a, b, |sums, from, to| sums.add_faces(2 + d, from, to, side));
+                add_range(cells, cell, a, b, |sums, from, to| sums.add_faces(2 + d, from, to, side));
             }
         }
     }
     Ok(())
 }
 
-/// The heights `from` to `to` (from bedrock up), split at the cells of 32's edges, each piece added to its cell.
-fn add_range(cells: &mut [Sums], from: i32, to: i32, add: impl Fn(&mut Sums, i32, i32)) {
-    let cell = 1 << FIRST;
+/// The heights `from` to `to` (from bedrock up), split at the edges of the cells of `cell` blocks, each piece added
+/// to its cell.
+fn add_range(cells: &mut [Sums], cell: i32, from: i32, to: i32, add: impl Fn(&mut Sums, i32, i32)) {
     let mut z = from.max(0);
     while z <= to {
         let end = to.min((z / cell + 1) * cell - 1);
@@ -689,6 +695,32 @@ mod tests {
     }
 
     /// The compact form follows old's rule (old's own cases, `old/src/sight/cell.rs`).
+    /// The cells of 16 add up to the cells of 32: over whole regions (the spawn's, a mountain's, the sea's, one at the
+    /// map's edge), every cell of 32 is exactly its eight cells of 16 added, the cells left out of the bands included.
+    /// The ring's cells are summed by the same reading as the regions', a cell half the size.
+    #[test]
+    fn the_cells_of_16_add_up_to_the_cells_of_32() {
+        let mut doorway = Doorway::open(&crate::doorway::test_world()).unwrap();
+        let colours = FarColours::load(&mut doorway).unwrap();
+        let (from, across) = regions_of(&doorway);
+        let size = 1 << REGION;
+        let mut cells_checked = 0;
+        for r in [[0, 0], [-1, 0], [-2, -3], [from[0], from[1]], [from[0] + across - 1, from[1] + across / 2]] {
+            let thirty_twos = &region(&doorway, &colours, r).unwrap()[0];
+            let sixteens = cells(&doorway, &colours, 16, [r[0] * size, r[1] * size], 64, |tx, ty| doorway.tile(tx, ty).map(std::rc::Rc::new)).unwrap();
+            for (k, parent) in thirty_twos.iter().enumerate() {
+                let (x, y) = (k % 32, k / 32);
+                let child = |a: usize, b: usize| &sixteens[(y * 2 + b) * 64 + x * 2 + a];
+                let made = parent_of([child(0, 0), child(1, 0), child(0, 1), child(1, 1)], 16);
+                for z in 0..(doorway.height() / 32) {
+                    assert_eq!(made.at(z, 32), parent.at(z, 32), "region {r:?}, the cell column {x} {y} of 32, cell {z} up");
+                    cells_checked += 1;
+                }
+            }
+        }
+        eprintln!("The cells of 16: {cells_checked} cells of 32 are exactly their eight cells of 16 added");
+    }
+
     #[test]
     fn the_compact_form_follows_old_s_rule() {
         let sums = Sums { faces: [1, 1, 0, 0, 0, 0], colour: [200, 200, 200], height: 10, height_squared: 4 * 4 + 6 * 6, ..Sums::default() };

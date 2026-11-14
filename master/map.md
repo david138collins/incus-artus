@@ -37,6 +37,7 @@ flowchart TB
     pass_summing_the_far_cells["summing the far cells"]
     pass_making_the_far_textures["making the far textures"]
     pass_making_the_far_light["making the far light"]
+    pass_making_the_far_ring["making the far ring"]
   end
   subgraph lane_the_temperatures["the temperatures (every 3 seconds, on a thread of its own)"]
     direction LR
@@ -127,6 +128,9 @@ flowchart TB
   pass_making_the_far_textures --> store_the_far_textures
   store_the_far_cells --> pass_making_the_far_light
   pass_making_the_far_light --> store_the_far_light
+  store_a_tile_s_columns --> pass_making_the_far_ring
+  pass_making_the_far_ring --> store_the_far_bricks
+  pass_making_the_far_ring --> store_the_far_textures
   pass_reading_the_temperatures --> store_the_temperatures
 ```
 
@@ -155,7 +159,7 @@ flowchart TB
 
 - **Runs:** as tiles are asked for.
 - **What it is:** The world, read a tile at a time through the doorway. Going to a mark asks it for the ground under the eye; the far cells' lane will ask for tiles (2.2).
-- **Its passes, in order:** the doorway, summing the far cells, making the far textures and making the far light.
+- **Its passes, in order:** the doorway, summing the far cells, making the far textures, making the far light and making the far ring.
 - **Files:** src/doorway.rs.
 
 ### the temperatures
@@ -334,6 +338,15 @@ flowchart TB
 - **Cost, last measured** (`kept logs/flight-1794589790.txt`): not measured.
 - **Files:** src/far_light.rs.
 
+### making the far ring
+
+- **A pass** in loading, on the processor.
+- **What it is:** On a thread of its own, as the eye moves: the cells of 16 in a ring round the eye (128 x 128 cell columns, as old kept its live levels) summed from the doorway a square of columns at a time, and each new brick's cells and textures made. The frame only sends what it's handed, a little a frame, and moves the ring over at once when the new one is whole on the card.
+- **Reads:** a tile's columns. **Writes:** the far bricks and the far textures.
+- **Switch** `INCUS_FAR_RING`: 0: no ring of 16s round the eye (the far eye as it was till build 168: nothing finer than the 32s).
+- **Cost, last measured** (`kept logs/flight-1794589790.txt`): not measured.
+- **Files:** src/far_ring.rs.
+
 ### reading the temperatures
 
 - **A pass** in the temperatures, on the processor.
@@ -413,7 +426,7 @@ flowchart TB
 
 - **A store** on the processor.
 - **What it is:** A tile's answer: each column's ground, water and profile as the export holds them, its runs made when asked.
-- **Written by:** the doorway. **Read by:** going to a mark and summing the far cells.
+- **Written by:** the doorway. **Read by:** going to a mark, summing the far cells and making the far ring.
 - **Files:** src/doorway.rs.
 
 ### the marks
@@ -443,7 +456,7 @@ flowchart TB
 
 - **A store** on the card.
 - **What it is:** The far cells on the card, the whole world as old's bake kept it: each level's columns' bands (the lowest cell and how many: solid below, empty above), and the bands' cells in bricks of 8 x 8 x 8 found by arithmetic. The pool grows as it fills.
-- **Written by:** putting the far cells on the card. **Read by:** the far start, the far 8 x 8, the far 4 x 4 and the far 2 x 2.
+- **Written by:** putting the far cells on the card and making the far ring. **Read by:** the far start, the far 8 x 8, the far 4 x 4 and the far 2 x 2.
 - **Limit:** levels, cells of 32 to 65,536, 12.
 - **Limit:** cells a brick at most, 512.
 - **Limit:** the largest buffer asked of the card (MB), 2047.
@@ -468,7 +481,7 @@ flowchart TB
 
 - **A store** on the card.
 - **What it is:** The far bricks again as 3D textures for the card's texture hardware to blend (change 1): how solid and how watery (16-bit), and the colour and faces spread into empty neighbours (8-bit); each brick's slot beside its place in the bricks' index. A brick's texels a side: its cells a side and a border (9 at bricks of 8).
-- **Written by:** putting the far cells on the card and making the far textures. **Read by:** the far 8 x 8, the far 4 x 4 and the far 2 x 2.
+- **Written by:** putting the far cells on the card, making the far textures and making the far ring. **Read by:** the far 8 x 8, the far 4 x 4 and the far 2 x 2.
 - **Limit:** bricks a side of an atlas layer, 64.
 - **Files:** src/atlas.rs.
 

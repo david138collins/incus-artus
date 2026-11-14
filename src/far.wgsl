@@ -39,7 +39,8 @@ struct Camera {
     // texture hardware: change 1).
     layer: vec4<f32>,
     // x: 1 if a finer layer's rays start a little short of the nearest touch round their parent pixel; y: 1 for sun
-    // shadows; z: free (it was the shadow rays' spread); w: 1 if rays end at the map's edge.
+    // shadows; z: the finest level the march asks for (5, the 32s; 4 once the 16s' ring is on the card); w: 1 if rays
+    // end at the map's edge.
     follow: vec4<f32>,
     // The pyramid's steps: x this layer's factor over the one above's; y the one below's over this one's. For measuring
     // (the Oracle's test): z the most steps a ray takes (768). w: free (it chose the light by rays, then
@@ -50,7 +51,7 @@ struct Camera {
     // old's; more: a pixel the land only partly covers gives more of itself to the sky).
     fade: vec4<f32>,
     // Sky light: x 1 for it on, y its strength (how dark a place seeing no sky goes), z the tint (0 white, 1 a sky
-    // blue), w free (it was the sky cones' width).
+    // blue). (w isn't the sky's: the ring's fade, blocks: its level gives way to the 32s over that much of its edge.)
     sky: vec4<f32>,
     // Fog: x its thickness at sea level (a block's worth; 0 none), y how fast it thins going up, z sea level, w how much
     // warmer it is towards the sun.
@@ -68,6 +69,9 @@ struct Camera {
     // woven with blue noise in it); y the weave's side as a power of two (2: 4 x 4); z how much blue noise goes into
     // the weave (0 to 1); w how far the starts spread, of a step (1: all of it; 0: every ray begins alike).
     ray_start: vec4<f32>,
+    // The ring of 16s round the eye as it is on the card (`far_ring.rs`): its least and most blocks north and east (xy
+    // and zw), a cell in from its edge; an empty box (xy over zw) while there's none.
+    ring: vec4<f32>,
 }
 
 @group(0) @binding(0) var<uniform> camera: Camera;
@@ -203,7 +207,9 @@ fn cell_of(w: vec4<u32>) -> Look {
 
 // A level's number `k` in the table.
 fn table(level: i32, k: i32) -> i32 {
-    return levels[(level - FIRST) * TABLE + k];
+    // The levels laid over the map first (the 32s' row 0), then the ring's (the 16s').
+    let row = select(level - FIRST, TOP - FIRST + 1 + (FIRST - 1 - level), level < FIRST);
+    return levels[row * TABLE + k];
 }
 
 // A cell column's entry at `level`: its band's lowest cell and how many (`NOT_SUMMED` if it isn't in yet, `PAST_MAP`
@@ -442,7 +448,8 @@ fn spot_soft(k: ptr<function, Kept>, place: Place, level: i32, p: vec3<f32>) -> 
 // the window behind), the next coarser that is: coarser cells, never a hole (the usable regions, step 4: `keep_place`).
 fn spot_kept(k: ptr<function, Kept>, place: Place, level: i32, p: vec3<f32>) -> Spot {
     var l = level;
-    while (l - FIRST < i32(camera.window.x) && (place.usable & (1u << u32(l - FIRST))) == 0u) {
+    // (The ring's level, under the first laid over the map, is asked for only inside the ring: the march sees to it.)
+    while (l >= FIRST && l - FIRST < i32(camera.window.x) && (place.usable & (1u << u32(l - FIRST))) == 0u) {
         l += 1;
     }
     if (camera.layer.w < 0.5) {
@@ -568,7 +575,7 @@ fn fogged(colour: vec3<f32>, d: vec3<f32>, t: f32) -> vec3<f32> {
 fn level_at(t: f32) -> i32 {
     let footprint = max(t * camera.view.z, 1.0);
     let level = i32(floor(log2(footprint))) + i32(camera.reach.y);
-    return clamp(level, FIRST, TOP);
+    return clamp(level, i32(camera.follow.z), TOP);
 }
 
 // The light in two parts: the sky's, always there (`camera.sun.w` of a face's colour, by day), and the sun's, which a
@@ -746,6 +753,10 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32, end: f32) -> Seen {
             lv_hand = exp2(f32(lv) - camera.reach.y + camera.fade.z) / camera.view.z * 0.99999;
         }
         var level = lv;
+        // The ring's level only inside the ring as it is on the card: past it the 32s, as before there was a ring.
+        if (level < FIRST && (any(p.xy < camera.ring.xy) || any(p.xy > camera.ring.zw))) {
+            level = FIRST;
+        }
         keep_place(&place, p);
         // A coarse level not built over here yet (it waits for all its regions): the regions' own level. A region not
         // summed yet holds nothing to draw: skipped whole.
@@ -817,8 +828,15 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32, end: f32) -> Seen {
         if (level < TOP && (t > lv_hand || level != lv)) {
             over = log2(max(t * camera.view.z, 1.0)) + camera.reach.y - f32(level);
         }
+        // How much of the next level is mixed in: the hand-over's share; and for the ring's level its edge's too (it
+        // gives way to the 32s over the ring's outermost cells, so the ring's edge is no seam).
+        var mixed = (over - camera.fade.z) / (1.0 - camera.fade.z);
+        if (level < FIRST) {
+            let inside = min(min(p.x - camera.ring.x, camera.ring.z - p.x), min(p.y - camera.ring.y, camera.ring.w - p.y));
+            mixed = max(mixed, 1.0 - inside / camera.sky.w);
+        }
         var look: Look;
-        if (over > camera.fade.z) {
+        if (mixed > 0.0) {
             // Read together (1b): both levels' places found first, then both levels' pictures fetched at once.
             let here = spot_kept(&kept, place, level, p);
             let there = spot_kept(&kept_next, place, level + 1, p);
@@ -826,13 +844,13 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32, end: f32) -> Seen {
                 let got = fetch_together(here.at);
                 let got_next = fetch_together(there.at);
                 look = look_of(got);
-                look = mix_looks(look, look_of(got_next), (over - camera.fade.z) / (1.0 - camera.fade.z));
+                look = mix_looks(look, look_of(got_next), mixed);
             } else {
                 look = look_at(here, p);
                 if (look.known) {
                     let next = look_at(there, p);
                     if (next.known) {
-                        look = mix_looks(look, next, (over - camera.fade.z) / (1.0 - camera.fade.z));
+                        look = mix_looks(look, next, mixed);
                     }
                 }
             }

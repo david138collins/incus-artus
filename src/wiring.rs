@@ -74,6 +74,7 @@ pub enum PassId {
     SummingTheFarCells,
     MakingTheFarTextures,
     MakingTheFarLight,
+    MakingTheFarRing,
     ReadingTheTemperatures,
 }
 
@@ -165,7 +166,7 @@ pub const LANES: [Lane; 4] = [
     },
 ];
 
-pub const PASSES: [Pass; 20] = [
+pub const PASSES: [Pass; 21] = [
     Pass {
         id: PassId::HearingTheWindow,
         name: "hearing the window",
@@ -390,6 +391,17 @@ pub const PASSES: [Pass; 20] = [
         writes: &[StoreId::FarLight],
         switches: &[],
         files: &["src/far_light.rs"],
+    },
+    Pass {
+        id: PassId::MakingTheFarRing,
+        name: "making the far ring",
+        lane: LaneId::Loading,
+        on: Where::Processor,
+        what: "On a thread of its own, as the eye moves: the cells of 16 in a ring round the eye (128 x 128 cell columns, as old kept its live levels) summed from the doorway a square of columns at a time, and each new brick's cells and textures made. The frame only sends what it's handed, a little a frame, and moves the ring over at once when the new one is whole on the card.",
+        reads: &[StoreId::TileColumns],
+        writes: &[StoreId::FarBricks, StoreId::FarTextures],
+        switches: &[("INCUS_FAR_RING", "0: no ring of 16s round the eye (the far eye as it was till build 168: nothing finer than the 32s)")],
+        files: &["src/far_ring.rs"],
     },
     Pass {
         id: PassId::ReadingTheTemperatures,

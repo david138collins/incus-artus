@@ -3175,3 +3175,31 @@ goes on pretty much alongside everything else and doesn't cost much in time."
   high over the spawn, the sea) within 2% of build 167; the marks on the ground (the spawn, the plain, the run)
   5 to 15% dearer, as near rays step through cells half the size; moving, the frame's 99th no worse than build
   167's by more than a tenth (the ring's work is off the frame). On the card under 30 MB for the ring.
+
+### Build 168 (unflown): the 16s in a ring round the eye, built and checked off the screen
+
+Built as the pass mark above set out (`far_ring.rs`, new): the ring's maker on a thread of its own sums the ring's
+cells from the doorway in squares of 8 columns, kept while the ring is over them, and makes each new brick's cells and
+textures; the frame sends what it's handed (0.3 ms of a frame at most) to places nothing reads yet and moves the ring
+over at once when the new one is whole. The ring's level sits after the others in the store, its bands and bricks'
+places after theirs; the summing reads any cell size now (`far::cells`). In the march: the level asked for goes down
+to the 16s once the ring is on the card, only inside it, and over its 8 outermost cells the 16s give way to the 32s.
+- **Every 32 is exactly its eight 16s added:** 163,840 cells of 32 over five regions (the spawn's, a mountain's, the
+  sea's, two at the map's edge). *Met.*
+- **With the ring off** (`INCUS_FAR_RING=0`) the picture is byte for byte build 167's at all five marks. *Met.*
+- **With it on, Builder's look:** skylines and near slopes crisper at the spawn, the plain and the sea; at David's
+  first spot (the mountainside) the big star-shaped facets give way to ones half the size and the sky's edge is
+  sharper. No hole anywhere, no line at the ring's edge. (Pairs in the scratchpad's `pictures/ring pair ….png` and
+  `ring first spot without and with.png`.)
+- **A ring that has moved draws byte for byte what a ring made in place draws** (the spawn and the sea; a short move
+  of 300 and 200 blocks, where most bricks stay, and a far one of 1,500 and 900, where none do): the moving, the
+  places given back and taken again, and the textures' borrowing across bricks all hold. *Met.*
+- **The maker's time:** the first ring 2.3 to 3.6 s while the world is loading (every thread busy summing regions),
+  where Builder guessed half a second: *missed*, though off the frame. A short move 0.06 to 0.12 s; a far jump 0.5
+  to 0.8 s. The ring holds 340 bricks over the sea to 620 in the hills.
+- **Not known yet:** the card's time and memory (its flight, the ring on against off), and how it looks moving
+  (David's look). The march has gained code that every ray passes (a row picked for each level, the finest level
+  read from the camera, the ring's test), and today's lesson is that such code costs even when it does nothing: the
+  ring-off flight against build 167 prices that on its own.
+- **Written down, not mended** (a shading flaw, by David's rule): inside the ring the light is still the 32s' column
+  light. The ring's own light comes with the 8s, 4s and 2s.

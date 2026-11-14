@@ -172,7 +172,11 @@ impl Runner {
             let near = self.marks.get(self.first_mark).map_or([0.0, 0.0], |mark| mark.at);
             let threads = std::thread::available_parallelism().map_or(2, |n| n.get()).saturating_sub(2).max(1);
             let lane = crate::far::Lane::start(crate::doorway::test_world(), near, threads).map_err(|error| log::error!("The far cells couldn't be summed: {error}")).ok();
-            FarEye::new(&card.device, card.config.format, store, lane)
+            // The ring of 16s round the eye, its maker on a thread of its own (none with `INCUS_FAR_RING=0`).
+            let ring = (std::env::var("INCUS_FAR_RING").as_deref() != Ok("0"))
+                .then(|| crate::far_ring::Ring::start(crate::doorway::test_world(), store.levels[crate::bricks::row(crate::bricks::RING_LEVEL)], store.kept.side()).map_err(|error| log::error!("The far ring couldn't be started: {error}")).ok())
+                .flatten();
+            FarEye::new(&card.device, card.config.format, store, lane, ring)
         });
         self.running = Some(Running { window, card, card_clock, egui_ctx, egui_state, egui_renderer, to_free: Vec::new(), refresh, far, memory: None, memory_at: None });
     }
@@ -262,7 +266,7 @@ impl Runner {
                 PassId::HandingTheCardItsWork => self.handing_the_card_its_work(&mut work),
                 PassId::ShowingIt => self.showing_it(&mut work),
                 PassId::Measuring => self.measuring(&mut work, event_loop),
-                PassId::HearingTheWindow | PassId::TheDoorway | PassId::SummingTheFarCells | PassId::MakingTheFarTextures | PassId::MakingTheFarLight | PassId::ReadingTheTemperatures => unreachable!("{} isn't one of the frame's passes", pass.name),
+                PassId::HearingTheWindow | PassId::TheDoorway | PassId::SummingTheFarCells | PassId::MakingTheFarTextures | PassId::MakingTheFarLight | PassId::MakingTheFarRing | PassId::ReadingTheTemperatures => unreachable!("{} isn't one of the frame's passes", pass.name),
             };
             self.timed(pass.id, started);
             if !carry_on {

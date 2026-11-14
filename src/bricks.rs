@@ -1,6 +1,7 @@
 //! The far bricks (plan 2.2, step 2): the far cells on the card, for the far eye to read.
 //!
-//! Each level (cells of 32 up to 65,536) is laid over the whole map:
+//! The cells of 16 are kept only in a ring round the eye (`far_ring.rs`: its level sits after the others here, its
+//! least column moving with the eye). Each level over them (cells of 32 up to 65,536) is laid over the whole map:
 //! - **Each cell column's band** (`entries`): its lowest kept cell and how many, as old kept it, or "not summed yet".
 //!   Below the band every cell is solid with no face, above it empty (`far::CellColumn`).
 //! - **The cells of the bands, in bricks** (`pool`): a brick is 8 × 8 cell columns, 8 cells tall, where the level is
@@ -25,6 +26,26 @@ pub const TOP: usize = 16;
 pub const LEVELS: usize = TOP - FIRST + 1;
 /// Numbers a level takes in the card's table (`far.wgsl`'s `level_*`).
 pub const TABLE: usize = 12;
+/// The ring's level: cells of 16, kept round the eye only (laid over the whole map their bands alone would be 85 MB,
+/// the 2s' 5 GB).
+pub const RING_LEVEL: usize = 4;
+/// The ring's cell columns a side (old's: its live levels were 128 cells a side, so the 16s reach 1,024 blocks).
+pub const RING: i32 = 128;
+
+/// A level's place among a store's levels and its row in the card's table (`far.wgsl`'s `table`): the levels laid over
+/// the map first, then the ring's.
+pub fn row(level: usize) -> usize {
+    if level >= FIRST { level - FIRST } else { LEVELS + (FIRST - 1 - level) }
+}
+
+/// The ring's level, its bands and bricks' places kept from `entries_at` and `index_at`. Its least column is the
+/// ring's on the card (`Store::ring_switch`).
+pub fn ring_level(height: i32, side: i32, entries_at: u32, index_at: u32) -> Level {
+    let size = 1 << RING_LEVEL;
+    let up = (height + size - 1) / size;
+    let tall = side.min(up);
+    Level { level: RING_LEVEL, from: [0, 0], across: RING, up, wide: side, tall, bricks: RING / side, bricks_up: (up + tall - 1) / tall, entries_at, index_at }
+}
 /// A column not summed yet.
 pub const NOT_SUMMED: u32 = 0xFFFF_0000;
 /// No brick at a place in the index.
@@ -128,7 +149,10 @@ pub fn levels(regions: ([i32; 2], i32), height: i32, side: i32) -> Vec<Level> {
 pub fn table(levels: &[Level]) -> Vec<i32> {
     // The last: where the level's columns sit in the far light's pictures (`far_light::layout`), north in the low 16
     // bits and east above them.
-    let (lit_at, _) = crate::far_light::layout(levels);
+    // (The ring's level has no place there yet: its light is read from the 32s'.)
+    let whole = &levels[..levels.len().min(LEVELS)];
+    let (mut lit_at, _) = crate::far_light::layout(whole);
+    lit_at.resize(levels.len(), [0, 0]);
     let table: Vec<i32> = levels
         .iter()
         .zip(&lit_at)
@@ -269,34 +293,46 @@ pub struct Store {
     /// default 8 storage buffers, not 9), from `flags_at` words in.
     flags: Vec<u32>,
     flags_at: u64,
+    /// Places in the index, the ring's included (the atlas keeps a slot for each).
+    pub index_count: u64,
+    /// The ring's bricks' places in the pool given back.
+    ring_free: Vec<u64>,
 }
 
 impl Store {
     pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, regions: ([i32; 2], i32), height: i32, side: i32, window: i32) -> Self {
-        let levels = levels(regions, height, side);
-        let table = table(&levels);
+        let mut levels = levels(regions, height, side);
         let entries_count = levels.last().map_or(0, |l| l.entries_at + (l.across * l.across) as u32) as u64;
-        let index_count = levels.last().map_or(0, |l| l.index_at + (l.bricks * l.bricks * l.bricks_up) as u32) as u64;
+        let whole_index = levels.last().map_or(0, |l| l.index_at + (l.bricks * l.bricks * l.bricks_up) as u32) as u64;
+        // The cells kept for the atlas and the far light are the whole-map levels'; the ring's level comes after them,
+        // its bands after the window's flags.
+        let kept = Arc::new(crate::atlas::Kept::new(&levels));
+        let flag_words = WINDOWED as u64 * (regions.1 * regions.1) as u64;
+        let ring = ring_level(height, side, (entries_count + flag_words) as u32, whole_index as u32);
+        let ring_entries = (ring.across * ring.across) as u64;
+        let index_count = whole_index + (ring.bricks * ring.bricks * ring.bricks_up) as u64;
+        levels.push(ring);
+        let table = table(&levels);
         let storage = |label: &str, size: u64| device.create_buffer(&wgpu::BufferDescriptor { label: Some(label), size: size.max(16), usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::COPY_SRC, mapped_at_creation: false });
         let table_buffer = storage("the far levels", table.len() as u64 * 4);
         queue.write_buffer(&table_buffer, 0, &table.iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
         let window = (window > 0).then_some([window, window * 2]);
         let flags = vec![u32::from(window.is_none()); WINDOWED * (regions.1 * regions.1) as usize];
-        let entries = storage("the far bands, then the window's usable regions", (entries_count + flags.len() as u64) * 4);
+        let entries = storage("the far bands, then the window's usable regions, then the ring's bands", (entries_count + flags.len() as u64 + ring_entries) * 4);
         queue.write_buffer(&entries, 0, &NOT_SUMMED.to_le_bytes().repeat(entries_count as usize));
         queue.write_buffer(&entries, entries_count * 4, &flags.iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
+        queue.write_buffer(&entries, (entries_count + flags.len() as u64) * 4, &NOT_SUMMED.to_le_bytes().repeat(ring_entries as usize));
         let index = storage("the far bricks' index", index_count * 4);
         queue.write_buffer(&index, 0, &NO_BRICK.to_le_bytes().repeat(index_count as usize));
         let pool = storage("the far bricks", FIRST_POOL * CELL_BYTES);
         log::info!(
             "The far bricks: {} levels, bricks of {side}, {:.1} MB of bands and {:.1} MB of index on the card; the pool {} MB to start; {}",
             levels.len(),
-            (entries_count * 4) as f64 / 1e6,
+            ((entries_count + ring_entries) * 4) as f64 / 1e6,
             (index_count * 4) as f64 / 1e6,
             (FIRST_POOL * CELL_BYTES) >> 20,
             window.map_or("the whole world on the card".to_string(), |w| format!("the 32s within {} regions of the eye, the 64s within {}", w[0], w[1]))
         );
-        let kept = Arc::new(crate::atlas::Kept::new(&levels));
         Self {
             side,
             kept,
@@ -321,6 +357,8 @@ impl Store {
             behind: 0,
             flags,
             flags_at: entries_count,
+            index_count,
+            ring_free: Vec::new(),
         }
     }
 
@@ -331,7 +369,8 @@ impl Store {
 
     /// The pool's bytes in use (its places given back not counted), and its size.
     pub fn pool_bytes(&self) -> (u64, u64) {
-        let given_back: u64 = self.free.iter().enumerate().map(|(k, free)| free.len() as u64 * self.levels[k].brick_cells() as u64).sum();
+        let given_back: u64 = self.free.iter().enumerate().map(|(k, free)| free.len() as u64 * self.levels[k].brick_cells() as u64).sum::<u64>()
+            + self.ring_free.len() as u64 * self.levels[row(RING_LEVEL)].brick_cells() as u64;
         ((self.used - given_back) * CELL_BYTES, self.capacity * CELL_BYTES)
     }
 
@@ -415,6 +454,40 @@ impl Store {
             self.put_upper(device, queue, level, parent);
             place = parent;
         }
+    }
+
+    /// A ring brick's cells put in the pool (in a place given back, if there is one): where they start. Nothing reads
+    /// them till the ring is moved over (`ring_switch`).
+    pub fn ring_cells(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, cells: &[Cell]) -> u64 {
+        let count = cells.len() as u64;
+        let start = match self.ring_free.pop() {
+            Some(start) => start,
+            None => {
+                self.reserve(device, queue, count);
+                self.used += count;
+                self.used - count
+            }
+        };
+        queue.write_buffer(&self.pool, start * CELL_BYTES, &cells.iter().flat_map(cell_bytes).collect::<Vec<u8>>());
+        self.bricks += 1;
+        start
+    }
+
+    /// A ring brick's place in the pool given back.
+    pub fn ring_release(&mut self, start: u64) {
+        self.ring_free.push(start);
+        self.bricks -= 1;
+    }
+
+    /// The ring moved over, all at once: its level's least column, its bands (north fastest from there) and its
+    /// bricks' places in the pool (by their places in its part of the index, `NO_BRICK` none).
+    pub fn ring_switch(&mut self, queue: &wgpu::Queue, from: [i32; 2], entries: &[u32], index: &[u32]) {
+        let at = row(RING_LEVEL);
+        self.levels[at].from = from;
+        let level = self.levels[at];
+        queue.write_buffer(&self.table, 0, &table(&self.levels).iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
+        queue.write_buffer(&self.entries, level.entries_at as u64 * 4, &entries.iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
+        queue.write_buffer(&self.index, level.index_at as u64 * 4, &index.iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
     }
 
     /// A column at `level` (1,024 or over), for the level over it: as it is if it's in, empty if it's outside the

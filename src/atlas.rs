@@ -42,11 +42,17 @@ impl Kept {
         self.levels.iter().map(|l| l.wide.max(l.tall)).max().unwrap_or(1) as u32 + 1
     }
 
+    /// Where a level is among those kept (they run on from the first, a level each).
+    pub fn at(&self, level: usize) -> usize {
+        level - self.levels[0].level
+    }
+
     /// A column's entry and band kept.
     pub fn keep(&mut self, level: usize, cx: i32, cy: i32, entry: u32, cells: Vec<Cell>) {
-        let l = &self.levels[level - crate::far::FIRST];
+        let k = self.at(level);
+        let l = &self.levels[k];
         if let Some(at) = l.entry(cx, cy) {
-            self.columns[level - crate::far::FIRST][(at - l.entries_at) as usize] = (entry, cells);
+            self.columns[k][(at - l.entries_at) as usize] = (entry, cells);
         }
     }
 }
@@ -188,7 +194,7 @@ fn bricks(kept: &Kept) -> Vec<Brick> {
     let mut list = Vec::new();
     for l in &kept.levels {
         let mut marked = vec![false; (l.bricks * l.bricks * l.bricks_up) as usize];
-        for (at, (entry, _)) in kept.columns[l.level - crate::far::FIRST].iter().enumerate() {
+        for (at, (entry, _)) in kept.columns[kept.at(l.level)].iter().enumerate() {
             if *entry == NOT_SUMMED {
                 continue;
             }
@@ -218,7 +224,7 @@ const ROCK: [f32; 3] = [0.25, 0.24, 0.22];
 /// A brick's looks and `BORROW` cells more on every side (x fastest, then y, then z): `side + 2 * BORROW` a side, the
 /// brick's own first cell at `BORROW` each way. `side` holds its border, the next cells over.
 fn texels(kept: &Kept, brick: &Brick, side: u32, out: &mut Vec<Look>) {
-    let l = &kept.levels[brick.level - crate::far::FIRST];
+    let l = &kept.levels[kept.at(brick.level)];
     let (from, to) = (-BORROW, side as i32 + BORROW);
     let w = (to - from) as usize;
     out.clear();
@@ -228,7 +234,7 @@ fn texels(kept: &Kept, brick: &Brick, side: u32, out: &mut Vec<Look>) {
     for j in from..to {
         for i in from..to {
             let Some(at) = l.entry(brick.origin[0] + i, brick.origin[1] + j) else { continue };
-            let (entry, cells) = &kept.columns[l.level - crate::far::FIRST][(at - l.entries_at) as usize];
+            let (entry, cells) = &kept.columns[kept.at(l.level)][(at - l.entries_at) as usize];
             if *entry == NOT_SUMMED {
                 continue;
             }
@@ -251,7 +257,7 @@ fn texels(kept: &Kept, brick: &Brick, side: u32, out: &mut Vec<Look>) {
 /// A thread's working room for making bricks, used again for each brick (made afresh for every brick, the threads
 /// waited on one another for memory: 3.9 s of making for the whole world, build 166's first try).
 #[derive(Default)]
-struct Bench {
+pub struct Bench {
     /// The looks round the brick (`texels`).
     wide: Vec<Look>,
     /// Each of those cells' source (its index in `wide`; `NO_SOURCE` none near), that source's place in the world's
@@ -362,7 +368,7 @@ fn spread(wide: &[Look], side: u32, origin: [i32; 3]) -> Vec<Look> {
 
 /// A brick's four textures' bytes (`side` texels a side, x fastest, then y, then z): how solid and how watery as they
 /// are, and the colour and faces the spread way.
-fn brick_bytes(kept: &Kept, brick: &Brick, side: u32, bench: &mut Bench) -> [Vec<u8>; 4] {
+pub fn brick_bytes(kept: &Kept, brick: &Brick, side: u32, bench: &mut Bench) -> [Vec<u8>; 4] {
     texels(kept, brick, side, &mut bench.wide);
     borrow(bench, side, brick.origin);
     let (side, w) = (side as i32, side as i32 + 2 * BORROW);
@@ -403,7 +409,7 @@ fn in_parallel<T: Sync, R: Send>(items: &[T], f: impl Fn(&mut Bench, &T) -> R + 
 /// Builds the atlas from what's kept and sends it to the card, an atlas layer (64 × 64 bricks) at a time: the bricks
 /// `keep` says (with a window, the coarse levels' and the window's as it is), with a quarter again of room and a layer
 /// besides for the window's moves.
-pub fn build(device: &wgpu::Device, queue: &wgpu::Queue, kept: &Kept, keep: impl Fn(&Brick) -> bool) -> Atlas {
+pub fn build(device: &wgpu::Device, queue: &wgpu::Queue, kept: &Kept, places: usize, keep: impl Fn(&Brick) -> bool) -> Atlas {
     let started = std::time::Instant::now();
     let list: Vec<Brick> = bricks(kept).into_iter().filter(|b| keep(b)).collect();
     let per_layer = (ACROSS * ACROSS) as usize;
@@ -413,7 +419,8 @@ pub fn build(device: &wgpu::Device, queue: &wgpu::Queue, kept: &Kept, keep: impl
     let size = [ACROSS * side, ACROSS * side, layers * side];
     let made = textures(device, size);
     let texels_a_layer = (size[0] * size[1] * side) as usize;
-    let mut slots = vec![NO_SLOT; kept.levels.last().map_or(0, |l| (l.index_at + (l.bricks * l.bricks * l.bricks_up) as u32) as usize)];
+    // A slot for every place in the bricks' index (`places`: the ring's after the kept levels').
+    let mut slots = vec![NO_SLOT; places];
     // Where the time goes, for the log: the bricks made, laid into their layers, and sent.
     let (mut making, mut laying, mut sending) = (0.0f32, 0.0f32, 0.0f32);
     for (layer, chunk) in list.chunks(per_layer).enumerate() {
@@ -479,30 +486,50 @@ impl Atlas {
         let side = self.side;
         let mut bench = Bench::default();
         for brick in bricks {
-            let s = match self.free.pop() {
-                Some(s) => s,
-                None => {
-                    if self.made == self.capacity {
-                        self.grow(device, queue);
-                    }
-                    self.made += 1;
-                    slot(self.made - 1)
-                }
-            };
             let bytes = brick_bytes(kept, brick, side, &mut bench);
-            let origin = wgpu::Origin3d { x: (s & 0xFF) * side, y: ((s >> 8) & 0xFF) * side, z: (s >> 16) * side };
-            for (texture, b) in self.textures.iter().zip(&bytes) {
-                queue.write_texture(
-                    wgpu::TexelCopyTextureInfo { texture, mip_level: 0, origin, aspect: wgpu::TextureAspect::All },
-                    b,
-                    wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(side * 4), rows_per_image: Some(side) },
-                    wgpu::Extent3d { width: side, height: side, depth_or_array_layers: side },
-                );
-            }
+            let s = self.prepare(device, queue, &bytes);
             self.slot_of[brick.place as usize] = s;
             queue.write_buffer(&self.slots, brick.place as u64 * 4, &s.to_le_bytes());
-            self.bricks += 1;
         }
+    }
+
+    /// A brick's four textures' bytes (`brick_bytes`' own) put in a slot, one given back if there is one, a new one if
+    /// not (the atlas grown first if it's full): the slot. Nothing reads it till it's placed (`place`).
+    pub fn prepare(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, bytes: &[Vec<u8>; 4]) -> u32 {
+        let side = self.side;
+        let s = match self.free.pop() {
+            Some(s) => s,
+            None => {
+                if self.made == self.capacity {
+                    self.grow(device, queue);
+                }
+                self.made += 1;
+                slot(self.made - 1)
+            }
+        };
+        let origin = wgpu::Origin3d { x: (s & 0xFF) * side, y: ((s >> 8) & 0xFF) * side, z: (s >> 16) * side };
+        for (texture, b) in self.textures.iter().zip(bytes) {
+            queue.write_texture(
+                wgpu::TexelCopyTextureInfo { texture, mip_level: 0, origin, aspect: wgpu::TextureAspect::All },
+                b,
+                wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(side * 4), rows_per_image: Some(side) },
+                wgpu::Extent3d { width: side, height: side, depth_or_array_layers: side },
+            );
+        }
+        self.bricks += 1;
+        s
+    }
+
+    /// Slots written over a run of places in the index, all at once (`NO_SLOT` none there): the ring's, moved over.
+    pub fn place(&mut self, queue: &wgpu::Queue, first: u32, slots: &[u32]) {
+        self.slot_of[first as usize..first as usize + slots.len()].copy_from_slice(slots);
+        queue.write_buffer(&self.slots, first as u64 * 4, &slots.iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
+    }
+
+    /// A slot given back (a brick prepared, and now gone).
+    pub fn release(&mut self, s: u32) {
+        self.free.push(s);
+        self.bricks -= 1;
     }
 
     /// Bricks the window left, given back: their slots kept for the next to come. The card's slots for those places
@@ -744,7 +771,7 @@ fn test_blends(@builtin(global_invocation_id) id: vec3<u32>) {
             }
         }
         store.follow(&device, &queue, [512.0, 512.0], f32::INFINITY);
-        let atlas = build(&device, &queue, &store.kept, |_| true);
+        let atlas = build(&device, &queue, &store.kept, store.index_count as usize, |_| true);
         // The points: in the nine regions, near each column's band (where blends mix most), at every level from 32 to
         // 1,024, scattered through each cell.
         let mut points: Vec<[f32; 4]> = Vec::new();
@@ -770,7 +797,7 @@ fn test_blends(@builtin(global_invocation_id) id: vec3<u32>) {
         let source = format!("{}\n{}", include_str!("far.wgsl"), KERNEL);
         let module = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some("change 1's test"), source: wgpu::ShaderSource::Wgsl(source.into()) });
         let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("change 1's test"), layout: None, module: &module, entry_point: Some("test_blends"), compilation_options: Default::default(), cache: None });
-        let camera = device.create_buffer(&wgpu::BufferDescriptor { label: Some("a test camera"), size: 19 * 16, usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
+        let camera = device.create_buffer(&wgpu::BufferDescriptor { label: Some("a test camera"), size: 20 * 16, usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let mut numbers = vec![0f32; 18 * 4];
         numbers[16 * 4..16 * 4 + 3].copy_from_slice(&atlas.size.map(|v| v as f32));
         numbers[16 * 4 + 3] = atlas.side as f32;
