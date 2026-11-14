@@ -3276,3 +3276,44 @@ regions, not bricks).
   most).
 - **The textures made and sent in 0.8 s** for the whole world (0.6 before). All 28 tests pass.
 - Not flown: the ring's flights (on against off) price builds 168 to 170 together; the march is build 168's.
+
+### Build 170 flown: the 16s' ring on and off (2026-11-14, 14:54 and 15:01, hands off)
+
+David: "sweet, good work. go ahead with your flights."; told before take-off. One screen, on mains, the card idle
+beforehand; neither flight starved. Reports `logs/flight-1794690079` (the ring on, the default) and `-1794690468`
+(`INCUS_FAR_RING=0`), beside build 167's (`-1794683091`). The card's whole, ms, median and 99th:
+
+| mark | 167 | 170, ring off | 170, ring on | the ring on, against 167 |
+|---|---|---|---|---|
+| the spawn | 0.291, 0.300 | 0.289, 0.297 | 0.380, 0.385 | 31% more |
+| the mountain top | 1.030, 1.097 | 1.051, 1.078 | 1.086, 1.117 | 5% more |
+| the bare plain | 0.766, 0.786 | 0.785, 0.804 | 0.526, 0.538 | 31% less |
+| high over the spawn | 0.816, 0.841 | 0.834, 0.859 | 0.914, 0.986 | 12% more |
+| low over the sea | 1.138, 1.180 | 1.166, 1.211 | 1.346, 1.401 | 18% more |
+| a player's run | 1.123, 1.325 | 1.156, 1.365 | 1.254, 1.388 | 12% more |
+| fast across the world | 0.783, 1.022 | 0.800, 1.039 | 0.829, 1.124 | 6% more |
+| the plain, nodding | 0.763, 0.817 | 0.782, 0.835 | 0.564, 0.610 | 26% less |
+| the sea, nodding | 1.043, 1.320 | 1.065, 1.358 | 1.296, 1.574 | 24% more |
+
+- **The pass mark's guesses, most of them missed.** The far-looking marks "within 2%": the mountain top 5% more,
+  high over the spawn 12%, the sea 18%. The ground marks "5 to 15% dearer": the run 12% (in it), the spawn 31%
+  (over it), the plain 31% *less* (the other way). "Under 30 MB on the card": met, and better, nothing more at all
+  (1,015 MB in use with the ring and without: its bricks fit in room the pool and the textures already held).
+- **Why, from the rays' counts.** At the spawn the 4 x 4 layer marches where it had nothing to do (its longest ray
+  106 steps, none before): near land is now finer than its pixels, so it's worth it; that's the sharper picture
+  being drawn. Over the sea more rays run long (544 of the 8 x 8's over 256 steps against 417; 276 of the 4 x 4's
+  over 512 against 88). On the plain fewer do (130 over 256 against 272), the cells' bands hugging flat ground
+  twice as close.
+- **The ring off costs 2 to 3% over build 167** at every mark but the spawn: the march's new code, paid without
+  the ring. The lesson a third time today. It's the ring's own code, so it goes only if the ring does.
+- **David's bar:** every median at or under 1.35 ms and every 99th at or under 1.57 with the ring on. One frame over
+  2 ms: 2.24 at high over the spawn (that mark's 99th 0.99; the frame clock's worst 4.6 ms there, the hottest core
+  at 104 degrees), not explained.
+- **A thing to watch:** over the sea with the ring on, the 4 x 4's longest ray reaches the most steps a ray may take
+  (768; 668 without the ring). Rays cut short would show as sky at the sea's far edge; the sea's picture drawn at
+  the flight's size shows none. Flagged for the 8s, where rays near the eye take smaller steps still.
+- **Moving:** the frame's 99th on the run 2.03 ms (build 167: 2.06). Fast across the world 4.87 against 4.08, but
+  4.82 with the ring off too: not the ring. Putting the far cells on the card there is a fifth dearer at the 99th
+  (4.3 and 4.2 ms against 3.5) in both flights: build 170's bricks by region, most likely (each region the window
+  brings now looks round each of its bricks); one flight each, so said with that weight.
+- **The maker kept up:** 367 moves in the flight, the last ring made in 0.47 s (after a mark's jump).

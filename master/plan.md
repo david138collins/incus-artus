@@ -53,10 +53,10 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** fourteen minutes hands off for the ring's flights (build 170: the 16s' ring on against
-  off). His look at the ring is met ("looks good"; the square he saw from above mended, build 169: "i think you got
-  it"); the same flaw mended in the 32s and up (build 170: 3% more bricks, nothing more on the card, not the 160 MB
-  Builder had estimated). Behind us today: his look at the
+- **Waiting on David:** his word on going on to the 8s (Builder's advice: the 8s alone next, flown, before the 4s and
+  2s). The 16s' ring is flown (build 170): nothing more on the card; on the card's time 31% more at the spawn, 18%
+  at the sea, 12% on the run and high over the spawn, 31% less on the plain; every 99th at or under 1.57 ms; the
+  ring's code costs 2 to 3% even with the ring off. Behind us today: his look at the
   rings met ("i can't see any rings"; a longer hand-over saved for his polish list); the blocks "go away mostly with
   the hardware blend, after it loads in"; the rock switch cut and the textures sound (build 167, flown). The gate's
   line owes only the Intel card's numbers; the skyline look, talked through with Builder first (haze or cover), after
