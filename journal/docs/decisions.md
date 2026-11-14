@@ -1940,6 +1940,14 @@ Reference: `Art/quartile minecraft illustration.png`
           soundness, not a look. At load 0.6 s for the whole world, after a first try that took 4.4 s (written up
           in the open). Owed: fourteen minutes hands off for two flights, the new default against the old way, which
           also gives the mountain top its clean 99th.
+        - *Flown on his "go ahead", hands off* (`logs/flight-1794681652` off, `-1794682043` on; checked by Counsel):
+          the rock switch off against on, the same (medians within 0.3%). **A miss, said in the open:** both 1.2 to
+          3.6% dearer than build 163 at the standing marks, in the march alone; the one change to the march since is
+          the flag's own compare, paid ticked or not (Builder had guessed nothing either way); not proven until a
+          build without it flies. Good in the same flights: the mountain top's 99th clean, 1.09 (1.23 disturbed),
+          no frame over 1.8 ms; bricks brought as the eye moves no dearer with the wider borrowing; the textures made
+          and sent in 0.5 s (3.8 s in build 163's flight). Builder asks him next for his word to cut the checkbox
+          (his control), then one hands-off flight to show the march gets it back.
     - **[LATER] The vanishing sea line:** at a 4 base, the thin blue line of sea on the horizon low over the sea isn't
       there. David watched: "i didnt notice anything". Cause unknown after three tries (not the step limit, not the
       sky's weight, not the map's edge); to be found before a finer base is ever kept.
