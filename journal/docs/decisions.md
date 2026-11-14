@@ -1777,6 +1777,9 @@ Reference: `Art/quartile minecraft illustration.png`
   - **[OPEN] The same flaw in the 32s and up**, wherever land crosses a brick's floor (every 256 blocks up at the
     32s): mending it wants about a third more bricks in the textures, some 160 MB by Builder's estimate, put to
     David as a memory call.
+    - **[DECIDED 2026-11-14] Mend it** (David, to Builder): "yeah 160mb is no biggie. go ahead and launch". Builder's
+      next build once he's closed the game, the real figure measured and its pass mark written first. Build 169
+      launched for his look meanwhile.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
