@@ -1744,6 +1744,10 @@ Reference: `Art/quartile minecraft illustration.png`
         section looks nice when i pull it down, but its slower, so i'll save that for last." The gate's line now owes
         only the Intel card's numbers (next time Optimus is on); a longer hand-over goes on his polish list, priced
         when he takes it up.
+      - **His look at the initial blend** (to Builder): first, "i couldn't tell the difference but noticed i couldn't
+        press back after i hit initial blend, except by default" (the far blend's choice sticks while the textures
+        load); then "ah yes. the blocks go away mostly with the hardware blend, after it loads in. you don't need to
+        do anything with it." So the sticking stays as it is, on his word.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
