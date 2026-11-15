@@ -435,8 +435,8 @@ impl FarEye {
             let loaded_module = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some("the far eye, once the textures are in"), source: wgpu::ShaderSource::Wgsl(loaded_source.into()) });
             one_loaded = Some(device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("march_all"), layout: Some(&pipeline_layout), module: &loaded_module, entry_point: Some("march_all"), compilation_options: Default::default(), cache: None }));
             // The audit's variants, if asked: the same layout, each its own module and its own name.
-            if std::env::var("INCUS_FAR_AUDIT").is_ok_and(|asked| asked != "0") {
-                for (name, text) in audit_variants(far_source.as_str()) {
+            if let Some(batch) = std::env::var("INCUS_FAR_AUDIT").ok().and_then(|asked| asked.parse::<u32>().ok()).filter(|batch| *batch >= 1) {
+                for (name, text) in audit_variants(far_source.as_str(), batch) {
                     let source = one_source(&text).replace("fn march_all(", &format!("fn {name}("));
                     let module = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some(name), source: wgpu::ShaderSource::Wgsl(source.into()) });
                     audit.push((name, device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some(name), layout: Some(&pipeline_layout), module: &module, entry_point: Some(name), compilation_options: Default::default(), cache: None })));
@@ -1092,7 +1092,7 @@ fn one_source(whole: &str) -> String {
 /// the march in registers, and what a pass holding only the rest would fit. They draw wrong pictures on purpose
 /// (into scratch). Each change must find its one place in the source: a variant that can't is a panic at start,
 /// under the switch only, and `the_audit_s_variants_are_sound` says so first.
-fn audit_variants(whole: &str) -> Vec<(&'static str, String)> {
+fn audit_variants(whole: &str, batch: u32) -> Vec<(&'static str, String)> {
     let whole = whole.replace("\r\n", "\n");
     // One place changed.
     fn once(text: &str, old: &str, new: &str) -> String {
@@ -1139,6 +1139,31 @@ fn audit_variants(whole: &str) -> Vec<(&'static str, String)> {
     // Where the bricks can't answer, nothing: no blend of eight cells by the code.
     let no_code_blend = |t: &str| once(t, "    if (!LOADED && spot.kind == 1) {\n        return blend(spot.level, p);\n    }\n", "    if (spot.kind == 1) {\n        return empty_look(true);\n    }\n");
     let lean = |t: &str| no_code_blend(&no_views(&no_rings(&two_rows(&no_floor(&no_handover(t))))));
+    // The second batch (`INCUS_FAR_AUDIT=2`), on the march once the textures are in (build 178: 167 registers, nothing
+    // put by in memory, 12 groups): what the hand-over's second read holds at its fullest, and what each thing kept
+    // the whole way holds on top (the floor's cells, the third row, the rings, what the finish needs), alone and with
+    // the hand-over out, to find the fewest that bring it to the 128 at which 16 groups fit. Ceilings: each prices a
+    // part's going, not what would stand in for it (build 178's lesson).
+    if batch == 2 {
+        let loaded = |t: &str| once(t, "const LOADED: bool = false;", "const LOADED: bool = true;");
+        let hand = no_handover(&whole);
+        return vec![
+            ("audit2_whole", loaded(&whole)),
+            ("audit2_no_handover", loaded(&hand)),
+            ("audit2_no_floor", loaded(&no_floor(&whole))),
+            ("audit2_two_rows", loaded(&two_rows(&whole))),
+            ("audit2_no_rings", loaded(&no_rings(&whole))),
+            ("audit2_no_finish", loaded(&no_finish(&whole))),
+            ("audit2_hand_floor", loaded(&no_floor(&hand))),
+            ("audit2_hand_rows", loaded(&two_rows(&hand))),
+            ("audit2_hand_rings", loaded(&no_rings(&hand))),
+            ("audit2_hand_finish", loaded(&no_finish(&hand))),
+            ("audit2_hand_floor_rows", loaded(&two_rows(&no_floor(&hand)))),
+            ("audit2_hand_floor_rings", loaded(&no_rings(&no_floor(&hand)))),
+            ("audit2_lean4", loaded(&no_rings(&two_rows(&no_floor(&hand))))),
+            ("audit2_lean5", loaded(&no_finish(&no_rings(&two_rows(&no_floor(&hand)))))),
+        ];
+    }
     vec![
         ("audit_whole", whole.clone()),
         ("audit_hops", hops(&whole)),
@@ -1168,7 +1193,7 @@ fn kinds_source(source: &str) -> String {
     // Or one of the audit's cut-down versions drawn as the march itself (`FAR_TEST_VARIANT`, its name): to see what a
     // part taken out does to the picture, against the whole march's.
     if let Ok(asked) = std::env::var("FAR_TEST_VARIANT") {
-        return audit_variants(source).into_iter().find(|(name, _)| *name == asked).unwrap_or_else(|| panic!("FAR_TEST_VARIANT={asked} is none of the audit's versions")).1;
+        return (1..=2).flat_map(|batch| audit_variants(source, batch)).find(|(name, _)| *name == asked).unwrap_or_else(|| panic!("FAR_TEST_VARIANT={asked} is none of the audit's versions")).1;
     }
     // Or its steps counted by the level they were taken at (`FAR_TEST_LEVELS`: three levels' numbers, drawn the same
     // way): a level is a doubling of distance, so this is where along a ray its steps lie (for sizing a long ray cut
@@ -1224,8 +1249,8 @@ mod tests {
     /// card), so `INCUS_FAR_AUDIT` can't fail at the game's start.
     #[test]
     fn the_audit_s_variants_are_sound() {
-        let variants = super::audit_variants(include_str!("far.wgsl"));
-        assert!(variants.len() >= 10);
+        let variants: Vec<_> = (1..=2).flat_map(|batch| super::audit_variants(include_str!("far.wgsl"), batch)).collect();
+        assert!(variants.len() >= 20);
         for (name, text) in variants {
             let source = super::one_source(&text).replace("fn march_all(", &format!("fn {name}("));
             let module = wgpu::naga::front::wgsl::parse_str(&source).unwrap_or_else(|error| panic!("{name} doesn't parse: {}", error.emit_to_string(&source)));

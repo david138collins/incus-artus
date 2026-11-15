@@ -4422,3 +4422,40 @@ was still too high.)
 high over the spawn 1.060, the mountain top 1.042, the run 0.976, the plain 0.886, the spawn 0.466.
 
 **Waiting:** David's reading of `march_all`'s row in the mountain top's trace (registers, the groups that fit, Smem).
+
+### Build 178's row, read by David off Nsight's window (the mountain top's trace)
+
+`march_all`, the march once the textures are in: 86% of the samples, **12 groups fit, 167 registers (164 live),
+Smem 0**; its top waits Wait 35%, Long Scoreboard 16%, Selected 15%. Against what was expected: 167 or fewer, met;
+Smem nothing, met; 12 groups still, as said. (The "instructions down by a fifth" can't be read: Nsight's count for
+the same program was 8.53K in one trace and 4.26K in another, so it isn't a count of the program's own length.)
+
+**What the rows so far say about how the card's compiler decides** *[read off the rows, not from NVIDIA]*:
+- It seems to choose a number of groups and put by in memory what won't fit the registers that leaves: 12 groups
+  with up to about 170 registers, 16 with about 128, 28 with about 73, 40 with about 51.
+- So a program's need is its registers and what it puts by (Smem is 4 bytes a word for 64 rays a group): the whole
+  march 168 and 18 put by, 186; with the floor out 178, the third row out 181, the finish out 179, the rings or the
+  views out 186 still; the hand-over out 160; the code's blend out 167; all six out 128 and 3 put by, 131, at which
+  it took 16 groups. Build 178's march: 167 and none.
+- To fit 16 groups the march's need has to come from 167 to about 130.
+
+### Build 179, the audit's second batch: what's expected (written before the trace)
+
+`INCUS_FAR_AUDIT=2`: fourteen versions of the march once the textures are in, to find the fewest things to change
+that bring its need to about 130: the hand-over's second read; and the things kept the whole way (the floor's cells,
+the height table's third row, the rings' boxes, what the finish needs), each alone and each with the hand-over out,
+then four and five together. Ceilings again: each prices a part's going. The first batch stays on
+`INCUS_FAR_AUDIT=1`.
+
+**Expected** *[guesses]*:
+- `audit2_whole`: 167, nothing put by, 12 groups: the control.
+- `audit2_no_handover`: a need of 150 to 160. With the code's blend gone the hand-over's two reads at once should be
+  the fullest place left; if this reads 167 still, the fullest place is somewhere else (the plain read and the
+  gather) and the hand-over isn't the first thing to change.
+- Alone, the floor about 8 less, the third row about 5, the finish about 7; the rings none (as in the first batch).
+- `audit2_lean4` (the hand-over, the floor, the third row and the rings out): about 130, 16 groups, as the first
+  batch's six. Which three, or which two, already get there is the question.
+
+**What it decides:** the order of the pieces after this. If the hand-over out with one other reaches 16 groups,
+those two are next, each needing something to stand in that keeps the picture. If only all four do, the 16 groups
+cost four changes, and the cut of the long rays may be the better next step for the marks that wait.
