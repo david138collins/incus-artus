@@ -5178,3 +5178,57 @@ its last length to the ray's end for a frame or two before its join has cut it a
 newly long rays, the cut's third stage, is the same matter).
 
 **The flights asked for, one session, hands off:** the game as launched (the cut off), then `INCUS_FAR_CUT=384`.
+
+### Build 185 flown (2026-11-15, 14:38 to 14:51, hands off): the packed cut is level where the card works and a third to a half faster where it waits; one keep-or-drop line missed by a hair, and the build itself 4.5% dearer at the two working marks, cut or not
+
+David: "go". Told before take-off; one screen, on mains, the card idle before (7%); no hitch. The game as launched,
+the cut off (`logs/flight-1794775526`), then `INCUS_FAR_CUT=384` (`logs/flight-1794775912`).
+
+| mark | the march uncut, ms | cut | | the far eye's whole uncut | cut | | held, cut over uncut | the strip waiting | the longest chain |
+|---|---|---|---|---|---|---|---|---|---|
+| the spawn | 0.358 | 0.368 | 2.8% more | 0.467 | 0.486 | 4.1% more | 0.1% more | 24% | 153 to 127 |
+| the mountain top | 0.958 | 0.942 | 1.7% less | 1.082 | 1.076 | 0.6% less | level | 28% | 302 to 129 |
+| the bare plain | 0.766 | 0.451 | 41.1% less | 0.877 | 0.572 | 34.8% less | 1.1% more | 40% | 324 to 137 |
+| high over the spawn | 0.975 | 0.986 | 1.1% more | 1.096 | 1.117 | 1.9% more | 0.8% more | 36% | 261 to 127 |
+| low over the sea | 0.973 | 0.530 | 45.5% less | 1.086 | 0.655 | 39.7% less | 3.9% less | 37% | 409 to 132 |
+| a player's run | 0.857 | 0.597 | 30.3% less | 0.975 | 0.729 | 25.2% less | 3.5% more | 35% | 339 to 217 |
+| fast across the world | 0.640 | 0.617 | 3.6% less | 0.768 | 0.750 | 2.3% less | 5.8% more | 40% | 228 to 177 |
+| the plain, nodding | 0.743 | 0.492 | 33.8% less | 0.854 | 0.613 | 28.2% less | 5.6% more | 40% | 347 to 240 |
+| the sea, nodding | 0.918 | 0.563 | 38.7% less | 1.033 | 0.690 | 33.2% less | 1.7% less | 48% | 354 to 248 |
+
+**Against the pass mark:**
+- **Where the card works, the march within 3% of uncut: met** (the mountain top 1.7% less, high over the spawn
+  1.1% more, the spawn 2.8% more). Build 183's cut was 16 to 39% more there. Held thread-steps are level, as off
+  the screen, and the march with them: the reading holds to the end.
+- **The dearest mark with the cut on no dearer than the dearest uncut (1.08 ms): missed, narrowly.** With the cut
+  on the dearest is high over the spawn at 1.117 ms; this session's own uncut dearest is the same mark at 1.096
+  (1.9% under it), and the line's 1.08 was the sea's on build 183's day.
+- The sea's march 0.62 or under: met, 0.530. The plain's 0.40 or under: **missed**, 0.451 (build 183's cut flew
+  0.396). The run and fast across within 3% of uncut or under: met (30.3% and 3.6% less).
+- **By the rule as written** (kept only if the first two lines are met): the second is missed, so by its letter
+  the cut is dropped. Put to David as it is, with what follows.
+
+**What wasn't expected: the build itself is dearer at the two working marks, cut or not.** Its uncut flight
+against build 184's uncut flight of an hour before: the mountain top 0.958 ms for 0.916 (4.6% more), high over the
+spawn 0.975 for 0.934 (4.4% more), fast across 0.640 for 0.623 (2.7% more); every other mark within 0.5%. Only the
+marks that work moved. That is how a march needing more registers shows (fewer groups of rays fit; the marks that
+wait don't feel it: builds 177 to 180), and not how a slow session shows (every mark would move). Builder's
+reading, not seen in a trace: build 185's march carries more than build 184's (a ray's first cuts are worked out
+at the end of the march's own program; where a length began is kept through the march for its stack).
+- If that 4.5% is the program's, it sits under both columns above: with it gone, high over the spawn with the cut
+  on would be about 1.07 ms and the mountain top 1.03, and the second line would be met.
+- And it sits on the game as launched, so it's to be found and mended whether the cut is kept or dropped (dropped,
+  the cut's code goes and the march is build 182's again).
+- For scale, the same two marks over the day's uncut flights: the mountain top 0.934, 0.927, 0.919, 0.916, then
+  0.958; high over the spawn 0.975, 0.980, 0.939, 0.934, then 0.975 (builds 180, 182, 183, 184, 185). Builds 183
+  and 184 were the cheapest there, which may be the same matter the other way (their march carried less).
+
+**Against build 182, the far eye before the cut** (the far eye's whole, ms): the spawn 0.466 to 0.486, the
+mountain top 1.046 to 1.076, the plain 0.886 to 0.572, high over the spawn 1.099 to 1.117, the sea 1.098 to
+0.655, the run 0.981 to 0.729, fast across 0.733 to 0.750, the plain nodding 0.862 to 0.613, the sea nodding
+1.040 to 0.690. Five views a quarter to two fifths faster; four views 2 to 4% slower, the dearest among them.
+At the 99th the worst mark uncut is the sea nodding, 1.308 ms; with the cut on it's fast across, 1.274.
+
+**Moving, the longest chain stays long** (the run 217, the nodding marks 240 and 248): rays newly long march
+whole for a frame, and a ray is cut finer one cut a frame. The march is a quarter to two fifths shorter there all
+the same. That is the cut's third stage, if it's kept.
