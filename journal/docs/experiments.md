@@ -3551,3 +3551,39 @@ two, then its own. `INCUS_FAR_TOPS=0` leaves the true numbers unmade, for flying
 
 **David's look at the height table's pictures** (2026-11-14, the pair at his first spot, before and after): "from
 those pics i cant see anything wrong". Its flights (the table against `INCUS_FAR_TOPS=0`) wait on his go.
+
+### Build 174 flown, the height table on and off (2026-11-14, 19:16 and 19:23, hands off): a mixed result
+
+David, after his look in the game: "it looks great, builder. go ahead". Told before take-off. One screen, on mains,
+not starved; no hitch in either flight's frame clock. Reports `logs/flight-1794705815` (the table, the default)
+and `-1794706206` (`INCUS_FAR_TOPS=0`), beside build 172's whole flight (the same rings, before the table's code).
+The card's whole, median ms:
+
+| mark | 172, before the table | 174, the table's code without its numbers | 174, the table | the table against 172 |
+|---|---|---|---|---|
+| the spawn | 0.429 | 0.471 | 0.499 | 16% more |
+| the mountain top | 1.042 | 1.178 | 1.132 | 9% more |
+| the bare plain | 0.972 | 1.152 | 1.010 | 4% more |
+| high over the spawn | 1.015 | 1.136 | 1.136 | 12% more |
+| low over the sea | 1.401 | 1.676 | 1.158 | 17% less |
+| a player's run | 1.312 | 1.558 | 1.061 | 19% less |
+| fast across the world | 0.891 | 0.933 | 0.760 | 15% less |
+| the plain, nodding | 0.971 | 1.145 | 0.982 | 1% more |
+| the sea, nodding | 1.371 | 1.635 | 1.108 | 19% less |
+
+- **The long rays went, as counted:** the plain's rays over 256 steps 910 to 15 (the longest 531 to 324), the sea's
+  631 to 71 and its 4 x 4's 551 to 132 (its longest no longer at the step limit: 768 to 409), the run's 1,088 to 4.
+- **Where long rays were the cost, the time fell:** the sea, the run and the sea nodding 17 to 19% under build 172
+  (31 to 32% under the same build without the table's numbers). The run is under build 167's, before any ring.
+- **Builder's guess for the plain (0.97 to 0.6 or under) missed, badly: it's 1.01.** And the spawn, the mountain
+  top and high over the spawn, guessed within 5%, are 9 to 16% dearer. Three fifths of the plain's steps went and
+  its time didn't move: so its time wasn't in those hops. A hop was cheap; what the frame pays for there is
+  something else (the samples are as many as before, 416,000).
+- **Why the dearer marks:** the skip's new shape. It tries three columns where it tried two, the biggest first, and
+  a ray near the ground fails all three before it samples. The middle column shows the price alone: the table's
+  code without its numbers is 10 to 20% dearer than build 172 at every mark.
+- **The mend, next:** try the ray's own column first. The table's numbers only grow with the column's size, so a
+  ray that isn't clear of its own column is clear of no bigger one: it samples after one look, where build 172
+  took two. A ray that is clear looks at the bigger ones in turn and takes the longest hop.
+- **On the card:** 1,044 MB in use, 29 MB more (the guess: 28).
+- **Watts, typically** (the new line): 66 to 111 W by mark, the two flights within 2 to 7 W of each other.
