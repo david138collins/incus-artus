@@ -3807,3 +3807,20 @@ code: the step limit (`INCUS_TEST_STEPS`, a number the march is handed). With ra
 mark's time is its longest ray's chain, the plain's march falls by about half and the spawn's (153 steps) doesn't
 move; if it's something else, neither moves. One flight, the picture wrong on purpose (rays cut short), for
 measuring only.
+
+### The step limit at 160, build 176 as it's built: the pass mark (written before the flight)
+
+David: "go". No code changes: `INCUS_TEST_STEPS=160` (the most steps a far ray takes, a number the march is handed;
+768 unset). The picture is wrong on purpose, rays cut short: for measuring only.
+
+**The question:** is a mark's time its longest ray's chain?
+
+**The marks** (the march alone, "the far 8 x 8" line of the report; build 176's beside it):
+- **If it is:** every mark whose longest ray is over 160 steps falls to about what 160 steps take, 0.34 to 0.43 ms
+  by the sum of 2.1 to 2.7 microseconds a step: the plain 0.825 to 0.55 or under, the sea 0.999 to 0.55 or under.
+  And the spawn, whose longest ray is 153 steps, stays within 3% of its 0.357.
+- **If it isn't:** the plain's march stays over 0.74 (less than a tenth off), though its longest ray is cut in half.
+- **Between the two:** partly, and said so.
+- **What could muddy it:** a ray cut short ends without an answer, and the finer layers follow the coarser one's
+  frame before; if cutting rays changes what the finer layers are asked for, their work changes too. The report's
+  longest rays and the 4 x 4's and 2 x 2's lines will show it.
