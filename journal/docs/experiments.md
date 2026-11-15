@@ -5362,3 +5362,49 @@ only the lengths it needs, packed (185); and the march's program has no room to 
   be something to look at"): last read at build 178, 167 registers and 12 groups of rays of 48.
 - The flaw at the map's edge (a ray's last stride past its end, unlooked); the far eye's test not the same run
   to run at full size (up to 6 of 255 at a few rays); the main memory test that failed once.
+
+### Build 188, the scatter stage behind the doorway, and the far cells summed from columns that aren't plain ground: the pass mark (written before the code)
+
+David's look at build 187, the cut on (2026-11-15): "Builder, all of us are doing something wonderful together. it
+is alarmingly fast and looks really nice. i think we're going to have room for people with stronger systems to bump
+up the resolution of the march and stuff. lets keep going. whats next?" (No flicker at the horizon named: taken as
+his look at the cut given.) Asked where the wood should go and what its trees are made of: "go ahead and take the
+oak.png if you want, it won't matter much; you did a good job picking blocks for pretend last time. i think the
+things we'd want to be checking are large arched entranches to mountain halls, castles with walls and towers,
+towers in the mountain and on the ground, towns on the ground, forests here and there, random cave mouths here and
+there. its gonna be blurry and just for testing anyways, so go nuts, do whatever you want, have fun." So the
+places, blocks and colours are Builder's to choose; "each placed with David" is lifted for the test detail.
+
+**What was found first:** the far cells are summed from a column's ground, water and profile alone: a height and
+what lies under it. Nothing the far eye draws can stand over air: no overhang, arch or cave; and what's made as
+changes through the doorway (David's build, the scatter's blocks) never reaches the far cells at all (the
+scatter's marks fly at the bare plain's times, to the hair). So the stage needs two things, in this order.
+
+**What's built:**
+1. **The far cells summed from any column:** a column's solid blocks as runs with air between; every face
+   counted against the runs beside it (a solid block's face shows where the block beside it isn't solid, as old's
+   rule has it), under an overhang too. Plain ground keeps its own quick road, untouched: only a column the stage
+   changed, or one beside such a column, goes the new one.
+2. **The scatter stage** (the Oracle's third part, section 7), applied by the doorway as it answers a tile, from a
+   seed and a short list of places; off unless `INCUS_SCATTER_STAGE=1` at launch; an instrument, not world
+   generation. What it makes, by David's list and the Oracle's: woods in patches (trunks and crowns, 4 to 20
+   high), within ten kilometres of the spawn; towers on the plain and in the mountains; a castle with walls,
+   corner towers, a keep and an arched gate; a town; an arched entrance to a hall cut into a mountainside; cave
+   mouths on steep slopes; rows of posts, a slab in the air and a free-standing arch. New blocks, their far
+   colours Builder's picks but the oak's, which is his `oak.png` shrunk to one pixel as old's rule shrinks a
+   texture (32, 14, 6 of 1,023).
+3. **Marks from it** in `data/marks.toml`, one for each kind of thing.
+
+**The marks:**
+- **Off, nothing changes:** the far cells are old's bake, byte for byte (the test that says so); the five
+  marks' pictures are build 187's.
+- **On, the summing is exact,** three ways: (a) over a square that holds a wood, a tower with an overhang, an
+  arch and a carved cave, the cells counted the slow way (every block, every face, one at a time) are the cells
+  the summer makes, to the number; (b) every level is its children added (a 16 its eight 8s, a 32 its eight 16s);
+  (c) plain ground sent down the new road gives the quick road's cells, to the number.
+- **What it costs:** the whole world summed with the stage on in under twice its time off (17 s); the far
+  cells' memory on the card within 15% of off.
+- **Pictures off the screen** at the new marks, looked at by Builder first (does each thing read as itself, at
+  the size the far cells allow), then David's look in the game.
+- **Flights with the stage on:** for information (what detail costs the far eye), once his look is given; no
+  line set.
