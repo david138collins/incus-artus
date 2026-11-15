@@ -221,6 +221,13 @@ pub struct FarEye {
     /// which of the two copies this frame writes; and whether the layers were remade this frame (its lead is then
     /// made in the frame itself: the dispatch run three times).
     one: Option<(wgpu::ComputePipeline, wgpu::BindGroupLayout)>,
+    /// The march once the textures are in (`far.wgsl`'s `LOADED`, true): the one dispatch's second program, without
+    /// the code's blend or the views, which the far eye marches by when `loaded` says so; `one`'s is then the whole
+    /// march (`march_loading`). `INCUS_FAR_LOADED=0` keeps the whole march on (for measuring one against the other).
+    /// And whether the log has said the second has taken over.
+    one_loaded: Option<wgpu::ComputePipeline>,
+    loaded_off: bool,
+    loaded_said: std::sync::atomic::AtomicBool,
     /// The march's audit (`INCUS_FAR_AUDIT`, for measuring): cut-down versions of the march (`audit_variants`), each
     /// compiled beside it under its own name and marched over the base layer into scratch after the far eye, so one
     /// Nsight trace names each one's registers, how many groups of rays fit and its time. Empty unless asked: the
@@ -386,8 +393,15 @@ impl FarEye {
         // The one dispatch: `far.wgsl` with one layer's outputs changed for every layer's (`far_all.wgsl`), and its
         // camera read in place from its layer's row.
         let mut audit = Vec::new();
+        let mut one_loaded = None;
         let one = (std::env::var("INCUS_FAR_SIDE").as_deref() != Ok("0")).then(|| {
             let source = one_source(far_source.as_str());
+            // The two programs from the one text: the whole march under its own name, and the march once the textures
+            // are in, which keeps the name the far eye's march has always had.
+            const WHICH: &str = "const LOADED: bool = false;";
+            assert_eq!(source.matches(WHICH).count(), 1, "far.wgsl says which program it is in one place");
+            let loaded_source = source.replace(WHICH, "const LOADED: bool = true;");
+            let source = source.replace("fn march_all(", "fn march_loading(");
             let module = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some("the far eye, one dispatch"), source: wgpu::ShaderSource::Wgsl(source.into()) });
             let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: Some("the far eye, one dispatch"),
@@ -417,7 +431,9 @@ impl FarEye {
                 ],
             });
             let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor { label: Some("the far eye, one dispatch"), bind_group_layouts: &[Some(&layout)], immediate_size: 0 });
-            let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("march_all"), layout: Some(&pipeline_layout), module: &module, entry_point: Some("march_all"), compilation_options: Default::default(), cache: None });
+            let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("march_loading"), layout: Some(&pipeline_layout), module: &module, entry_point: Some("march_loading"), compilation_options: Default::default(), cache: None });
+            let loaded_module = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some("the far eye, once the textures are in"), source: wgpu::ShaderSource::Wgsl(loaded_source.into()) });
+            one_loaded = Some(device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("march_all"), layout: Some(&pipeline_layout), module: &loaded_module, entry_point: Some("march_all"), compilation_options: Default::default(), cache: None }));
             // The audit's variants, if asked: the same layout, each its own module and its own name.
             if std::env::var("INCUS_FAR_AUDIT").is_ok_and(|asked| asked != "0") {
                 for (name, text) in audit_variants(far_source.as_str()) {
@@ -438,7 +454,7 @@ impl FarEye {
         let tally_counts = LAYERS.iter().map(|_| device.create_buffer(&wgpu::BufferDescriptor { label: Some("a far layer's longest ray"), size: 16, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false })).collect();
         let tally_back = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the longest rays read back"), size: 16 * LAYERS.len() as u64, usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let tally_state = std::sync::Arc::new(std::sync::atomic::AtomicU8::new(0));
-        Self { store, lane, rings, eye: [0.0; 2], start, march, up, layout, up_layout, sampler, targets: None, look, textures, atlas: None, building: None, stand_ins, light: None, lighting: None, sweeping: None, sun_asked, light_stand_ins, blue, blue_bytes, edge, layers, one, audit, parity: 0, fresh: false, haze_step, most_steps, tops_making: None, tops_made: None, tops_off: false, reach, begin, tally, tally_counts, tally_back, tally_state }
+        Self { store, lane, rings, eye: [0.0; 2], start, march, up, layout, up_layout, sampler, targets: None, look, textures, atlas: None, building: None, stand_ins, light: None, lighting: None, sweeping: None, sun_asked, light_stand_ins, blue, blue_bytes, edge, layers, one, one_loaded, loaded_off: std::env::var("INCUS_FAR_LOADED").as_deref() == Ok("0"), loaded_said: std::sync::atomic::AtomicBool::new(false), audit, parity: 0, fresh: false, haze_step, most_steps, tops_making: None, tops_made: None, tops_off: false, reach, begin, tally, tally_counts, tally_back, tally_state }
     }
 
     /// Whether every region is on the card, the window's regions round the eye too, and the far textures if they're made.
@@ -461,6 +477,17 @@ impl FarEye {
     /// Which blends can be chosen now: the code's, the hardware's (once the far textures are in).
     pub fn blends(&self) -> [bool; 2] {
         [true, self.atlas.is_some()]
+    }
+
+    /// Whether the far eye marches by its second program, the march once the textures are in: the hardware's blend
+    /// chosen and its textures in, every ring's bricks' too (a ring's come a little after the atlas, and till then
+    /// only the code's blend can answer for them), and no view on. Otherwise by the whole march.
+    pub fn loaded(&self) -> bool {
+        let loaded = !self.loaded_off && self.one_loaded.is_some() && self.atlas.is_some() && self.look.blend >= 1 && self.look.view == 0 && self.rings.iter().all(|ring| ring.textured());
+        if loaded && !self.loaded_said.swap(true, std::sync::atomic::Ordering::Relaxed) {
+            log::info!("The far eye: marched from here by the march once the textures are in (no code's blend, no views)");
+        }
+        loaded
     }
 
     /// The look's settings a flight's numbers depend on, for its report.
@@ -956,7 +983,7 @@ impl FarEye {
             if k == 0 {
                 let groups_of = |layer: &Layer| (layer.size.0.div_ceil(8), layer.size.1.div_ceil(8));
                 let (base, middle, fine) = (groups_of(&targets.layers[0]), groups_of(&targets.layers[1]), groups_of(&targets.layers[2]));
-                pass.set_pipeline(pipeline);
+                pass.set_pipeline(if self.loaded() { self.one_loaded.as_ref().unwrap_or(pipeline) } else { pipeline });
                 let runs = if self.fresh { 3 } else { 1 };
                 for run in 0..runs {
                     let copy = if (runs - 1 - run) % 2 == 0 { self.parity } else { 1 - self.parity };
@@ -1083,7 +1110,7 @@ fn audit_variants(whole: &str) -> Vec<(&'static str, String)> {
     const SAMPLE: &str = "        // Over the last stretch before the next level takes over";
     const AFTER: &str = "    // Down through the world's floor having gathered";
     const FINISH: &str = "    // Its shadow and sky light only where it shows";
-    const VIEWS: &str = "    if (camera.reach.z > 1.5 && seen.level >= 0) {\n";
+    const VIEWS: &str = "    if (!LOADED && camera.reach.z > 1.5 && seen.level >= 0) {\n";
     const PUT: &str = "    // Kept with its alpha (premultiplied)";
     // A ray stops where it would first sample: the hops alone (what a pass that only crosses clear air would be).
     let hops = |t: &str| cut(t, SAMPLE, AFTER, "        first = t;\n        first_level = level;\n        break;\n    }\n");
@@ -1110,7 +1137,7 @@ fn audit_variants(whole: &str) -> Vec<(&'static str, String)> {
     // Neither of the views (the steps', the levels' with its table of six tints).
     let no_views = |t: &str| cut(t, VIEWS, PUT, "");
     // Where the bricks can't answer, nothing: no blend of eight cells by the code.
-    let no_code_blend = |t: &str| once(t, "    if (spot.kind == 1) {\n        return blend(spot.level, p);\n    }\n", "    if (spot.kind == 1) {\n        return empty_look(true);\n    }\n");
+    let no_code_blend = |t: &str| once(t, "    if (!LOADED && spot.kind == 1) {\n        return blend(spot.level, p);\n    }\n", "    if (spot.kind == 1) {\n        return empty_look(true);\n    }\n");
     let lean = |t: &str| no_code_blend(&no_views(&no_rings(&two_rows(&no_floor(&no_handover(t))))));
     vec![
         ("audit_whole", whole.clone()),

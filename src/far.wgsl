@@ -157,6 +157,13 @@ const WORLD_HEIGHT: f32 = 1024.0;
 // Rock's colour, where a cell shows no surface (inside).
 const ROCK: vec3<f32> = vec3<f32>(0.25, 0.24, 0.22);
 const SKY_TINT: vec3<f32> = vec3<f32>(0.84, 1.01, 1.40);
+// Which of the far eye's two programs this is, fixed when it's built (`far_eye.rs` changes this one line for the
+// second; nothing is switched as a ray marches). False: the whole march, which blends by the code where the bricks'
+// textures can't answer and can draw the views: for while the world loads, with the initial blend chosen, or with a
+// view on. True: the march once the textures are in, which carries neither. [The audit, build 177: the code's blend
+// stood in the march three times over and cost 10 to 14% of the base layer's time, though one step in a thousand
+// takes it; rays march 32 to a group in step, and a slow path one of them takes, the other 31 wait for.]
+const LOADED: bool = false;
 
 // ── The cells ──
 
@@ -404,11 +411,36 @@ fn keep_place(place: ptr<function, Place>, p: vec3<f32>) {
 }
 
 // Where a blend reads (the lean step): not summed (`kind` 0: unknown), by the code's blend at `level` (1: where the
-// bricks can't answer), or at a place in the atlas (2).
+// bricks can't answer; the whole march only), or at a place in the atlas (2). In the march once the textures are in,
+// where the textures can't answer as they stand: still at a place in the atlas (2, with 8 added within half a cell
+// of the world's floor: the lowest cells' place, rock to be mixed in from under; 16 or 32 added one column short of the
+// level on its south or west side: its first column's place, and only that column's share), or just so solid with
+// nothing to show (5: `rock_share`). `look_at` makes the look of each.
 struct Spot {
     kind: i32,
     level: i32,
     at: vec3<f32>,
+}
+
+// For the march once the textures are in, where no texture answers (a brick with none, outside the level, over the
+// world): how solid the blend of the eight cells round there is. A brick has a texture wherever a blend may read a
+// cell of a column's band (`atlas.rs`), so each of these cells is rock under its column's band (or under the world's
+// floor) or nothing: the code's blend's own rule (`from_band`), from the four columns' entries alone. In `at.x` of a
+// spot of kind 5.
+fn rock_share(row: Row, base: vec3<i32>, f: vec3<f32>) -> f32 {
+    var solid = 0.0;
+    for (var n = 0; n < 4; n++) {
+        let entry = entry_in(row, base.x + (n & 1), base.y + (n >> 1));
+        if (entry == NOT_SUMMED || entry == PAST_MAP) {
+            continue;
+        }
+        let low = bitcast<i32>(entry << 16u) >> 16u;
+        let lower = f32(base.z < 0 || (base.z < low && low > 0));
+        let upper = f32(base.z + 1 < 0 || (base.z + 1 < low && low > 0));
+        let w = select(1.0 - f.x, f.x, (n & 1) == 1) * select(1.0 - f.y, f.y, (n >> 1) == 1);
+        solid += w * mix(lower, upper, f.z);
+    }
+    return solid;
 }
 
 // Where the texture hardware's blend of the eight cells round `p` at `level` reads (change 1, the spread way), from
@@ -437,23 +469,41 @@ fn spot_soft(k: ptr<function, Kept>, place: Place, level: i32, p: vec3<f32>) -> 
     }
     let x = base.x - row.least.x;
     let y = base.y - row.least.y;
-    if (x < 0 || y < 0 || base.z < 0 || x >= row.across || y >= row.across || base.z >= (*k).up) {
+    // Within half a cell of the world's floor the cells under are rock, and no texture holds them; and half a cell
+    // short of the level's south or west side the blend's nearer columns are outside it, and hold nothing. The whole
+    // march leaves both to the code's blend. The march once the textures are in reads the texture at the lowest
+    // cells, or the first column, level with their middles, and `look_at` mixes in the rock or leaves out the
+    // columns outside.
+    let under = LOADED && base.z < 0;
+    let short = vec2<bool>(LOADED && x == -1, LOADED && y == -1);
+    if ((x < 0 && !short.x) || (y < 0 && !short.y) || (base.z < 0 && !under) || x >= row.across || y >= row.across || base.z >= (*k).up) {
+        if (LOADED) {
+            return Spot(5, level, vec3<f32>(rock_share(row, base, f), 0.0, 0.0));
+        }
         return Spot(1, level, vec3<f32>(0.0));
     }
     let wide = (*k).wide;
     let tall = (*k).tall;
-    let brick = vec3<i32>(i32(u32(x) >> wide), i32(u32(y) >> wide), i32(u32(base.z) >> tall));
+    let cx = max(x, 0);
+    let cy = max(y, 0);
+    let cz = max(base.z, 0);
+    let brick = vec3<i32>(i32(u32(cx) >> wide), i32(u32(cy) >> wide), i32(u32(cz) >> tall));
     if (any(brick != (*k).brick)) {
         (*k).brick = brick;
         (*k).slot = slots[u32((*k).index_at + (brick.y * (*k).bricks + brick.x) * (*k).bricks_up + brick.z)];
     }
     let slot = (*k).slot;
     if (slot == NO_SLOT) {
+        if (LOADED) {
+            return Spot(5, level, vec3<f32>(rock_share(row, base, f), 0.0, 0.0));
+        }
         return Spot(1, level, vec3<f32>(0.0));
     }
     let origin = vec3<f32>(f32(slot & 0xFFu), f32((slot >> 8u) & 0xFFu), f32(slot >> 16u)) * camera.atlas.w;
-    let local = vec3<f32>(f32(u32(x) & ((1u << wide) - 1u)), f32(u32(y) & ((1u << wide) - 1u)), f32(u32(base.z) & ((1u << tall) - 1u)));
-    return Spot(2, level, (origin + local + f + 0.5) / camera.atlas.xyz);
+    let local = vec3<f32>(f32(u32(cx) & ((1u << wide) - 1u)), f32(u32(cy) & ((1u << wide) - 1u)), f32(u32(cz) & ((1u << tall) - 1u)));
+    let within = vec3<f32>(select(f.x, 0.0, short.x), select(f.y, 0.0, short.y), select(f.z, 0.0, under));
+    let kind = 2 + select(0, 8, under) + select(0, 16, short.x) + select(0, 32, short.y);
+    return Spot(kind, level, (origin + local + within + 0.5) / camera.atlas.xyz);
 }
 
 // A ring fades into the next level over this many of its outermost cells.
@@ -486,7 +536,7 @@ fn spot_kept(k: ptr<function, Kept>, place: Place, level: i32, p: vec3<f32>) -> 
     while (l >= FIRST && l - FIRST < i32(camera.window.x) && (place.usable & (1u << u32(l - FIRST))) == 0u) {
         l += 1;
     }
-    if (camera.layer.w < 0.5) {
+    if (!LOADED && camera.layer.w < 0.5) {
         return Spot(1, l, vec3<f32>(0.0));
     }
     keep_level(k, l);
@@ -529,10 +579,35 @@ fn look_at(spot: Spot, p: vec3<f32>) -> Look {
     if (spot.kind == 0) {
         return empty_look(false);
     }
-    if (spot.kind == 1) {
+    if (!LOADED && spot.kind == 1) {
         return blend(spot.level, p);
     }
-    return look_of(fetch_together(spot.at));
+    if (spot.kind == 5) {
+        // Rock or nothing, inside: no surface to show.
+        var inside = empty_look(true);
+        inside.solid = spot.at.x;
+        inside.colour = ROCK;
+        return inside;
+    }
+    var look = look_of(fetch_together(spot.at));
+    if (spot.kind != 2) {
+        let u = p / f32(1 << u32(spot.level)) - 0.5;
+        let f = u - floor(u);
+        if ((spot.kind & 8) != 0) {
+            // The lowest cells' share of the blend, the rest rock: none of it a cell and a half under the floor, all
+            // of it half a cell over.
+            let lowest = clamp(u.z + 1.0, 0.0, 1.0);
+            look.solid = mix(1.0, look.solid, lowest);
+            look.water *= lowest;
+            look.surface *= lowest;
+        }
+        // The level's first column's share, the rest nothing at all (outside a level there's no floor either).
+        let share = select(1.0, f.x, (spot.kind & 16) != 0) * select(1.0, f.y, (spot.kind & 32) != 0);
+        look.solid *= share;
+        look.water *= share;
+        look.surface *= share;
+    }
+    return look;
 }
 
 // The eight cells round `p` blended, from numbers in hand.
@@ -1237,11 +1312,11 @@ fn march_pixel(id: vec2<u32>) {
         put_worth(id.y * size.x + id.x, u32(round(worth_of(seen.distance, seen.level) * 255.0)));
     }
     var colour = here;
-    if (camera.reach.z > 1.5 && seen.level >= 0) {
+    if (!LOADED && camera.reach.z > 1.5 && seen.level >= 0) {
         // The levels' view: each pixel tinted by the level its surface was read from.
         let tints = array<vec3<f32>, 6>(vec3<f32>(1.0, 0.3, 0.3), vec3<f32>(0.3, 1.0, 0.3), vec3<f32>(0.3, 0.4, 1.0), vec3<f32>(1.0, 1.0, 0.3), vec3<f32>(1.0, 0.3, 1.0), vec3<f32>(0.3, 1.0, 1.0));
         colour = colour * 0.4 + tints[seen.level % 6] * 0.35;
-    } else if (camera.reach.z > 0.5 && camera.reach.z < 1.5) {
+    } else if (!LOADED && camera.reach.z > 0.5 && camera.reach.z < 1.5) {
         // The steps' view: dark blue few, through green, to red 256 or more.
         let k = clamp(seen.steps / 256.0, 0.0, 1.0);
         colour = select(mix(vec3<f32>(0.0, 0.8, 0.2), vec3<f32>(1.0, 0.0, 0.0), (k - 0.5) * 2.0), mix(vec3<f32>(0.0, 0.0, 0.4), vec3<f32>(0.0, 0.8, 0.2), k * 2.0), k < 0.5);

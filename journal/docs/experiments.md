@@ -4359,3 +4359,28 @@ What stands in for the code's blend in the second, so the picture is kept:
 
 **What it doesn't do:** fit more groups. That needs the other full places down too (the hand-over's second level
 kept in hand, first), which is the next audit's batch, on this program.
+
+### Build 178 built (unflown): the march once the textures are in
+
+Two programs from the one text, by one line fixed when each is built (`far.wgsl`'s `LOADED`): `march_loading`, the
+whole march as it was, and `march_all`, the march once the textures are in, without the code's blend or the views.
+The far eye marches by the second when the hardware's blend is chosen, the atlas is in and every ring's bricks have
+their textures, and no view is on (`FarEye::loaded`); `INCUS_FAR_LOADED=0` keeps the whole march on, for measuring
+one against the other in a session. Where the textures can't answer as they stand, the second program:
+- within half a cell of the world's floor, reads the lowest cells' texture and mixes rock in by how far under;
+- one column short of a level's south or west side, reads the first column's texture and takes only its share;
+- where a brick has no texture, outside a level or over the world, takes rock or nothing from the four columns'
+  bands (`rock_share`, four small reads).
+
+Off the screen:
+- **The picture is build 176's at all five marks:** no pixel on the plain, the most 1 of 255 at the spawn, the
+  mountain top, the sea and high over the spawn (two rings repeat to a last digit). The whole march kept on reads
+  the same.
+- **A first try missed at the mountain top and was mended before this:** four rays at the horizon came out lighter
+  by 18 of 255, where far land meets the map's south edge. There the blend's nearer column is outside the level;
+  the code's blend took the inside column's share, the first try took rock or nothing. The second case in the list
+  above is the mend.
+- **The steps by kind on the plain are build 176's to the last count** (1,173,357), and no step takes the code's
+  blend (it isn't in the program).
+- All 31 tests pass. Waiting on David's go: one trace for the registers' row, and two flights in one session, the
+  second program against the whole march.

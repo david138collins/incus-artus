@@ -114,6 +114,12 @@ impl Ring {
         [snap(eye[0]), snap(eye[1])]
     }
 
+    /// Whether every brick of the ring that's on the card has its texture in the atlas and its slot written (true of
+    /// a ring that failed: nothing reads it). The march once the textures are in waits on this.
+    pub fn textured(&self) -> bool {
+        self.failed || (self.unsent == 0 && !self.stale)
+    }
+
     /// Whether the ring round `eye` is on the card whole, its textures too if the atlas is in (for a picture).
     #[cfg(test)]
     pub fn settled(&self, store: &Store, eye: [f32; 2], atlas_in: bool) -> bool {

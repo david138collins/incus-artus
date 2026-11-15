@@ -57,25 +57,23 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** Nsight got its counters back (2026-11-15: the two traces of build 177 didn't run, "GPU
-  Performance Counters unavailable", and neither does last night's own command; nothing of Nsight's is running; the
-  driver's setting shows all users and a driver reset didn't clear it, so a restart of the laptop is next), then,
-  on his go, the two traces (`bash "kept logs/nsight/b177/scripts/nsight-177.sh"`, about 7 minutes hands off, one
-  screen, on mains, "NVIDIA GPU only") and one screenshot of Nsight's Shader Pipelines rows (# Warp, # Reg) with the
-  `audit_` rows showing, read against "Build 177, the march's audit: what's expected" in the journal. He has set the
-  order for the far eye's last stretch of speed (2026-11-14): "i don't think we should leave anything undone ... we
-  should probably start with trying to break it into smaller passes to fit more, and then lean and cut the rays."
-  Why: his reading off Nsight's window: the march keeps 168 registers, so 12 groups of rays fit of the card's 48,
-  and the marks that work (the mountain top, high over the spawn) run at seven tenths to three quarters of that:
-  they're full. Build 177 is the instrument for the first step, not a split yet: thirteen cut-down versions of the
-  march compiled beside it on a switch (the hops alone, the samples alone, one part out at a time), so one trace
-  says what each piece of a split would fit and what each part costs in registers. Behind it (build 176, the far
-  eye's whole: the sea 1.112 ms, high over the spawn 1.080, the mountain top 1.071, the run 1.007, the plain 0.934):
-  two kinds of mark. *Waiting marks* (the plain, the sea, the run): the card 95% empty, their time their longest
-  ray's chain; with rays stopped at 160 steps the march is 29 to 45% shorter. *Working marks*: full, and cutting
-  their longest rays moves them 2 to 9%. The long rays are a few hundred in a thin band, their steps mostly 1 to
-  11 km out. Builder's assessment of lazy rays is with him and Counsel (`journal/docs/experiments.md`): the plains
-  by the long ray cut into lengths; lazy rays proper only from the 16s' edge, where his eye judges first.
+- **Waiting on David:** his go for build 178's trace (one screenshot of Nsight's rows after it) and two flights in
+  one session. His order for the far eye's last stretch of speed (2026-11-14): "i don't think we should leave
+  anything undone ... we should probably start with trying to break it into smaller passes to fit more, and then
+  lean and cut the rays." Why: the march keeps 168 registers, so 12 groups of rays fit of the card's 48 (his reading
+  off Nsight's window), and the marks that work are full. The audit (build 177: thirteen cut-down versions of the
+  march priced in one trace) said which split pays: not "cross the air" against "the rest" (the hops to the first
+  sample are 0.008 ms), but the rare, heavy work taken out of the march every ray runs: with the hand-over's second
+  read out the plain is 20% shorter, with the code's blend out 14%, though 0.6% and 0.1% of steps take them; all six
+  trims together reach 128 registers and 16 groups. **Build 178 is the first piece: the march once the textures are
+  in**, a second program from the one text without the code's blend or the views (the whole march stays for
+  loading, the initial blend and the views). Off the screen its picture is build 176's at five marks (the most 1 of
+  255) and its steps the same to the last count. Next after it: the hand-over made lighter, and a second audit on
+  this program for the fewest changes that fit 16 groups, or 20. Behind it (build 176, the far eye's whole: the sea
+  1.112 ms, high over the spawn 1.080, the mountain top 1.071, the run 1.007, the plain 0.934): two kinds of mark,
+  waiting (their time their longest ray's chain) and working (full). Builder's assessment of lazy rays is with him
+  and Counsel (`journal/docs/experiments.md`). If Nsight says "GPU Performance Counters unavailable" again: a
+  restart of the laptop clears it (2026-11-15; the cause isn't known).
   The 4s and 2s are held; the Oracle's reply and the plan's updates are with him
   and Counsel. Behind us today: his look at the
   rings met ("i can't see any rings"; a longer hand-over saved for his polish list); the blocks "go away mostly with
