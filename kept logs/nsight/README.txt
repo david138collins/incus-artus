@@ -135,3 +135,16 @@ scripts/trace_back.py reads a trace's hot instructions against the two listings:
                       line N + 108 (its listing begins at "target datalayout"), the two listings hold the same
                       4,398 instructions in the same order, and the one with debug marks gives each its line of
                       the shader text.
+
+
+b176/  (2026-11-14, build 176: the skip's three numbers read at once)
+--------------------------------------------------------------------
+
+Three traces as b175's, by scripts/nsight-176.sh (each run's log checked for where it stood). Written up in
+journal/docs/experiments.md, "Nsight at the working marks". Here: the tables Nsight's reader gave; the trace files
+are in logs/nsight/b176/ on the laptop. The shader text wasn't logged for these runs (INCUS_SHADER_TEXT unset), so
+their hot lines aren't traced back; b175's listings don't fit build 176's march.
+
+b176-mountain/   the mountain top on a clear day. The far march 0.981 ms, 17.4% of the card in flight.
+b176-high/       high over the spawn. 0.996 ms, 19.2%.
+b176-sea/        low over the sea. 1.023 ms, 6.5%.

@@ -3889,3 +3889,204 @@ under 10%.
 
 **If the mountain top's is as low as the plain's:** the card isn't working there either, the watts mislead, and
 "two kinds of mark" needs another name and another reason for the step limit's result.
+
+### Nsight at the working marks (build 176, 2026-11-14, 20:54 to 21:00, hands off)
+
+Three traces as before, each run's log checked for where it stood (the mountain top, high over the spawn, the sea:
+all three at their own marks). The tables Nsight's reader gave are in `kept logs/nsight/b176/`, the trace files on
+the laptop in `logs/nsight/b176/`. Beside build 175's two (the march alone):
+
+| | the plain | the sea | the spawn | the mountain top | high over the spawn |
+|---|---|---|---|---|---|
+| the far march, ms a frame | 0.896 | 1.023 | 0.421 | 0.981 | 0.996 |
+| the card's room in flight while it marches | 4.5% | 6.5% | 16.6% | 17.4% | 19.2% |
+| rays' time in flight a frame, against the plain's | 1 | 1.65 | 1.74 | 4.27 | 4.74 |
+| of the march's samples Nsight names: waiting on memory | 14% | 19% | 11% | 14% | 15% |
+| waiting on the program's own sums, branches and turn | 21% | 16% | 25% | 18% | 16% |
+
+**Against what was expected:** the mountain top and high over the spawn are about four times as full as the plain,
+and under the "over 20%" I wrote (17.4 and 19.2). The sea is like the plain (6.5%, for "under 10%"). The two kinds
+of mark stand.
+
+- **The three fuller marks land within three points of each other** (16.6, 17.4, 19.2%), on very different views.
+  That looks like a ceiling: as full as this program gets. Not shown: a shader's registers and how many groups of
+  rays fit are in Nsight's window only, David's to read.
+- **Their work isn't the base layer's alone.** Their base layers take 1.3 and 1.8 times the plain's steps and they
+  keep 4.3 and 4.7 times its rays' time in flight; the 4 x 4 layer marches there and not on the plain. A layer's
+  rays and steps aren't in the reports.
+- The march's hot lines weren't read against the text this time (build 176's shader text wasn't logged for these
+  runs).
+
+### Where along a ray its steps lie (build 176, off the screen, the base layer)
+
+A test-only count (`FAR_TEST_LEVELS`, beside `FAR_TEST_KINDS`): a ray's steps by the level each was read at. For the
+base layer at the flight's size the 8s' ring is read to about half a kilometre, the 16s' to about one, the 32s from
+there to about 5.4 km, the 64s to about 10.7, the 128s to about 21.
+
+| | all its steps | a ray's mean | rays over 160 | the 8s | the 16s | the 32s | the 64s | the 128s and coarser |
+|---|---|---|---|---|---|---|---|---|
+| the plain | 1,146,000 | 18 | about 350 | 62% | 10% | 19% | 6% | 3% |
+| the sea | 1,285,000 | 20 | about 130 | 68% | 12% | 15% | 3% | 1% |
+| the mountain top | 2,027,000 | 32 | about 600 | 54% | 17% | 23% | 5% | 2% |
+| high over the spawn | 1,522,000 | 24 | about 130 | 40% | 33% | 22% | 3% | 1% |
+
+| the longest ray | steps | in the 8s | the 16s | the 32s | the 64s | coarser |
+|---|---|---|---|---|---|---|
+| the plain | 324 | 59 | 43 | 112 | 61 | 49 |
+| the sea | 409 | 1 | 28 | 214 | 128 | 38 |
+| the mountain top | 300 | 26 | 6 | 100 | 154 | 15 |
+| high over the spawn | 254 | 0 | 25 | 163 | 66 | 0 |
+
+- **The long rays are a thin band:** on the plain within 11 of the base layer's 200 rows, over the sea within 3.
+  The steps past a 160-step cap are 1% of all the steps.
+- **A long ray's steps are mostly in the 32s and the 64s, 1 to 11 km out,** not at the far horizon; and most of
+  every mark's steps are within a kilometre.
+- **The longest chain if rays were in two parts** (the near part, then the far part): split at about 1 km, 128 and
+  222 on the plain, 86 and 380 over the sea, 148 and 268 at the mountain top, 68 and 240 high over the spawn; split
+  at about 5 km, 223 and 146, 275 and 166, 181 and 198, 198 and 115. Cut at every change of level, the longest is
+  133 on the plain and 244 over the sea (the 32s' stretch).
+- (The counts come from pictures of 8 bits a number: good to a step or two in a hundred and sixty.)
+
+### Lazy rays: Builder's assessment (2026-11-14, sent to Counsel at David's word)
+
+David: "well the goal should always be to bring down the high spot. i was just about to ask if it is time for lazy
+rays. go ahead and do your test, and send your complete assessement of how lazy rays could get us that last bit off
+the plains to counsel."
+
+**The short of it.** Yes for the plains, and not by the far horizon. The plain's and the sea's time can come down
+by about half, but only if "lazy" begins at the edge of the 16s' ring, about a kilometre out, and only on top of
+the long ray cut into lengths (the Oracle's step 4), which is the half of lazy rays that carries no lag and gives
+the plains their prize by itself. And the high spot won't fall with it: the mountain top and high over the spawn sit
+3 to 4% under the sea and don't wait on their longest ray. They need their own answer, and two facts for it are
+missing.
+
+**1. What's measured (today, build 176; the far eye's whole in ms: the sea 1.112, high over the spawn 1.080, the
+mountain top 1.071, the run 1.007, the plain 0.934, the spawn 0.467)**
+
+- **Two kinds of mark.** Rays stopped at 160 steps (a flight, no code changed): the plain's, the sea's and the run's
+  marches fall 29 to 45%; the mountain top's, high over the spawn's and fast across the world's 2 to 9%. Nsight:
+  while the far eye marches, the card has 4.5% of its room in flight on the plain and 6.5% over the sea; 17% at the
+  spawn and the mountain top, 19% high over the spawn.
+- **The long rays are few, in a thin band.** Of the base layer's 64,000 rays, about 350 take over 160 steps on the
+  plain (11 screen rows of 200), about 130 over the sea (3 rows), about 600 at the mountain top, about 130 high over
+  the spawn. The steps
+  past a 160-step cap are 1% of all steps.
+- **Their steps aren't at the far horizon.** By the level each step is read at (the base layer: the 8s to about half
+  a kilometre, the 16s to about one, the 32s from there to about 5 km, the 64s to about 11):
+
+  | | all its steps | in the 8s' ring | the 16s' | the 32s (1 to 5 km) | past 5 km | its longest ray, by the same four |
+  |---|---|---|---|---|---|---|
+  | the plain | 1,146,000 | 62% | 10% | 19% | 9% | 324: 59, 43, 112, 110 |
+  | the sea | 1,285,000 | 68% | 12% | 15% | 5% | 409: 1, 28, 214, 166 |
+  | the mountain top | 2,027,000 | 54% | 17% | 23% | 7% | 300: 26, 6, 100, 169 |
+  | high over the spawn | 1,522,000 | 40% | 33% | 22% | 5% | 254: 0, 25, 163, 66 |
+
+  Past about 21 km: under half a percent of the steps, and none of the longest rays' to speak of.
+- **A step costs about 2 microseconds on a waiting mark, and part of the march doesn't shorten.** From the two
+  flights (whole rays, and stopped at 160): the plain 0.825 and 0.494 ms, the sea 0.999 and 0.554. A line through
+  each pair: 2.0 and 1.8 microseconds a step, with 0.17 and 0.27 ms left at no steps at all. What that remainder
+  is isn't known (the dispatch launches 28,000 groups of rays a frame, 27,000 of which do nothing on the plain).
+
+**2. What "lazy" can mean, and what each form does**
+
+| form | what it is | the plains | the working marks | lag, and David's eye |
+|---|---|---|---|---|
+| A. A step budget, resumed next frame, on the screen's squares | his first wording | the prize measured above | nothing | not buildable as worded: a ray resumed after the camera turns is no longer its pixel's ray, and a turn takes a tenth of a second. What it keeps has to be kept by direction, which is C |
+| B. The long ray cut into lengths, marched side by side in the same frame (the Oracle's step 4) | each length its own thread; joined front to back by a small pass | the longest chain 324 and 409 to about 100 | nothing | none: nothing kept between frames. Each length begins its own stepping, so the picture is equal in kind, not pixel for pixel: one look |
+| C. Far lengths kept between frames, by direction (the Oracle's lazy rays) | the near part every frame; the far lengths re-marched as the eye's travel asks | the chain is the near part's: 86 to 148 if the far part begins at the 16s' edge | saves the far part's work when it isn't re-marched: at most 20 to 30% of the base layer's steps there | all nine of the Oracle's, and sharper than it drew them (below) |
+
+- **B, sized.** Cut where the level changes, the longest chain is 133 on the plain and 244 over the sea: the 32s'
+  stretch is two and a half doublings long and has to be cut inside itself. Cut by doublings of distance: about 85
+  and 100 *[estimate from the levels' counts]*. By the lines above that's a march of about 0.34 ms on the plain and
+  0.45 over the sea, the far eye's whole about 0.45 and 0.56, where it's 0.93 and 1.11 *[estimates: two points a
+  line, and the join and the extra threads not priced]*.
+- **B needs only the long rays cut.** They're a few hundred, and the frame before already writes every ray's steps
+  for the finer layer's lead. So: a ray that was long last frame, or whose neighbour was, is marched as lengths; the
+  rest as now. The lead has to be turned for the camera's turn (as I read the march, it isn't today), or a nod moves the band off its
+  lead and that frame pays the whole chain. A few thousand extra threads on a card 95% empty.
+- **C, sized, and where the Oracle's version misses.** Its smallest version was "the farthest one or two lengths of
+  every layer". Past 11 km lie 3% of the plain's steps and no chain: kept or not, nothing moves. For the chain,
+  the far part has to begin at the 16s' edge:
+
+  | the far part begins at | the near part's longest chain (plain, sea, mountain top, high) | the far part's share of the steps | how often it's re-marched at a run |
+  |---|---|---|---|
+  | about 1 km (the 16s' edge) | 128, 86, 148, 68 | 28%, 20%, 30%, 27% | every 3rd or 4th frame (a quarter of an 8 x 8 pixel there is 3 blocks of travel) |
+  | about 5 km | 223, 275, 181, 198 | 9%, 5%, 7%, 5% | every 19th |
+  | about 11 km | 276, 372 | 3%, 1% | every 38th |
+
+  (The Oracle wrote before the rings and the height table; the table took the far hops away, and what's left of a
+  long ray is in the 32s.)
+- **So C's real test is the hard one.** Land 1 to 5 km off is big on the screen. Kept by direction it holds still on
+  the world while the near ground moves every frame, and at a run it's redrawn every third or fourth frame. Whether
+  that's "basically invisible" (his words of 2026-11-12) is his eye's to say, and it can't be judged on a far strip
+  first, because the far strip has nothing in it to save.
+
+**3. The Oracle's nine, as they stand for C at one kilometre**
+
+- *A ray in flight always finishes* (1), *behind kept warm* (7), *an age view and a check against a full march*:
+  as written. The far part's chains (222 to 380 steps) spread over three or four frames at a run are 60 to 100
+  steps a frame: no worse than the near part.
+- *Kept by direction isn't pixel for pixel* (2), *far squares fixed to the world* (3): David's open question in the
+  plan's table, and now it's about land at 1 to 5 km, not a distant backdrop.
+- *Only the far end can be lazy* (4): that's B. C can't be built without it.
+- *Light and fog put on every frame* (5): the march today gathers colour already lit. For C the lengths have to
+  keep colour, faces, cover and distance, and the light go on at the join. The gather has to be reshaped; the sun's
+  part is already kept apart for the first surface, which is a start.
+- *What's hidden now is wanted next* (6): at 1 km most far land is behind near ground, so the store marches a lot
+  nobody sees. Cheap when lazy; not free.
+- *Far land moves in steps* (8): the sharpest at this distance. All at once, never as each direction finishes.
+- *The marks stop measuring* (9): standing still C's far part costs nothing, so the gate is read at the run and
+  the nodding marks, at their 99th, lazy on and off.
+- *Memory:* by direction at the 8 x 8's pitch, all round and 30 degrees up and down, about 46,000 squares a length;
+  with the 4 x 4's, tens of MB. Not a constraint.
+
+**4. The high spot after the plains come down**
+
+With B alone, by the estimates above: the sea about 0.56, the plain about 0.45, the run somewhere between; the
+mountain top 1.07 and high over the spawn 1.08 as they are. The far eye's worst goes from 1.11 to 1.08. So "bring
+down the high spot" is as much those two as the plains, and for them:
+
+- **What's missing, first: how much of their work is the 4 x 4 layer.** Their base layers take 1.3 to 1.8 times
+  the plain's steps, but they keep 4.3 to 4.7 times its rays' time in flight. On the plain the 4 x 4 marches
+  nothing; there it marches (its longest rays 261 and 302). The reports don't count a layer's rays or steps. They
+  should, before anything is built for these marks.
+- **What's missing, second: whether 17 to 19% in flight is as full as this program gets.** The spawn, the mountain
+  top and high over the spawn land within three points of each other. If that's the ceiling, it's the program's
+  size (old's march kept 16 groups of 48 at 125 registers), and the answer there is a leaner march, which also
+  explains why the height table's extra row made those marks dearer. Nsight's window shows a shader's registers
+  and how many groups fit; it's David's to read off (one screen).
+- **What C would give them:** the far part's work on the frames it isn't re-marched: at most 20 to 30% of the base
+  layer's steps, less at a run. Real, and not the whole answer.
+
+**5. Another way to the same chain, David's and already in the plan: the skyline by cover**
+
+Of the plain's longest ray's 326 steps, 176 are samples close over the ground: 89 strides inside the blend's reach,
+63 in thin haze, 24 at a surface. The Oracle said it on 2026-11-12: the rays that set the time are "adding up the
+thin haze that makes your soft skyline", and a height table can't skip what a ray is summing. Today's flights agree.
+With the skyline made by cover there's no haze to sum and those steps mostly go. That's a look, his to choose (haze
+or cover), set after the cells of 2 to 16; it shortens the same chain B does, by a different road, and the two add.
+
+**6. What I'd do, in order**
+
+0. **Two instruments** (small, no look): each layer's rays and steps in every report; and one flight with rays
+   stopped at 1 step (no code changed), which reads the part of each mark's march that isn't its rays at all.
+   David reads the march's registers off Nsight's window.
+1. **B, the long ray cut into lengths, for the long rays only.** Pass mark from the step-limit flight: the plain's
+   and the sea's marches at or under what 160 steps took (0.494 and 0.554), aiming at 0.34 and 0.45. The same flight
+   says what it costs the working marks (it should be nothing). One look for David: the horizon band, standing and
+   nodding. No lag to judge.
+2. **Then the high spot is the working marks,** and what step 0 found decides: a leaner march if it's the
+   program's size; the 4 x 4's rule for where it's wanted (a look) or C if it's the 4 x 4's work.
+3. **C, far lengths kept between frames,** on B's store, when there's work to save that only it can save. Its first
+   build is his look at land 1 to 5 km off while running, far squares fixed to the world, before any of the rest.
+
+**7. What I don't know**
+
+- Whether the lines from two flights hold down to a chain of 100 (the estimates in 2 rest on them).
+- What the 0.17 to 0.27 ms that doesn't shorten is.
+- The 4 x 4 layer's long rays over the sea (409 to 442 steps): counted only for the base layer. Likely the same
+  shape with a longer stretch in the 32s; not measured.
+- How B's picture differs: each length beginning its own stepping could show at the cuts (old's rings on flat
+  ground were a stepping artefact). It needs the look, and the cuts scattered ray to ray as the starts are now.
+- My sums today missed their pass marks twice (the skip's own column first; the three numbers read at once). The
+  step-limit flight is a measurement; everything in section 2 past it is a sum.

@@ -1,0 +1,84 @@
+Launching process...
+Preparing to launch the GPU Trace Profiler activity on localhost...
+Launched process: incus_artus.exe (pid: 26336)
+C:/Users/David/Desktop/Incus Artus/target/release/incus_artus.exe 
+
+Attempting to automatically connect...
+Searching for attachable processes on localhost:49152-49215...
+    0.000 s  INFO  incus_artus::session: Incus Artus, build 176 (9bacd38)
+    0.000 s  INFO  incus_artus::session: The session's log: C:\Users\David\Desktop\Incus Artus\logs\session-1794711371.log
+    0.004 s  INFO  incus_artus::runner: The doorway: open on C:\Users\David\Desktop\Incus Artus\exports\nice25 test
+    0.004 s  INFO  incus_artus::temperatures: The temperatures: read every 3 s (the CPU area by typeperf, the GPU by nvidia-smi)
+    0.468 s  INFO  incus_artus::card: The card: NVIDIA GeForce RTX 5070 Ti Laptop GPU (DiscreteGpu, Dx12, driver 32.0.16.2101 ; chosen by the default, high performance)
+    0.469 s  INFO  incus_artus::card: The card's largest buffer, raised on purpose for the far bricks: 2047 MB (wgpu's default 128 MB)
+    0.544 s  INFO  incus_artus::card: The picture: 2560 x 1600, handed to the screen Fifo
+    0.559 s  INFO  incus_artus::runner: The window: 2560 x 1600, the screen 240 a second
+    0.651 s  INFO  incus_artus::bricks: The far bricks: 14 levels, bricks of 8, 28.4 MB of bands and 1.6 MB of index on the card; the pool 128 MB to start; the 32s within 10 regions of the eye, the 64s within 20
+    0.651 s  INFO  incus_artus::far: Summing the far cells: 5184 regions on 22 threads, nearest 0 0 first
+    1.408 s  INFO  incus_artus::far_eye: The blue noise: 64 x 64 made in 0.068 s
+    1.686 s  INFO  incus_artus::temperatures: The temperatures: the CPU area 71 °C, its hottest core 104 °C, 62 W at 46 % load; the GPU 45 °C at 750 MHz, 12 W at 7 % load
+Attachable process detected: incus_artus.exe (pid: 26336)
+- Status: Process created
+- Uptime: 0.439s
+Searching for attachable processes on localhost:49152-49215...
+    2.052 s  INFO  incus_artus::far_eye: The far rays: ended at the map's edge, 768 steps at most
+    2.085 s  INFO  incus_artus::runner: At high over the spawn: the eye at 0.5 0.5 795.4; 0 whole blocks and 0 bars made through the doorway, 0 refused
+Searching for attachable processes on localhost:49152-49215...
+Attachable process updated: incus_artus.exe (pid: 26336)
+- Status: Presenting
+- Uptime: 4.06s
+Connecting to incus_artus.exe (pid: 26336)...
+Session established. Starting activity...
+Waiting for target ready...
+INFO: Sample duration = 6774ns; Warp State Sampling Interval = 2048; GPU PMA Buffer Size (MB) = 4000; SOC PMA Buffer Size (MB) = 0 
+Waiting for generated GPU Trace report...
+Generating a trace after 100000ms with a max duration of 1000ms, limited to 20 frames...
+    8.025 s  INFO  incus_artus::runner: The memory: the main memory 2353 MB in use (2356 MB at most), 1844 MB of it in memory (1860 MB at most); the machine 33.8 GB, 11.0 GB free; the card's 271 MB in use, 604 MB held
+    8.387 s  INFO  incus_artus::far_ring: The far ring: the 16s round the eye on the card, 694 bricks, made in 1.47 s
+    8.388 s  INFO  incus_artus::far_ring: The far ring: the 8s round the eye on the card, 659 bricks, made in 0.71 s
+   12.614 s  INFO  incus_artus::far: The far cells: the eighth nearest (648 regions) in 12.0 s
+   26.934 s  INFO  incus_artus::bricks: The far bricks' pool grown to 256 MB (127 MB used)
+   38.036 s  INFO  incus_artus::runner: The memory: the main memory 2808 MB in use (2822 MB at most), 2012 MB of it in memory (2034 MB at most); the machine 33.8 GB, 10.8 GB free; the card's 424 MB in use, 872 MB held
+   44.544 s  INFO  incus_artus::far: The far cells: all 5184 regions in 43.9 s
+   44.545 s  INFO  incus_artus::far_eye: The far bricks: all 5184 regions in, 36024 bricks on the card, 161 MB of cells
+   44.546 s  INFO  incus_artus::far_eye: The far textures: being made
+   44.546 s  INFO  incus_artus::far_eye: The far light: being made
+   44.623 s  INFO  incus_artus::far_eye: The height table: every column's highest thing worked out and sent in 0.07 s
+   44.781 s  INFO  incus_artus::far_eye: The far light: 40 MB on the card (3456 x 2308), its tops and sky made in 0.19 s, its shadow swept and sent in 0.047 s
+   45.319 s  INFO  incus_artus::atlas: The far textures: 33382 bricks made in 0.22 s, laid in 0.12 s, sent in 0.03 s
+   45.322 s  INFO  incus_artus::far_eye: The far textures: 33382 bricks, 573 MB of texels on the card, made and sent in 0.8 s
+   47.059 s  INFO  incus_artus::temperatures: The temperatures: the CPU area 102 °C, its hottest core 104 °C, 41 W at 14 % load; the GPU 63 °C at 1867 MHz, 53 W at 32 % load
+   68.031 s  INFO  incus_artus::runner: The memory: the main memory 3215 MB in use (3297 MB at most), 1368 MB of it in memory (2074 MB at most); the machine 33.8 GB, 11.5 GB free; the card's 1045 MB in use, 1946 MB held
+   91.379 s  INFO  incus_artus::temperatures: The temperatures: the CPU area 68 °C, its hottest core 66 °C, 39 W at 6 % load; the GPU 55 °C at 1612 MHz, 61 W at 30 % load
+   98.031 s  INFO  incus_artus::runner: The memory: the main memory 3215 MB in use (3297 MB at most), 1368 MB of it in memory (2074 MB at most); the machine 33.8 GB, 11.4 GB free; the card's 1045 MB in use, 1946 MB held
+TARGET INFO: Starting GPU Trace at frame 18145, submit 36303
+-- Data transfer progress (40)
+-- Data transfer progress (70)
+-- Data transfer progress (80)
+-- Data transfer progress (100)
+GPU Trace report saved to C:\Users\David\AppData\Local\Temp\claude\ab96f937839e9dd4\70bc1fc4-3a14-4888-8de0-a073bfe21d8d\scratchpad\nsight\b176-high\incus_artus_2026_11_14_20_58_00.ngfx-gputrace
+Opening generated GPU Trace report...
+-- Loading progress (10)
+-- Loading progress (20)
+-- Loading progress (30)
+-- Loading progress (50)
+-- Loading progress (60)
+-- Loading progress (70)
+-- Loading progress (80)
+-- Loading progress (90)
+-- Loading progress (100)
+-- Loading progress (100)
+-- Loading progress (100)
+-- Loading progress (100)
+-- Loading progress (100)
+-- Loading progress (100)
+-- Loading progress (100)
+Succeeded to export data:
+    C:\Users\David\AppData\Local\Temp\claude\ab96f937839e9dd4\70bc1fc4-3a14-4888-8de0-a073bfe21d8d\scratchpad\nsight\b176-high\ReportGeneratorTags.txt
+    C:\Users\David\AppData\Local\Temp\claude\ab96f937839e9dd4\70bc1fc4-3a14-4888-8de0-a073bfe21d8d\scratchpad\nsight\b176-high\BASE_UNLOCKED\REPRO_INFO.xls
+    C:\Users\David\AppData\Local\Temp\claude\ab96f937839e9dd4\70bc1fc4-3a14-4888-8de0-a073bfe21d8d\scratchpad\nsight\b176-high\BASE_UNLOCKED\D3DPERF_EVENTS.xls
+    C:\Users\David\AppData\Local\Temp\claude\ab96f937839e9dd4\70bc1fc4-3a14-4888-8de0-a073bfe21d8d\scratchpad\nsight\b176-high\BASE_UNLOCKED\FRAME.xls
+    C:\Users\David\AppData\Local\Temp\claude\ab96f937839e9dd4\70bc1fc4-3a14-4888-8de0-a073bfe21d8d\scratchpad\nsight\b176-high\BASE_UNLOCKED\GPUTRACE_FRAME.xls
+    C:\Users\David\AppData\Local\Temp\claude\ab96f937839e9dd4\70bc1fc4-3a14-4888-8de0-a073bfe21d8d\scratchpad\nsight\b176-high\BASE_UNLOCKED\GPUTRACE_REGIMES.xls
+Terminating process...
+Activity session destroyed, connection error encountered.

@@ -998,6 +998,26 @@ fn daylight(sun_up: f32) -> (f32, f32) {
 /// the source, or the variant isn't made and the test says so.
 #[cfg(test)]
 fn kinds_source(source: &str) -> String {
+    // Or its steps counted by the level they were taken at (`FAR_TEST_LEVELS`: three levels' numbers, drawn the same
+    // way): a level is a doubling of distance, so this is where along a ray its steps lie (for sizing a long ray cut
+    // into lengths, or spread over frames).
+    if let Ok(asked) = std::env::var("FAR_TEST_LEVELS") {
+        let show: Vec<usize> = asked.split(',').filter_map(|n| n.trim().parse().ok()).collect();
+        assert_eq!(show.len(), 3, "FAR_TEST_LEVELS wants three levels");
+        let changes: [(&str, String); 5] = [
+            ("    sky_share: f32,\n}", "    sky_share: f32,\n    kinds: array<f32, 17>,\n}".into()),
+            ("    var steps = 0;\n", "    var steps = 0;\n    var kinds: array<f32, 17>;\n".into()),
+            ("        var skipped = false;\n", "        kinds[level] += 1.0;\n        var skipped = false;\n".into()),
+            ("gathered - sunny, touched, through);", "gathered - sunny, touched, through, kinds);".into()),
+            ("    put_picture(vec2<i32>(id.xy), vec4<f32>(to_srgb(clamp(colour,", format!("    colour = vec3<f32>(seen.kinds[{}], seen.kinds[{}], seen.kinds[{}]) / 1024.0;\n    put_picture(vec2<i32>(id.xy), vec4<f32>(to_srgb(clamp(colour,", show[0], show[1], show[2])),
+        ];
+        let mut made = source.replace("\r\n", "\n");
+        for (old, new) in changes {
+            assert_eq!(made.matches(old).count(), 1, "the steps-by-level variant can't find its place in far.wgsl: {old:?}");
+            made = made.replace(old, &new);
+        }
+        return made;
+    }
     let Ok(asked) = std::env::var("FAR_TEST_KINDS") else { return source.to_string() };
     let show: Vec<usize> = asked.split(',').filter_map(|n| n.trim().parse().ok()).collect();
     assert_eq!(show.len(), 3, "FAR_TEST_KINDS wants three kinds");
@@ -1211,7 +1231,7 @@ mod tests {
             for y in 0..screen.1 {
                 raw.extend_from_slice(&pixels[(y * row) as usize..(y * row + screen.0 * 4) as usize]);
             }
-            let _ = std::fs::write(std::path::Path::new(&folder).join(format!("far eye {} {}x{} weight {}{} blend {} detail {}", mark.name, screen.0, screen.1, eye.look.sky_weight, if std::env::var_os("INCUS_SIGHT_NO_SHADOWS").is_some() { " unlit" } else { "" }, eye.look.blend, eye.look.detail) + &std::env::var("FAR_TEST_START").map_or(String::new(), |s| format!(" start {s}")) + &std::env::var("FAR_TEST_KINDS").map_or(String::new(), |s| format!(" kinds {s}")) + if eye_asked.is_some() { " eye" } else { "" } + ".rgba"), raw);
+            let _ = std::fs::write(std::path::Path::new(&folder).join(format!("far eye {} {}x{} weight {}{} blend {} detail {}", mark.name, screen.0, screen.1, eye.look.sky_weight, if std::env::var_os("INCUS_SIGHT_NO_SHADOWS").is_some() { " unlit" } else { "" }, eye.look.blend, eye.look.detail) + &std::env::var("FAR_TEST_START").map_or(String::new(), |s| format!(" start {s}")) + &std::env::var("FAR_TEST_KINDS").map_or(String::new(), |s| format!(" kinds {s}")) + &std::env::var("FAR_TEST_LEVELS").map_or(String::new(), |s| format!(" levels {s}")) + if eye_asked.is_some() { " eye" } else { "" } + ".rgba"), raw);
         }
         let (top, bottom) = (average(0..20), average(screen.1 - 20..screen.1));
         eprintln!("The far eye's test picture: the top rows {top:?}, the bottom rows {bottom:?} (red, green, blue of 255)");

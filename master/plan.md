@@ -53,20 +53,20 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** what's next, now the far eye's time is read (his question: "are you using Nsight to check
-  on what the plains time is actually spent on?"). Nsight, build 175: on the plain the far march takes 0.9 ms with
-  the card 95% empty. A flight with rays stopped at 160 steps (no code changed) then showed two kinds of mark.
-  *Waiting marks* (the plain, the sea, the run, both nodding): their time is their longest ray's chain; stopped at
-  160 the march is 29 to 45% shorter. *Working marks* (the mountain top, high over the spawn, fast across the
-  world): cutting their longest rays moves them 2 to 9%; the card runs hottest there, and what their time is spent
-  on isn't looked at yet. The height table shortens long chains and adds work to every step: with its numbers read
-  at once (build 176, flown and kept, the same picture; its pass mark missed, Builder's sum too big) it stands,
-  against build 172, at the sea, the run and the sea nodding 21 to 23% cheaper, the plain 4%, and the spawn, the
-  mountain top and high over the spawn 3 to 9% dearer; the dearest mark the sea at 1.112 ms (it was 1.401). What a
-  step budget a frame is worth, measured (the most lazy rays could give at 160 steps): the sea 1.112 to 0.666 ms,
-  the run 1.007 to 0.752, the plain 0.934 to 0.604 (`journal/docs/experiments.md`). Builder's proposals to him:
-  Nsight at a working mark (the mountain top, high over the spawn), and the lazy rays' talk with their prize now
-  measured.
+- **Waiting on David:** his and Counsel's reading of Builder's assessment of lazy rays (his word: "the goal
+  should always be to bring down the high spot. i was just about to ask if it is time for lazy rays ... send your
+  complete assessement of how lazy rays could get us that last bit off the plains to counsel";
+  `journal/docs/experiments.md`, "Lazy rays: Builder's assessment"), and one reading from him: the march's
+  registers, off Nsight's window. What's measured behind it (build 176, the height table's numbers read at once,
+  flown and kept; the far eye's whole: the sea 1.112 ms, high over the spawn 1.080, the mountain top 1.071, the run
+  1.007, the plain 0.934): there are two kinds of mark. *Waiting marks* (the plain, the sea, the run): the card is
+  95% empty while the far eye marches and their time is their longest ray's chain; with rays stopped at 160 steps
+  the march is 29 to 45% shorter. *Working marks* (the mountain top, high over the spawn): about four times as
+  full, and cutting their longest rays moves them 2 to 9%. The long rays are a few hundred in a thin band at the
+  horizon, and their steps lie mostly 1 to 11 km out, in the 32s and the 64s, not at the far edge. The assessment in
+  a line: the plains can come down by about half, by the long ray cut into lengths (the Oracle's step 4, no lag),
+  which lazy rays are built on; lazy rays proper have to begin at the 16s' edge, about a kilometre out, where his
+  eye has to judge them first; and the high spot after that is the working marks, which need their own answer.
   The 4s and 2s are held; the Oracle's reply and the plan's updates are with him
   and Counsel. Behind us today: his look at the
   rings met ("i can't see any rings"; a longer hand-over saved for his polish list); the blocks "go away mostly with
