@@ -2137,6 +2137,9 @@ Reference: `Art/quartile minecraft illustration.png`
     the plain toward the step-limit flight's (the sea's whole about 0.67 ms from 1.09); high over the spawn and the
     mountain top hardly at all, so they'd be the high spot at about 1.05 to 1.10. The Oracle's step 4 with one
     difference for her eye: only the rays that were long are cut, by a list, where hers cut every ray.
+    - **The 4 × 4 counted alongside** (David, to Counsel, asked whether Builder adds each layer's rays and steps to
+      the reports now, beside the cut, or after it): "yes". So the next high spot (the working marks, whose largest
+      known part is the 4 × 4 layer) is aimed by measurement while the cut is built. An instrument, no look.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
