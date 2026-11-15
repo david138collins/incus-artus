@@ -2124,6 +2124,19 @@ Reference: `Art/quartile minecraft illustration.png`
         (1.096), a working mark the cut doesn't touch, a hair over the sea. By his rule the worst only falls once the
         working marks' time is placed, and its largest known part is the 4 × 4 layer: how much of it is earned, and
         where (a look rule), not how big the march is.
+  - **[DECIDED 2026-11-15] Go on with the cut** (David, to Builder, on the four flights and what's next): "go on with
+    the cut". The smaller passes and the leaning rest where build 178 left them; the long rays cut into lengths is
+    built now. Builder's design: a ray that was long the frame before is cut at set distances (from about a kilometre,
+    every half doubling), each length marched by its own thread in the same dispatch, a small pass joining them front
+    to back; the frame waits for the longest length, not the longest ray. Nothing kept between frames but the list of
+    which rays were long, riding in the words the layers already pass on (no new buffers, the default limits kept). A
+    ray that turns out long without notice keeps the frame before's pixel for one frame and is cut from the next: no
+    holes, no long frames (a one-frame lag at newly long rays, for his look). Three stages, each with its pass mark:
+    the list alone, the picture untouched; the lengths and the join, one flight and his look at the horizon band; the
+    frame's notice for newly long rays, for the moving and nodding marks. Her sum, not a promise: the sea, the run and
+    the plain toward the step-limit flight's (the sea's whole about 0.67 ms from 1.09); high over the spawn and the
+    mountain top hardly at all, so they'd be the high spot at about 1.05 to 1.10. The Oracle's step 4 with one
+    difference for her eye: only the rays that were long are cut, by a list, where hers cut every ray.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
