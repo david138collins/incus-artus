@@ -73,17 +73,22 @@ struct Camera {
     // 4s' and the 2s'): each its least and most blocks north and east (xy and zw), a cell in from its edge; an empty
     // box (xy over zw) while it isn't there.
     rings: array<vec4<f32>, 4>,
-    // The long rays' list (the cut; the one dispatch only, `far_all.wgsl`): x where this frame's list starts in
-    // `long_rays`, y where the frame before's does, z how many steps make a ray long (a number no ray reaches: none is
-    // listed this frame), w how many rays a list holds.
+    // The long rays' lists (the cut; the one dispatch only, `far_all.wgsl`): x which of the two is this frame's (0 or
+    // 1; the other is the frame before's), y how many steps make a ray long (a number no ray reaches: none is listed
+    // this frame), z how many rays a list holds, w how many threads across the strip of the dispatch's grid is that
+    // marches the listed rays' lengths.
     list: vec4<f32>,
+    // The cut: x how far out the first cut is, blocks (0: no ray is cut this frame).
+    cut: vec4<f32>,
 }
 
 @group(0) @binding(0) var<uniform> camera: Camera;
 // Each level's numbers (`bricks::table`, `TABLE` each): the level, its least column (north, east), columns across,
 // where its columns start in `entries`, where its bricks start in `index`, a brick's width and height (shifts), bricks
 // across and up, cells up.
-@group(0) @binding(1) var<storage, read> levels: array<i32>;
+// (Four numbers to a row of the card's since build 183, as a table that isn't one of the storage buffers must be
+// laid: its place among those went to the cut's lengths, the library's default being eight a stage.)
+@group(0) @binding(1) var<uniform> levels: array<vec4<i32>, 48>;
 @group(0) @binding(2) var<storage, read> entries: array<u32>;
 @group(0) @binding(3) var<storage, read> index: array<u32>;
 @group(0) @binding(4) var<storage, read> pool: array<vec4<u32>>;
@@ -134,15 +139,27 @@ fn get_far_above(at: vec2<i32>) -> f32 {
     return textureLoad(far_above, at, 0).x;
 }
 
-// One layer after another, no ray is listed as long (the list is the one dispatch's).
-fn list_long(i: u32, steps: f32) -> f32 {
+// One layer after another, no ray is listed as long or cut into lengths (the lists and the lengths are the one
+// dispatch's).
+fn list_long(id: vec2<u32>, steps: f32, joined: bool) -> f32 {
     return 0.0;
+}
+
+fn cut_slot(id: vec2<u32>) -> u32 {
+    return NOT_CUT;
+}
+
+fn put_stack(slot: u32, length: u32, seen: Seen, began: f32) {
+}
+
+fn cut_before(slot: u32, length: u32) -> f32 {
+    return 1.0;
 }
 
 // One layer of the pyramid: a ray a pixel, where the layer above said it's worth it.
 @compute @workgroup_size(8, 8)
 fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
-    march_pixel(id.xy);
+    march_pixel(id.xy, 0u, NOT_CUT);
 }
 // ── One layer's outputs: end ──
 // The far bricks as textures (change 1, `atlas.rs`): each brick place's slot in the atlas, the filter, how solid and
@@ -235,7 +252,8 @@ fn cell_of(w: vec4<u32>) -> Look {
 fn table(level: i32, k: i32) -> i32 {
     // The levels laid over the map first (the 32s' row 0), then the rings' (the 16s', then the 8s').
     let row = select(level - FIRST, TOP - FIRST + 1 + (FIRST - 1 - level), level < FIRST);
-    return levels[row * TABLE + k];
+    let at = u32(row * TABLE + k);
+    return levels[at >> 2u][at & 3u];
 }
 
 // A cell column's entry at `level`: its band's lowest cell and how many (`NOT_SUMMED` if it isn't in yet, `PAST_MAP`
@@ -807,21 +825,36 @@ struct Seen {
     touched: f32,
     // How much of it went on to the sky (the sky behind isn't fogged).
     sky_share: f32,
+    // Where it last gathered anything while over half was still let through, and the level read there: its first
+    // surface, if it has one (`distance`); if not, how far its haze went. (A cut ray's join places the ray's first
+    // surface by its lengths' own.)
+    reached: f32,
+    reached_level: i32,
+    // Whether its last step found only air (the next length of a cut ray begins as this one ended).
+    ended_in_air: bool,
 }
 
 // A ray from `o` along `d`, from `begin` to `end` (past `end` nothing can be met: the map's edge). `phase`: a
 // pixel's own number from 0 to 1 (`scatter`), where its fine steps fall within a fine step, so their places against the
-// ground don't line up across the screen.
-fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32, end: f32) -> Seen {
+// ground don't line up across the screen. `stop`: where a cut ray's length stops gathering and the next length takes
+// up, which begins its steps exactly there (a number no ray reaches: the ray isn't cut). Up to `stop` the length
+// gathers all there is, and nothing past it: it goes on until a step has landed at `stop` or beyond, so a surface
+// that a stride through air came down in short of `stop` is walked into from the air as ever, and the step that
+// crosses `stop` is gathered only as far as it. [Stopped at its last step short of `stop`, a length would leave what
+// lies between that step and the next length's first to neither of them.] A length that takes up from another
+// begins as the ray was there: letting through `through0` of what it meets (all of it, for a ray from its start), so
+// its first surface is where the whole ray's falls to a half; and if the ray was in haze there (`look_first`), its
+// first step looks before it skips, as a ray in haze goes on gathering haze that a ray in air would skip over.
+fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32, end: f32, stop: f32, through0: f32, look_first: bool) -> Seen {
     var colour = vec3<f32>(0.0);
     var sunny = vec3<f32>(0.0);
-    var through = 1.0;
+    var through = through0;
     var first = camera.reach.x;
     var touched = camera.reach.x;
     var steps = 0;
     var t = max(begin, 0.5) + phase;
     // Whether the last step found only air (only then is skipping tried).
-    var in_air = true;
+    var in_air = !look_first;
     // The last place a step found only air, and whether the ray is walking into a surface in fine steps from there (so
     // what's gathered never depends on where a stride fell: old's rings on flat ground, 2026-11-06).
     var last_air = t;
@@ -859,7 +892,7 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32, end: f32) -> Seen {
     let last = min(camera.reach.x, end);
     let most = i32(camera.pyramid.z);
     for (var n = 0; n < most; n++) {
-        if (t > last || through < 0.01) {
+        if (t > last || through < 0.01 || before_t >= stop) {
             break;
         }
         steps = n + 1;
@@ -898,6 +931,8 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32, end: f32) -> Seen {
                 last_air = t;
                 walking = false;
                 chained = false;
+                // (Nothing lies between: a cut ray's length that has passed its stop this way is through.)
+                before_t = t;
                 continue;
             }
         }
@@ -949,6 +984,7 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32, end: f32) -> Seen {
                 last_air = t;
                 walking = false;
                 chained = false;
+                before_t = t;
                 skipped = true;
                 break;
             }
@@ -1024,7 +1060,7 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32, end: f32) -> Seen {
         }
         // The step from the last sample to this one, gathered from both its ends.
         if (look.known && chained && before.known) {
-            let length = t - before_t;
+            let length = min(t, stop) - before_t;
             let solid_share = 0.5 * (before.solid + look.solid);
             let water_share = 0.5 * (before.water + look.water);
             let solid = 1.0 - pow(1.0 - min(solid_share, 0.999), length / size);
@@ -1049,7 +1085,9 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32, end: f32) -> Seen {
                     bottom_t = t;
                     bottom_level = level;
                 }
-                if (through > 0.5 && through * (1.0 - covered) <= 0.5) {
+                // Kept at every step that gathers while over half is still let through: the last of them is where
+                // that falls to a half, its first surface; or where it last gathered, if it never does (`reached`).
+                if (through > 0.5) {
                     first = t;
                     first_level = level;
                 }
@@ -1066,22 +1104,35 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32, end: f32) -> Seen {
     if (floored && bottom) {
         colour += through * bottom_here;
         sunny += through * bottom_sun;
-        through = 0.0;
-        if (first >= camera.reach.x) {
+        if (through > 0.5) {
             first = bottom_t;
             first_level = bottom_level;
         }
+        through = 0.0;
+    }
+    // Where it last gathered with over half still let through; and if half is still let through at its end, it has
+    // no first surface.
+    let reached = first;
+    let reached_level = first_level;
+    if (through > 0.5) {
+        first = camera.reach.x;
+        first_level = -1;
     }
     let gathered = colour;
     colour += through * sky(d);
     // The shadow ray as wide as the cells the surface was read from (or the eye's pixel there, if wider). None: nothing
     // met.
-    var wide = 0.0;
-    if (first < camera.reach.x) {
-        let read = select(1.0, f32(1 << u32(max(first_level, 0))), first_level >= 0);
-        wide = max(first * camera.view.z, read);
+    let wide = shadow_wide(first, first_level);
+    return Seen(colour, first, f32(steps), first_level, sunny, o + d * first, wide, gathered - sunny, touched, through, reached, reached_level, in_air);
+}
+
+// How wide a ray's shadow ray starts, its first surface `first` off and read from cells of `first_level`.
+fn shadow_wide(first: f32, first_level: i32) -> f32 {
+    if (first >= camera.reach.x) {
+        return 0.0;
     }
-    return Seen(colour, first, f32(steps), first_level, sunny, o + d * first, wide, gathered - sunny, touched, through);
+    let read = select(1.0, f32(1 << u32(max(first_level, 0))), first_level >= 0);
+    return max(first * camera.view.z, read);
 }
 
 
@@ -1258,22 +1309,56 @@ fn map_end(o: vec3<f32>, d: vec3<f32>) -> f32 {
     return leaves(o.xy, d.xy, lo - s, hi + s);
 }
 
-// A pixel of a layer of the pyramid: its ray, if the layer above said it's worth it.
-fn march_pixel(id: vec2<u32>) {
+// A ray that isn't cut into lengths (it has no place in the frame before's list).
+const NOT_CUT: u32 = 0xFFFFFFFFu;
+
+// Where a cut ray's length begins and ends along it (x, y): the near length (0), the ray's own thread's, from the eye
+// to the first cut; then sixteen more, each to the next cut, half a doubling of distance on (a ray's steps fall
+// evenly by the doubling: its cells grow with its distance); the last to the ray's end. `shift`, a number of the
+// pixel's own from 0 to 1, moves all its cuts by up to half a doubling, so neighbouring rays' cuts never line up
+// into a ring.
+fn cut_span(length: u32, shift: f32) -> vec2<f32> {
+    let near = camera.cut.x * exp2((f32(length) - 1.0 + shift) * 0.5);
+    let to = camera.cut.x * exp2((f32(length) + shift) * 0.5);
+    return vec2<f32>(select(near, 0.0, length == 0u), select(to, 1e30, length >= 16u));
+}
+
+// The pixel of the layer above that a pixel lies in.
+fn parent_of(id: vec2<u32>) -> vec2<u32> {
+    return min(vec2<u32>((vec2<f32>(id) + 0.5) * camera.pyramid.x), vec2<u32>(u32(max(camera.layer.x, 1.0)) - 1u, 65535u));
+}
+
+// The way a pixel's ray goes.
+fn ray_through(id: vec2<u32>) -> vec3<f32> {
+    let uv = (vec2<f32>(id) + 0.5) / camera.view.xy;
+    return normalize(camera.forward.xyz + (uv.x * 2.0 - 1.0) * camera.right.xyz + (1.0 - uv.y * 2.0) * camera.up.xyz);
+}
+
+// A pixel of a layer of the pyramid: its ray, if the layer above said it's worth it. By the one dispatch a ray that
+// was long the frame before is cut into lengths marched side by side, so the frame waits for its longest length and
+// not for the whole of it [where the card waits, the far eye's time is its longest ray's chain: rays stopped at 160
+// steps made the sea's march 45% shorter, build 176]. `length` 0 is the pixel's own thread: it marches the whole ray,
+// or the near length if the ray is cut. `length` 1 and up are the lengths beyond, each a thread of its own in the
+// grid's strip (`far_all.wgsl`), with `listed` the ray's place in the frame before's list. A cut ray's threads each
+// put by what they gathered, and the join makes the pixel of them (`join_pass`).
+fn march_pixel(id: vec2<u32>, length: u32, listed: u32) {
     let size = vec2<u32>(camera.view.xy);
     if (id.x >= size.x || id.y >= size.y) {
         return;
     }
     var shown = 1.0;
-    let parent = min(vec2<u32>((vec2<f32>(id.xy) + 0.5) * camera.pyramid.x), vec2<u32>(u32(max(camera.layer.x, 1.0)) - 1u, 65535u));
+    let parent = parent_of(id);
     if (camera.layer.x > 0.0) {
         let worth = get_worth(parent.y * u32(camera.layer.x) + parent.x) & 0xFFu;
         shown = f32(worth) / 255.0;
         if (worth == 0u) {
-            put_picture(vec2<i32>(id.xy), vec4<f32>(0.0));
-            put_far(vec2<i32>(id.xy), vec4<f32>(camera.reach.x, 0.0, 0.0, 0.0));
-            if (camera.layer.y > 0.5) {
-                put_worth(id.y * size.x + id.x, 0u);
+            // (A length's thread writes nothing: the pixel's own thread has, and the join leaves the pixel be.)
+            if (length == 0u) {
+                put_picture(vec2<i32>(id.xy), vec4<f32>(0.0));
+                put_far(vec2<i32>(id.xy), vec4<f32>(camera.reach.x, 0.0, 0.0, 0.0));
+                if (camera.layer.y > 0.5) {
+                    put_worth(id.y * size.x + id.x, 0u);
+                }
             }
             return;
         }
@@ -1297,14 +1382,49 @@ fn march_pixel(id: vec2<u32>) {
     }
     // For measuring (a ray's far length alone): no nearer than this.
     begin = max(begin, camera.sky.w);
-    let uv = (vec2<f32>(id.xy) + 0.5) / vec2<f32>(size);
-    let d = normalize(camera.forward.xyz + (uv.x * 2.0 - 1.0) * camera.right.xyz + (1.0 - uv.y * 2.0) * camera.up.xyz);
+    let d = ray_through(id);
     // Where its ray ends: at the map's edge, or the reach.
     var end = camera.reach.x;
     if (camera.follow.w > 0.5) {
         end = map_end(camera.position.xyz, d);
     }
-    let seen = march(camera.position.xyz, d, ray_start(id.xy), begin, end);
+    // The cut: this thread's length of the ray, if the ray is in the frame before's list. Each length begins its
+    // steps where the one before stops gathering.
+    let phase = ray_start(id.xy);
+    var slot = listed;
+    if (length == 0u) {
+        slot = cut_slot(id);
+    }
+    var starts = begin;
+    var stop = 1e30;
+    var through0 = 1.0;
+    var look_first = false;
+    if (slot != NOT_CUT) {
+        let span = cut_span(length, scatter(id * 2u + vec2<u32>(1u, 1u)));
+        starts = max(begin, span.x);
+        stop = span.y + phase;
+        // A length that takes up at a cut begins as the ray was there the frame before (`cut_before`: how much it
+        // still let through; under nothing, it was in haze). Never from under a twentieth: a length the ray reached
+        // with nothing left to cover still marches, so the join has it if what hid it is gone this frame.
+        if (span.x > begin) {
+            let before = cut_before(slot, length);
+            through0 = clamp(abs(before), 0.05, 1.0);
+            look_first = before < 0.0;
+        }
+    }
+    let seen = march(camera.position.xyz, d, phase, starts, end, stop, through0, look_first);
+    if (slot != NOT_CUT) {
+        put_stack(slot, length, seen, through0);
+        return;
+    }
+    finish(id, d, shown, seen, false, 0.0);
+}
+
+// A ray finished into its pixel: lit, the sky behind it and the fog before it, what the layer below is worth there,
+// and what the frame after needs of it. `joined`: a cut ray, joined from its lengths; `chain` then the most steps any
+// one of its lengths took.
+fn finish(id: vec2<u32>, d: vec3<f32>, shown: f32, seen: Seen, joined: bool, chain: f32) {
+    let size = vec2<u32>(camera.view.xy);
     // Its shadow and sky light only where it shows (a finer layer laid over it whole hides it).
     let hidden = round(worth_of(seen.distance, seen.level) * 255.0) >= 255.0;
     var here = seen.colour;
@@ -1342,7 +1462,8 @@ fn march_pixel(id: vec2<u32>) {
     }
     // Kept with its alpha (premultiplied), so the screen can blend it over the layer above.
     put_picture(vec2<i32>(id.xy), vec4<f32>(to_srgb(clamp(colour, vec3<f32>(0.0), vec3<f32>(1.0))) * shown, shown));
-    // Kept for the layer below to start its rays from: where it first touched anything; and beside it its steps, and
-    // its place in the long rays' list if it's long (one up; 0: not listed).
-    put_far(vec2<i32>(id.xy), vec4<f32>(seen.touched, seen.steps, 0.0, list_long(id.y * size.x + id.x, seen.steps)));
+    // Kept for the layer below to start its rays from: where it first touched anything; and beside it its steps (a
+    // cut ray's lengths' summed), the most any one of a cut ray's lengths took (0: not cut), and its place in the long
+    // rays' list if it's long (one up; 0: not listed).
+    put_far(vec2<i32>(id.xy), vec4<f32>(seen.touched, seen.steps, chain, list_long(id, seen.steps, joined)));
 }

@@ -4783,3 +4783,95 @@ it's cut. One more read of a picture a ray, where the finer layers already read 
   - the run and the two nodding marks a tenth or more under (newly long rays still march whole there);
   - the spawn, the mountain top and high over the spawn within 2% (the one read more).
 - **A miss:** the plain over 0.65; or any of the spawn, the mountain top and high over the spawn over 2% dearer.
+
+### Build 183 built (unflown), the cut's second stage: what was built, where it left the pass mark's words, and what was checked off the screen
+
+**What was built.** By the one dispatch, a ray in the frame before's list is marched as up to 17 lengths side by
+side: its own thread the near one, to the first cut (1,024 blocks out, shifted ray to ray by up to half a
+doubling); sixteen threads in a strip at the right of the dispatch's grid the lengths beyond, each half a doubling
+of distance on, the last to the ray's end. Each puts by what it gathered; a pass after the march (64 x 64 threads,
+in the 4 x 4's place in the timing, which the one dispatch left empty) joins a ray's lengths front to back into
+what the whole ray would have seen and finishes it as any ray is finished (lit once, by its first surface). The
+one march is in the program once.
+
+**Where the build left the pass mark's words** (written here before any flight):
+- **A length gathers up to its cut and no further, and the next begins its steps exactly there.** The mark said
+  only "a length's first step gathers nothing: that's where it could show". A length stopped at its last step short
+  of the cut would have left what lies between that step and the next length's first to neither. So the march has
+  a place to stop: it goes on until a step has landed at the cut or past it, and gathers the step that crosses the
+  cut only as far as the cut.
+- **Each length begins as the ray stood there the frame before** (not in the mark at all; found by the picture
+  check, below): letting through what the ray still let through at that cut, and looking before it skips if the
+  ray was in haze there. The join writes both down for the frame after. With the eye still this is exact from the
+  second frame a ray is cut; while the eye moves it's a frame behind.
+- **A cut ray stays listed down to a quarter of the line (32 steps), not three quarters (96).** A cut ray's
+  lengths' steps can come to well under the whole ray's; at 96, a ray left the list on its lengths' count and came
+  straight back, marched whole every other frame (the mountain top: one ray of 172 steps; the sea: one of 143).
+- **The picture's check is of the sixth frame**, not "the second frame on": a ray is listed in the second, cut
+  from the third, and its lengths begin by the frame before's from the fourth.
+- **The levels' table became a uniform** (it was a storage buffer): the lengths need a buffer of their own, and
+  the march was at the library's default of eight storage buffers a stage. Every ray reads the table.
+- **The list holds 4,096 rays** (it held 8,192; the most long rays at once over build 181's flight: 2,419).
+- **For measuring:** `INCUS_FAR_CUT` (0: no ray cut; or the first cut's distance) and `INCUS_FAR_LONG` (the steps
+  that make a ray long). The flight's report gains, for each layer, how many rays were cut and the longest chain
+  (the most steps any one thread took).
+
+**Three flaws of mine the picture check found, each mended before this was written:**
+1. *A cut ray's first surface put too deep.* Where earlier lengths had part covered a ray, the join took the
+   first surface as the length's own halfway point: up to 500 blocks behind the true one (high over the spawn),
+   so the ray read its light from the wrong place: two rays 36 of 255 lighter.
+2. *A cut ray given the wrong cell size for its surface*, so it told the layer below it was worth drawing where
+   the uncut ray says it isn't, and finer pixels drew sky over a far skyline: 35 blocks along the sea's horizon, up
+   to 73 of 255. (Seen as a broken band of far hills, cut against uncut.)
+3. *The first surface still a tenth out* where haze had covered part of a ray before the length that holds it;
+   the layer below fades in by that distance, a quarter more or less for a tenth: 22 blocks along the sea's
+   skyline, 24 to 45 of 255. This is what "each length begins as the ray stood the frame before" mends: the
+   length that holds the ray's first surface now finds it itself, where the whole ray's light falls to a half.
+
+**Off the screen, 2,560 x 1,600, the sixth frame, cut against uncut (`INCUS_FAR_CUT=0`):**
+
+| mark | rays cut | the longest ray, uncut | the longest chain, cut | pixels that differ at all | the most, of 255 |
+|---|---|---|---|---|---|
+| the spawn | 279 | 153 | 132 | 608 of 4,096,000 | 2 |
+| the mountain top | 1,587 | 302 | 147 | 0.5% | 70, one ray; the rest under 8 |
+| the bare plain | 890 | 324 | 127 | 0.3% | 8 |
+| low over the sea | 753 | 409 | 127 | 0.1% | 10, one 4 x 4 ray; the rest under 8 |
+| high over the spawn | 1,891 | 261 | 127 | 0.1% | 17, one ray; the rest 8 or under |
+
+- **Against the mark's picture line** (only listed rays' pixels differ, by 8 of 255 or less; no ring or seam):
+  no ring and no seam at any mark; the spawn and the plain within 8. **Not met to the letter at three marks, by
+  three rays:** one at the mountain top (70) and one high over the spawn (17), which are the flaw below, not the
+  cut's own; and one 4 x 4 ray at the sea's skyline (10). The test's own picture differs run to run by up to 6 of
+  255 at a few rays (two runs of the same uncut build at the spawn, drawn to see).
+- **The two rays, and a flaw that was there before the cut (written down, not mended: David hasn't seen it):** a
+  ray's last stride before its end (the map's edge, with its margin) can go past the end and never be looked at,
+  so a strip of sea a blend reaches there is caught or missed by where a ray's steps happen to fall. A cut ray's
+  lengths begin at other places than the whole ray's steps fell, so they catch it where the whole ray missed it
+  (the mountain top's ray: the sea at 44 km, undimmed by fog because the ray's first surface is the summit 33
+  blocks off; uncut it shows sky there). Either is by chance; the mend would be the march's (never stride past the
+  end unlooked), which changes the uncut picture at the map's edge and so is its own build.
+- **Against the mark's chain line** (under 140 on the plain and over the sea): met, 127 at both, from 324 and 409.
+  At the mountain top 147.
+- **What sets the chain now:** rays just under the line of 128 steps, which march whole (127); and a cut ray's
+  near length, to the first cut: up to 118 steps on the plain, 104 at the sea, 132 at the spawn, 147 at the
+  mountain top. The lengths beyond the first cut take up to 93. Both can be brought down without building
+  (`INCUS_FAR_LONG`, `INCUS_FAR_CUT`), after this is flown as it is.
+- **What the cut costs in steps:** under 1% more in all at every mark (the plain 1,178,297 to 1,186,818).
+- **The uncut picture is build 182's** (640 x 400, the references of build 182): no pixel at the spawn and the
+  plain, the most 1 of 255 at the other three, as build 182 against 178. The march's own text changed in three
+  places: the place to stop; where a ray's first surface is kept as it goes (kept at every step that gathers while
+  over half is let through, the last of which is the same step as before); and the table's reads.
+- All 31 tests pass; the far eye's test now runs a frame that lists and a frame that cuts, and checks that every
+  long ray is listed once and that listed rays were cut. `FAR_TEST_LENGTHS` prints each cut ray's lengths for a
+  look (the tool that found the three flaws).
+
+**Known and left, written down:**
+- A cut that falls between a ray's last gathering over the world's floor and its going under the floor leaves the
+  ground it didn't gather to the sky (the whole ray fills it in). Not seen in any picture.
+- `INCUS_FAR_AUDIT` with the cut on prices cut rays' near lengths, not whole rays: fly it with `INCUS_FAR_CUT=0`.
+- The far eye's picture test isn't the same run to run at full size (up to 6 of 255 at a few rays): something
+  made off the frame arrives at different moments. Not this build's; to find.
+
+**The flights asked for, one session, hands off:** uncut (`INCUS_FAR_CUT=0`, which against build 182's flight
+also says what this build's changes cost every ray), then cut as it is; the marks as the pass mark has them. Then,
+if David says, two probes for where the chain goes next: the line at 64 steps, and that with the first cut at 384.

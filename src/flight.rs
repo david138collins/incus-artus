@@ -288,7 +288,7 @@ impl Flight {
                 let layers: Vec<String> = standing.longest.iter().zip(["8 x 8", "4 x 4", "2 x 2"]).map(|(c, name)| format!("the {name} {} steps ({} rays over 256, {} over 384, {} over 512)", c[0], c[1], c[2], c[3])).collect();
                 text += &format!("  the longest ray: {}\n", layers.join("; "));
                 // What each layer marches (each number the most over the measured frames), and its long rays for the cut.
-                let layers: Vec<String> = standing.longest.iter().zip(["8 x 8", "4 x 4", "2 x 2"]).map(|(c, name)| format!("the {name} {} rays marched, {} steps, {} of {} steps or more ({} listed)", c[6], c[7], c[4], crate::far_eye::LONG_STEPS, c[5])).collect();
+                let layers: Vec<String> = standing.longest.iter().zip(["8 x 8", "4 x 4", "2 x 2"]).map(|(c, name)| format!("the {name} {} rays marched, {} steps, {} of {} steps or more ({} listed), {} cut, the longest chain {}", c[6], c[7], c[4], c[11], c[5], c[9], c[8])).collect();
                 text += &format!("  the rays: {}\n", layers.join("; "));
             }
             if let Some(most) = standing.most_main_memory {

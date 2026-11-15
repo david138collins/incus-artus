@@ -357,7 +357,9 @@ impl Store {
         }
         let table = table(&levels);
         let storage = |label: &str, size: u64| device.create_buffer(&wgpu::BufferDescriptor { label: Some(label), size: size.max(16), usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::COPY_SRC, mapped_at_creation: false });
-        let table_buffer = storage("the far levels", table.len() as u64 * 4);
+        // (A uniform: `far.wgsl` reads it as 48 rows of four, 768 bytes, which holds 16 levels' numbers.)
+        assert!(table.len() * 4 <= 768, "the far levels' table outgrew its 768 bytes");
+        let table_buffer = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the far levels"), size: 768, usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::COPY_SRC, mapped_at_creation: false });
         queue.write_buffer(&table_buffer, 0, &table.iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
         let window = (window > 0).then_some([window, window * 2]);
         let flags = vec![u32::from(window.is_none()); WINDOWED * (regions.1 * regions.1) as usize];

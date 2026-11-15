@@ -3,10 +3,12 @@
 // A pass of its own, run once a second on a flight: each of the layer's pixels' steps (kept beside its distance by the
 // march) into its counts: the most any ray took, and how many took over 256, 384 and 512; then, for the cut and for
 // knowing what each layer marches: how many rays took `long` steps or more, how many of those are in the long rays'
-// list (their place in it is kept beside their steps), how many rays marched at all, and all their steps summed.
+// list (their place in it is kept beside their steps), how many rays marched at all, and all their steps summed; and
+// of the cut itself: the longest chain (the most steps any one thread took: a cut ray's longest length, kept beside
+// its steps), how many rays were cut, and how many are in the list at all.
 
 @group(0) @binding(0) var steps: texture_2d<f32>;
-@group(0) @binding(1) var<storage, read_write> counts: array<atomic<u32>, 8>;
+@group(0) @binding(1) var<storage, read_write> counts: array<atomic<u32>, 12>;
 // The layer's part of the texture: where it starts (x, y) and its size (the one dispatch keeps the layers' distances
 // side by side in one texture; a layer's own texture is all its part).
 // And how many steps make a ray long (`long.x`).
@@ -42,5 +44,12 @@ fn tally_pass(@builtin(global_invocation_id) id: vec3<u32>) {
     if (n > 0u) {
         atomicAdd(&counts[6], 1u);
         atomicAdd(&counts[7], n);
+        atomicMax(&counts[8], select(n, u32(kept.z), kept.z > 0.5));
+    }
+    if (kept.z > 0.5) {
+        atomicAdd(&counts[9], 1u);
+    }
+    if (kept.w > 0.5) {
+        atomicAdd(&counts[10], 1u);
     }
 }
