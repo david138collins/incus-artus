@@ -424,6 +424,10 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
       fresh, then Counsel's brief, `journal/vision/oracle-return.md`. The design is fixed here, or changed
 - [ ] **2.4 The eye, whole:** the light lane, water and glass, quarter blocks, textures, objects, glows, far lights
   - [ ] The doorway's pieces, objects and lights, as the eye first draws them (carried from 2.1)
+  - [ ] Water's look, far: shallow sea over a nearly flat shelf shows as long square contours (the shore and each
+        block of depth), seen from high over the plain at build 188 ("can we do anything about these square light
+        seams?"); a shallow edge that fades in, with water's own design. Left for here on his "yeah buddy"
+        (2026-11-15)
   - [ ] The polish passes, once the gates are met (David, 2026-11-13: "work the rays into a prettier shape without
         doing much ... we may have a lot of headroom inside the card for making things prettier"), each a look step:
         the far view's "splotchy" noise made more "orderly" by a rounder blend, light from the solid field's slope, an

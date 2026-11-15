@@ -2321,6 +2321,9 @@ Reference: `Art/quartile minecraft illustration.png`
       heights in whole blocks on a near plane, the shore and each block of depth run as long straight contours.
       Softening it is a look of water's (a shallow edge that fades in), which belongs with water's own design step;
       his call whether to try it now.
+    - Asked by Counsel whether to leave it for the water step (his rule: look flaws written under their step), he
+      answered "yeah buddy. we're killing it."; taken as yes, said so to him so he can correct it, and written under
+      2.4 in the plan.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
