@@ -2016,6 +2016,16 @@ Reference: `Art/quartile minecraft illustration.png`
       memory, a second out; he found the right one.
     - *Counsel:* this is David's "no megakernels" goal of 2026-11-12, now measured as the working marks' cure: a march
       split into smaller passes, each holding fewer numbers, fits more rays on the card.
+  - **[IDEA 2026-11-15] All three** (David, to Builder): "seems like that last bit of performance is behind leaning out
+    the rays, lazying the rays, and breaking the shader into smaller passes. do you think you can do all that?"
+    Builder: yes, all three can be built, and none promised (her sums missed twice on 2026-11-14; the measurements
+    held), so each gets its pass mark and a flight and may come out again. Leaning the march: the gain known only after
+    a register audit, no look, his Nsight screenshot each batch. Lazy rays: the cut into lengths, fairly sure, one
+    look; far land kept between frames from about 1 km, the big one, his eye decides. Smaller passes: the cut is the
+    first (march the lengths, join, finish); further is least sure (old's mixed results; passes in a row add waits on
+    a waiting card, so side by side). She reminded him the far eye is already under his 2 ms (worst 1.11), so this is
+    headroom for the cells of 2 to 16 and the near eye; whether to take it now or after them is his and Counsel's.
+    Nothing ordered or built on it yet.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
