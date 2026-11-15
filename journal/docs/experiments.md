@@ -3417,3 +3417,40 @@ start a testing software for you" (not yet: the flights serve this step; Nsight 
   time; if a length alone costs about what the whole does, the cut gives little there.
 - **Noticed on the way:** with two rings a picture repeats only to a last digit (1 of 255 in a few pixels at the
   spawn; the plain to the byte): the two makers' bricks reach the textures in the order they finish. Written down.
+
+### The deep dive's first measurement flown (build 172; 2026-11-14, 18:04 to 18:23)
+
+David: "you may proceed with the tests." Told before take-off; he wrote to Counsel twice from his phone as they
+flew (a reply landing on the laptop draws on the same card: the frame clock's worst is 12 to 14 ms at the sea in
+two of the flights; the 99ths and medians stand tight, and the medians are what's read). One screen, on mains, not
+starved. Reports `logs/flight-1794701437` (whole), `-1794701828` (the near length alone, rays ended 1,024 blocks
+out), `-1794702221` (the far alone, rays begun 1,024 out). The card's whole, median ms:
+
+| mark | whole | near alone | far alone |
+|---|---|---|---|
+| the spawn | 0.429 | 0.384 | 0.374 |
+| the mountain top | 1.042 | 0.401 | 1.062 |
+| the bare plain | 0.972 | 0.380 | **1.177** |
+| high over the spawn | 1.015 | 0.622 | 0.855 |
+| low over the sea | 1.401 | 0.403 | 1.247 |
+| a player's run | 1.312 | 0.377 | 1.185 |
+| the plain, nodding | 0.971 | 0.362 | 1.181 |
+| the sea, nodding | 1.371 | 0.415 | 1.179 |
+
+(The whole is build 171's both-rings flight again, to a hundredth. Of each figure about 0.10 is the two passes that
+don't change, the start and the bringing up.)
+- **The near length is cheap and short everywhere:** 0.36 to 0.42 ms at the ground marks, and no near ray over 158
+  steps at any mark.
+- **At the sea, the run and the mountain top the far length alone costs 86 to 102% of the whole.** The rings' near
+  work adds a tenth or less there; a cut could give back that tenth at most. Builder's guess for the sea (the far
+  alone within a tenth of the whole): 89%, met.
+- **On the plain the far length alone costs more than the whole, and Builder's guess (about 0.6) was wrong.** The
+  flight doesn't measure what it was meant to there: with the near land gone the picture is another picture, and
+  the 4 x 4 layer, which marches nothing on the plain when the ray is whole, marches 728 rays over 256 steps (its
+  longest 683). So "waiting or working" on the plain isn't answered by this flight. **A fault in the measurement's
+  design, Builder's.**
+- **What it does show for the plain:** the whole's 921 base rays over 256 steps are near steps (142 at most) on top
+  of far steps (the far alone: 455 rays over 256, the longest 420). Each grazing ray pays both. And it shows what a
+  cut must not do: far lengths marched where near land hides them aren't cheap unless they're told not to start.
+- **Next in the dive:** the longest ray's steps by kind (the Oracle's question 7), which reads the plain directly
+  instead of by taking the ray apart.
