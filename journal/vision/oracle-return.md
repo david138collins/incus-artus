@@ -483,8 +483,12 @@ the answers.
   David: "yes, lets try your idea to make the cut work smarter, if it doesn't work it doesn't work. its pretty fast in
   general now." So the cut is off by default; build 184 counts the threads it keeps waiting (testing the reading),
   and the mend (build 185: as many lengths as a ray needs, about a hundred steps each, packed) stays only if the
-  slowest view comes to uncut or under. Does the cut by a list still beat yours (every ray cut) on a card that's full
-  at the marks that work?
+  slowest view comes to uncut or under. Build 184 counted the threads held (a group held as long as its longest
+  thread): the strip's threads wait 79 to 88% of their time, and held thread-steps rise with the march where the card
+  works (the mountain top +17% held, +16% march; high over the spawn +27%, +39%), so the reading stands. The mend's
+  ceiling there is about level with uncut, not under (a long ray's neighbours are long too). Also found: a cut ray's
+  lengths behind what covers it march on, where a whole ray stops. Does the cut by a list still beat yours (every ray
+  cut) on a card that's full at the marks that work?
 
 ## 6. The message to send at the fork
 

@@ -2216,6 +2216,22 @@ Reference: `Art/quartile minecraft illustration.png`
       Builder's reading before anything is rebuilt. The mend itself (as many lengths as a ray needs, packed) is build
       185, with its own pass mark after 184's count. Where build 183's entry above says "build 184" for the mend, read
       185. The bar for keeping the cut: the slowest view at uncut or under.
+    - *Build 184* (2954de5, flown on "go ahead with the two flights"; 13:29 to 13:42, `logs/flight-1794771340` uncut
+      and `-1794771730` cut at 1,024, checked by Counsel). **Builder's reading stands by its mark's lines:** held
+      thread-steps (a group held as long as its longest thread), cut over uncut, the mountain top +16.8% (its march
+      +15.9%; the line 9%), high over the spawn +26.8% (its march +39.3%; the line 16%); the strip's threads wait 79
+      to 88% of their time (Builder's "81 to 88% at every mark": the plain nodding is 79). Uncut, every mark within
+      0.5% of build 183's uncut flight: the count and the switch cost nothing. **A miss on one line:** cut, the march
+      isn't within 2% of build 183's cut flight (the plain 0.432 for 0.396 ms, the sea 0.710 for 0.609, high over the
+      spawn 1.301 for 1.235; by the card's whole high over the spawn 1.436). Builder's cause: build 184's join counts
+      the steps of lengths behind what covers a ray, so the line that keeps a ray listed keeps more of them (rays cut:
+      the sea 2,572 for 1,591, high over the spawn 3,669 for 2,682). It shows a waste not named before: a cut ray's
+      lengths behind its cover march on, where the whole ray stops. Before the flights, off the screen, Builder
+      corrected her own case for the mend (told David): where the card works its ceiling is about level with uncut,
+      not under (taking the long rays out of the layers frees only 3.5 to 4.1% of what's held, a long ray's
+      neighbours being long too; a perfectly packed strip would spend about 3 to 4%); where it waits the gain stays.
+      So build 185's honest case: the working marks level, the sea and the plain much faster, the dearest mark 1.08 →
+      about 1.06 ms. Next, build 185's pass mark before its code.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
