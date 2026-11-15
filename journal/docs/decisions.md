@@ -1918,6 +1918,17 @@ Reference: `Art/quartile minecraft illustration.png`
     - *The mend next* (build 175, Builder): the ray's own column first. A column's number only grows with its size, so
       a ray not clear of its own column is clear of none, and samples after one look (build 172 took two); a ray
       that's clear then asks the bigger ones and takes the longest hop. The table on the card: 29 MB.
+    - *Build 175, counted and not flown* (its pass mark first, 4ed7ede; the count off the screen, 9e518b7): the same
+      steps as build 174's, but the reordered skip takes **more** looks at every mark (the plain 54%, the sea 44%, the
+      spawn 6%, the mountain top 8%), so the code is build 174's again. The reason given for the dearer marks ("a ray
+      near the ground fails all three looks") is withdrawn in the open: only 100,000 to 150,000 steps a mark do that;
+      Counsel had passed it on to David too. And looks may not be the price either: on the plain build 172 took about
+      3.3 million looks and build 174 1.39 million, and 174 is 4% dearer. **Steps, hops and looks have each been
+      counted and each failed to say where the time goes.**
+    - **Nsight on the plain** (David, to Builder: "are you using Nsight to check on what the plains time is actually
+      spent on?"; she wasn't, and agrees it's the right tool): four traces of build 174 as it's built (the plain with
+      the table and without its true numbers, the spawn, the sea), about eight minutes hands off; no flight, compile
+      or code change.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
