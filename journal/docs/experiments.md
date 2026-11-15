@@ -4384,3 +4384,41 @@ Off the screen:
   blend (it isn't in the program).
 - All 31 tests pass. Waiting on David's go: one trace for the registers' row, and two flights in one session, the
   second program against the whole march.
+
+### Build 178 flown (2026-11-15, 08:04 and 08:10, hands off): 2 to 7% off every mark but the spawn, short of its mark
+
+David: "go". Told before take-off; one screen, on mains, the card idle before (4%); no hitch in either flight. One
+session, the same program file: the march once the textures are in (`logs/flight-1794751834`), then the whole march
+kept on (`INCUS_FAR_LOADED=0`, `-1794752223`). Before them one trace at the mountain top for the registers' row
+(`logs/nsight/b178/b178-mountain/incus_artus_2026_11_15_08_03_51.ngfx-gputrace`; its log says the second program
+took over). Median ms:
+
+| mark | the march: whole | once the textures are in | change | the card's whole: whole march | once the textures are in | change |
+|---|---|---|---|---|---|---|
+| the spawn | 0.358 | 0.357 | the same | 0.466 | 0.466 | the same |
+| the mountain top | 0.948 | 0.920 | 3.0% less | 1.067 | 1.042 | 2.3% less |
+| the bare plain | 0.832 | 0.776 | 6.7% less | 0.941 | 0.886 | 5.8% less |
+| high over the spawn | 0.984 | 0.942 | 4.3% less | 1.103 | 1.060 | 3.9% less |
+| low over the sea | 1.003 | 0.978 | 2.5% less | 1.114 | 1.090 | 2.2% less |
+| a player's run | 0.893 | 0.860 | 3.7% less | 1.008 | 0.976 | 3.2% less |
+| fast across the world | 0.642 | 0.627 | 2.3% less | 0.766 | 0.751 | 2.0% less |
+| the plain, nodding | 0.798 | 0.750 | 6.0% less | 0.907 | 0.860 | 5.2% less |
+| the sea, nodding | 0.941 | 0.921 | 2.1% less | 1.054 | 1.035 | 1.8% less |
+
+(The whole march kept on reads as build 176 did, within 1% at seven marks and 2% high over the spawn.)
+
+**Against the pass mark:**
+- Every mark at or under the whole march: **met.**
+- The plain 8% or more under: **short** (5.8%; over the 5% that would have been a plain miss).
+- The sea 8% or more under: **missed** (2.2%).
+- The picture and the steps, off the screen: met (above).
+
+**Why less than the audit's 10 to 14%:** the audit's version put nothing where the code's blend had been, so its rays
+also met less at the far end and its picture was wrong; this build reads a texture there. The audit prices a part's
+going, not its replacement: its numbers are ceilings. (Said in the pass mark as "less is expected"; the mark's 8%
+was still too high.)
+
+**Kept:** build 178 (the picture kept, every mark the same or cheaper). The far eye's whole now: the sea 1.090 ms,
+high over the spawn 1.060, the mountain top 1.042, the run 0.976, the plain 0.886, the spawn 0.466.
+
+**Waiting:** David's reading of `march_all`'s row in the mountain top's trace (registers, the groups that fit, Smem).
