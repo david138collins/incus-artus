@@ -1087,6 +1087,7 @@ Where the sources disagree. Each version is given with its ref; nothing here is 
 - Live reload of data files, textures and models: changes on disk show at once. [decided] (decisions.md:790, 802; proposal:104)
 - Mistakes in data files never crash the game. [decided] (decisions.md:799-801)
 - Models from Blockbench now and a real 3D modeller later, via glTF, made by David. [decided] (decisions.md:793-794; regroup.md:1227)
+- Figures and objects built at 32 units to a block, one unit a pixel, matching the 32×32 block faces; the game halves Blockbench's export (16 to its unit) when it reads it: "Yes, 32 a block". [decided] (decisions.md, Data & Modding, 2026-11-15)
 - Art/ is David's messy workshop; assets/ is the delivery folder the game reads. [decided] (decisions.md:547-548)
 - A "write this tweak into the block's file" button, later. [wanted] (decisions.md:803)
 - Village and site types as data files. [open] (simulation.md:458)

@@ -794,6 +794,18 @@ Reference: `Art/quartile minecraft illustration.png`
 - **[DECIDED]** Data files are **TOML**: plain text, comments allowed, X-COM-style readable.
 - **[DECIDED]** Models: Blockbench now, a real 3D modeller later. We'll use a loading path that
   works for both (likely glTF, which both can export).
+- **[DECIDED, 2026-11-15]** Figures and objects are built at **32 units to a block** in Blockbench, one unit a
+  pixel. David asked "is there a way to set blockbench to do 32 pixels instead of 16", and on Counsel's
+  suggestion: "Yes, 32 a block".
+  - Why: the block faces are 32 × 32, so models match the ground they stand on; and Blockbench's defaults
+    all line up (a step of one unit moves a piece one pixel, and the paint is a pixel a unit with no setting
+    changed). A person a block and a half tall is 48 units.
+  - Blockbench's glTF export counts 16 units to its unit, so the game halves what it reads: one number,
+    set once, for figures and objects alike. This replaces "as made" at Blockbench's 16 to a block
+    (objects.md) for new models; the brazier, made at 16, is scaled up or read at its own scale.
+  - The other way, 16 units with textures twice as fine as the shapes, was turned down: set for every
+    texture, and shapes snapping to every other pixel.
+  - To check before relying on it: a 32-unit cube, painted, shows 32 pixels a side, like a block face.
 
 - **[DECIDED]** (Step 7) Blocks are defined in `assets/data/<pack>/blocks/<name>.toml` → ID `<pack>:<name>`; the
   base game's pack is `incus`. Only air is built in. Format and settings: `docs/data-files.md`.
