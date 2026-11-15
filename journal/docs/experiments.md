@@ -3647,3 +3647,67 @@ where only the middle one was, three otherwise).
 - **Next, David's question:** Nsight on build 174 as it's built: the plain with the table and without its true
   numbers, the spawn, the sea (20 frames each from 100 s in). What's read: how full the card is while the far eye
   marches, what its groups of rays wait on, and the lines the samples fall on.
+
+### The Nsight look at the plain (build 175, 2026-11-14, 19:59 to 20:07, hands off)
+
+David: "are you using Nsight to check on what the plains time is actually spent on?", then "go ahead". Build 175 is
+build 174's march untouched, with one switch outside it (`INCUS_SHADER_TEXT`: each shader's text written to the
+session's log as the card's compiler is given it). GPU Trace Profiler from the command line, the game standing at a
+mark (`INCUS_MARK`), 20 frames from 100 s in, capped at the screen's 240 a second; the traces, listings and scripts
+are kept: the tables, the shaders' text and the scripts in `kept logs/nsight/b175/`, the trace files on the laptop in
+`logs/nsight/b175/`.
+
+*A fault of mine in the script: the sea's trace stood at the spawn (a stray "; " after the mark's name, and the game
+"starts at the first"). So there are two traces of the spawn, which agree to a part in a hundred, and none of the
+sea.*
+
+**How full the card is while the far eye marches:**
+
+| | the plain | the plain, the table's numbers off | the spawn |
+|---|---|---|---|
+| the far march, ms a frame (the flight's on the plain: 0.901) | 0.896 | 1.053 | 0.421 |
+| the card's room in flight while it marches | 4.7% | 5.6% | 17% |
+| rays' time in flight a frame, against the plain's | 1 | 1.39 | 1.69 |
+| the march's samples | 448,000 | 636,000 | 441,000 |
+
+- **The plain's time isn't work.** The spawn keeps two thirds more rays' time in flight than the plain and is done
+  in under half the time. On the plain the card is 95% empty for 0.9 ms: the pass lasts as long as its last few
+  rays. (The Oracle's "waiting, not working" of 2026-11-12, at the sea; here on the plain, and emptier.)
+- **Only the 8 x 8 layer marches on the plain** (the flight's report: the 4 x 4's and the 2 x 2's longest rays 0
+  steps), 1,000 groups of rays; the dispatch launches 28,000 groups a frame for the three layers all the same.
+- **Memory:** a texture read takes 420 cycles on average and a buffer read 90 to 100; the first cache answers 87 to
+  90% of buffer reads and 73 to 75% of texture reads, the second 77 to 87% of what's left. The program's own
+  instructions miss their cache 23% of the time on the plain (16% at the spawn).
+
+**The lines the time falls on.** Nsight names a hot instruction by its line in the compiled program. The march's
+text from the log, compiled again by the game's own compiler with debug marks, gives the same 4,398 instructions in
+the same order, each with the line of the text it came from (Nsight's listing begins 108 lines into the compiler's:
+with that, the waits on memory land on memory reads and the last hot line on the program's end). Nsight gives only
+a shader's 38 hottest instructions, which hold 38% of the march's samples. On the plain, of the march's samples:
+
+| what | share |
+|---|---|
+| the skip's looks: waiting for the height table's number | 4.4% |
+| the skip's looks: choosing the column, its sums and the test for a hop | 5.3% |
+| waiting for the textures' answer at a sample | 4.2% |
+| each pixel's first read, whether it's wanted this frame | 3.2% |
+| reads of the bands' table (is the region summed; is the column) | 2.3% |
+| the program's end | 2.6% |
+| no line given | 8.4% |
+
+- **No one line holds the time; the skip's looks are the largest named part** (about a tenth; a sixth with the
+  table's numbers off), and the wait for the table's number is the hottest instruction with a name at every mark.
+
+**Builder's reading (a reading, not shown yet):** the far eye's time is its longest chain: one group of rays, its
+steps one after another, each step waiting on its memory reads one after another, to places no other ray has
+touched this frame. The height table took two fifths of the steps off the plain's longest ray (531 to 324) and put
+three reads in a row in a hop where there were two (the biggest column, the middle, its own). Steps down 39%, reads
+a hop up 50%: about the same chain, and the plain didn't move. It fits the other marks: the same code with the
+numbers off keeps its long rays and reads three in a row, 10 to 20% dearer everywhere; the sea's longest ray lost
+47% of its steps and the sea 17% of its time; the spawn has no long rays to lose and got 16% dearer. It would also
+explain why counts of steps, hops and looks never said where the time went: they count all the rays, and the time
+is one chain's.
+
+**What would test it:** the three looks' numbers read at once, not one after another (three reads issued together
+wait about as long as one; the card has the room: it's 95% empty). The same skips, so the same picture. If the
+reading is right, the plain and the spawn both fall; if they don't, it's wrong. Not built: put to David first.

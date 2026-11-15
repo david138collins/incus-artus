@@ -109,3 +109,29 @@ queries/            what the reader returned for the build 104 traces (metrics, 
 probes/             the probe shaders flown as twins (each a march.wgsl with one part changed, never shipped),
                     and the scripts that make them from the current march.wgsl. A twin is made from the march as
                     it is the day it flies (a stale one read 13% wrong on 2026-11-10).
+
+
+b175/  (2026-11-14, the new game, build 175: build 174's march, each shader's text logged on a switch)
+------------------------------------------------------------------------------------------------------
+
+Four traces, 20 frames each from 100 s in, the game standing at a mark (INCUS_MARK), capped at 240 a second, taken
+by scripts/nsight-175.sh from the command line (GPU Trace Profiler, --real-time-shader-profiler, --set-gpu-clocks
+unaltered). Written up in journal/docs/experiments.md, "The Nsight look at the plain". Here (in git): the tables
+Nsight's reader gave for each trace, the shaders' text and the scripts. The trace files themselves and the compiled
+listings are big and stay on the laptop, in logs/nsight/b175/ (ignored by git), under the same folder names.
+
+b175-plain/           the bare plain, the height table on. The far march 0.896 ms, 4.7% of the card in flight.
+b175-plain-notable/   the bare plain with INCUS_FAR_TOPS=0 (the table's code, its true numbers off). 1.053 ms, 5.6%.
+b175-spawn/           on the ground at the spawn. 0.421 ms, 17%.
+b175-spawn-again/     meant for the sea, and stood at the spawn (a stray "; " after the mark's name in the script).
+                      Agrees with b175-spawn to a part in a hundred.
+                      Each folder here holds the tables Nsight's reader gave, as JSON (scripts/dump.py).
+hlsl175/              each shader's text as the card's compiler was given it (from the first trace's session log,
+                      scripts/hlsl_from_log.py), and march_all compiled again by the game's own compiler
+                      (Redist\D3D\x64\dxcompiler.dll, cs_6_7, -HV 2018 -no-warnings -Ges): its listing
+                      (march_all_6_7.ll) and the same with debug marks (-Zi, march_all_6_7_dbg.ll); the two
+                      listings are in logs/nsight/b175/hlsl175/, and can be made again from the text.
+scripts/trace_back.py reads a trace's hot instructions against the two listings: Nsight's line N is the listing's
+                      line N + 108 (its listing begins at "target datalayout"), the two listings hold the same
+                      4,398 instructions in the same order, and the one with debug marks gives each its line of
+                      the shader text.
