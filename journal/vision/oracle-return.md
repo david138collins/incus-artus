@@ -474,6 +474,15 @@ the answers.
     length before the first cut (up to 118 on the plain). Both are turned without building (`INCUS_FAR_LONG`,
     `INCUS_FAR_CUT`); two probes of them were flown with build 183.
 
+  Flown (cut against uncut, one session): **your step 4 measured, a miss by its own mark.** Where the card waits the
+  march halves (the plain 0.769 → 0.396 ms, the sea 0.969 → 0.609); where it works it's a sixth to a third dearer
+  (the mountain top +17.7%, high over the spawn +31.5%), and the far eye's dearest mark rose from 1.08 to 1.37 ms.
+  The steps are the same and the chain halved, so Builder's reading (not yet traced) is threads held waiting: sixteen
+  a cut ray whatever its length, uneven lengths sharing a group. Her lesson for you: the measure to bring down is
+  thread-steps in the strip, not the longest chain alone. Both probes (more rays cut, a later first cut) were dearer.
+  The mend proposed (build 184): as many lengths as a ray needs, about a hundred steps each, packed. Does the cut by
+  a list still beat yours (every ray cut) on a card that's full at the marks that work?
+
 ## 6. The message to send at the fork
 
 A draft for David to edit when the time comes:

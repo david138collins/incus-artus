@@ -2180,6 +2180,28 @@ Reference: `Art/quartile minecraft illustration.png`
       and the longest chain under 140 on the plain and the sea; flown cut against uncut, the plain's march 0.777 → 0.55
       or under, the sea's 0.986 → 0.60 or under, the working marks within 2%. The largest build of the stretch; nothing
       from David till its flight and his look at the horizon band.
+    - *Build 183, the lengths and the join* (47cfcca, flown at 1c20872 on "go with probes"; 12:02 to 12:28,
+      `logs/flight-1794766116` to `-1794767298`, checked by Counsel). **A miss by its own mark.** Off the screen first:
+      the longest chain 324 → 127 steps on the plain and 409 → 127 over the sea (met); the picture within 8 of 255 but
+      for three rays (the mountain top 70 and high over the spawn 17, both the map's-edge flaw from before the cut; low
+      over the sea 10, a 4 × 4 ray at the skyline whose base ray's first surface sits a little off). Flown, the march
+      cut against uncut in one session: the plain 0.769 → 0.396 ms (met), the sea 0.969 → 0.609 (the mark 0.60, a hair
+      over), the plain nodding 43% less, the sea nodding 21% less; where the card works, dearer where the mark allowed
+      2%: the mountain top +17.7%, high over the spawn +31.5%, the run +16.7%, fast across +30%, the spawn +3%. By the
+      card's whole **the dearest mark rose from 1.083 ms (the sea) to 1.370 (high over the spawn)**, against "bring
+      down the high spot". Uncut the build costs nothing (within 1.7% of build 182's). The steps barely change (high
+      over the spawn 2,263,000 → 2,274,000) and the slowest chain halves there (257 → 127), so the cost isn't steps.
+      Builder's reading, not yet seen in a trace: threads kept waiting (sixteen a cut ray whatever its length, and
+      uneven lengths sharing a group of 32, which runs as long as its longest). The two probes (the list's line at 64
+      steps; that with the first cut at 384) were dearer than the cut as it is at nearly every mark. The cut stays on
+      unless `INCUS_FAR_CUT=0`; every mark is still under 2 ms. Builder proposes the mend, build 184: as many lengths as
+      a ray needs, about a hundred steps each, cut where the frame before says, and only those lengths' threads,
+      packed. David's look at the horizon band on build 183, standing and nodding, asked first: whether the one-frame
+      lag shows bears on the mend.
+      - *Counsel's note:* the mark counted the longest chain and the steps, and both held; the time went somewhere
+        neither counts. If the reading holds, what a full card pays for is threads held, busy or idle, so build 184's
+        reports would do well to count them (the lesson Builder draws for the Oracle: the measure to bring down is
+        thread-steps in the strip, not the longest chain alone).
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its

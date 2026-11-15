@@ -35,10 +35,12 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   near eye. The 8s found a wall on the plain, and a day of measuring placed it: the marks that wait wait on their
   longest rays, and the marks that work are full, the march holding 168 registers (12 groups of rays of 48). The
   height table took the sea and the run about a fifth faster. The Oracle, called again (her first reply in
-  `journal/vision/oracle-prompt-2026-11-14.md`), waits on his five answers for her fourth part. Now, in his order: the
-  march broken into smaller passes to fit more, then leaned, then the long rays cut into lengths, for headroom to make
-  it prettier ("the goal should always be to bring down the high spot"); then the scatter stage, the skyline talk and
-  lazy rays proper. Both near drawers are flown before the fork ("Yes, fly both").
+  `journal/vision/oracle-prompt-2026-11-14.md`), waits on his five answers for her fourth part. Now, in his order, for
+  headroom to make it prettier ("the goal should always be to bring down the high spot"): the march's smaller passes
+  and leaning went as far as they paid (builds 177 to 180, 2 to 7% off); the long rays cut into lengths is being
+  built. Flown as build 183 it halves the march where the card waits but makes it a sixth to a third dearer where the
+  card works, the dearest mark 1.08 → 1.37 ms, so a mend is proposed (build 184). Then the scatter stage, the skyline
+  talk and lazy rays proper. Both near drawers are flown before the fork ("Yes, fly both").
 - **Just closed:** 2.1, done enough to go on (David: "yes, close 2.1. let us proceed."). Old is packed into `old\`
   and still runs; the journal is in `journal/`. The new project runs from the top of the folder (build 120; the
   numbers carry on from old's): a flying camera on old's keys, the panel (F3), the clocks a pass at a time, and the
