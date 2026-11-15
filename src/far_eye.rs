@@ -180,8 +180,10 @@ struct Targets {
     up_group: [wgpu::BindGroup; 2],
     /// The one-dispatch form's: every layer's numbers in one buffer, and its bind group for each of the two copies.
     one: Option<(wgpu::Buffer, [wgpu::BindGroup; 2])>,
-    /// The tiles' starts and, after them, the long rays' two lists (`far_all.wgsl`'s `list_long`).
-    starts: wgpu::Buffer,
+    /// The start pass's two groups by the one dispatch (each writes the tiles' starts into the copy of the distances
+    /// the march reads that frame), and the long rays' two lists (`far_all.wgsl`).
+    one_starts: Option<[wgpu::BindGroup; 2]>,
+    long_rays: wgpu::Buffer,
     /// The audit's own bind group (`FarEye::audit`): the far eye's, with scratch in place of everything it writes.
     audit: Option<wgpu::BindGroup>,
 }
@@ -235,6 +237,9 @@ pub struct FarEye {
     /// march (`march_loading`). `INCUS_FAR_LOADED=0` keeps the whole march on (for measuring one against the other).
     /// And whether the log has said the second has taken over.
     one_loaded: Option<wgpu::ComputePipeline>,
+    /// The start pass by the one dispatch: its program from the one dispatch's text, which writes the tiles' starts
+    /// into the frame before's distances (`far_all.wgsl`'s `put_start`).
+    one_start: Option<wgpu::ComputePipeline>,
     loaded_off: bool,
     loaded_said: std::sync::atomic::AtomicBool,
     /// The march's audit (`INCUS_FAR_AUDIT`, for measuring): cut-down versions of the march (`audit_variants`), each
@@ -403,6 +408,7 @@ impl FarEye {
         // camera read in place from its layer's row.
         let mut audit = Vec::new();
         let mut one_loaded = None;
+        let mut one_start = None;
         let one = (std::env::var("INCUS_FAR_SIDE").as_deref() != Ok("0")).then(|| {
             let source = one_source(far_source.as_str());
             // The two programs from the one text: the whole march under its own name, and the march once the textures
@@ -449,6 +455,7 @@ impl FarEye {
             });
             let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor { label: Some("the far eye, one dispatch"), bind_group_layouts: &[Some(&layout)], immediate_size: 0 });
             let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("march_loading"), layout: Some(&pipeline_layout), module: &module, entry_point: Some("march_loading"), compilation_options: Default::default(), cache: None });
+            one_start = Some(device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("start_pass"), layout: Some(&pipeline_layout), module: &module, entry_point: Some("start_pass"), compilation_options: Default::default(), cache: None }));
             let loaded_module = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some("the far eye, once the textures are in"), source: wgpu::ShaderSource::Wgsl(loaded_source.into()) });
             one_loaded = Some(device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("march_all"), layout: Some(&pipeline_layout), module: &loaded_module, entry_point: Some("march_all"), compilation_options: Default::default(), cache: None }));
             // The audit's variants, if asked: the same layout, each its own module and its own name.
@@ -471,7 +478,7 @@ impl FarEye {
         let tally_counts = LAYERS.iter().map(|_| device.create_buffer(&wgpu::BufferDescriptor { label: Some("a far layer's longest ray"), size: 4 * TALLY as u64, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false })).collect();
         let tally_back = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the longest rays read back"), size: 4 * (TALLY * LAYERS.len()) as u64, usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let tally_state = std::sync::Arc::new(std::sync::atomic::AtomicU8::new(0));
-        Self { store, lane, rings, eye: [0.0; 2], start, march, up, layout, up_layout, sampler, targets: None, look, textures, atlas: None, building: None, stand_ins, light: None, lighting: None, sweeping: None, sun_asked, light_stand_ins, blue, blue_bytes, edge, layers, one, one_loaded, loaded_off: std::env::var("INCUS_FAR_LOADED").as_deref() == Ok("0"), loaded_said: std::sync::atomic::AtomicBool::new(false), audit, parity: 0, fresh: false, haze_step, most_steps, tops_making: None, tops_made: None, tops_off: false, reach, begin, tally, tally_counts, tally_back, tally_state }
+        Self { store, lane, rings, eye: [0.0; 2], start, march, up, layout, up_layout, sampler, targets: None, look, textures, atlas: None, building: None, stand_ins, light: None, lighting: None, sweeping: None, sun_asked, light_stand_ins, blue, blue_bytes, edge, layers, one, one_loaded, one_start, loaded_off: std::env::var("INCUS_FAR_LOADED").as_deref() == Ok("0"), loaded_said: std::sync::atomic::AtomicBool::new(false), audit, parity: 0, fresh: false, haze_step, most_steps, tops_making: None, tops_made: None, tops_off: false, reach, begin, tally, tally_counts, tally_back, tally_state }
     }
 
     /// Whether every region is on the card, the window's regions round the eye too, and the far textures if they're made.
@@ -742,7 +749,8 @@ impl FarEye {
         let buffer = |label: &str, size: u64, usage: wgpu::BufferUsages| device.create_buffer(&wgpu::BufferDescriptor { label: Some(label), size: size.max(16), usage, mapped_at_creation: false });
         let storage = wgpu::BufferUsages::STORAGE;
         let tiles = (screen.0.div_ceil(TILE), screen.1.div_ceil(TILE));
-        let starts = buffer("the far starts and the long rays' lists", (tiles.0 * tiles.1 + 2 * (1 + LONG_LIST)) as u64 * 4, storage | wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::COPY_SRC);
+        let starts = buffer("the far starts", (tiles.0 * tiles.1) as u64 * 4, storage);
+        let long_rays = buffer("the long rays' lists", 2 * (1 + LONG_LIST) as u64 * 4, storage | wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::COPY_SRC);
         let nothing_above = buffer("the far layers' nothing above", 16, storage);
         let no_far = texture("the far layers' no distances above", (1, 1), wgpu::TextureFormat::Rgba32Float);
         let mut layers: Vec<Layer> = Vec::new();
@@ -802,10 +810,13 @@ impl FarEye {
             let cameras = buffer("the far layers' cameras", (LAYERS.len() * CAMERA_ROWS) as u64 * 16, wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST);
             let words = (layers[0].size.0 * layers[0].size.1 + layers[1].size.0 * layers[1].size.1) as u64 * 4;
             let worth = [buffer("the far layers' worth it", words, storage), buffer("the far layers' worth it", words, storage)];
-            let groups = [0usize, 1].map(|p| {
+            // A group for the march (`start` false: this frame's distances written, the frame before's read) or for
+            // the start pass (true: the frame before's distances written, where the tiles' starts go, and nothing
+            // of them read), for each of the two copies.
+            let group = |p: usize, start: bool| {
                 let q = 1 - p;
                 device.create_bind_group(&wgpu::BindGroupDescriptor {
-                    label: Some("the far eye, one dispatch"),
+                    label: Some(if start { "the far start, one dispatch" } else { "the far eye, one dispatch" }),
                     layout,
                     entries: &[
                         entry(0, cameras.as_entire_binding()),
@@ -814,11 +825,11 @@ impl FarEye {
                         entry(3, self.store.index.as_entire_binding()),
                         entry(4, self.store.pool.as_entire_binding()),
                         entry(5, wgpu::BindingResource::TextureView(&layers[0].picture)),
-                        entry(6, wgpu::BindingResource::TextureView(&layers[0].far[p])),
-                        entry(7, starts.as_entire_binding()),
+                        entry(6, wgpu::BindingResource::TextureView(&layers[0].far[if start { q } else { p }])),
+                        entry(7, long_rays.as_entire_binding()),
                         entry(8, worth[q].as_entire_binding()),
                         entry(9, worth[p].as_entire_binding()),
-                        entry(10, wgpu::BindingResource::TextureView(&layers[0].far[q])),
+                        entry(10, wgpu::BindingResource::TextureView(if start { &no_far } else { &layers[0].far[q] })),
                         entry(11, self.atlas.as_ref().map_or(&self.store.index, |a| &a.slots).as_entire_binding()),
                         entry(12, wgpu::BindingResource::Sampler(&self.sampler)),
                         entry(13, wgpu::BindingResource::TextureView(self.atlas.as_ref().map_or(&self.stand_ins[0], |a| &a.solid))),
@@ -832,9 +843,14 @@ impl FarEye {
                         entry(19, wgpu::BindingResource::TextureView(&layers[2].picture)),
                     ],
                 })
-            });
-            (cameras, groups)
+            };
+            let (groups, starts) = ([group(0, false), group(1, false)], [group(0, true), group(1, true)]);
+            (cameras, groups, starts)
         });
+        let (one, one_starts) = match one {
+            Some((cameras, groups, starts)) => (Some((cameras, groups)), Some(starts)),
+            None => (None, None),
+        };
         // The audit's bind group: the far eye's own, with scratch in place of all it writes (its pictures, its
         // distances, its words) and of the words it reads, so a variant's march touches nothing that's shown or kept.
         // (Scratch a few pixels across: a write outside a texture isn't made, and a word past a buffer's end lands on
@@ -843,6 +859,7 @@ impl FarEye {
             let pictures = [0, 1, 2].map(|_| texture("the audit's scratch", (8, 8), wgpu::TextureFormat::Rgba8Unorm));
             let distances = texture("the audit's scratch", (8, 8), wgpu::TextureFormat::Rgba32Float);
             let words = [buffer("the audit's scratch", 16, storage), buffer("the audit's scratch", 16, storage)];
+            let lists = buffer("the audit's scratch", 2 * (1 + LONG_LIST) as u64 * 4, storage);
             device.create_bind_group(&wgpu::BindGroupDescriptor {
                 label: Some("the march's audit"),
                 layout,
@@ -854,7 +871,7 @@ impl FarEye {
                     entry(4, self.store.pool.as_entire_binding()),
                     entry(5, wgpu::BindingResource::TextureView(&pictures[0])),
                     entry(6, wgpu::BindingResource::TextureView(&distances)),
-                    entry(7, starts.as_entire_binding()),
+                    entry(7, lists.as_entire_binding()),
                     entry(8, words[0].as_entire_binding()),
                     entry(9, words[1].as_entire_binding()),
                     entry(10, wgpu::BindingResource::TextureView(&layers[0].far[0])),
@@ -893,7 +910,7 @@ impl FarEye {
             .zip(&tally_parts)
             .map(|((layer, counts), part)| [0usize, 1].map(|p| device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("the longest ray"), layout: &self.tally.get_bind_group_layout(0), entries: &[entry(0, wgpu::BindingResource::TextureView(&layer.far[p])), entry(1, counts.as_entire_binding()), entry(2, part.as_entire_binding())] })))
             .collect();
-        self.targets = Some(Targets { screen, generation: self.store.generation, atlas_in: self.atlas.is_some(), atlas_generation, light: light_now, tiles, tally_groups, tally_parts, layers, up_numbers, up_group, one, starts, audit });
+        self.targets = Some(Targets { screen, generation: self.store.generation, atlas_in: self.atlas.is_some(), atlas_generation, light: light_now, tiles, tally_groups, tally_parts, layers, up_numbers, up_group, one, one_starts, long_rays, audit });
         true
     }
 
@@ -906,8 +923,7 @@ impl FarEye {
         }
         let Some(targets) = &self.targets else { return };
         // This frame's list of long rays begins empty.
-        let tiles_n = targets.tiles.0 * targets.tiles.1;
-        queue.write_buffer(&targets.starts, (tiles_n + self.parity as u32 * (1 + LONG_LIST)) as u64 * 4, &0u32.to_le_bytes());
+        queue.write_buffer(&targets.long_rays, (self.parity as u32 * (1 + LONG_LIST)) as u64 * 4, &0u32.to_le_bytes());
         let (facing, pitch) = (camera.facing.to_radians(), camera.pitch.to_radians());
         let forward = [pitch.cos() * facing.cos(), pitch.cos() * facing.sin(), pitch.sin()];
         let right = [-facing.sin(), facing.cos(), 0.0];
@@ -970,9 +986,9 @@ impl FarEye {
                 ring_boxes[1],
                 ring_boxes[2],
                 ring_boxes[3],
-                // The long rays' lists: this frame's and the frame before's, after the tiles' starts; none listed in a
+                // The long rays' lists: where this frame's and the frame before's start; none listed in a
                 // frame the layers were remade (its dispatch runs three times over).
-                [(tiles_n + self.parity as u32 * (1 + LONG_LIST)) as f32, (tiles_n + (1 - self.parity as u32) * (1 + LONG_LIST)) as f32, if self.fresh { 1e9 } else { LONG_STEPS as f32 }, LONG_LIST as f32],
+                [(self.parity as u32 * (1 + LONG_LIST)) as f32, ((1 - self.parity as u32) * (1 + LONG_LIST)) as f32, if self.fresh { 1e9 } else { LONG_STEPS as f32 }, LONG_LIST as f32],
             ];
             let bytes = numbers.iter().flatten().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>();
             queue.write_buffer(&layer.camera, 0, &bytes);
@@ -989,6 +1005,16 @@ impl FarEye {
     pub fn start(&self, encoder: &mut wgpu::CommandEncoder, timestamps: Option<wgpu::ComputePassTimestampWrites<'_>>) {
         let Some(targets) = &self.targets else { return };
         let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("the far start"), timestamp_writes: timestamps });
+        // By the one dispatch the tiles' starts go into the copy of the distances the march reads this frame; in a
+        // frame the layers were remade its march runs three times, reading each copy in turn, so into both.
+        if let (Some(pipeline), Some(groups)) = (&self.one_start, &targets.one_starts) {
+            pass.set_pipeline(pipeline);
+            for copy in [self.parity, 1 - self.parity].into_iter().take(if self.fresh { 2 } else { 1 }) {
+                pass.set_bind_group(0, &groups[copy], &[]);
+                pass.dispatch_workgroups(targets.tiles.0.div_ceil(8), targets.tiles.1.div_ceil(8), 1);
+            }
+            return;
+        }
         pass.set_pipeline(&self.start);
         pass.set_bind_group(0, &targets.layers[0].group, &[]);
         pass.dispatch_workgroups(targets.tiles.0.div_ceil(8), targets.tiles.1.div_ceil(8), 1);
@@ -1066,11 +1092,11 @@ impl FarEye {
     #[cfg(test)]
     fn long_list(&self, device: &wgpu::Device, queue: &wgpu::Queue) -> Vec<u32> {
         let targets = self.targets.as_ref().expect("the far eye's targets");
-        let at = (targets.tiles.0 * targets.tiles.1 + self.parity as u32 * (1 + LONG_LIST)) as u64 * 4;
+        let at = (self.parity as u32 * (1 + LONG_LIST)) as u64 * 4;
         let size = (1 + LONG_LIST) as u64 * 4;
         let back = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the long rays' list read back"), size, usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("the long rays' list read back") });
-        encoder.copy_buffer_to_buffer(&targets.starts, at, &back, 0, size);
+        encoder.copy_buffer_to_buffer(&targets.long_rays, at, &back, 0, size);
         queue.submit([encoder.finish()]);
         back.slice(..).map_async(wgpu::MapMode::Read, |_| {});
         device.poll(wgpu::PollType::wait_indefinitely()).expect("the card finished");

@@ -74,7 +74,7 @@ struct Camera {
     // box (xy over zw) while it isn't there.
     rings: array<vec4<f32>, 4>,
     // The long rays' list (the cut; the one dispatch only, `far_all.wgsl`): x where this frame's list starts in
-    // `starts`, y where the frame before's does, z how many steps make a ray long (a number no ray reaches: none is
+    // `long_rays`, y where the frame before's does, z how many steps make a ray long (a number no ray reaches: none is
     // listed this frame), w how many rays a list holds.
     list: vec4<f32>,
 }
@@ -87,12 +87,19 @@ struct Camera {
 @group(0) @binding(2) var<storage, read> entries: array<u32>;
 @group(0) @binding(3) var<storage, read> index: array<u32>;
 @group(0) @binding(4) var<storage, read> pool: array<vec4<u32>>;
-// Where each tile's rays start (the start pass's answers, each a number's bits); and after them, by the one
-// dispatch, the long rays' lists (`far_all.wgsl`: this frame's and the frame before's, each a count and then the
-// pixels). Words written by many rays at once, so read and written as such.
-@group(0) @binding(7) var<storage, read_write> starts: array<atomic<u32>>;
 // ── One layer's outputs: begin ── (the one-dispatch form, `far_all.wgsl`, is put in this part's place by `far_eye.rs`:
 // keep the two marks' lines as they are)
+// Where each tile's rays start (the start pass's answers).
+@group(0) @binding(7) var<storage, read_write> starts: array<f32>;
+
+fn put_start(tile: vec2<u32>, across: u32, v: f32) {
+    starts[tile.y * across + tile.x] = v;
+}
+
+fn tile_start(tile: vec2<u32>, across: u32) -> f32 {
+    return starts[tile.y * across + tile.x];
+}
+
 @group(0) @binding(5) var picture: texture_storage_2d<rgba8unorm, write>;
 // Each pixel's distance (where it first touched anything), and beside it the steps its ray took (the Oracle's step 0).
 @group(0) @binding(6) var how_far: texture_storage_2d<rgba32float, write>;
@@ -1202,7 +1209,7 @@ fn start_pass(@builtin(global_invocation_id) id: vec3<u32>) {
     }
     let uv = min((vec2<f32>(id.xy) + 0.5) * camera.tiles.z / camera.view.xy, vec2<f32>(1.0));
     let d = normalize(camera.forward.xyz + (uv.x * 2.0 - 1.0) * camera.right.xyz + (1.0 - uv.y * 2.0) * camera.up.xyz);
-    atomicStore(&starts[id.y * tiles.x + id.x], bitcast<u32>(cone_start(camera.position.xyz, d, camera.tiles.w)));
+    put_start(id.xy, tiles.x, cone_start(camera.position.xyz, d, camera.tiles.w));
 }
 
 fn to_srgb(c: vec3<f32>) -> vec3<f32> {
@@ -1275,7 +1282,7 @@ fn march_pixel(id: vec2<u32>) {
     var begin = 0.5;
     if (camera.tiles.z > 0.0) {
         let tile = vec2<u32>(vec2<f32>(id.xy) / camera.tiles.z);
-        begin = bitcast<f32>(atomicLoad(&starts[tile.y * u32(camera.tiles.x) + tile.x]));
+        begin = tile_start(tile, u32(camera.tiles.x));
     }
     // A finer layer's rays start a little short of the nearest touch among their parent and its neighbours.
     if (camera.layer.x > 0.0 && camera.follow.x > 0.5) {

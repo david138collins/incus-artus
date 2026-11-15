@@ -18,6 +18,23 @@
 // The frame before's distances, laid out the same.
 @group(0) @binding(10) var far_prev: texture_2d<f32>;
 
+// The long rays' lists (the cut): this frame's and the frame before's, each a count and then the pixels. Words
+// written by many rays at once, so only ever touched by the few rays that are long. [Build 181 kept the tiles'
+// starts in the same buffer, and every ray's read of its tile's start became a read and a write locked together, on
+// a word its 63 neighbours were locking too: 4 to 11% at every mark.]
+@group(0) @binding(7) var<storage, read_write> long_rays: array<atomic<u32>>;
+
+// Where each tile's rays start, by the one dispatch: under the base layer's part of the frame before's distances
+// (nothing else is there: the base's rows are fewer than the finest's). The start pass is given that picture to
+// write; the march reads it as it reads the rest.
+fn put_start(tile: vec2<u32>, across: u32, v: f32) {
+    textureStore(how_far, vec2<i32>(tile) + vec2<i32>(0, i32(cameras[0].view.y)), vec4<f32>(v, 0.0, 0.0, 0.0));
+}
+
+fn tile_start(tile: vec2<u32>, across: u32) -> f32 {
+    return textureLoad(far_prev, vec2<i32>(tile) + vec2<i32>(0, i32(cameras[0].view.y)), 0).x;
+}
+
 // Which layer this invocation marches (0 the base).
 var<private> layer_now: u32;
 
@@ -70,7 +87,7 @@ fn get_far_above(at: vec2<i32>) -> f32 {
 }
 
 // A long ray listed (the cut, its first stage): a ray that took `list.z` steps or more adds its pixel to this
-// frame's list, kept after the tiles' starts in `starts` (a count, then the pixels, the layer in the top two bits),
+// frame's list in `long_rays` (a count, then the pixels, the layer in the top two bits),
 // and its place in the list, one up, goes beside its distance for the frame after (0: not long, or the list was
 // full). [Rays long enough to set the far eye's time are a few hundred, in a thin band at the horizon, and mostly
 // the same from frame to frame: David, 2026-11-14, "we have to reduce the longest rays, one by one in order of
@@ -80,11 +97,11 @@ fn list_long(i: u32, steps: f32) -> f32 {
         return 0.0;
     }
     let at = u32(cameras[0].list.x);
-    let slot = atomicAdd(&starts[at], 1u);
+    let slot = atomicAdd(&long_rays[at], 1u);
     if (slot >= u32(cameras[0].list.w)) {
         return 0.0;
     }
-    atomicStore(&starts[at + 1u + slot], (layer_now << 30u) | i);
+    atomicStore(&long_rays[at + 1u + slot], (layer_now << 30u) | i);
     return f32(slot + 1u);
 }
 

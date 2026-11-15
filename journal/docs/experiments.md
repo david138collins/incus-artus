@@ -4711,3 +4711,23 @@ hundred rays touch. One layer after another (`INCUS_FAR_SIDE=0`) is as it was.
 The 2 x 2 marches nothing at any mark. Every long ray was listed at every mark (the most at once 2,419, on the run:
 well inside the list's 8,192). **At the three dearest marks that aren't the sea, the 4 x 4 marches most of the
 steps:** the mountain top 4.56 million of 6.6, high over the spawn 3.76 of 6.0, fast across the world 3.18 of 4.8.
+
+### Build 182 built (unflown), the mend to the list's cost: its pass mark, and what was checked
+
+**What changes:** by the one dispatch the tiles' starts leave the list's buffer. The start pass (its program now
+made from the one dispatch's text) writes them under the base layer's part of the frame before's distances, where
+nothing else is, and every ray reads its tile's start from there as it reads any picture. The buffer that many rays
+write at once holds only the long rays' two lists, touched by the rays that are long. In a frame the layers were
+remade the starts go into both copies of the distances (its march reads each in turn). One layer after another
+(`INCUS_FAR_SIDE=0`) keeps its plain buffer of starts, as before build 181.
+
+**The mark for the flight** (the same as build 181's, which missed): every mark's march within 1% of build 180's as
+it is (the spawn 0.357 ms, the mountain top 0.934, the plain 0.776, high over the spawn 0.975, the sea 0.980, the
+run 0.861, fast across 0.642, the plain nodding 0.751, the sea nodding 0.920); over 2% at any mark is a miss. It
+also tests the reading of build 181's cost: if the 4 to 11% is still there, the tiles' read wasn't it.
+
+**Off the screen:** the picture is build 178's at the five marks (no pixel at three, the most 1 of 255 at two); the
+plain's counts are build 181's to the last step (1,178,297 steps, 890 long rays, all listed); the list's test
+passes; one layer after another still draws. All 31 tests pass. *(A test of the main memory's reading failed once
+and passed on the next run: it asks that Windows' "in memory now" never be over its "most ever", which two readings
+a moment apart needn't keep. Not this build's; written down to mend.)*
