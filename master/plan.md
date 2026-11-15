@@ -31,10 +31,14 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   be more orderly: where a ray's steps begin is on a switch ("very subtle"); the switch to bare rock that drew flat
   plates is cut, and empty cells borrow colour across bricks (builds 163 to 167; build 167 flown within 0.7% of build
   163). His look at the rings where levels hand over: "i can't see any rings"; the gate owes only the Intel card's
-  numbers (next time Optimus is on). Now: the cells of 2 to 16 with scattered detail, the 16s' ring alone first; then
-  the skyline talk (haze or cover) with them on the screen, since the soft skyline is as wide as the cells it's read
-  from (his word: "yes and yes, you can proceed"); then lazy rays. Both near drawers are flown before the fork ("Yes,
-  fly both").
+  numbers (next time Optimus is on). The 16s' and 8s' rings are in ("looks pretty good"); the 4s and 2s wait for the
+  near eye. The 8s found a wall on the plain, and a day of measuring placed it: the marks that wait wait on their
+  longest rays, and the marks that work are full, the march holding 168 registers (12 groups of rays of 48). The
+  height table took the sea and the run about a fifth faster. The Oracle, called again (her first reply in
+  `journal/vision/oracle-prompt-2026-11-14.md`), waits on his five answers for her fourth part. Now, in his order: the
+  march broken into smaller passes to fit more, then leaned, then the long rays cut into lengths, for headroom to make
+  it prettier ("the goal should always be to bring down the high spot"); then the scatter stage, the skyline talk and
+  lazy rays proper. Both near drawers are flown before the fork ("Yes, fly both").
 - **Just closed:** 2.1, done enough to go on (David: "yes, close 2.1. let us proceed."). Old is packed into `old\`
   and still runs; the journal is in `journal/`. The new project runs from the top of the folder (build 120; the
   numbers carry on from old's): a flying camera on old's keys, the panel (F3), the clocks a pass at a time, and the
@@ -337,7 +341,18 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
         wood, rows of posts, towers, slabs and an arch), off by default; marks from it. Before the fork. First the
         16s' ring alone (128 × 128 columns round the eye, old's size), to prove the moving ring, the store, the march
         and the light on one level before the other three reuse them; then the scatter stage's woods; then shapes
-        placed by hand, each placed with David
+        placed by hand, each placed with David. *The 16s and the 8s in* (builds 168 to 171: "looks pretty good"); the
+        8s found the plain's wall (0.54 → 0.96 ms). The 4s and 2s held: at 128 cells a side they'd lie under the near
+        eye's ground, so they're decided with the near eye, on David's answers to the Oracle's questions 1 and 5
+  - [ ] The far eye's speed work, for headroom to make it prettier (David, 2026-11-15: "i don't think we should leave
+        anything undone ... that will translate directly to more headroom for prettying it up"), ranked by what it
+        takes off the dearest mark ("the goal should always be to bring down the high spot"). Found: the marks that
+        wait (the sea, the run, the plain) wait on their longest rays; the marks that work (high over the spawn, the
+        mountain top) are full at 12 groups of rays of 48, the march holding 168 registers. *Done enough:* the height
+        table (builds 174 and 176; the sea 1.40 → 1.11 ms, the run 1.31 → 1.01; the near marks 3 to 9% dearer). In his
+        order: (1) the march broken into smaller passes, to fit more groups, priced first by an instrument that lists
+        candidate pieces' registers in one trace; (2) the march leaned; (3) the long rays cut into lengths, marched
+        side by side (the Oracle's step 4). Each with its pass mark and flight, and taken out again if it doesn't pay
   - [ ] The looks (David's "2, 3 and 4"): the skyline by cover, with a column-height table (haze or cover is his);
         if cover, the sheet (plain far land as rings of mesh) flown as the far levels' rival; the horizon band over
         frames comes as lazy rays. After the cells of 2 to 16, so it's judged on them (David, 2026-11-14: "yes and

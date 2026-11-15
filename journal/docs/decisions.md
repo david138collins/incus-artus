@@ -2026,6 +2026,17 @@ Reference: `Art/quartile minecraft illustration.png`
     a waiting card, so side by side). She reminded him the far eye is already under his 2 ms (worst 1.11), so this is
     headroom for the cells of 2 to 16 and the near eye; whether to take it now or after them is his and Counsel's.
     Nothing ordered or built on it yet.
+  - **[DECIDED 2026-11-15] Now, and smaller passes first** (David, to Builder, asked now or after the near eye, and
+    the cut first or not): "i don't think we should leave anything undone. if atomizing the megakernal a bit with the
+    main shader being broken into passes *can* give higher performance at no cost, that will translate directly to
+    more headroom for prettying it up. i think we should probably start with trying to break it into smaller passes
+    to fit more, and then lean and cut the rays." So: (1) the march broken into smaller passes, to fit more groups of
+    rays; (2) the march leaned; (3) the long rays cut into lengths. Builder had proposed the cut first; his order
+    stands. Counsel had recommended leaning and the cut now and far land kept between frames after the near eye;
+    that last stays as it was. Builder starts with an instrument, not a guess: variants of the march (hops only,
+    samples only, without the finish, without the hand-over's second read, and so on) compiled and run on a token
+    dispatch that touches no picture, so Nsight lists each one's registers and how many groups fit, one screenshot
+    from David pricing the batch; it's the register audit the leaning needs too. The plan's 2.2 gains the line.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
