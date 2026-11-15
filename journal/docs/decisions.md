@@ -1889,6 +1889,19 @@ Reference: `Art/quartile minecraft illustration.png`
       column tops are averages, so they can't serve. The record went round on this today (Counsel named the table,
       corrected it by her section 4, she loosened section 4 herself); the counts settle it. Also: every standing now
       reports the card's watts typically beside the highest (her question 8).
+  - **[DECIDED 2026-11-14] Build the height table** (David, to Builder, shown the steps by kind): "go ahead and build
+    the height table, and keep me informed about how you're doing it and how it works." Build 174 (819f422), unflown:
+    every column of every level carries the height of the highest thing in it and its eight neighbours (the blend
+    reads half a cell into the next column), kept after the bands in the same list, a column's number a fixed offset
+    from its band's (28 MB; no new buffer, so the default limits hold); the bands' rounded tops while the world loads,
+    the true ones worked out on a thread and sent whole in 0.09 s; the rings' makers do theirs. The march's skip asks
+    it, the biggest column first. Off the screen, the plain with both rings: 2.84 million steps to 1.17, hops over a
+    ray's own column 735,000 to 116,000, rays over 256 steps 952 to 16, the longest ray 533 to 326; samples as they
+    were; both count guesses met. A test holds the numbers true against the doorway's columns, block for block.
+    - *The picture:* no shift overall, a scatter of about a part in 255, a few horizon pixels flipped between sea and
+      sky; at his first spot the slope's fine contour lines a little grainier. David: "let me see the change before
+      discarding it. for all we know it might be nice." His look first, then fourteen minutes hands off, the table
+      against `INCUS_FAR_TOPS=0`. Pass mark: the plain from 0.97 ms to 0.6 or under.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
