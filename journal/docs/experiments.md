@@ -4553,3 +4553,50 @@ groups than with 12?
 **What it decides:** a tenth or more for room where the card is full, and the hand-over made lighter and one other
 piece are next, each with something standing in that keeps the picture. Under 5%, and the registers aren't chased
 further: the hand-over is still worth its shorter step, and the long rays cut into lengths comes next.
+
+### Build 180 flown (2026-11-15, 08:43 to 09:09, hands off): 16 groups are worth 2 to 6% where the card is full
+
+David: "go ahead". Told before take-off; one screen, on mains, the card idle before (5%); no hitch in any of the
+four. One session, the same program file: `logs/flight-1794754181` (as it is), `-1794754571` (the hand-over out),
+`-1794754961` (and the floor: 16 groups, 15 words put by), `-1794755350` (and the third row: 16 groups, 7 put by).
+The last three's pictures are wrong on purpose. The march, median ms:
+
+| mark | as it is | the hand-over out, 12 groups | and the floor, 16 groups | and the third row, 16 groups | 16 against 12: the floor | the third row |
+|---|---|---|---|---|---|---|
+| the spawn | 0.357 | 0.352 (1% less) | 0.337 (6%) | 0.310 (13%) | 4% less | 12% less |
+| the mountain top | 0.934 | 0.889 (5%) | 0.872 (7%) | 0.851 (9%) | 2% less | 4% less |
+| high over the spawn | 0.975 | 0.937 (4%) | 0.916 (6%) | 0.876 (10%) | 2% less | 7% less |
+| fast across the world | 0.642 | 0.599 (7%) | 0.528 (18%) | 0.561 (13%) | 12% less | 6% less |
+| the bare plain | 0.776 | 0.664 (14%) | 0.685 (12%) | 0.693 (11%) | 3% more | 4% more |
+| the plain, nodding | 0.751 | 0.704 (6%) | 0.731 (3%) | 0.734 (2%) | 4% more | 4% more |
+| low over the sea | 0.980 | 0.976 (the same) | 0.977 (the same) | 1.013 (3% more) | the same | 4% more |
+| the sea, nodding | 0.920 | 0.909 (1%) | 0.910 (1%) | 0.962 (5% more) | the same | 6% more |
+| a player's run | 0.861 | 0.844 (2%) | 0.839 (3%) | 0.922 (7% more) | 1% less | 9% more |
+
+(With the third row out the rays over the sea and on the run take more steps, as the first batch's picture said:
+that column is dearer there for its steps, not its room.)
+
+**Against the pass mark:**
+- **Does room pay where the card is full? A little: 2 and 4% at the mountain top, 2 and 7% high over the spawn**,
+  for "a tenth or more" if it pays and "within 5%" if it doesn't. Three of the four are under 5%. My guess (5 to
+  15%) was high; the low end at best.
+- **Where the card waits, 16 groups with words put by cost 3 to 4%** (the plain, the plain nodding): as the audit's
+  base-layer times said.
+- **The hand-over's second read out, as a ceiling:** under at every mark, as said; 14% on the plain, 4 to 7% at the
+  mountain top, high over the spawn and fast across, and next to nothing over the sea, on the run and at the spawn.
+- The spawn and fast across the world gain most from room (4 to 12%); they're the cheapest marks.
+
+**What it decides, by the mark's own rule:** the registers aren't chased as a goal. At the dearest marks (the far
+eye's whole: high over the spawn 1.096 ms, the sea 1.092, the mountain top 1.056) everything this stretch could
+still give is small and comes with a wrong picture until something stands in: the hand-over out 4% and 4% and
+nothing; 16 groups a further 2 to 7% at two of them and a loss at the third. The measured prize that's left is the
+long rays': with rays stopped at 160 steps the sea's march was 45% shorter and the run's 29% (build 176).
+
+**What the stretch gave, kept:** the march once the textures are in (build 178): 2 to 7% off every mark but the
+spawn with the picture kept, and the march's need down from 186 to 167 with nothing put by. And what it found: the
+hops to the first sample cost nothing; rare, heavy paths cost every ray; the compiler buys groups with words put
+by, and that costs where the card waits.
+
+**What isn't answered:** what the mountain top's and high over the spawn's time is, if it's neither their longest
+rays (rays stopped at 160: 9% and 4%), nor room (2 to 7%), nor the hand-over (4 to 5%). The 4 x 4 layer is the
+largest known part: the mountain top's base layer alone marches in 0.71 ms of its 0.95.

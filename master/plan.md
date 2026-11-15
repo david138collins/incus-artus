@@ -57,23 +57,21 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** his go for build 178's trace (one screenshot of Nsight's rows after it) and two flights in
-  one session. His order for the far eye's last stretch of speed (2026-11-14): "i don't think we should leave
-  anything undone ... we should probably start with trying to break it into smaller passes to fit more, and then
-  lean and cut the rays." Why: the march keeps 168 registers, so 12 groups of rays fit of the card's 48 (his reading
-  off Nsight's window), and the marks that work are full. The audit (build 177: thirteen cut-down versions of the
-  march priced in one trace) said which split pays: not "cross the air" against "the rest" (the hops to the first
-  sample are 0.008 ms), but the rare, heavy work taken out of the march every ray runs: with the hand-over's second
-  read out the plain is 20% shorter, with the code's blend out 14%, though 0.6% and 0.1% of steps take them; all six
-  trims together reach 128 registers and 16 groups. **Build 178 is the first piece: the march once the textures are
-  in**, a second program from the one text without the code's blend or the views (the whole march stays for
-  loading, the initial blend and the views). Off the screen its picture is build 176's at five marks (the most 1 of
-  255) and its steps the same to the last count. Next after it: the hand-over made lighter, and a second audit on
-  this program for the fewest changes that fit 16 groups, or 20. Behind it (build 176, the far eye's whole: the sea
-  1.112 ms, high over the spawn 1.080, the mountain top 1.071, the run 1.007, the plain 0.934): two kinds of mark,
-  waiting (their time their longest ray's chain) and working (full). Builder's assessment of lazy rays is with him
-  and Counsel (`journal/docs/experiments.md`). If Nsight says "GPU Performance Counters unavailable" again: a
-  restart of the laptop clears it (2026-11-15; the cause isn't known).
+- **Waiting on David:** his word on what follows the smaller passes. His order for the far eye's last stretch of
+  speed (2026-11-14): "we should probably start with trying to break it into smaller passes to fit more, and then
+  lean and cut the rays." The first part is flown through (builds 177 to 180, `journal/docs/experiments.md`):
+  the audit priced the march's parts in two batches; **build 178, the march once the textures are in, is kept** (a
+  second program from the one text without the code's blend or the views: the picture kept, 2 to 7% off every mark
+  but the spawn; the march's need of registers from 186 to 167, nothing put by in memory); and four flights said
+  what fitting more groups is worth: 2 to 7% where the card is full, a loss of 3 to 4% where it waits (the compiler
+  buys the groups by putting words by in memory). The hand-over's second read out is worth up to 14% on the plain
+  and 4% at the dearest marks, as a ceiling, with a wrong picture till something stands in. So Builder's reading:
+  the registers aren't chased further as a goal, and the cut of the long rays is next (rays stopped at 160 steps
+  made the sea's march 45% shorter and the run's 29%, build 176). The far eye's whole now: high over the spawn
+  1.096 ms, the sea 1.092, the mountain top 1.056, the run 0.977, the plain 0.886, the spawn 0.466. Not answered:
+  what the mountain top's and high over the spawn's time is (not their longest rays, not room, not the hand-over;
+  the 4 x 4 layer is the largest known part). Builder's assessment of lazy rays is with him and Counsel. If Nsight
+  says "GPU Performance Counters unavailable": a restart of the laptop clears it (2026-11-15; cause not known).
   The 4s and 2s are held; the Oracle's reply and the plan's updates are with him
   and Counsel. Behind us today: his look at the
   rings met ("i can't see any rings"; a longer hand-over saved for his polish list); the blocks "go away mostly with
