@@ -353,6 +353,15 @@ C2 is build 114's own baseline, everything off; it matches C within 1%, so 4b's 
     least 8gb"). It's now tracked beside the card's. Which parts of your design could lean on the laptop's main
     memory (31 GB) to take load off the card: prepared bricks kept ready for the window, the tablet's tiles unpacked
     round the eye?
+15. **The near eye beside a full far march** (David, 2026-11-15, playing build 187: "ok, so if the main ray program
+    is too big, and i believe we already tried to split it apart, what does that entail for the triangle near
+    space? will it be able to slot in next to it without slamming into the wall there?"). Builder's answer, marked
+    as her view: the wall is the far march's own program (how many of its rays the card keeps in flight), not the
+    frame's; triangles are a separate pass with small programs and don't touch it, sharing only the frame's time and
+    the card's memory. The care is at the hand-off (the far rays begin where the near eye ends, read before the
+    march, not carried through it) and, if the near drawer is rays, a program of its own, lean and measured from its
+    first build. Counsel adds: pixels the near eye covers need no far ray at all. Does your design hold that the far
+    march's wall stays the far eye's alone once the near eye draws, and how should the two meet?
 
 ## 5. Still to come
 
