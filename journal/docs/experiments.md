@@ -4600,3 +4600,38 @@ by, and that costs where the card waits.
 **What isn't answered:** what the mountain top's and high over the spawn's time is, if it's neither their longest
 rays (rays stopped at 160: 9% and 4%), nor room (2 to 7%), nor the hand-over (4 to 5%). The 4 x 4 layer is the
 largest known part: the mountain top's base layer alone marches in 0.71 ms of its 0.95.
+
+## The long rays cut into lengths  *(plan 2.2; David's order, its third part)*
+
+David, 2026-11-15, on build 180's flights: "go on with the cut". The Oracle's step 4, with one difference: only the
+rays that were long the frame before are cut, by a list, where it cut every ray (a few hundred are long, in a thin
+band at the horizon; cutting all would march far lengths behind every near hill).
+
+**How, as told to David:** a ray that was long the frame before is cut at set distances; each length is marched by
+its own thread in the same dispatch, and a small pass joins them front to back, so the frame waits for the longest
+length and not the longest ray. A ray that turns out long without notice keeps the frame before's pixel for one
+frame and is cut from the next. Nothing is kept between frames but the list. Three stages, each with its mark:
+1. the list of long rays alone, the picture untouched;
+2. the lengths and the join for listed rays (a flight, and David's look at the horizon band);
+3. the frame's notice for newly long rays (the moving and nodding marks).
+
+And beside it, by David's word to Counsel ("yes"): each layer's rays and steps counted in every flight's report,
+the 4 x 4's above all, since the mountain top and high over the spawn become the high spot once the plains come
+down, and the 4 x 4 is their largest known part.
+
+### Build 181, the cut's first stage, the list of long rays: the pass mark (written before the code)
+
+**What changes:** a ray that took 128 steps or more adds its pixel to this frame's list and keeps its place in the
+list beside its distance, for the frame after. The list rides after the tiles' starts in the buffer the march
+already has (two lists, this frame's and the frame before's), so the march keeps to the library's default limits.
+Nothing reads the list yet. The count of the longest ray gains four numbers a layer: its rays marched, their steps
+summed, its rays of 128 steps or more, and how many of those were listed.
+
+**The marks:**
+- **The picture, off the screen at five marks:** build 178's (the most 1 of 255).
+- **The list, off the screen:** it holds as many as there are rays of 128 steps or more over the three layers
+  (unless that's over the 8,192 it holds), each once, and every layer's "listed" equals its "128 or more".
+- **The report:** on the plain the 8 x 8 marches 64,000 rays and about 1,170,000 steps, and the 4 x 4 none.
+- **Flown, against build 180's flight as it is:** every mark's march within 1%. The bookkeeping is a compare and,
+  for a few hundred rays, a write; it should cost nothing. Over 2% at any mark is a miss (code added to the march
+  has cost before with nothing switched on).
