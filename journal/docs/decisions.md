@@ -2075,6 +2075,15 @@ Reference: `Art/quartile minecraft illustration.png`
     plain and the sea 8% or more under the whole march in one session, every mark at or under, under 5% on the plain
     a miss; Nsight about 167 registers and 12 groups still (this piece alone buys no room; the hand-over's next).
     About 15 minutes hands off asked (one trace, two flights) and one screenshot.
+    - *Flown on "go"* (ended 08:17; the new program `logs/flight-1794751834`, the whole march kept on `-1794752223`,
+      one session; checked by Counsel): 2 to 7% cheaper at every mark but the spawn (the same). **Short of its pass
+      mark:** the plain 5.8% (8% wanted; over the 5% that would have been a plain miss), the sea 2.2% (missed); every
+      mark at or under, met. Why less than the audit's 10 to 14%: the audit's version put nothing where the code's
+      blend had been (a wrong picture, rays meeting less); this build reads a texture there. **An audit by removal
+      gives ceilings, not prices.** Kept. The far eye's whole now: the sea 1.090, high over the spawn 1.060, the
+      mountain top 1.042, the run 0.976, the plain 0.886, the spawn 0.466. Waiting on his reading of the march's row
+      from the mountain top's trace; then the hand-over, and a second audit on this program for the fewest changes
+      that fit 16 groups.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
