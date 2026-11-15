@@ -57,13 +57,18 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** his go for build 183's flights (the cut's second stage: a ray long the frame before is
-  marched as up to 17 lengths side by side and joined; uncut, then cut, one session), and after them his look at
-  the horizon band, standing and nodding. Off the screen at full size the longest chain any thread marches is 127
-  steps on the plain and over the sea, from 324 and 409; the picture cut against uncut is within 8 of 255 but for
-  three rays, two of them a flaw at the map's edge that was there before the cut (written down, not mended); the
-  uncut picture is build 182's. The cut's first stage, the list of long rays, is flown through (builds 181 and
-  182: it costs nothing). His words for it (2026-11-15): "go on with the cut". His order for the far eye's last stretch of
+- **Waiting on David:** his word on the mend to the cut (build 184), and his look at the horizon band on build
+  183, standing and nodding. **Build 183, the cut's second stage, is flown: a miss** (2026-11-15,
+  `journal/docs/experiments.md`). A ray long the frame before is marched as up to 17 lengths side by side and
+  joined: the march is 49% shorter on the plain (0.769 to 0.396 ms) and 37% over the sea, where the card waits;
+  and 18% longer at the mountain top, 32% high over the spawn, 17% on the run, where the card works. The dearest
+  mark rose from 1.08 to 1.37 ms. The steps are the same, so Builder's reading: every cut ray gets sixteen threads
+  whatever its length, uneven lengths share a group, and a group runs as long as its longest. The mend proposed: as
+  many lengths as a ray needs (about a hundred steps each, cut where the frame before says), packed side by side.
+  Build 183 marches with the cut on unless `INCUS_FAR_CUT=0`; uncut it's build 182's picture and time. The picture
+  cut against uncut is within 8 of 255 but for three rays, two of them a flaw at the map's edge that was there
+  before the cut (written down, not mended). The cut's first stage, the list of long rays, is flown through
+  (builds 181 and 182: it costs nothing). His words for it (2026-11-15): "go on with the cut". His order for the far eye's last stretch of
   speed (2026-11-14): "we should probably start with trying to break it into smaller passes to fit more, and then
   lean and cut the rays." The first part is flown through (builds 177 to 180, `journal/docs/experiments.md`):
   the audit priced the march's parts in two batches; **build 178, the march once the textures are in, is kept** (a

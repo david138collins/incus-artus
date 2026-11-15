@@ -4875,3 +4875,78 @@ one march is in the program once.
 **The flights asked for, one session, hands off:** uncut (`INCUS_FAR_CUT=0`, which against build 182's flight
 also says what this build's changes cost every ray), then cut as it is; the marks as the pass mark has them. Then,
 if David says, two probes for where the chain goes next: the line at 64 steps, and that with the first cut at 384.
+
+### Build 183 flown (2026-11-15, 12:02 to 12:28, hands off): a miss. The cut halves the march where the card waits and makes it a sixth to a third dearer where the card works
+
+David: "go with probes". Told before take-off; one screen, on mains, the card idle before (3 to 9%); no hitch. Four
+flights, one session, build 183 at `1c20872`: uncut (`INCUS_FAR_CUT=0`, `logs/flight-1794766116`), cut as it is
+(`logs/flight-1794766509`), and two probes (the line at 64 steps, `logs/flight-1794766903`; that with the first cut
+at 384 blocks, `logs/flight-1794767298`). Beside build 182's (`logs/flight-1794758479`). The march, median ms:
+
+| mark | build 182 | 183 uncut | 183 cut | cut against uncut | the longest chain, uncut to cut | rays cut |
+|---|---|---|---|---|---|---|
+| the spawn | 0.359 | 0.359 | 0.370 | 3.1% more | 153 to 132 | 282 |
+| the mountain top | 0.927 | 0.919 | 1.082 | 17.7% more | 302 to 147 | 1,902 |
+| the bare plain | 0.777 | 0.769 | 0.396 | 48.5% less | 324 to 127 | 1,455 |
+| high over the spawn | 0.980 | 0.939 | 1.235 | 31.5% more | 261 to 127 | 2,682 |
+| low over the sea | 0.986 | 0.969 | 0.609 | 37.2% less | 409 to 127 | 1,591 |
+| a player's run | 0.865 | 0.852 | 0.994 | 16.7% more | 337 to 154 | 4,346 |
+| fast across the world | 0.612 | 0.621 | 0.810 | 30.4% more | 227 to 189 | 5,234 |
+| the plain, nodding | 0.752 | 0.743 | 0.423 | 43.1% less | 333 to 131 | 1,769 |
+| the sea, nodding | 0.927 | 0.914 | 0.726 | 20.6% less | 429 to 128 | 2,789 |
+
+(Rays cut: the most at once in each layer over the measured frames, summed. The join, in the 4 x 4's place: 0.008
+to 0.014 ms.)
+
+**Against the pass mark:**
+- The plain's march 0.55 or under: **met**, 0.396. The sea's 0.60 or under: **missed by a hair**, 0.609.
+- The two nodding marks a tenth or more under: **met** (43% and 21%). The run a tenth or more under: **missed**, it's
+  16.7% dearer.
+- The spawn, the mountain top and high over the spawn within 2%: **missed at all three** (3.1%, 17.7% and 31.5%
+  dearer). By the mark's own words that is **a miss**.
+- **The high spot rose.** The far eye's whole, cut: high over the spawn 1.370 ms (1.057 uncut), the mountain top
+  1.220 (1.041), the run 1.133 (0.970), fast across 0.948 (0.746), the sea nodding 0.862 (1.029), the sea 0.739
+  (1.083), the plain nodding 0.548 (0.855), the plain 0.519 (0.880), the spawn 0.490 (0.469). The dearest mark was
+  1.083; it's 1.370.
+- **Uncut, the build costs every ray nothing:** within 1.7% of build 182's at eight marks, all but one on the cheap
+  side (high over the spawn 4.2% under, fast across 1.5% over: those two marks' own spread). The place to stop, the
+  table as a uniform and the first surface kept as it goes are free.
+
+**What the probes say** (both made every mark dearer than the cut as it is):
+- The line at 64 steps: more than twice the rays are long, and the list of 4,096 filled at five marks (at the
+  mountain top the 8 x 8's rays took it all and none of the 4 x 4's were listed). The plain, where it didn't fill:
+  2,574 rays cut for 1,455, the chain 118 for 127, and the march 0.498 for 0.396. More rays cut cost more than the
+  shorter chain gave.
+- That with the first cut at 384 blocks: the plain's chain 63, half of before, and its march 0.510: no shorter.
+  **With the cut on, the plain's time is no longer its longest chain.**
+
+**The reading** (a reading: not yet seen in a trace):
+- The steps are the same: high over the spawn 6.03 million uncut, 6.05 million cut (0.4% more), and the march is a
+  third longer. So the cost isn't steps taken, it's threads kept waiting. A group of 32 threads runs as long as
+  its longest; the rest wait.
+- Every cut ray gets sixteen threads in the strip whatever its length, and its lengths' steps are very uneven
+  (most under 20, one or two of 60 to 90; past the ray's end, none). Thirty-two threads of the strip hold two
+  rays' lengths, and run as long as the longest of them: about sixteen threads times 75 steps a ray, some 1,200
+  thread-steps, for lengths that hold 150 to 250 steps between them. Uncut, a long ray holds its 31 neighbours
+  for its length, but its neighbours in the horizon band are mostly long too, so it wastes less.
+- Where the card waits (the plain, the sea: it's about 5% busy), wasted threads cost nothing and the shorter chain
+  is all gain. Where the card works (the mountain top, high over the spawn: it's at its ceiling), wasted threads
+  are the cost. And a list kept down to 32 steps holds more rays than are long (the run: 4,346 cut for 2,400
+  long), each with its sixteen threads.
+- So the measure to bring down is thread-steps in the strip, not the chain alone.
+
+**What stands:** the machinery (the place to stop, the lengths' stacks, the join, each length beginning as the ray
+stood the frame before), the picture (cut against uncut within 8 of 255 but for three rays), and the gain where
+the card waits. **What doesn't:** sixteen threads a ray in fixed cuts.
+
+**The mend proposed (build 184; its pass mark before its code, once David says):** as many lengths as a ray needs
+and no more (its steps over about a hundred), cut where the frame before says a hundred steps had gone by (the
+join knows each length's steps and its ends, and re-cuts for the frame after), and only those lengths' threads in
+the strip, packed side by side from its top (the join gives each length a place in a list of lengths, as a long ray
+gets its place in the list of rays). Then a group of the strip holds 32 lengths of about a hundred steps each, a
+cut ray costs about its own steps, and a long ray no longer holds its neighbours for more than a hundred. If the
+reading is right, that is a gain at the working marks too; if it's wrong, the flight of build 184 says so.
+
+**Left as it is meanwhile:** build 183 marches with the cut on unless `INCUS_FAR_CUT=0` (every mark still under
+David's 2 ms: the dearest at the 99th is fast across the world, 1.60 ms). David's look at the horizon band, standing and nodding, can be had
+on it now: whether a length beginning by the frame before shows while the view moves bears on the mend.
