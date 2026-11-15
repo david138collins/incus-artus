@@ -49,11 +49,13 @@ pub struct Made {
     textures: [Vec<u8>; 4],
 }
 
-/// A ring the maker has ready: its least column, its bands (north fastest from there), every brick it holds, those of
-/// them not handed over with the ring before, and how long it took to make.
+/// A ring the maker has ready: its least column, its bands (north fastest from there), its columns' numbers for the
+/// height table (`bricks::tops_round`), every brick it holds, those of them not handed over with the ring before, and
+/// how long it took to make.
 pub struct Ready {
     from: [i32; 2],
     entries: Vec<u32>,
+    tops: Vec<u32>,
     holds: Vec<[i32; 3]>,
     new: Vec<Made>,
     seconds: f32,
@@ -197,7 +199,7 @@ impl Ring {
                 index[place] = held.start as u32;
                 slots[place] = held.slot;
             }
-            store.ring_switch(queue, self.level, ready.from, &ready.entries, &index);
+            store.ring_switch(queue, self.level, ready.from, &ready.entries, &ready.tops, &index);
             if let Some(atlas) = atlas.as_deref_mut() {
                 atlas.place(queue, level.index_at, &slots);
             }
@@ -280,8 +282,9 @@ fn maker(folder: PathBuf, level: Level, side: u32, asks: mpsc::Receiver<[i32; 2]
     }
 }
 
-/// A cell column as the maker keeps it: its band's entry (`bricks::entry_of`) and its band's cells, compact.
-type Column = (u32, Vec<Cell>);
+/// A cell column as the maker keeps it: its band's entry (`bricks::entry_of`), its band's cells, compact, and the
+/// height in blocks of the highest thing in it (`far::CellColumn::highest`).
+type Column = (u32, Vec<Cell>, u16);
 
 /// What the maker keeps between rings.
 struct Making {
@@ -326,12 +329,17 @@ impl Making {
                     read.insert([tx, ty], tile.clone());
                     Ok(tile)
                 })?;
-                self.squares.insert([sx, sy], columns.iter().map(|c| (crate::bricks::entry_of(c), c.sums.iter().map(|s| s.compact(cell as u32)).collect())).collect());
+                self.squares.insert([sx, sy], columns.iter().map(|c| (crate::bricks::entry_of(c), c.sums.iter().map(|s| s.compact(cell as u32)).collect(), c.highest.clamp(0, u16::MAX as i32 - 1) as u16)).collect());
             }
         }
         let squares = &self.squares;
         let column = |cx: i32, cy: i32| -> &Column { &squares[&[cx.div_euclid(STEP), cy.div_euclid(STEP)]][(cy.rem_euclid(STEP) * STEP + cx.rem_euclid(STEP)) as usize] };
         let entries: Vec<u32> = (0..RING * RING).map(|k| column(from[0] + k % RING, from[1] + k / RING).0).collect();
+        // The height table's numbers: each column's highest thing and its neighbours', worked out over the ring and a
+        // column more all round (the margin has them), the ring's own kept.
+        let wide = RING + 2;
+        let round = crate::bricks::tops_round(&(0..wide * wide).map(|k| column(from[0] - 1 + k % wide, from[1] - 1 + k / wide).2).collect::<Vec<u16>>(), wide);
+        let tops: Vec<u32> = (0..RING * RING).map(|k| round[((k / RING + 1) * wide + k % RING + 1) as usize]).collect();
         // The ring's bricks: one wherever a blend may read from it. A blend of the eight cells round a point is read
         // from the brick holding the least of them, so that's every brick with band in its own cells, or in the cells
         // one past it north, east or up. (Made only where a brick has band of its own, as the store's bricks over the
@@ -372,7 +380,7 @@ impl Making {
         if !wanted.is_empty() {
             let across = RING + 2 * MARGIN;
             let laid = Level { from: lo, across, bricks: across / level.wide, entries_at: 0, index_at: 0, ..level };
-            let kept = Kept { levels: vec![laid], columns: vec![(0..across * across).map(|k| column(lo[0] + k % across, lo[1] + k / across).clone()).collect()] };
+            let kept = Kept { levels: vec![laid], columns: vec![(0..across * across).map(|k| column(lo[0] + k % across, lo[1] + k / across)).map(|c| (c.0, c.1.clone())).collect()], tops: Vec::new() };
             for at in wanted {
                 let (z0, z1) = (at[2] * level.tall, ((at[2] + 1) * level.tall).min(level.up));
                 let mut cells = vec![Cell::default(); level.brick_cells() as usize];
@@ -390,6 +398,6 @@ impl Making {
                 new.push(Made { at, cells, textures });
             }
         }
-        Ok(Ready { from, entries, holds, new, seconds: started.elapsed().as_secs_f32() })
+        Ok(Ready { from, entries, tops, holds, new, seconds: started.elapsed().as_secs_f32() })
     }
 }

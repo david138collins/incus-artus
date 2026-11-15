@@ -32,11 +32,14 @@ pub const NO_SLOT: u32 = u32::MAX;
 pub struct Kept {
     pub levels: Vec<Level>,
     pub columns: Vec<Vec<(u32, Vec<Cell>)>>,
+    /// Each column's highest thing, in blocks (`far::CellColumn::highest`; all ones till it's summed): for the height
+    /// table (`bricks::tops_whole`).
+    pub tops: Vec<Vec<u16>>,
 }
 
 impl Kept {
     pub fn new(levels: &[Level]) -> Self {
-        Self { levels: levels.to_vec(), columns: levels.iter().map(|l| vec![(NOT_SUMMED, Vec::new()); (l.across * l.across) as usize]).collect() }
+        Self { levels: levels.to_vec(), columns: levels.iter().map(|l| vec![(NOT_SUMMED, Vec::new()); (l.across * l.across) as usize]).collect(), tops: levels.iter().map(|l| vec![u16::MAX; (l.across * l.across) as usize]).collect() }
     }
 
     /// A brick's texels a side in the atlas: its cells a side (the most of any level's) and a border.
@@ -50,10 +53,11 @@ impl Kept {
     }
 
     /// A column's entry and band kept.
-    pub fn keep(&mut self, level: usize, cx: i32, cy: i32, entry: u32, cells: Vec<Cell>) {
+    pub fn keep(&mut self, level: usize, cx: i32, cy: i32, entry: u32, cells: Vec<Cell>, highest: i32) {
         let k = self.at(level);
         let l = &self.levels[k];
         if let Some(at) = l.entry(cx, cy) {
+            self.tops[k][(at - l.entries_at) as usize] = highest.clamp(0, u16::MAX as i32 - 1) as u16;
             self.columns[k][(at - l.entries_at) as usize] = (entry, cells);
         }
     }

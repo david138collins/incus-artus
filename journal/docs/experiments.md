@@ -3514,3 +3514,37 @@ build the height table, and keep me informed about how you're doing it and how i
   fall from 735,000 to under 150,000 and the rays over 256 steps from 952 to under 100; the card's time there from
   0.97 ms to 0.6 or under (the 16s alone: 0.54). The sea and the run 10 to 30% less (their long rays skim water).
   The spawn and the mountain top within 5% either way. On the card 28 MB more.
+
+### Build 174 (unflown): the height table built, its counts and its pictures off the screen
+
+Built as its pass mark set out. The summing records each column's highest block's top (`far::CellColumn::highest`),
+a coarser column taking its four children's highest; the store keeps a number for every column after the bands in
+the same buffer (28 MB); while the world loads it's the band's own rounded top; once every region is in a thread
+works out each column's highest with the eight round it and sends the whole table (0.09 s). The rings' makers do
+their own columns. The march's skip asks the table (`top_in`), the biggest column first: four levels coarser, then
+two, then its own. `INCUS_FAR_TOPS=0` leaves the true numbers unmade, for flying against.
+- **The table's numbers are true:** over three regions, 4,095 cell columns' highest things are the doorway's own
+  columns', block for block, at every level from 32 to 1,024; and no column's number is under anything in the
+  eight columns round it. A column not known holds its neighbours back. (A new test.)
+- **The plain's steps by kind, both rings, before and after** (the base layer's 64,000 rays, off the screen):
+
+| kind | build 173 | with the table |
+|---|---|---|
+| every step | 2,844,000 | 1,173,000 |
+| skips over a coarser column | 1,659,000 | 601,000 |
+| hops over its own level's column | 735,000 | 116,000 |
+| samples (air, haze, surface) | 411,000 | 416,000 |
+| rays over 256 steps | 952 | 16 |
+| the longest ray | 533 | 326 |
+
+  Builder's guesses: the hops under 150,000 (116,000: *met*); the rays over 256 under 100 (16: *met*). The samples,
+  which make the picture, stand as they were.
+- **The pictures, against build 171's:** no shift overall (the mean change 0.00 to 0.02 of 255 at every mark and at
+  David's first spot), a scatter of about a part in 255 on average at his first spot and less elsewhere, and a few
+  pixels at the far horizon flipped between sea and sky, both ways. The scatter is from where rays land after a
+  skip: they used to land at the same columns' edges, pixel after pixel, and now land where the table lets them;
+  each ray's fine steps into a surface begin from there. At his first spot the slope's fine contour lines (banding
+  from the columns' grid, Builder thinks) come out a little grainier. David, hearing the picture had changed:
+  "let me see the change before discarding it. for all we know it might be nice." Nothing is discarded; his look
+  comes first.
+- All 30 tests pass. Not flown.

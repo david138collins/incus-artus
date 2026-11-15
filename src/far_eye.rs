@@ -226,6 +226,12 @@ pub struct FarEye {
     /// thing"), or old's half (0.5).
     haze_step: f32,
     most_steps: f32,
+    /// The height table's true numbers (`bricks::tops_whole`): worked out on a thread of its own once every region is in
+    /// and sent to the card whole (till then it holds each band's rounded top, and the skip is as it was); how long that
+    /// took, once it's in.
+    tops_making: Option<mpsc::Receiver<f32>>,
+    tops_made: Option<f32>,
+    tops_off: bool,
     /// For measuring a ray's two lengths apart (the deep dive, 2026-11-14): the farthest a ray goes
     /// (`INCUS_TEST_REACH`, blocks: the near length alone) and the nearest it begins (`INCUS_TEST_BEGIN`: the far
     /// length alone). The reach as it is, and 0, unset.
@@ -417,14 +423,14 @@ impl FarEye {
         let tally_counts = LAYERS.iter().map(|_| device.create_buffer(&wgpu::BufferDescriptor { label: Some("a far layer's longest ray"), size: 16, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false })).collect();
         let tally_back = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the longest rays read back"), size: 16 * LAYERS.len() as u64, usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let tally_state = std::sync::Arc::new(std::sync::atomic::AtomicU8::new(0));
-        Self { store, lane, rings, eye: [0.0; 2], start, march, up, layout, up_layout, sampler, targets: None, look, textures, atlas: None, building: None, stand_ins, light: None, lighting: None, sweeping: None, sun_asked, light_stand_ins, blue, blue_bytes, edge, layers, one, parity: 0, fresh: false, haze_step, most_steps, reach, begin, tally, tally_counts, tally_back, tally_state }
+        Self { store, lane, rings, eye: [0.0; 2], start, march, up, layout, up_layout, sampler, targets: None, look, textures, atlas: None, building: None, stand_ins, light: None, lighting: None, sweeping: None, sun_asked, light_stand_ins, blue, blue_bytes, edge, layers, one, parity: 0, fresh: false, haze_step, most_steps, tops_making: None, tops_made: None, tops_off: false, reach, begin, tally, tally_counts, tally_back, tally_state }
     }
 
     /// Whether every region is on the card, the window's regions round the eye too, and the far textures if they're made.
     pub fn whole(&self) -> bool {
         // (The rings: once each has been on the card, with its textures if the atlas is in. Not held to the eye's place: a
         // moving mark outruns it, as it does the window.)
-        self.lane.as_ref().is_none_or(|lane| lane.done == lane.total) && (self.atlas.is_some() || !self.textures) && self.store.behind == 0 && self.lit() && self.rings.iter().all(|ring| ring.from.is_some() || ring.failed)
+        self.lane.as_ref().is_none_or(|lane| lane.done == lane.total) && (self.atlas.is_some() || !self.textures) && self.store.behind == 0 && self.lit() && self.rings.iter().all(|ring| ring.from.is_some() || ring.failed) && self.tops_made.is_some()
     }
 
     /// Whether the far light is in.
@@ -493,7 +499,12 @@ impl FarEye {
         };
         let ring: String = self.rings.iter().map(|ring| format!("; {}", ring.state())).collect();
         let light = self.light.as_ref().map_or(String::new(), |l| format!("; the far light {:.0} MB, its tops and sky made in {:.2} s, its last shadow swept and sent in {:.3} s", l.bytes as f64 / 1e6, l.made_in, l.swept_in));
-        format!("{lane}{} bricks, {:.0} MB of {:.0} MB{atlas}{ring}{light}", self.store.bricks, used as f64 / 1e6, size as f64 / 1e6)
+        let tops = match self.tops_made {
+            Some(_) if self.tops_off => "; the height table left as the bands' rounded tops (FOR MEASURING)".to_string(),
+            Some(seconds) => format!("; the height table {:.0} MB, made and sent in {seconds:.2} s", self.store.tops_at as f64 * 4.0 / 1e6),
+            None => String::new(),
+        };
+        format!("{lane}{} bricks, {:.0} MB of {:.0} MB{atlas}{ring}{tops}{light}", self.store.bricks, used as f64 / 1e6, size as f64 / 1e6)
     }
 
     /// The regions summed since the last frame put on the card, and the window brought to the eye, for at most
@@ -534,6 +545,32 @@ impl FarEye {
             self.building = None;
         }
         self.light(device, queue);
+        // The height table's true numbers, once every region is in: worked out on a thread of its own and sent whole.
+        if self.lane.is_none() && self.tops_made.is_none() && self.tops_making.is_none() && std::env::var("INCUS_FAR_TOPS").as_deref() == Ok("0") {
+            // (For flying against: the true numbers left unmade.)
+            self.tops_made = Some(0.0);
+            self.tops_off = true;
+        }
+        if self.lane.is_none() && self.tops_made.is_none() && self.tops_making.is_none() {
+            let kept = self.store.kept.clone();
+            let (queue, entries, at) = (queue.clone(), self.store.entries.clone(), self.store.tops_at);
+            let (sender, receiver) = mpsc::channel();
+            let _ = std::thread::Builder::new().name("making the height table".into()).spawn(move || {
+                let started = Instant::now();
+                for (start, tops) in crate::bricks::tops_whole(&kept) {
+                    queue.write_buffer(&entries, (at + start as u64) * 4, &tops.iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
+                }
+                let _ = sender.send(started.elapsed().as_secs_f32());
+            });
+            self.tops_making = Some(receiver);
+        }
+        if let Some(receiver) = &self.tops_making
+            && let Ok(seconds) = receiver.try_recv()
+        {
+            log::info!("The height table: every column's highest thing worked out and sent in {seconds:.2} s");
+            self.tops_made = Some(seconds);
+            self.tops_making = None;
+        }
         if let Some(lane) = &mut self.lane {
             while started.elapsed().as_secs_f32() * 1000.0 < PUTTING_MS {
                 let taken = lane.take(1);
@@ -821,7 +858,7 @@ impl FarEye {
                 [targets.tiles.0 as f32, targets.tiles.1 as f32, (TILE as f32 / layer.factor).max(1.0), screen_pixel * (TILE as f32 * 0.5 * std::f32::consts::SQRT_2 + 1.0)],
                 [above.map_or(0.0, |a| a.size.0 as f32), if below.is_some() { 1.0 } else { 0.0 }, 1.0, blend as f32],
                 [1.0, if look.shadows && direct > 0.0 { 1.0 } else { 0.0 }, finest_level as f32, if self.edge { 1.0 } else { 0.0 }],
-                [above.map_or(0.0, |a| layer.factor / a.factor), below.map_or(0.0, |b| b.factor / layer.factor), self.most_steps, 0.0],
+                [above.map_or(0.0, |a| layer.factor / a.factor), below.map_or(0.0, |b| b.factor / layer.factor), self.most_steps, self.store.tops_at as f32],
                 [fade[0].max(0.1), fade[1].max(0.05), look.hand_over.clamp(0.3, 0.95), look.sky_weight.max(0.0)],
                 [if look.sky_light { 1.0 } else { 0.0 }, look.sky_strength.clamp(0.0, 1.0), look.sky_tint.clamp(0.0, 1.0), self.begin],
                 [if look.fog { 3.0 / look.fog_reach.max(10.0) } else { 0.0 }, std::f32::consts::LN_2 / look.fog_height.max(1.0), sea_level, look.fog_warmth.clamp(0.0, 1.0)],
@@ -954,8 +991,8 @@ fn daylight(sun_up: f32) -> (f32, f32) {
 
 /// For the Oracle's question of 2026-11-14 ("the longest ray's steps by kind"): the march's source with a ray's steps
 /// counted by kind, if a picture test asks (`FAR_TEST_KINDS`: three kinds' numbers, drawn as the picture's red, green
-/// and blue, a 1,024th a step). The kinds: 0 a region not summed passed whole; 1 a skip over the column two levels
-/// coarser, 2 over its own level's; 3 a back-up after a first touch; 4 a stride through air; 5 a step walking back in
+/// and blue, a 1,024th a step). The kinds: 0 a region not summed passed whole; 1 a skip over a coarser column
+/// (four levels up, or two), 2 over its own level's; 3 a back-up after a first touch; 4 a stride through air; 5 a step walking back in
 /// through air; 6 a step in thin haze; 7 a step at a surface; 8 a sample mixed from two levels; 9 a blend fallen back
 /// to the code; 10 a sample read from the 8s, 11 from the 16s; 12 every step. Each change must find its one place in
 /// the source, or the variant isn't made and the test says so.
@@ -969,7 +1006,7 @@ fn kinds_source(source: &str) -> String {
         ("    sky_share: f32,\n}", "    sky_share: f32,\n    kinds: array<f32, 12>,\n}".into()),
         ("    var steps = 0;\n", "    var steps = 0;\n    var kinds: array<f32, 12>;\n".into()),
         ("                t = max(leave2(o.xy, d.xy, vec2<f32>(place.region), f32(1 << u32(REGION))), t) + 0.01;\n", "                t = max(leave2(o.xy, d.xy, vec2<f32>(place.region), f32(1 << u32(REGION))), t) + 0.01;\n                kinds[0] += 1.0;\n".into()),
-        ("                skipped = true;\n", "                skipped = true;\n                kinds[1 + k] += 1.0;\n".into()),
+        ("                skipped = true;\n", "                skipped = true;\n                kinds[1 + k / 2] += 1.0;\n".into()),
         ("        var over = 0.0;\n", "        if (level == 3) { kinds[10] += 1.0; } else if (level == 4) { kinds[11] += 1.0; }\n        var over = 0.0;\n".into()),
         ("        if (mixed > 0.0) {\n", "        if (mixed > 0.0) {\n            kinds[8] += 1.0;\n".into()),
         ("            } else {\n                look = look_at(here, p);\n", "            } else {\n                kinds[9] += 1.0;\n                look = look_at(here, p);\n".into()),
@@ -1065,8 +1102,9 @@ mod tests {
             }
             eye.look.blend = blend;
         }
-        // The far light made first too (read from the cell), and the ring round the eye whole on the card.
-        while !eye.lit() || !eye.ring_settled() {
+        // The far light made first too (read from the cell), the ring round the eye whole on the card, and the height
+        // table's true numbers in.
+        while !eye.lit() || !eye.ring_settled() || eye.tops_made.is_none() {
             eye.put(&device, &queue, at);
             queue.submit([]);
             let _ = device.poll(wgpu::PollType::Poll);

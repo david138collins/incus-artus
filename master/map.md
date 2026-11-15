@@ -203,6 +203,7 @@ flowchart TB
 - **What it is:** The regions summed since the last frame put on the card as bricks, so the far view sharpens in live without holding the frame up; the levels over 1,024 made as their regions come in. Then the window round the eye brought to it (step 4): the 32s' and 64s' regions past it given back, those within it made from the far cells kept and put on, nearest first, the far textures following. At most 3 ms a frame for both.
 - **Reads:** the far cells and the camera. **Writes:** the far bricks, the far textures and the window round the eye.
 - **Switch** `INCUS_FAR_BRICK`: a brick's side in cells: 2, 4 or 8 (unset: 8), for the pool and the far textures both (2.2, step 3).
+- **Switch** `INCUS_FAR_TOPS`: 0: the height table's true numbers aren't made (the bands' rounded tops stay), for flying the table against the skip without it; unset, made once every region is in.
 - **Switch** `INCUS_FAR_WINDOW`: the window round the eye: the 32s' radius in regions, the 64s' twice it (unset: 10; 0 the whole world on the card) (2.2, step 4).
 - **Cost, last measured** (`kept logs/flight-1794589790.txt`): on the processor median 0.028, 95th 0.063, 99th 0.166, worst 0.342.
 - **Files:** src/bricks.rs and src/far_eye.rs.
@@ -457,7 +458,7 @@ flowchart TB
 ### the far bricks
 
 - **A store** on the card.
-- **What it is:** The far cells on the card, the whole world as old's bake kept it: each level's columns' bands (the lowest cell and how many: solid below, empty above), and the bands' cells in bricks of 8 x 8 x 8 found by arithmetic. The pool grows as it fills.
+- **What it is:** The far cells on the card, the whole world as old's bake kept it: each level's columns' bands (the lowest cell and how many: solid below, empty above), and the bands' cells in bricks of 8 x 8 x 8 found by arithmetic. The pool grows as it fills. After the bands, the height table: for every column of every level, the height in blocks of the highest thing in it and in the eight columns round it, which lets a ray clear a coarse column in one hop (the bands' own rounded tops till every region is in, then the true ones, worked out on a thread and sent whole).
 - **Written by:** putting the far cells on the card and making the far ring. **Read by:** the far start, the far 8 x 8, the far 4 x 4 and the far 2 x 2.
 - **Limit:** levels, cells of 32 to 65,536, 12.
 - **Limit:** cells a brick at most, 512.

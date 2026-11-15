@@ -210,6 +210,7 @@ pub const PASSES: [Pass; 21] = [
         writes: &[StoreId::FarBricks, StoreId::FarTextures, StoreId::FarWindow],
         switches: &[
             ("INCUS_FAR_BRICK", "a brick's side in cells: 2, 4 or 8 (unset: 8), for the pool and the far textures both (2.2, step 3)"),
+            ("INCUS_FAR_TOPS", "0: the height table's true numbers aren't made (the bands' rounded tops stay), for flying the table against the skip without it; unset, made once every region is in"),
             ("INCUS_FAR_WINDOW", "the window round the eye: the 32s' radius in regions, the 64s' twice it (unset: 10; 0 the whole world on the card) (2.2, step 4)"),
         ],
         files: &["src/bricks.rs", "src/far_eye.rs"],
@@ -527,7 +528,7 @@ pub const STORES: [Store; 21] = [
         id: StoreId::FarBricks,
         name: "the far bricks",
         on: Where::Card,
-        what: "The far cells on the card, the whole world as old's bake kept it: each level's columns' bands (the lowest cell and how many: solid below, empty above), and the bands' cells in bricks of 8 x 8 x 8 found by arithmetic. The pool grows as it fills.",
+        what: "The far cells on the card, the whole world as old's bake kept it: each level's columns' bands (the lowest cell and how many: solid below, empty above), and the bands' cells in bricks of 8 x 8 x 8 found by arithmetic. The pool grows as it fills. After the bands, the height table: for every column of every level, the height in blocks of the highest thing in it and in the eight columns round it, which lets a ray clear a coarse column in one hop (the bands' own rounded tops till every region is in, then the true ones, worked out on a thread and sent whole).",
         limits: &[("levels, cells of 32 to 65,536", crate::bricks::LEVELS as u64), ("cells a brick at most", 512), ("the largest buffer asked of the card (MB)", 2047)],
         files: &["src/bricks.rs"],
     },

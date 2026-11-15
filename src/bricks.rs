@@ -164,6 +164,36 @@ pub fn table(levels: &[Level]) -> Vec<i32> {
     table
 }
 
+/// A square of columns' numbers for the height table: for each, the highest thing in it and in the eight columns round
+/// it (`tops`, `across` a side, north fastest; all ones where a column isn't known, and so its neighbours' numbers too:
+/// nothing is skipped on a guess). The blend of the eight cells round a point reads half a cell into the next column,
+/// so a ray may clear a column in one hop only if it's over everything in the columns beside it as well.
+pub fn tops_round(tops: &[u16], across: i32) -> Vec<u32> {
+    (0..across * across)
+        .map(|k| {
+            let (x, y) = (k % across, k / across);
+            let mut most = 0u32;
+            for dy in -1..=1 {
+                for dx in -1..=1 {
+                    let (a, b) = (x + dx, y + dy);
+                    if a < 0 || b < 0 || a >= across || b >= across {
+                        continue;
+                    }
+                    let top = tops[(b * across + a) as usize];
+                    most = most.max(if top == u16::MAX { u32::MAX } else { top as u32 });
+                }
+            }
+            most
+        })
+        .collect()
+}
+
+/// The height table for the levels laid over the map, from the cells kept once every region is in: each level's
+/// numbers (`tops_round`), with where they start in `entries` past the table's own start.
+pub fn tops_whole(kept: &crate::atlas::Kept) -> Vec<(u32, Vec<u32>)> {
+    kept.levels.iter().zip(&kept.tops).map(|(level, tops)| (level.entries_at, tops_round(tops, level.across))).collect()
+}
+
 /// A band's entry: its lowest cell (16 bits, signed) and how many (16 bits).
 pub fn entry_of(column: &CellColumn) -> u32 {
     (column.low as i16 as u16 as u32) | ((column.sums.len() as u32) << 16)
@@ -175,6 +205,10 @@ pub fn entry_of(column: &CellColumn) -> u32 {
 pub struct Part {
     /// Runs of entries: where the run starts in `entries`, and its words.
     pub entries: Vec<(u32, Vec<u32>)>,
+    /// The same runs' numbers for the height table, till the true ones are worked out (`tops_whole`): each column's
+    /// band's top, rounded up to its cell as the band has it (all ones if it isn't summed), so the march's skip is
+    /// what it was before there was a table.
+    pub tops: Vec<(u32, Vec<u32>)>,
     /// Bricks: its place in `index`, and its cells (a whole brick's, empty where no band is).
     pub bricks: Vec<(u32, Vec<Cell>)>,
 }
@@ -191,6 +225,7 @@ pub fn part<'a>(level: &Level, cx0: i32, cy0: i32, n: i32, column: impl Fn(i32, 
         let Some(start) = level.entry(cx0, cy) else { continue };
         let row = (cx0..last).map(|cx| column(cx, cy).map_or(NOT_SUMMED, entry_of)).collect();
         part.entries.push((start, row));
+        part.tops.push((start, (cx0..last).map(|cx| column(cx, cy).map_or(u32::MAX, |c| ((c.high() + 1).max(0) as u32) << level.level)).collect()));
     }
     if !bricks {
         return part;
@@ -297,6 +332,9 @@ pub struct Store {
     flags_at: u64,
     /// Places in the index, the ring's included (the atlas keeps a slot for each).
     pub index_count: u64,
+    /// The height table: a number for each column, kept in `entries` after everything else there, a column's that many
+    /// words on from its band's word.
+    pub tops_at: u64,
     /// The rings' bricks' places in the pool given back (a brick of any ring holds as many cells).
     ring_free: Vec<u64>,
 }
@@ -323,10 +361,14 @@ impl Store {
         queue.write_buffer(&table_buffer, 0, &table.iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
         let window = (window > 0).then_some([window, window * 2]);
         let flags = vec![u32::from(window.is_none()); WINDOWED * (regions.1 * regions.1) as usize];
-        let entries = storage("the far bands, then the window's usable regions, then the ring's bands", (entries_count + flags.len() as u64 + ring_entries) * 4);
+        // After all of those, the height table: a word a column, laid as the words before it are.
+        let tops_at = entries_count + flags.len() as u64 + ring_entries;
+        assert!(tops_at < 1 << 24, "the far bands are too many for the height table's place to go to the card as it does");
+        let entries = storage("the far bands, then the window's usable regions, then the ring's bands, then the height table", tops_at * 2 * 4);
         queue.write_buffer(&entries, 0, &NOT_SUMMED.to_le_bytes().repeat(entries_count as usize));
         queue.write_buffer(&entries, entries_count * 4, &flags.iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
         queue.write_buffer(&entries, (entries_count + flags.len() as u64) * 4, &NOT_SUMMED.to_le_bytes().repeat(ring_entries as usize));
+        queue.write_buffer(&entries, tops_at * 4, &u32::MAX.to_le_bytes().repeat(tops_at as usize));
         let index = storage("the far bricks' index", index_count * 4);
         queue.write_buffer(&index, 0, &NO_BRICK.to_le_bytes().repeat(index_count as usize));
         let pool = storage("the far bricks", FIRST_POOL * CELL_BYTES);
@@ -363,6 +405,7 @@ impl Store {
             flags,
             flags_at: entries_count,
             index_count,
+            tops_at,
             ring_free: Vec::new(),
         }
     }
@@ -407,6 +450,9 @@ impl Store {
         for (start, words) in &part.entries {
             queue.write_buffer(&self.entries, *start as u64 * 4, &words.iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
         }
+        for (start, words) in &part.tops {
+            queue.write_buffer(&self.entries, (self.tops_at + *start as u64) * 4, &words.iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
+        }
         let cells: u64 = part.bricks.iter().map(|(_, cells)| cells.len() as u64).sum();
         if cells == 0 {
             return;
@@ -440,7 +486,7 @@ impl Store {
             let size = 1u32 << level;
             for (k, column) in columns[level - FIRST].iter().enumerate() {
                 let (cx, cy) = (region[0] * n + k as i32 % n, region[1] * n + k as i32 / n);
-                kept.keep(level, cx, cy, entry_of(column), column.sums.iter().map(|s| s.compact(size)).collect());
+                kept.keep(level, cx, cy, entry_of(column), column.sums.iter().map(|s| s.compact(size)).collect(), column.highest);
             }
         }
         // The highest anything stands: the top of the highest band among its cells of 32.
@@ -484,14 +530,16 @@ impl Store {
         self.bricks -= 1;
     }
 
-    /// A ring moved over, all at once: its level's least column, its bands (north fastest from there) and its bricks'
-    /// places in the pool (by their places in its part of the index, `NO_BRICK` none).
-    pub fn ring_switch(&mut self, queue: &wgpu::Queue, level: usize, from: [i32; 2], entries: &[u32], index: &[u32]) {
+    /// A ring moved over, all at once: its level's least column, its bands (north fastest from there), its columns'
+    /// numbers for the height table, and its bricks' places in the pool (by their places in its part of the index,
+    /// `NO_BRICK` none).
+    pub fn ring_switch(&mut self, queue: &wgpu::Queue, level: usize, from: [i32; 2], entries: &[u32], tops: &[u32], index: &[u32]) {
         let at = row(level);
         self.levels[at].from = from;
         let level = self.levels[at];
         queue.write_buffer(&self.table, 0, &table(&self.levels).iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
         queue.write_buffer(&self.entries, level.entries_at as u64 * 4, &entries.iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
+        queue.write_buffer(&self.entries, (self.tops_at + level.entries_at as u64) * 4, &tops.iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
         queue.write_buffer(&self.index, level.index_at as u64 * 4, &index.iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
     }
 
@@ -514,7 +562,7 @@ impl Store {
         let size = 1u32 << level;
         let kept = Arc::get_mut(&mut self.kept).expect("the far cells kept are shared only once every region is in");
         for (at, column) in columns.iter().filter(|(at, _)| (at[0] - l.from[0]).div_euclid(l.wide) == bx && (at[1] - l.from[1]).div_euclid(l.wide) == by) {
-            kept.keep(level, at[0], at[1], entry_of(column), column.sums.iter().map(|s| s.compact(size)).collect());
+            kept.keep(level, at[0], at[1], entry_of(column), column.sums.iter().map(|s| s.compact(size)).collect(), column.highest);
         }
         self.upper[level - REGION - 1] = columns;
         self.put(device, queue, &part);

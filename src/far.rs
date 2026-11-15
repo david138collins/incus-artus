@@ -215,6 +215,10 @@ pub struct Cell {
 pub struct CellColumn {
     pub low: i32,
     pub sums: Vec<Sums>,
+    /// The height in blocks of the highest thing in the column, ground or water: the top of its highest block (0 if
+    /// there's nothing). True to the block, where the band's top is rounded up to the cell: the height table's number
+    /// (`bricks.rs`), which lets a ray skimming low over flat ground clear a coarse column in one hop.
+    pub highest: i32,
 }
 
 impl CellColumn {
@@ -235,14 +239,14 @@ impl CellColumn {
     }
 
     /// A column's cells, every one, trimmed to its band.
-    fn trimmed(cells: Vec<Sums>, size: i32) -> Self {
+    fn trimmed(cells: Vec<Sums>, size: i32, highest: i32) -> Self {
         let full = Sums { solid: (size as u64).pow(3), ..Sums::default() };
         let low = cells.iter().position(|sums| *sums != full).unwrap_or(cells.len());
-        let Some(high) = cells.iter().rposition(|sums| *sums != Sums::default()) else { return Self::default() };
+        let Some(high) = cells.iter().rposition(|sums| *sums != Sums::default()) else { return Self { highest, ..Self::default() } };
         if high < low {
-            return Self { low: low as i32, sums: Vec::new() };
+            return Self { low: low as i32, sums: Vec::new(), highest };
         }
-        Self { low: low as i32, sums: cells[low..=high].to_vec() }
+        Self { low: low as i32, sums: cells[low..=high].to_vec(), highest }
     }
 }
 
@@ -250,8 +254,9 @@ impl CellColumn {
 /// it, the cells left out of the children's bands included (old's `parent_of`).
 pub fn parent_of(children: [&CellColumn; 4], child_size: i32) -> CellColumn {
     let low = children.iter().map(|c| c.low).min().unwrap_or(0).div_euclid(2);
+    let highest = children.iter().map(|c| c.highest).max().unwrap_or(0);
     let Some(high) = children.iter().filter(|c| !c.sums.is_empty()).map(|c| c.high()).max() else {
-        return CellColumn { low, sums: Vec::new() };
+        return CellColumn { low, sums: Vec::new(), highest };
     };
     let sums = (low..=high.div_euclid(2))
         .map(|z| {
@@ -263,7 +268,7 @@ pub fn parent_of(children: [&CellColumn; 4], child_size: i32) -> CellColumn {
             sums
         })
         .collect();
-    CellColumn { low, sums }
+    CellColumn { low, sums, highest }
 }
 
 /// The regions a map covers: the least (north and east), and how many across.
@@ -422,17 +427,21 @@ pub fn cells(doorway: &Doorway, colours: &FarColours, cell: i32, at: [i32; 2], a
     for cy in 0..across {
         for cx in 0..across {
             let mut sums = vec![Sums::default(); up];
+            let mut highest = 0;
             for j in 0..cell as usize {
                 for i in 0..cell as usize {
                     let k = (cx * cell as usize + i + 1) + (cy * cell as usize + j + 1) * side;
                     if grounds[k] < 0 {
                         continue;
                     }
+                    // The top of its highest block: the ground's, or its water's if that stands over it (as `add_column`
+                    // fills it: to the sea or the river's or lake's top).
+                    highest = highest.max(grounds[k] + 1).max(waters[k].max(doorway.sea_level).min(height));
                     let beside = [grounds[k + 1], grounds[k - 1], grounds[k + side], grounds[k - side]];
                     add_column(&mut sums, cell, doorway, colours, (grounds[k], waters[k], profiles[k]), beside)?;
                 }
             }
-            columns.push(CellColumn::trimmed(sums, cell));
+            columns.push(CellColumn::trimmed(sums, cell, highest));
         }
     }
     Ok(columns)
@@ -576,7 +585,7 @@ mod tests {
                     Sums { solid: v[0], water: v[1], faces: [v[2], v[3], v[4], v[5], v[6], v[7]], colour: [v[8], v[9], v[10]], light: v[11], light_squared: v[12], height: v[13], height_squared: v[14] }
                 })
                 .collect();
-            records.insert(region, OldRecord { levels, top: CellColumn { low, sums } });
+            records.insert(region, OldRecord { levels, top: CellColumn { low, sums, highest: 0 } });
         }
         (half, records)
     }
@@ -591,7 +600,7 @@ mod tests {
                 return (1, Some(format!("region {region:?}, cells of {size}: {} cell columns, old's {}", columns.len(), old_columns.len())));
             }
             for (c, (column, (old_low, old_cells))) in columns.iter().zip(old_columns).enumerate() {
-                let old_band = CellColumn { low: *old_low, sums: Vec::new() };
+                let old_band = CellColumn { low: *old_low, sums: Vec::new(), highest: 0 };
                 let old_high = old_low + old_cells.len() as i32 - 1;
                 for z in column.low.min(*old_low).max(0)..=column.high().max(old_high) {
                     let theirs = if (*old_low..=old_high).contains(&z) { old_cells[(z - old_low) as usize] } else { old_band.at(z, size).compact(size as u32) };
@@ -744,6 +753,67 @@ mod tests {
             }
         }
         eprintln!("The cells of 8: {cells_checked} cells of 16 are exactly their eight cells of 8 added");
+    }
+
+    /// The height table's numbers are true: over whole regions (a mountain's, the spawn's, the sea's), each cell column
+    /// of 32's `highest` is the top of the highest block in it, ground or water, read here straight from the doorway's
+    /// columns one by one; each coarser column's is the highest of its four children's; and the numbers the card gets
+    /// (`bricks::tops_round`) are never under anything in a column or in the eight round it.
+    #[test]
+    fn the_height_table_is_never_under_what_stands_there() {
+        let mut doorway = Doorway::open(&crate::doorway::test_world()).unwrap();
+        let colours = FarColours::load(&mut doorway).unwrap();
+        let size = 1 << REGION;
+        let mut tiles: HashMap<[i32; 2], crate::doorway::Tile> = HashMap::new();
+        let mut checked = 0;
+        for r in [[-1, 0], [0, 0], [-2, -3]] {
+            let levels = region(&doorway, &colours, r).unwrap();
+            // Every block column's top, read one by one.
+            let mut block_tops = vec![0i32; (size * size) as usize];
+            for e in 0..size {
+                for n in 0..size {
+                    let (tile, within) = doorway.place(r[0] * size + n, r[1] * size + e);
+                    let answer = tiles.entry(tile).or_insert_with(|| doorway.tile(tile[0], tile[1]).unwrap());
+                    let (ground, water, _) = answer.raw(within[0], within[1]);
+                    if ground >= 0 {
+                        block_tops[(e * size + n) as usize] = (ground + 1).max(water.max(doorway.sea_level).min(doorway.height()));
+                    }
+                }
+            }
+            for (l, columns) in levels.iter().enumerate() {
+                let cell = 32 << l;
+                let across = size / cell;
+                for (k, column) in columns.iter().enumerate() {
+                    let (cx, cy) = (k as i32 % across, k as i32 / across);
+                    let mut most = 0;
+                    for e in cy * cell..(cy + 1) * cell {
+                        for n in cx * cell..(cx + 1) * cell {
+                            most = most.max(block_tops[(e * size + n) as usize]);
+                        }
+                    }
+                    assert_eq!(column.highest, most, "region {r:?}, cells of {cell}, column {cx} {cy}: the highest block's top");
+                    checked += 1;
+                }
+            }
+            // The card's numbers for the 32s: over everything in the column and the eight round it.
+            let tops: Vec<u16> = levels[0].iter().map(|c| c.highest as u16).collect();
+            let round = crate::bricks::tops_round(&tops, 32);
+            for cy in 0..32i32 {
+                for cx in 0..32i32 {
+                    for (dx, dy) in [(-1, -1), (0, -1), (1, -1), (-1, 0), (0, 0), (1, 0), (-1, 1), (0, 1), (1, 1)] {
+                        let (a, b) = (cx + dx, cy + dy);
+                        if (0..32).contains(&a) && (0..32).contains(&b) {
+                            assert!(round[(cy * 32 + cx) as usize] >= tops[(b * 32 + a) as usize] as u32, "region {r:?}, column {cx} {cy}: under its neighbour {a} {b}");
+                        }
+                    }
+                }
+            }
+        }
+        // A column not known makes its neighbours' numbers unknown too.
+        let mut some = vec![5u16; 9];
+        some[4] = u16::MAX;
+        assert!(crate::bricks::tops_round(&some, 3).iter().all(|top| *top == u32::MAX), "a column not known must hold its neighbours back");
+        eprintln!("The height table: {checked} cell columns' highest things are the doorway's own, block for block");
     }
 
     #[test]

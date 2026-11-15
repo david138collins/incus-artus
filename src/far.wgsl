@@ -43,8 +43,8 @@ struct Camera {
     // if rays end at the map's edge.
     follow: vec4<f32>,
     // The pyramid's steps: x this layer's factor over the one above's; y the one below's over this one's. For measuring
-    // (the Oracle's test): z the most steps a ray takes (768). w: free (it chose the light by rays, then
-    // the rock switch).
+    // (the Oracle's test): z the most steps a ray takes (768). w: where the height table starts in
+    // `entries`, in words past a column's band's word (`bricks.rs`).
     pyramid: vec4<f32>,
     // The finer layer's fade in: x where it starts (its pixel so many times its cells), y over how many doublings of
     // distance; z where in a level's stretch its blend with the next begins (the hand-over); w the sky's weight (0: as
@@ -339,6 +339,18 @@ fn entry_in(row: Row, cx: i32, cy: i32) -> u32 {
         return PAST_MAP;
     }
     return entries[u32(row.entries_at + y * row.across + x)];
+}
+
+// A column's number in the height table (`bricks.rs`): the height in blocks of the highest thing, ground or water, in
+// it and in the eight columns round it at its level (a blend reads half a cell into the next column). All ones while it
+// isn't known, and outside the level: nothing is skipped on a guess.
+fn top_in(row: Row, cx: i32, cy: i32) -> u32 {
+    let x = cx - row.least.x;
+    let y = cy - row.least.y;
+    if (x < 0 || y < 0 || x >= row.across || y >= row.across) {
+        return 0xFFFFFFFFu;
+    }
+    return entries[u32(row.entries_at + y * row.across + x) + u32(camera.pyramid.w)];
 }
 
 // A level's numbers for blending, and the brick last found in it with its slot in the atlas.
@@ -746,6 +758,7 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32, end: f32) -> Seen {
     var kept_next = kept_none();
     var row_own = row_none();
     var row_up = row_none();
+    var row_far = row_none();
     var lv = FIRST;
     var lv_from = 1.0;
     var lv_to = 0.0;
@@ -795,33 +808,33 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32, end: f32) -> Seen {
                 continue;
             }
         }
-        // Space a coarser cell says is empty is skipped whole: over a coarse cell column's band's top, the ray goes on
-        // to where it leaves the column or comes down to the top, whichever is sooner. The column two levels coarser,
-        // then its own.
+        // Space with nothing in it is skipped whole. The height table says how high anything stands in a column and
+        // the columns round it; over that by as far as the blend at this level reaches, the ray goes on to where it
+        // leaves the column or comes down to that height, whichever is sooner. The biggest column first: four levels
+        // coarser, then two, then its own. [The plain's long rays, build 173: skimming a little over flat ground they
+        // were under the top a coarse column's band gave, rounded up to its cell, and hopped their own level's columns
+        // one at a time, 422 hops of the longest ray's 533 steps.]
         var skipped = false;
         let fine = f32(1 << u32(level));
-        for (var k = 0; k < 2 && in_air && !walking; k++) {
-            var up = level;
-            if (k == 0) {
-                up = min(level + 2, TOP);
-            }
+        for (var k = 0; k < 3 && in_air && !walking; k++) {
+            let up = min(level + 4 - 2 * k, TOP);
             let up_size = f32(1 << u32(up));
             let cc = floor(p.xy / up_size);
             var row: Row;
             if (k == 0) {
+                keep_row(&row_far, up);
+                row = row_far;
+            } else if (k == 1) {
                 keep_row(&row_up, up);
                 row = row_up;
             } else {
                 keep_row(&row_own, up);
                 row = row_own;
             }
-            let entry = entry_in(row, i32(cc.x), i32(cc.y));
-            if (entry == NOT_SUMMED) {
-                continue;
-            }
-            let low = bitcast<i32>(entry << 16u) >> 16u;
-            let count = i32(entry >> 16u);
-            let top = f32(low + count) * up_size + fine;
+            // The blend reaches a cell and a half over the foot of the cell that holds the highest block; half a cell
+            // more than that, as the skip always left.
+            let high = top_in(row, i32(cc.x), i32(cc.y));
+            let top = (floor((f32(high) - 1.0) / fine) + 2.0) * fine;
             if (p.z <= top) {
                 continue;
             }
