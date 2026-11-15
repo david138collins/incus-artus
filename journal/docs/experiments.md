@@ -4191,3 +4191,9 @@ unavailable. Please close any existing GPU profiling sessions, or enable access 
 - **Not known which.** To try, cheapest first: the graphics driver reset (Win+Ctrl+Shift+B) and the 45-second check
   again; else a restart. The traces' script is kept at `kept logs/nsight/b177/scripts/nsight-177.sh`; build 177 is
   committed and built, and nothing else is owed before the traces.
+
+**Later the same morning.** David looked at the driver's setting (Counsel's check, his to look at): "it shows all
+users". He reset the graphics driver (Win+Ctrl+Shift+B: "ok, i did it") and the 45-second check failed the same
+way. Windows isn't waiting for a restart and installed nothing overnight but a Store runtime. What's left is a
+restart of the laptop. The traces' script no longer points into Builder's scratchpad: it runs from the project
+(`bash "kept logs/nsight/b177/scripts/nsight-177.sh"`) and its traces land in `logs/nsight/b177/`.

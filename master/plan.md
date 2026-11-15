@@ -58,9 +58,11 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
 - **Waiting on David:** Nsight got its counters back (2026-11-15: the two traces of build 177 didn't run, "GPU
-  Performance Counters unavailable", and neither does last night's own command; nothing of Nsight's is running; a
-  driver reset or a restart to try), then the two traces (`kept logs/nsight/b177/scripts/nsight-177.sh`) and one
-  screenshot of Nsight's rows. He has set the
+  Performance Counters unavailable", and neither does last night's own command; nothing of Nsight's is running; the
+  driver's setting shows all users and a driver reset didn't clear it, so a restart of the laptop is next), then,
+  on his go, the two traces (`bash "kept logs/nsight/b177/scripts/nsight-177.sh"`, about 7 minutes hands off, one
+  screen, on mains, "NVIDIA GPU only") and one screenshot of Nsight's Shader Pipelines rows (# Warp, # Reg) with the
+  `audit_` rows showing, read against "Build 177, the march's audit: what's expected" in the journal. He has set the
   order for the far eye's last stretch of speed (2026-11-14): "i don't think we should leave anything undone ... we
   should probably start with trying to break it into smaller passes to fit more, and then lean and cut the rays."
   Why: his reading off Nsight's window: the march keeps 168 registers, so 12 groups of rays fit of the card's 48,

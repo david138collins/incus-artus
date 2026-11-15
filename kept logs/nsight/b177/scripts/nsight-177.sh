@@ -2,9 +2,10 @@
 # Build 177 under Nsight's GPU Trace Profiler with the march's audit on, standing at a mark: 20 frames from 170 s in
 # (the audit's thirteen compiles make the start about a minute longer). Two runs: the mountain top (a mark that works)
 # and the plain (a mark that waits). No code changes while it runs.
-# The env string ends at the last value's ";" with nothing after it: a stray "; " became part of a mark's
+# Run from anywhere: bash "kept logs/nsight/b177/scripts/nsight-177.sh". The traces land in logs/nsight/b177/ (on the
+# laptop only). The env string ends at the last value's ";" with nothing after it: a stray "; " became part of a mark's
 # name on 2026-11-14.
-O="C:/Users/David/AppData/Local/Temp/claude/ab96f937839e9dd4/70bc1fc4-3a14-4888-8de0-a073bfe21d8d/scratchpad/nsight"
+O="C:/Users/David/Desktop/Incus Artus/logs/nsight/b177"
 G='C:\Users\David\Desktop\Incus Artus'
 P="/c/Users/David/Desktop/Incus Artus"
 cd "/c/Program Files/NVIDIA Corporation/Nsight Graphics 2026.4.0/host/windows-desktop-nomad-x64" || exit 1
