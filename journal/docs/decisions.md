@@ -2084,6 +2084,14 @@ Reference: `Art/quartile minecraft illustration.png`
       mountain top 1.042, the run 0.976, the plain 0.886, the spawn 0.466. Waiting on his reading of the march's row
       from the mountain top's trace; then the hand-over, and a second audit on this program for the fewest changes
       that fit 16 groups.
+    - *His reading of build 178's row* (10e13d2): 167 registers (was 168), nothing put by in memory (was 18 words a
+      ray), 12 groups still, as its pass mark said. Read off the rows, not from NVIDIA: the compiler seems to choose a
+      number of groups and put by in memory what won't fit the registers that leaves (12 groups up to about 170, 16 at
+      about 128), so a program's need is its registers plus what it puts by: the whole march 186, build 178's 167; to
+      fit 16 groups it must come to about 130. **Build 179**, the audit's second batch (`INCUS_FAR_AUDIT=2`): fourteen
+      versions of the new program, the hand-over's second read and the things kept the whole way (the floor's cells,
+      the third row, the rings' boxes, what the finish needs), alone and together; ceilings, as build 178 taught.
+      About 7 minutes hands off (two traces) and one screenshot asked.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
