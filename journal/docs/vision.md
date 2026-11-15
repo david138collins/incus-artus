@@ -1028,6 +1028,18 @@ bending, to get crazy looking things that happen deep down instantly in the engi
     be a very cheap and useful tool", 2026-11-12).
 - Belongs with the FX Lab and the polish passes, after the speed plan settles.
 
+## Raymarched fire  [IDEA, David 2026-11-15]
+
+David: "i wonder if there's a way to raymarch fire and get a different look than anyone else has for fire, i wonder
+what novel ways i could create the fire that the ray sees so that it looks organic".
+- *Counsel's first ideas, nothing priced:* a small heat-and-smoke simulation in a box round each fire on the card (the
+  sand-sim reading's kind), marched like the far cells, so the fire moves as a fluid, not as noise; the fire's shape
+  seeded by what's burning (the burning block's own cells, a beam burning along its length); flame tongues as soft
+  shapes he designs in the FX Lab, blended together and swayed by a domain warp; heat shimmer by bending the rays
+  that pass near it; colour from heat through a palette he chooses, banded and dithered in the screen's squares so
+  it reads as pixel art with depth; the flame stepped at a slower beat than the frame, like animation on twos.
+  Belongs with the FX Lab, after the speed plan settles.
+
 ## Sound  [IDEA, David 2026-11-09]
 
 - **David makes it himself:** Omnisphere (its modelled objects, its resynthesis of his own recordings,
