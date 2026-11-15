@@ -2159,6 +2159,15 @@ Reference: `Art/quartile minecraft illustration.png`
       dearest marks that aren't the sea the 4 × 4 marches most of the steps (the mountain top 4.56 million of 6.6, high
       over the spawn 3.76 of 6.0 with 188,900 rays, fast across 3.18 of 4.8); every long ray listed (2,419 at most of
       the list's 8,192).
+    - *Build 182, the mend, flown on "go"* (85180a9; ended 10:01, `logs/flight-1794758479`, checked by Counsel): the
+      tiles' starts moved into a corner of the distances' picture; every mark within 1% of build 180's (fast across
+      4.7% under, that mark's own spread). **The cut's first stage is through**, and the reading of build 181's cost is
+      shown. Build 183's pass mark is written before its code: the second stage, a listed ray's own thread marching its
+      near length and sixteen more threads in a strip of the dispatch's grid marching the lengths beyond, a small pass
+      joining them; off the screen the same in kind (8 of 255 or less on listed rays' pixels, no ring or seam at a cut)
+      and the longest chain under 140 on the plain and the sea; flown cut against uncut, the plain's march 0.777 → 0.55
+      or under, the sea's 0.986 → 0.60 or under, the working marks within 2%. The largest build of the stretch; nothing
+      from David till its flight and his look at the horizon band.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
