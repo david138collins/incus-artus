@@ -2063,6 +2063,18 @@ Reference: `Art/quartile minecraft illustration.png`
     they went stays unknown. Next, with no time of David's: each trim's picture against the whole's off the screen,
     to sort the free ones (the views; the code's blend once the textures are in; the floor) from those that change
     what's seen (the hand-over, his look); then the free ones out of the march into programs of their own, build 178.
+  - *Build 178, the first piece broken out* (9e4c4c6, unflown; pass mark first): two programs from one text by one
+    line fixed when each is built. The whole march stays for while the world loads, the initial blend and the views;
+    the far eye's own program, once the textures are in, carries neither the code's blend nor the views, and where the
+    textures can't answer as they stand it reads the lowest cells and mixes rock in, takes the first column's share,
+    or takes rock or nothing from the bands. `INCUS_FAR_LOADED=0` keeps the whole march on to fly against. The code's
+    blend wasn't free to drop bare: it answered for everything within half a cell of the world's floor, at the coarse
+    levels everything near sea level, the far end of the long rays. Off the screen: build 176's picture at five marks
+    (the most 1 of 255), the plain's steps the same, 31 tests pass; a first try four rays lighter at the mountain
+    top's horizon (far land at the map's south edge) mended before the build was cut, in the journal. Pass mark: the
+    plain and the sea 8% or more under the whole march in one session, every mark at or under, under 5% on the plain
+    a miss; Nsight about 167 registers and 12 groups still (this piece alone buys no room; the hand-over's next).
+    About 15 minutes hands off asked (one trace, two flights) and one screenshot.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
