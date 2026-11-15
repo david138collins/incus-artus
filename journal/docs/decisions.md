@@ -1902,6 +1902,22 @@ Reference: `Art/quartile minecraft illustration.png`
       sky; at his first spot the slope's fine contour lines a little grainier. David: "let me see the change before
       discarding it. for all we know it might be nice." His look first, then fourteen minutes hands off, the table
       against `INCUS_FAR_TOPS=0`. Pass mark: the plain from 0.97 ms to 0.6 or under.
+    - *His look* (to Builder): "it looks great, builder. go ahead"; of the pictures, "from those pics i cant see anything
+      wrong".
+    - *Flown* (table on `logs/flight-1794705815`, its numbers off `-1794706206`; checked by Counsel). **Mixed, and a bad
+      miss on the plain, in the open.** Against build 172 (the same rings, before the table's code), the card's whole
+      at the median: the sea 17% less, a player's run 19% less (now under build 167's, before any ring), the sea
+      nodding 19% less, fast across the world 15% less; but **the bare plain 4% more** (1.01 ms, guessed 0.6 or
+      under), the spawn 16% more, high over the spawn 12%, the mountain top 9%. Every 99th under 1.5 ms. The long
+      rays went as counted (the plain's over 256 steps 910 to 15, the sea's 631 to 71, the run's 1,088 to 4), so three
+      fifths of the plain's steps went and its time didn't move: **the hops were cheap; the counts weren't the cost
+      there** (the Oracle's third part had said it: stop counting steps as cost). Counsel had told David each hop was a
+      wait worth saving; on the plain it wasn't. The dearer marks: the skip now tries three columns where it tried two,
+      biggest first, and a ray near the ground fails all three before it samples; the table's code without its
+      numbers is 10 to 20% dearer than build 172 everywhere, that price alone.
+    - *The mend next* (build 175, Builder): the ray's own column first. A column's number only grows with its size, so
+      a ray not clear of its own column is clear of none, and samples after one look (build 172 took two); a ray
+      that's clear then asks the bigger ones and takes the longest hop. The table on the card: 29 MB.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
