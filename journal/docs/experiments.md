@@ -5306,3 +5306,59 @@ to the step.
   of 255 at two). All 31 tests pass; the far eye's test takes what it took.
 
 **The flights asked for, one session, hands off:** the game as launched (the cut off), then `INCUS_FAR_CUT=384`.
+
+### Build 186 flown (2026-11-15, 15:26 to 15:39, hands off): David's bar met; the 4.5% was the program's weight. The cut is on as the game is launched (build 187), and the cut is done enough to go on
+
+David: "go ahead with the flights". (He asked first whether, if it missed, it would only be staying in because
+lazy rays are a different form of it. Builder: yes, its lengths, their stacks and the join are what lazy rays
+would stand on, and that's Builder's view, not the plan's.) Told before take-off; one screen, on mains, the card
+idle before (5%); no hitch. The game as launched, the cut off (`logs/flight-1794778376`), then `INCUS_FAR_CUT=384`
+(`logs/flight-1794778772`).
+
+| mark | the march uncut, ms | cut | | the far eye's whole uncut | cut | | at the 99th, cut | the longest chain, cut |
+|---|---|---|---|---|---|---|---|---|
+| the spawn | 0.353 | 0.363 | 2.8% more | 0.462 | 0.479 | 3.7% more | 0.488 | 127 |
+| the mountain top | 0.917 | 0.914 | 0.3% less | 1.038 | 1.045 | 0.7% more | 1.086 | 127 |
+| the bare plain | 0.762 | 0.450 | 40.9% less | 0.872 | 0.568 | 34.9% less | 0.600 | 127 |
+| high over the spawn | 0.933 | 0.958 | 2.7% more | 1.052 | 1.086 | 3.2% more | 1.112 | 127 |
+| low over the sea | 0.958 | 0.528 | 44.9% less | 1.071 | 0.651 | 39.2% less | 0.687 | 127 |
+| a player's run | 0.845 | 0.591 | 30.1% less | 0.962 | 0.721 | 25.1% less | 0.817 | 165 |
+| fast across the world | 0.609 | 0.616 | 1.1% more | 0.732 | 0.754 | 3.0% more | 1.245 | 165 |
+| the plain, nodding | 0.735 | 0.473 | 35.6% less | 0.846 | 0.592 | 30.0% less | 0.764 | 247 |
+| the sea, nodding | 0.909 | 0.561 | 38.3% less | 1.024 | 0.686 | 33.0% less | 0.899 | 238 |
+
+**Against the pass mark:**
+- **The reading of the 4.5% stands.** Uncut, the mountain top's march is 0.917 ms (build 184: 0.916; build 185:
+  0.958) and high over the spawn's 0.933 (0.934; 0.975): both within 2% of build 184's, to the hair. What build
+  185 kept through the march and worked out at its end was the cost, and it showed only where the card works.
+  So the march's program is as near its limit as that: a few numbers more held through its steps cost 4.5% there.
+- **David's bar, "a little better overall than it is now": met.** The far eye's whole with the cut on, summed
+  over the nine views: 6.582 ms, for build 185's 6.688 (uncut, this flight: 8.059).
+- **The dearest mark with the cut on at or under 1.096 ms: met**, 1.086 (high over the spawn). The same
+  flight's uncut dearest is the sea at 1.071, so the dearest is 1.4% up; the worst 99th is down, 1.290 to 1.245.
+  Views over 1 ms: four uncut, two with the cut on.
+- Where the card works the cut costs 1 to 4% (the spawn 3.7%, high over the spawn 3.2%, fast across 3.0%, the
+  mountain top 0.7%): held thread-steps are level, so this is what the count doesn't hold: a pixel's read of
+  whether its ray is listed, and the strip's threads' work before a first step.
+- Moving, the longest chain stays long (165 on the run, 240 nodding): a newly long ray marches whole for two
+  frames now, and is cut finer one cut a frame. The march is a quarter to two fifths shorter there all the same.
+
+**So, by the mark: the cut is on as the game is launched** (build 187: `INCUS_FAR_CUT` unset means the first
+place at 384 blocks; 0 turns the cut off; nothing else changed from the build flown, so build 187 as launched is
+build 186's second flight). **The cut is done enough to go on** (David: "and then we can move on, if it gets a
+little better overall than it is now").
+
+**The cut from first to last, for the record** (the far eye's whole, ms, build 182 to build 186 with the cut on):
+the spawn 0.466 to 0.479; the mountain top 1.046 to 1.045; the plain 0.886 to 0.568; high over the spawn 1.099 to
+1.086; the sea 1.098 to 0.651; the run 0.981 to 0.721; fast across 0.733 to 0.754; the plain nodding 0.862 to
+0.592; the sea nodding 1.040 to 0.686. Its lessons: the list costs nothing if only long rays touch the buffer
+many write (181, 182); where the card works, threads kept waiting are the cost, not steps (183, 184); a ray wants
+only the lengths it needs, packed (185); and the march's program has no room to carry more (185, 186).
+
+**Still owed, written down:**
+- David's look at the horizon while turning his head (a length begins as its ray stood the frame before).
+- The cut's third stage, if wanted: the frame's notice for newly long rays (the moving marks' long chains).
+- The march's program size, by Nsight's window, if it grows (David: "if the thing ever gets too big this would
+  be something to look at"): last read at build 178, 167 registers and 12 groups of rays of 48.
+- The flaw at the map's edge (a ray's last stride past its end, unlooked); the far eye's test not the same run
+  to run at full size (up to 6 of 255 at a few rays); the main memory test that failed once.

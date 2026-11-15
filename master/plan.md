@@ -62,18 +62,13 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** his call on the cut, after build 185's flight (2026-11-15,
-  `journal/docs/experiments.md`). The packed cut (a ray cut only where it needs, its lengths side by side) flew
-  level where the card works (the march within 3% of uncut: the mountain top 1.7% less, high over the spawn 1.1%
-  more, the spawn 2.8% more) and a third to a half faster where it waits (the far eye's whole: the plain 0.877 to
-  0.572 ms, the sea 1.086 to 0.655, the run 0.975 to 0.729). One keep-or-drop line is missed by a hair: the
-  dearest mark with the cut on is 1.117 ms for the line's 1.08 (the same session's uncut dearest: 1.096). And the
-  build itself flew 4.5% dearer at the two working marks than build 184, cut or not, which Builder reads as the
-  march's program needing more registers (unseen in a trace); that sits on the game as launched and is mended
-  either way. Builder's recommendation: one more round to take the cut's new code out of the march's program, and
-  fly again; by the rule's letter today, dropped. His word on the mend (2026-11-15): "yes, lets try your idea to
-  make the cut work smarter, if it doesn't work it doesn't work. its pretty fast in general now." The game as
-  launched marches uncut. **Build 183, the cut's second stage, is flown: a miss** (2026-11-15,
+- **Waiting on David:** his look at the horizon while turning his head, when he next plays (with the cut, a
+  length begins as its ray stood the frame before; speckle or flicker along the skyline would be the sign), and
+  his word to start what's next in the plan: the scatter stage (a wood, rows of posts, towers, slabs and an arch
+  behind the doorway, each placed with him). The cut is done enough to go on and is on as the game is launched
+  (build 187): flown as build 186 it met his bar ("we can move on, if it gets a little better overall than it is
+  now"): the far eye's whole over the nine views 6.58 ms for build 185's 6.69 and 8.06 uncut; two views over 1 ms
+  for four; the dearest 1.086 ms (high over the spawn). **Build 183, the cut's second stage, is flown: a miss** (2026-11-15,
   `journal/docs/experiments.md`). A ray long the frame before is marched as up to 17 lengths side by side and
   joined: the march is 49% shorter on the plain (0.769 to 0.396 ms) and 37% over the sea, where the card waits;
   and 18% longer at the mountain top, 32% high over the spawn, 17% on the run, where the card works. The dearest
@@ -370,7 +365,7 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
         placed by hand, each placed with David. *The 16s and the 8s in* (builds 168 to 171: "looks pretty good"); the
         8s found the plain's wall (0.54 → 0.96 ms). The 4s and 2s held: at 128 cells a side they'd lie under the near
         eye's ground, so they're decided with the near eye, on David's answers to the Oracle's questions 1 and 5
-  - [ ] The far eye's speed work, for headroom to make it prettier (David, 2026-11-15: "i don't think we should leave
+  - [x] The far eye's speed work, for headroom to make it prettier (David, 2026-11-15: "i don't think we should leave
         anything undone ... that will translate directly to more headroom for prettying it up"), ranked by what it
         takes off the dearest mark ("the goal should always be to bring down the high spot"). Found: the marks that
         wait (the sea, the run, the plain) wait on their longest rays; the marks that work (high over the spawn, the
@@ -378,7 +373,16 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
         table (builds 174 and 176; the sea 1.40 → 1.11 ms, the run 1.31 → 1.01; the near marks 3 to 9% dearer). In his
         order: (1) the march broken into smaller passes, to fit more groups, priced first by an instrument that lists
         candidate pieces' registers in one trace; (2) the march leaned; (3) the long rays cut into lengths, marched
-        side by side (the Oracle's step 4). Each with its pass mark and flight, and taken out again if it doesn't pay
+        side by side (the Oracle's step 4). Each with its pass mark and flight, and taken out again if it doesn't pay.
+        *Done enough to go on* (David, 2026-11-15: "and then we can move on, if it gets a little better overall than
+        it is now"): (1) and (2), builds 177 to 180, 2 to 7% off, build 178's march once the textures are in kept;
+        (3) the cut, builds 181 to 187 (`journal/docs/experiments.md`): a ray long the frame before is marched as
+        the lengths it needs, packed side by side, and joined; on as the game is launched from build 187. Flown
+        (build 186, `logs/flight-1794778376` and `-1794778772`): the far eye's whole a quarter to two fifths less
+        at five of nine views (the plain 0.872 to 0.568 ms, the sea 1.071 to 0.651, the run 0.962 to 0.721), 1 to 4%
+        more at the other four (high over the spawn 1.052 to 1.086); two views over 1 ms for four. Its first form,
+        sixteen threads a ray, was a sixth to a third dearer where the card works (build 183): there the cost is
+        threads kept waiting, not steps, and the march's program has no room to carry more (builds 184 to 186)
   - [ ] The looks (David's "2, 3 and 4"): the skyline by cover, with a column-height table (haze or cover is his);
         if cover, the sheet (plain far land as rings of mesh) flown as the far levels' rival; the horizon band over
         frames comes as lazy rays. After the cells of 2 to 16, so it's judged on them (David, 2026-11-14: "yes and

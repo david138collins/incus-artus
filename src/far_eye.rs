@@ -66,6 +66,8 @@ const LONG_LIST: u32 = 4096;
 /// each list); the two lists of lengths (`PIECES` places each: the strip's threads); a stack of `STACK` words for
 /// each place in a list of rays (its ray's first length), then for each place in a list of lengths.
 const PIECES: u32 = 16384;
+/// Where the first place a ray may be cut at is, blocks out, unless `INCUS_FAR_CUT` says (as build 186 flew).
+const FIRST_CUT: f32 = 384.0;
 const STACK: u32 = 13;
 const BEFORES_AT: u32 = 2 * 3 * LONG_LIST;
 const PIECES_AT: u32 = BEFORES_AT + 2 * 17 * LONG_LIST;
@@ -510,22 +512,24 @@ impl FarEye {
         let (reach, begin) = (blocks("INCUS_TEST_REACH").unwrap_or(REACH), blocks("INCUS_TEST_BEGIN").unwrap_or(0.0));
         let most_steps = std::env::var("INCUS_TEST_STEPS").ok().and_then(|n| n.parse::<f32>().ok()).filter(|n| *n >= 1.0).unwrap_or(768.0);
         log::info!("The far rays: {}, {most_steps:.0} steps at most", if edge { "ended at the map's edge" } else { "marched on past the map's edge (INCUS_FAR_EDGE=0)" });
-        // The cut, off unless asked (`INCUS_FAR_CUT`: where the first place a ray may be cut at is, blocks out; the
-        // places after it each half a doubling of distance on, `far.wgsl`'s `cut_place`). [Build 183's flight, with the first cut
-        // at 1,024: the march half as long where the card waits, a sixth to a third longer where it works, and the
-        // dearest mark up from 1.08 to 1.37 ms. David, 2026-11-15: "lets try your idea to make the cut work
-        // smarter, if it doesn't work it doesn't work".]
+        // The cut, on unless told (`INCUS_FAR_CUT`: 0, no ray is cut; or where the first place a ray may be cut at
+        // is, blocks out; the places after it each half a doubling of distance on, `far.wgsl`'s `cut_place`). [Flown
+        // packed and trimmed, build 186: the far eye's time a quarter to two fifths less at five of nine views (the
+        // plain 0.872 to 0.568 ms, the sea 1.071 to 0.651), 1 to 4% more at the other four; two views over 1 ms for
+        // four. David, 2026-11-15: "we can move on, if it gets a little better overall than it is now", which it
+        // did. Build 183's first form, sixteen threads a ray, was a sixth to a third dearer where the card works.]
         let cut_at = match std::env::var("INCUS_FAR_CUT").ok().and_then(|n| n.parse::<f32>().ok()) {
-            Some(asked) if asked > 0.0 => asked.clamp(64.0, 65536.0),
-            _ => 0.0,
+            Some(asked) if asked <= 0.0 => 0.0,
+            Some(asked) => asked.clamp(64.0, 65536.0),
+            None => FIRST_CUT,
         };
         // How many steps make a ray long (`INCUS_FAR_LONG`, for measuring).
         let long = std::env::var("INCUS_FAR_LONG").ok().and_then(|n| n.parse::<u32>().ok()).map_or(LONG_STEPS, |n| n.clamp(16, 768));
         if one.is_some() && long != LONG_STEPS {
             log::info!("The cut: a ray is long at {long} steps or more (INCUS_FAR_LONG)");
         }
-        if one.is_some() && cut_at > 0.0 {
-            log::info!("The cut: rays long the frame before are marched as lengths, the first cut {cut_at:.0} blocks out (INCUS_FAR_CUT)");
+        if one.is_some() && cut_at != FIRST_CUT {
+            log::info!("The cut: {}", if cut_at > 0.0 { format!("the first place a ray may be cut at is {cut_at:.0} blocks out (INCUS_FAR_CUT)") } else { "off, every ray marched whole (INCUS_FAR_CUT=0)".to_string() });
         }
         let tally_module = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some("the longest ray"), source: wgpu::ShaderSource::Wgsl(include_str!("far_tally.wgsl").into()) });
         let tally = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("the longest ray"), layout: None, module: &tally_module, entry_point: Some("tally_pass"), compilation_options: Default::default(), cache: None });
@@ -1530,11 +1534,6 @@ mod tests {
         // The rings, as the game starts them (as many as `INCUS_FAR_RING` says: 0 none).
         let rings = crate::far_ring::rings_asked().into_iter().map(|level| crate::far_ring::Ring::start(crate::doorway::test_world(), store.levels[crate::bricks::row(level)], store.kept.side()).unwrap()).collect();
         let mut eye = FarEye::new(&device, format, store, lane, rings);
-        // The cut is off in the game unless asked; here it's on unless told (`INCUS_FAR_CUT`), so the lengths and
-        // the join are always tested.
-        if std::env::var_os("INCUS_FAR_CUT").is_none() {
-            eye.cut_at = 384.0;
-        }
         // The whole world: put on the card as it's summed, till every region and the window round the eye are in, the
         // writes handed to the card each time round as a frame would (held, their copies pile up till it runs out).
         while eye.lane.is_some() || eye.store.behind > 0 {
