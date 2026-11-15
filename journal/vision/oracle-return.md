@@ -431,6 +431,13 @@ the answers.
   marks of nine. Against build 172 the table now leaves the long-ray marks 4 to 23% cheaper (the sea 1.40 → 1.11 ms)
   and the near ones 3 to 9% dearer. Next, no code: the step limit at 160, to see whether a mark's time is its
   longest ray's chain.
+- **The step limit at 160** (build 176, no code changed): **two kinds of mark.** Waiting marks (the plain, the sea,
+  the run, the nodding ones) fall 29 to 45% in the march: their time is their longest rays' chain, now shown.
+  Working marks (the mountain top, high over the spawn, fast across) move 2 to 9%, the card at 110 to 114 W. So
+  your "waiting, not working" holds mark by mark, not for the far eye whole; the height table paid where marks wait
+  and cost where they work. **What lazy rays could give, measured** (a budget of 160 steps a frame): the sea 1.11 →
+  0.67 ms, the run 1.01 → 0.75, the plain 0.93 → 0.60; the dearest mark then high over the spawn, a working mark, at
+  1.04. What the working marks spend their time on is next for Nsight.
 
 ## 6. The message to send at the fork
 

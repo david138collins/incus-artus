@@ -1954,6 +1954,21 @@ Reference: `Art/quartile minecraft illustration.png`
       longest ray's steps 2.1 to 2.7 microseconds a step at seven marks of nine.
     - **Next, put to him:** one flight with no code changed, the step limit at 160 (`INCUS_TEST_STEPS`), to see
       whether a mark's time is its longest ray's chain, before anything more is built on that idea.
+    - *Flown on "go"* (pass mark first, fd1a0ca; ended 20:47, `logs/flight-1794710853`, checked by Counsel; the picture
+      wrong on purpose, rays cut short). **Two kinds of mark.** *Waiting marks* (the plain, the sea, the run, both
+      nodding): with rays stopped at 160 steps the march is 29 to 45% shorter (the plain 0.825 → 0.494 ms, the sea
+      0.999 → 0.554): their time is their longest rays' chain, shown now, not summed. *Working marks* (the mountain
+      top, high over the spawn, fast across): rays of 235 to 302 steps cut to 160 and the march moves 2 to 9%; the card
+      draws 110 to 114 W there against 73 to 96 on the plain and the sea; what their time is spent on isn't looked at
+      yet. The spawn (no ray over 160) the same to the last digit. Pass mark met in part, as its third line allowed.
+      What it explains: the height table shortens long chains and adds work to every step, so it paid at the waiting
+      marks and cost at the working ones.
+    - **The prize of lazy rays, measured** (the most a step budget of 160 a frame could give): the far eye's whole at
+      the sea 1.112 → 0.666 ms, the run 1.007 → 0.752, the plain 0.934 → 0.604; the dearest mark would be high over the
+      spawn at 1.040. David's morning thought, borne out: "it would seem we have to reduce the longest rays, one by
+      one in order of length, in order to actually free up warps more rapidly, consistently." Builder puts to him
+      Nsight at a working mark, and the lazy rays' talk with its prize known; the plan's order (the cells of 2 to 16,
+      the skyline talk, then lazy rays) is his and Counsel's to keep or change.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
