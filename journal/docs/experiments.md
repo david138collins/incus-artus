@@ -3751,3 +3751,59 @@ The three numbers are read before the skip's loop, each by its own row, and the 
   pixel differs on the plain or the mountain top, and at the other three the most is 1 of 255 (two rings repeat to a
   last digit).
 - All 30 tests pass. Waiting on David's go for one flight against build 174's.
+
+### Build 176 flown (2026-11-14, 20:29, hands off): cheaper at eight marks of nine, and the pass mark missed
+
+David: "go". Told before take-off; one screen, on mains, the card idle before (3 to 5%); no hitch in the frame clock.
+Report `logs/flight-1794710172`, beside build 174's (`-1794705815`, flown at 19:16) and build 172's. The card's
+whole, median ms:
+
+| mark | 172, before the table | 174, the table | 176, its numbers read at once | 176 against 174 | 176 against 172 |
+|---|---|---|---|---|---|
+| the spawn | 0.429 | 0.499 | 0.467 | 6% less | 9% more |
+| the mountain top | 1.042 | 1.132 | 1.071 | 5% less | 3% more |
+| the bare plain | 0.972 | 1.010 | 0.934 | 8% less | 4% less |
+| high over the spawn | 1.015 | 1.136 | 1.080 | 5% less | 6% more |
+| low over the sea | 1.401 | 1.158 | 1.112 | 4% less | 21% less |
+| a player's run | 1.312 | 1.061 | 1.007 | 5% less | 23% less |
+| fast across the world | 0.891 | 0.760 | 0.764 | the same | 14% less |
+| the plain, nodding | 0.971 | 0.982 | 0.908 | 8% less | 6% less |
+| the sea, nodding | 1.371 | 1.108 | 1.052 | 5% less | 23% less |
+
+**Against the pass mark:**
+- Off the screen: met (the steps and the pictures build 174's).
+- The sea, the run, the sea nodding at or under build 174's: **met** (4 to 5% under).
+- Near the ground under build 172's: **missed, all three** (the spawn 0.467 for 0.429, the mountain top 1.071 for
+  1.042, high over the spawn 1.080 for 1.015).
+- The plain under 0.90: **missed** (0.934). It isn't within 5% of build 174's either (8% under): between the two
+  lines the mark drew.
+
+**What that says of the reading:**
+- **Right, and small:** reads one after another do cost. Build 176 reads about three quarters more numbers on the
+  plain than build 174 and is 8% cheaper there: their order mattered, their number didn't, and the card had the
+  room.
+- **Wrong in size.** The sum said the longest chain would be 27 to 41% shorter; the plain's march fell 8% (0.901
+  to 0.825 ms). The looks' waits are a small part of a step.
+- **Wrong as the reason the near marks are dearer than build 172.** With one wait where build 172 had two, build
+  176 is still 3 to 9% dearer there. *"Three reads in a row where there were two" is withdrawn as the explanation
+  of the spawn, the mountain top and high over the spawn.* What costs there isn't known.
+- **What Nsight's names for the waits say, read again** (the plain; the 38% of the march's samples it names): 14%
+  of the march's samples wait on memory; 21% wait on the program's own sums and branches or for their turn. The
+  larger part of a ray's time, where it's named, is the program's own length, not memory.
+
+**A sum that fits, not shown:** each mark's march, over its longest ray's steps, comes to 2.1 to 2.7 microseconds a
+step at seven marks of nine (the mountain top 3.1 and high over the spawn 3.7, where two layers both have long
+rays). On the plain the longest ray is 137 hops and 189 samples; build 172's was 471 hops and 62 samples. The two
+marches (0.87 and 0.90 ms) fit a hop of about 1.3 microseconds and a sample of about 3.8: by that sum the plain's
+march now is its longest ray's 189 samples, one after another (0.72 of 0.83 ms), and the table swapped many cheap
+hops for the same time in fewer, dearer steps. It's a sum from two flights, not a measurement.
+
+**Kept:** build 176 (the same picture, cheaper than build 174 at eight marks of nine, the ninth the same). With the
+table and its numbers read at once, against build 172: the five marks with long rays 4 to 23% cheaper, the three
+near the ground 3 to 9% dearer; the dearest mark is the sea at 1.112 ms, where it was 1.401.
+
+**Next, as the mark said, nothing more built on the reading before the chain is seen.** A test that changes no
+code: the step limit (`INCUS_TEST_STEPS`, a number the march is handed). With rays stopped at 160 steps, if a
+mark's time is its longest ray's chain, the plain's march falls by about half and the spawn's (153 steps) doesn't
+move; if it's something else, neither moves. One flight, the picture wrong on purpose (rays cut short), for
+measuring only.
