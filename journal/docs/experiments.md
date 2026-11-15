@@ -5518,3 +5518,35 @@ alone.
   reported (no line: every hand-over's surface gets a little thinner, as it should have been).
 - **Flown** (the mend is a power in the hand-over's steps only): each mark's march within 2% of build 186's cut
   flight; over that at a working mark, said, and a cheaper form looked for.
+
+### Build 189 built (unflown): the rings' bright bands mended, and the reading shown
+
+**Built as the mark says:** a look read from a coarser level has its solid share turned into the finer cell's
+(`by_finer_cell`, `far.wgsl`) before the hand-over mixes the two. One place in the march, in the hand-over's steps
+only.
+
+**Off the screen, from 300 over the shallow shelf, looking down:** before, a square outline a little more yellow
+than the sea bed (the 8s' ring's edge); after, none: the bed is even across where the outline was. So the reading
+holds: the bands were the coarser level's ground counted against the finer cell.
+
+**The five marks' pictures against build 182's** (640 x 400, the cut off): they change through the hand-overs, as
+expected of a mend to every hand-over, by distance as well as at the rings.
+
+| mark | pixels that differ at all | by 4 of 255 or more | by 16 or more | the most |
+|---|---|---|---|---|
+| the spawn | 2.6% | 0.6% | 0.06% | 34 |
+| the mountain top | 10.6% | 1.3% | 0.03% | 19 |
+| the bare plain | 2.8% | 0.4% | none | 15 |
+| low over the sea | 2.7% | 0.7% | 0.06% | 24 |
+| high over the spawn | 17.7% | 3.7% | 0.17% | 45 |
+
+Where: in bands across the land where a level hands over (a faint speckle, mostly under 4 of 255), over water,
+and at a few skyline pixels inside a hand-over, where ground that stood too dense now lets a little more sky
+through. So this is a change to the look everywhere a level hands over, small but real: David's eye on it, on
+land as well as over the sea.
+
+All 34 tests pass. (The main memory's test failed once more on the first run and passed on the second: the flaw
+written down at build 182, still to mend.)
+
+**Owed:** David's look; then the flight for the mark's line (each mark's march within 2% of build 186's cut
+flight).

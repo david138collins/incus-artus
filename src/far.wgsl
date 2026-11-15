@@ -662,6 +662,21 @@ fn far_blend_kept(k: ptr<function, Kept>, place: Place, level: i32, p: vec3<f32>
     return look_at(spot_kept(k, place, level, p), p);
 }
 
+// A look read `up` levels coarser than the one it's to be mixed with, its solid share turned into the share of the
+// finer cell that stops a ray as much. A step's solid share is gathered against the cell the steps are counted in
+// (`1 - (1 - share) ^ (length / size)`): a coarser cell's share is of a cell 2 ^ `up` times the size, and counted
+// against the finer cell it stopped a ray in half the distance it should. [Build 188, David, over two blocks of sea on
+// a flat shelf: "two square rings that move with me ... bright square seams ... more saturated yellow": through each
+// ring's hand-over the ground stood too dense from too high, a ray was stopped before it had crossed the water, and
+// the bed showed brighter. Over dry ground the same was there and couldn't be seen.]
+fn by_finer_cell(look: Look, up: i32) -> Look {
+    var out = look;
+    if (up > 0) {
+        out.solid = 1.0 - pow(1.0 - min(look.solid, 0.9999), exp2(-f32(up)));
+    }
+    return out;
+}
+
 // Two looks mixed: `w` of the second.
 fn mix_looks(a: Look, b: Look, w: f32) -> Look {
     let k = clamp(w, 0.0, 1.0);
@@ -1027,13 +1042,13 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32, end: f32, stop: f32
                 let got = fetch_together(here.at);
                 let got_next = fetch_together(there.at);
                 look = look_of(got);
-                look = mix_looks(look, look_of(got_next), mixed);
+                look = mix_looks(look, by_finer_cell(look_of(got_next), there.level - here.level), mixed);
             } else {
                 look = look_at(here, p);
                 if (look.known) {
                     let next = look_at(there, p);
                     if (next.known) {
-                        look = mix_looks(look, next, mixed);
+                        look = mix_looks(look, by_finer_cell(next, there.level - here.level), mixed);
                     }
                 }
             }
