@@ -3491,3 +3491,26 @@ after a first touch: none on the plain.)
   cover; these counts say it pays with the haze kept. Neither strides sized to the haze nor the cut into lengths
   goes at the hops: both act on samples, which are a sixth of the steps.
 - The far light's tops are each column's average height, not its highest, so they can't serve as that table.
+
+### The height table (build 174 to come): the pass mark, written before the code
+
+David, shown the plain's steps by kind and asked whether to build it or take it to the Oracle first: "go ahead and
+build the height table, and keep me informed about how you're doing it and how it works."
+- **The design, as told to him.** Each column of each level carries one more number on the card: the height in
+  blocks of the highest thing (ground or water) in it and in the eight columns round it at its own level (the
+  blend reads a little into its neighbours; today's skip doesn't count them, and may be cutting haze at columns'
+  edges). The summing records each column's true top and each coarser column takes its four children's highest. The
+  numbers sit after the bands in the same buffer (about 28 MB). While the world loads they hold the band's own
+  rounded top, so the skip is today's to the letter; once every region is in a thread works the true ones out and
+  sends them whole. The rings' makers do their own columns. In the march the skip asks the table in place of the
+  band, a coarser column first (four levels up, then two, then its own), and clears it in one hop when the ray is
+  over the highest thing there by the blend's reach.
+- **Checks:** no column's number under anything in it or beside it (a test against the doorway's own columns);
+  the plain's steps by kind off the screen, before and after; pictures at the marks and from straight above; then
+  flights against build 172's.
+- **The picture** may change by a little where today's skip cut haze leaning in from a taller neighbour column:
+  a look step for Builder's eye off the screen first.
+- **Builder's guesses** [medium, from the counts]: on the plain with both rings the hops over a ray's own column
+  fall from 735,000 to under 150,000 and the rays over 256 steps from 952 to under 100; the card's time there from
+  0.97 ms to 0.6 or under (the 16s alone: 0.54). The sea and the run 10 to 30% less (their long rays skim water).
+  The spawn and the mountain top within 5% either way. On the card 28 MB more.
