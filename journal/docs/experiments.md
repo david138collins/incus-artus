@@ -4459,3 +4459,63 @@ then four and five together. Ceilings again: each prices a part's going. The fir
 **What it decides:** the order of the pieces after this. If the hand-over out with one other reaches 16 groups,
 those two are next, each needing something to stand in that keeps the picture. If only all four do, the 16 groups
 cost four changes, and the cut of the long rays may be the better next step for the marks that wait.
+
+### The audit's second batch, traced and read (build 179, 2026-11-15, 08:25 to 08:32, hands off)
+
+David: "go". Two traces, the mountain top and the plain, each at its mark with the march once the textures are in
+marching (`logs/nsight/b179/b179-mountain/incus_artus_2026_11_15_08_28_34.ngfx-gputrace`, `.../b179-plain/
+incus_artus_2026_11_15_08_31_57.ngfx-gputrace`). David read the mountain top's rows off Nsight's window; the times
+are each version's pass over the base layer, from the traces' own tables. "Put by" is Smem as words a ray (4 bytes,
+64 rays a group); the need is the registers and what's put by.
+
+| version (of the march once the textures are in) | groups that fit | registers | put by | need | the mountain top, against the whole | the plain |
+|---|---|---|---|---|---|---|
+| `march_all` itself, and `audit2_whole` | 12 | 167 | 0 | 167 | 1 (0.698 ms) | 1 (0.738 ms) |
+| the hand-over's second read out | 12 | 153 | 0 | 153 | 0.90 | 0.84 |
+| the floor's cells out | 12 | 161 | 0 | 161 | 1.09 | 1.09 |
+| the third row out | 12 | 161 | 0 | 161 | 1.05 | 1.06 |
+| the finish out | 12 | 161 | 0 | 161 | 1.12 | 1.08 |
+| the rings out | 12 | 167 | 0 | 167 | 0.94 | 0.83 |
+| the hand-over and the rings | 12 | 153 | 0 | 153 | 0.80 | 0.68 |
+| the hand-over, the floor and the rings | 12 | 142 | 0 | 142 | 0.79 | 0.68 |
+| the hand-over and the floor | **16** | 128 | 15 | 143 | 0.99 | 0.97 |
+| the hand-over and the third row | **16** | 128 | 22 | 150 | 0.97 | 1.02 |
+| the hand-over and the finish | **16** | 128 | 17 | 145 | 1.04 | 1.00 |
+| the hand-over, the floor and the third row | **16** | 128 | 7 | 135 | 0.91 | 0.96 |
+| those and the rings (`lean4`) | **16** | 128 | 7 | 135 | 0.81 | 0.79 |
+| those and the finish (`lean5`) | **16** | 127 | 0 | 127 | 0.77 | 0.76 |
+
+**Against what was expected:**
+- The control holds (167, nothing put by, 12 groups).
+- The hand-over's second read out: a need of 153, for "150 to 160". Met: it's the fullest place left, worth 14.
+- Alone: the floor 6 (for "about 8"), the third row 6 ("about 5"), the finish 6 ("about 7"), the rings none (as
+  said).
+- `lean4`: a need of 135 and 16 groups, for "about 130, 16 groups". Near.
+- **"Which two already get there": the hand-over and any one other.** With the hand-over's second read out and one
+  of the floor, the third row or the finish, the compiler took 16 groups, putting 15 to 22 words by to do it.
+
+**What wasn't expected:**
+- **The compiler's choice isn't a line at 128.** At a need of 150 it took 16 groups and put 22 words by; at 153
+  and at 142 it stayed at 12 and put none by. *The rule read off the first rows ("about 170 for 12, about 128 for
+  16") was too simple: it weighs something else too.*
+- **16 groups bought with words put by don't make the base layer's pass shorter: they make it longer.** The
+  hand-over out at 12 groups: 0.90 and 0.84. The hand-over and the floor out at 16 groups with 15 put by: 0.99 and
+  0.97. The base layer alone is a waiting pass (3 to 7% in flight), so more room buys it nothing and each word put
+  by is a read and a write in its chain. What 16 groups are worth where the card is full, this batch can't say: it
+  marches the base layer alone.
+- **The floor, the third row or the finish out alone: 5 to 12% longer** at both marks, with 6 fewer registers and
+  nothing put by. Not understood (the first batch read them at 0.96 to 0.99 on the whole march).
+- The rings' versions aren't fair prices: without the rings' levels the rays read rock or nothing outside the
+  rings and do less.
+- **One pass's time not understood:** in the mountain top's trace the far eye's own pass read 1.5 ms in 19 frames
+  of 20 (0.92 in the other; 0.92 and 0.95 in build 178's flight and trace), at 10.8% in flight for 17.6%: the same
+  rays' time spread thinner. The audit's frames aren't the game's (11 ms of passes a frame, the card never idle).
+  The versions' own times agree between the two marks; that pass's time isn't used.
+
+**What it decides, and what it can't:**
+- The hand-over's second read is the next piece either way: 14 registers, and 10 to 16% of the base layer's march
+  as a ceiling.
+- Whether fitting 16 groups pays is a question about the marks that work, with the whole far eye marching, and it
+  has to be flown: one of these versions marched as the far eye's own program, its picture wrong on purpose,
+  against the march as it is. `lean5` (16 groups, nothing put by) is the ceiling of what room is worth; the
+  hand-over out at 12 groups says how much of that is the shorter step and not the room.
