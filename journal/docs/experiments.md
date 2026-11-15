@@ -4311,3 +4311,51 @@ to 1.00.)
 **Next, off the screen and no time of David's:** each trim's picture against the whole's, to say which of them are
 free (the views; the code's blend once the textures are in, if nothing shows where it's read; the floor) and which
 change what's seen (the hand-over). Then the free ones out of the march into programs of their own, build 178.
+
+### Each trim's picture against the whole march's (build 177, off the screen, five marks)
+
+Each of the audit's versions drawn as the march itself (`FAR_TEST_VARIANT`, test-only) and set against build 176's
+pictures at the spawn, the mountain top, the plain, the sea and high over the spawn:
+
+| part taken out | pixels that differ at all | the most, of 255 | so |
+|---|---|---|---|
+| the views | none (the plain) | 0 | free, as it must be with no view on |
+| the floor | none at any mark | 2 | free, and it gains nothing |
+| the code's blend (nothing in its place) | none at the spawn and the plain; 0.9% at the mountain top, 0.1% over the sea, 0.4% high over the spawn | 58 | not free as it stands |
+| the height table's far row | up to 0.7% | 4, but 135 over the sea | has to stay: over the sea rays run out of steps without it |
+| the hand-over's second read | 3 to 11% | 134 | changes what's seen: it stays, made lighter |
+
+- **Why the code's blend isn't free yet:** the textures can't answer in three cases, and the march falls back to the
+  code's blend of eight cells for each (`spot_soft`): a place within half a cell of the world's floor (the cell under
+  is rock, and no texture holds it), which at the coarse levels is everything near sea level (half a cell of the
+  256s is 128 blocks); a brick with no texture; and outside a level or over the world. They're the far end of the
+  long rays.
+
+### Build 178, the march once the textures are in: the pass mark (written before the code)
+
+The first piece broken out of the march (David's order: smaller passes first). The far eye gets two programs from
+the one text, the choice fixed when each is built (one line, `LOADED`): **the whole march**, as now, for while the
+world loads, with the initial blend chosen or with a view on; and **the march once the textures are in**, which
+carries neither the code's blend nor the views. The game marches by the second when the textures are in, every
+ring's too, the hardware's blend is chosen and no view is on.
+
+What stands in for the code's blend in the second, so the picture is kept:
+- within half a cell of the world's floor: the lowest cells read from their texture as any place is, mixed with rock
+  by how far under (the same sum the code's blend makes);
+- a brick with no texture, outside a level, over the world: rock or air by the four columns' bands (four small
+  reads), which is all such a place can hold (a brick has a texture wherever a blend may read a band's cell: builds
+  169 and 170).
+
+**The marks:**
+- **The picture, off the screen at the five marks:** build 176's as far as two rings repeat (the most 1 or 2 of
+  255). In particular the pixels the bare trim changed (0.9% at the mountain top, 0.4% high over the spawn) don't
+  differ. With `INCUS_FAR_LOADED=0` (the whole march kept on, for measuring) exactly as before.
+- **Steps by kind on the plain:** the same but for "blends fallen back to the code": none.
+- **Nsight's row** (David's reading): about what `audit_no_code_blend` read: 167 registers or fewer, Smem nothing,
+  instructions down by a fifth or more. 12 groups still: this piece alone doesn't buy room.
+- **Flown, against the whole march in the same session** (`INCUS_FAR_LOADED=0`): the plain and the sea 8% or more
+  under; every mark at or under. The audit's bare trim gave 14% on the plain's base layer and 10% at the mountain
+  top's; this build reads a texture where that read nothing, so less is expected. Under 5% on the plain is a miss.
+
+**What it doesn't do:** fit more groups. That needs the other full places down too (the hand-over's second level
+kept in hand, first), which is the next audit's batch, on this program.

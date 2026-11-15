@@ -1138,6 +1138,11 @@ fn audit_variants(whole: &str) -> Vec<(&'static str, String)> {
 /// the source, or the variant isn't made and the test says so.
 #[cfg(test)]
 fn kinds_source(source: &str) -> String {
+    // Or one of the audit's cut-down versions drawn as the march itself (`FAR_TEST_VARIANT`, its name): to see what a
+    // part taken out does to the picture, against the whole march's.
+    if let Ok(asked) = std::env::var("FAR_TEST_VARIANT") {
+        return audit_variants(source).into_iter().find(|(name, _)| *name == asked).unwrap_or_else(|| panic!("FAR_TEST_VARIANT={asked} is none of the audit's versions")).1;
+    }
     // Or its steps counted by the level they were taken at (`FAR_TEST_LEVELS`: three levels' numbers, drawn the same
     // way): a level is a doubling of distance, so this is where along a ray its steps lie (for sizing a long ray cut
     // into lengths, or spread over frames).
@@ -1385,7 +1390,7 @@ mod tests {
             for y in 0..screen.1 {
                 raw.extend_from_slice(&pixels[(y * row) as usize..(y * row + screen.0 * 4) as usize]);
             }
-            let _ = std::fs::write(std::path::Path::new(&folder).join(format!("far eye {} {}x{} weight {}{} blend {} detail {}", mark.name, screen.0, screen.1, eye.look.sky_weight, if std::env::var_os("INCUS_SIGHT_NO_SHADOWS").is_some() { " unlit" } else { "" }, eye.look.blend, eye.look.detail) + &std::env::var("FAR_TEST_START").map_or(String::new(), |s| format!(" start {s}")) + &std::env::var("FAR_TEST_KINDS").map_or(String::new(), |s| format!(" kinds {s}")) + &std::env::var("FAR_TEST_LEVELS").map_or(String::new(), |s| format!(" levels {s}")) + if eye_asked.is_some() { " eye" } else { "" } + ".rgba"), raw);
+            let _ = std::fs::write(std::path::Path::new(&folder).join(format!("far eye {} {}x{} weight {}{} blend {} detail {}", mark.name, screen.0, screen.1, eye.look.sky_weight, if std::env::var_os("INCUS_SIGHT_NO_SHADOWS").is_some() { " unlit" } else { "" }, eye.look.blend, eye.look.detail) + &std::env::var("FAR_TEST_START").map_or(String::new(), |s| format!(" start {s}")) + &std::env::var("FAR_TEST_KINDS").map_or(String::new(), |s| format!(" kinds {s}")) + &std::env::var("FAR_TEST_LEVELS").map_or(String::new(), |s| format!(" levels {s}")) + &std::env::var("FAR_TEST_VARIANT").map_or(String::new(), |s| format!(" variant {s}")) + if eye_asked.is_some() { " eye" } else { "" } + ".rgba"), raw);
         }
         let (top, bottom) = (average(0..20), average(screen.1 - 20..screen.1));
         eprintln!("The far eye's test picture: the top rows {top:?}, the bottom rows {bottom:?} (red, green, blue of 255)");
