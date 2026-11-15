@@ -2148,6 +2148,17 @@ Reference: `Art/quartile minecraft illustration.png`
       490,000 steps. Why a 4 × 4 ray takes twice a base ray's steps, though it starts just short of where the base ray
       touched, isn't looked at yet: the next aim for the marks that work, once the cut is through. One flight asked to
       show the bookkeeping costs nothing, then the second stage.
+    - *Flown on "go"* (ended 09:38, `logs/flight-1794757116`, checked by Counsel). **A miss at every mark:** the list's
+      bookkeeping costs 4 to 11% by Builder's reading (by the card's whole, 5 to 10% over build 180's own flight; high
+      over the spawn the most), where the mark said within 1%. Found in the translator's source, not yet shown by a
+      flight: to hold the list, the buffer of the tiles' starts became words many rays write at once, and naga writes
+      every ray's read of its tile's start as a locked read-and-write, where it wrote a plain read; the mark counted a
+      compare and a few hundred writes, and overlooked the read. The mend, build 182: the tiles' starts move into an
+      empty corner of a picture the march already reads, the buffer holding only the lists; the first stage isn't
+      through till that flies within 1%. What the flight did give: the 2 × 2 marches nothing anywhere; at the three
+      dearest marks that aren't the sea the 4 × 4 marches most of the steps (the mountain top 4.56 million of 6.6, high
+      over the spawn 3.76 of 6.0 with 188,900 rays, fast across 3.18 of 4.8); every long ray listed (2,419 at most of
+      the list's 8,192).
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its

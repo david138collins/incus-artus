@@ -50,6 +50,10 @@ Practical things learned the hard way. Each has its reason, so a later session c
   calling it the cost; guesses, the outside reviewer's included, were reasoned well and still wrong both ways. Where
   the work waits on its longest chain (a mostly idle card), counts over all the work miss the chain altogether: ask
   the profiler what the chain is waiting on.
+- **Price every read as well as every write: a store's kind can change what a read costs.** Making a buffer
+  writable by many threads at once turned every plain read of it into a locked read-and-write in the translated
+  program, and a change priced at "a compare and a few hundred writes" cost 5 to 10% everywhere. Read what the
+  translator writes when a store changes kind.
 - **An audit by removal gives ceilings, not prices.** Taking a part out shows the most its going could save; the
   part's replacement (something must still answer where it did) costs something. A slow path that saved 10 to 14%
   when removed saved 2 to 6% once replaced by a cheaper one.
