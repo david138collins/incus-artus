@@ -2324,6 +2324,16 @@ Reference: `Art/quartile minecraft illustration.png`
     - Asked by Counsel whether to leave it for the water step (his rule: look flaws written under their step), he
       answered "yeah buddy. we're killing it."; taken as yes, said so to him so he can correct it, and written under
       2.4 in the plan.
+    - **Corrected, in the open:** Builder answered about the wrong thing, and Counsel relayed and recorded it. His
+      words to her since: "definitely not the shores. its two square rings that move with me, it looks fine on either
+      direction of the seams but there's bright square seams; if you look in that sea bed for two bands with a right
+      angle turn that are more saturated yellow, you'll see it; it moves with you as you fly." What he asked about is
+      the faint brighter lines inside the shallow sea: the edges of the 8s' and the 16s' rings round the eye, seen by
+      Builder off the screen since. Her reading of the march: through a hand-over between levels the coarser level's
+      solid share is counted against the finer level's cell, so the ground stops a ray too soon, less of the water
+      over the sea bed is crossed, and the bed shows brighter (over dry ground it's there and can't be seen; the same
+      at the hand-overs by distance). A flaw of the march, mended now as build 189 (pass mark 894306c, her wrong first
+      answer written there). Only the shallow sea's own square contours stay for water's look in 2.4.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
