@@ -4174,3 +4174,20 @@ the mountain top). The game's start is about a minute longer under the switch (t
 - If trimming alone gets under 128, leaning comes before any split.
 - If no version but the hops gets well under 168, the registers are in the gather itself, and the split has to be
   inside a step (find the place; read it; gather it), which is the dearer build.
+
+### The audit's traces didn't run (2026-11-15, 06:04): Nsight couldn't have the card's counters
+
+David: "go ahead". Both runs ended within twenty seconds with no trace: "TARGET ERROR: GPU Performance Counters
+unavailable. Please close any existing GPU profiling sessions, or enable access to GPU performance counters."
+
+- **It isn't the audit.** The game started each time, compiled its thirteen versions (15 s) and stood at its mark.
+  Last night's own command, with no audit, fails the same way this morning (a 45-second check).
+- **Nothing of Nsight's is running** (no window, no reader, none of Builder's), and nothing that profiles the card
+  has started since last night's last trace at 21:00, which worked from the same shell, not as administrator. The
+  driver is the same (32.0.16.2101); the laptop hasn't restarted since 2026-11-13; LibreHardwareMonitor has run
+  since then and was running when the traces worked.
+- **What's happened since 21:00, as far as the machine says:** David opened the trace in Nsight's window to read the
+  registers; the laptop went off and on mains at 21:11; a night idle.
+- **Not known which.** To try, cheapest first: the graphics driver reset (Win+Ctrl+Shift+B) and the 45-second check
+  again; else a restart. The traces' script is kept at `kept logs/nsight/b177/scripts/nsight-177.sh`; build 177 is
+  committed and built, and nothing else is owed before the traces.
