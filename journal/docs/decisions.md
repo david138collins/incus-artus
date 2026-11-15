@@ -1977,6 +1977,27 @@ Reference: `Art/quartile minecraft illustration.png`
   a standing habit. Next: three Nsight traces at the mountain top, high over the spawn and the sea (what's expected
   committed first, 9bacd38; taken, ended 21:00, each at its own mark), two counts of where along a long ray its steps
   lie, then Builder's complete assessment of lazy rays, to Counsel.
+  - *Builder's assessment of lazy rays* (in full in `journal/docs/experiments.md`, "Lazy rays: Builder's assessment",
+    d9a9682). In short: yes for the plains, about half off, but "lazy" must begin at the 16s' edge (about 1 km), since
+    the long rays' steps lie in the 8s and the 32s (1 to 5 km), not at the far horizon (past 11 km, 3% of the plain's
+    steps and no chain); and only on top of the long ray cut into lengths (the Oracle's step 4), which carries no lag
+    and gives the plains their prize by itself (estimates: the far eye's whole on the plain 0.93 → about 0.45 ms, the
+    sea 1.11 → about 0.56). A step budget on the screen's squares, as first worded, can't be built: a ray resumed
+    after a turn isn't its pixel's any more, so kept rays are kept by direction. **The high spot doesn't fall with
+    it:** the mountain top (1.07) and high over the spawn (1.08) work, not wait; the far eye's worst would go 1.11 →
+    1.08. For them two facts are missing: how much is the 4 × 4 layer's work, and whether 17 to 19% in flight is the
+    program's ceiling (registers, read off Nsight's window by David). Her order: (0) per-layer counts in every report
+    and one flight at 1 step, David reading the registers; (1) the cut, for the long rays only, its pass mark the
+    step-limit flight's 0.494 and 0.554 ms; (2) the working marks, by what step 0 finds; (3) far lengths kept by
+    direction, when only they can save something, its first build David's look at land 1 to 5 km off while running.
+    The skyline by cover shortens the same chain by another road (176 of the plain's longest ray's 326 steps are
+    samples close over the ground) and adds to the cut. Her sums missed twice today; past the step-limit flight it's
+    sums.
+    - *Counsel's note to weigh with David:* the Oracle's first reply expected to advise strides sized by how fast the
+      haze changes, before the cut, since it keeps the look and does less work where the cut adds work; those strides
+      go at the same samples close over the ground that cover would. The assessment doesn't price them; they belong
+      beside the cut and cover. And the Oracle's five questions to David are still unanswered; her fourth part, with
+      today's measurements (the height table, Nsight, the step limit, the levels' table), would order these.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
