@@ -3587,3 +3587,34 @@ The card's whole, median ms:
   took two. A ray that is clear looks at the bigger ones in turn and takes the longest hop.
 - **On the card:** 1,044 MB in use, 29 MB more (the guess: 28).
 - **Watts, typically** (the new line): 66 to 111 W by mark, the two flights within 2 to 7 W of each other.
+
+### Build 175, the skip's own column first: the pass mark (written before anything is counted, drawn or flown)
+
+The mend named above. *In the open: the skip's new loop was typed before this mark was written. Nothing was counted,
+drawn or flown with it first.*
+
+**What changes, and only this:** the skip looks at the ray's own level's column first. Not clear of it: it stops
+looking and samples (one look; build 174 took three, build 172 two). Clear of it: it looks at the column two levels
+coarser, then four, stopping at the first it isn't clear of, and takes the longest hop of those it's clear of. Each
+hop is one build 174 could have taken, so nothing new is skipped.
+
+**The marks:**
+- **Off the screen, on the plain with both rings:** no more steps than build 174's (1.17 million; 16 rays over 256
+  steps), since the hop taken is never shorter than the one build 174 took. The looks counted too, as they're
+  what this build changes.
+- **The picture:** build 174's, but for a scatter of about a part in 255 where a hop ends somewhere else (as build
+  174's was against 173's). Anything an eye could see is a miss.
+- **Flown against build 174, near the ground** (the spawn, the mountain top, high over the spawn): under build
+  174's 0.499, 1.132 and 1.136 ms. The hope is within 5% of build 172's 0.429, 1.042 and 1.015, and it's only a
+  hope: my guesses in ms have missed four times, and the march still carries a third row of numbers that build 172
+  didn't.
+- **Flown, where the long rays were** (the sea, the run, the sea nodding): no more than 5% over build 174's 1.158,
+  1.061 and 1.108. This is where the mend could cost: a clear ray takes three looks for a hop where build 174 took
+  one.
+- **The plain: no guess.** What its time is spent on isn't known. David, 2026-11-14: "are you using Nsight to
+  check on what the plains time is actually spent on?" Not yet, and it's the right tool: a trace standing on the
+  plain after this flight (how full the card is while the far eye marches there, and which lines the time sits on).
+
+**If it misses:** near the ground still over 5% dearer than build 172 means the price is the code's size, not the
+order of the looks (to try: two columns, its own and one coarser). The sea over 5% dearer than build 174 means the
+looks a hop cost (to try: begin at the column that gave the last hop).
