@@ -23,7 +23,7 @@
 //! loading lane (`Lane`) sums them on threads of their own, nearest the eye first, and hands each over as it's done:
 //! the far eye puts it on the card (`bricks.rs`).
 
-use crate::doorway::{Block, Doorway, WATER};
+use crate::doorway::{Block, Doorway, Run, WATER};
 use serde::Deserialize;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -395,13 +395,23 @@ fn cells_of_32(doorway: &Doorway, colours: &FarColours, region: [i32; 2]) -> Res
 /// (north fastest): summed from the doorway's columns (and those one round the square, for the faces at its edge),
 /// each tile asked of `tile` (the doorway's own reading, or a reader that keeps the last few: the ring's maker asks
 /// for the same tiles again and again).
-pub fn cells(doorway: &Doorway, colours: &FarColours, cell: i32, at: [i32; 2], across: usize, mut tile_of: impl FnMut(i32, i32) -> Result<std::rc::Rc<crate::doorway::Tile>, String>) -> Result<Vec<CellColumn>, String> {
+pub fn cells(doorway: &Doorway, colours: &FarColours, cell: i32, at: [i32; 2], across: usize, tile_of: impl FnMut(i32, i32) -> Result<std::rc::Rc<crate::doorway::Tile>, String>) -> Result<Vec<CellColumn>, String> {
+    cells_by(doorway, colours, cell, at, across, tile_of, false)
+}
+
+/// `cells`, with every column summed from its runs if told (`all_by_runs`: for a test; plain ground then comes out as
+/// its own quick road makes it). A column the scatter stage changed, or one beside such a column, always is: its
+/// blocks can stand over air, and a face shows wherever the block beside it isn't solid.
+fn cells_by(doorway: &Doorway, colours: &FarColours, cell: i32, at: [i32; 2], across: usize, mut tile_of: impl FnMut(i32, i32) -> Result<std::rc::Rc<crate::doorway::Tile>, String>, all_by_runs: bool) -> Result<Vec<CellColumn>, String> {
     let size = cell * across as i32;
     // The square's columns and one round it: ground (−1 past the map), water, profile.
     let side = (size + 2) as usize;
     let mut grounds = vec![-1i32; side * side];
     let mut waters = vec![0i32; side * side];
     let mut profiles = vec![0u32; side * side];
+    // The columns the scatter stage changed, each as its solid runs: where they are in `staged_runs` (none: unchanged).
+    let mut staged: Vec<(u32, u32)> = Vec::new();
+    let mut staged_runs: Vec<Run> = Vec::new();
     let (least, tile) = doorway.grid();
     let tiles = |from: i32, to: i32, axis: usize| (from - least[axis]).div_euclid(tile)..=(to - least[axis]).div_euclid(tile);
     for tx in tiles(at[0] - 1, at[0] + size, 0) {
@@ -417,10 +427,28 @@ pub fn cells(doorway: &Doorway, colours: &FarColours, cell: i32, at: [i32; 2], a
                     grounds[k] = ground;
                     waters[k] = water;
                     profiles[k] = profile;
+                    if answer.any_staged() && let Some(runs) = answer.staged((n - base[0]) as usize, (e - base[1]) as usize) {
+                        if staged.is_empty() {
+                            staged = vec![(0, 0); side * side];
+                        }
+                        staged[k] = (staged_runs.len() as u32, (staged_runs.len() + runs.len()) as u32);
+                        staged_runs.extend_from_slice(runs);
+                    }
                 }
             }
         }
     }
+    // A column's solid runs: the stage's, or the export's own (none past the map).
+    let is_staged = |k: usize| staged.get(k).is_some_and(|(from, to)| to > from);
+    let runs_of = |k: usize| -> Result<Vec<Run>, String> {
+        if is_staged(k) {
+            Ok(staged_runs[staged[k].0 as usize..staged[k].1 as usize].to_vec())
+        } else if grounds[k] < 0 {
+            Ok(Vec::new())
+        } else {
+            doorway.solid_runs(grounds[k], profiles[k])
+        }
+    };
     let height = doorway.height();
     let up = (height / cell) as usize;
     let mut columns = Vec::with_capacity(across * across);
@@ -432,6 +460,17 @@ pub fn cells(doorway: &Doorway, colours: &FarColours, cell: i32, at: [i32; 2], a
                 for i in 0..cell as usize {
                     let k = (cx * cell as usize + i + 1) + (cy * cell as usize + j + 1) * side;
                     if grounds[k] < 0 {
+                        continue;
+                    }
+                    // A column the scatter stage changed, or one beside it: summed from its runs.
+                    let around = [k + 1, k - 1, k + side, k - side];
+                    if all_by_runs || (!staged.is_empty() && (is_staged(k) || around.iter().any(|&other| is_staged(other)))) {
+                        let own = runs_of(k)?;
+                        let beside = [runs_of(around[0])?, runs_of(around[1])?, runs_of(around[2])?, runs_of(around[3])?];
+                        // The export's water, in what's open over its ground (a column the stage changed has none).
+                        let water = if is_staged(k) { (1, 0) } else { (grounds[k] + 1, waters[k].max(doorway.sea_level).min(height) - 1) };
+                        highest = highest.max(own.last().map_or(0, |run| run.to)).max(water.1 + 1);
+                        add_column_runs(&mut sums, cell, height, colours, &own, water, [&beside[0], &beside[1], &beside[2], &beside[3]]);
                         continue;
                     }
                     // The top of its highest block: the ground's, or its water's if that stands over it (as `add_column`
@@ -499,6 +538,57 @@ fn add_column(cells: &mut [Sums], cell: i32, doorway: &Doorway, colours: &FarCol
         }
     }
     Ok(())
+}
+
+/// One column's blocks added to its cells of `cell` blocks, from its solid runs (bedrock up, air between them) and the
+/// runs of the columns beside it (north, south, east, west; none past the map): for a column the scatter stage
+/// changed, whose blocks can stand over air. Old's rule for faces, as `add_column` keeps it for plain ground: a solid
+/// block's face shows where the block beside it isn't solid; below the world counts as stone; past the map as air.
+/// `water`: the heights (from, to, both counted) the export's water fills where nothing solid stands.
+fn add_column_runs(cells: &mut [Sums], cell: i32, height: i32, colours: &FarColours, runs: &[Run], water: (i32, i32), beside: [&[Run]; 4]) {
+    for run in runs {
+        add_range(cells, cell, run.from, run.to - 1, |sums, from, to| sums.solid += (to - from + 1) as u64);
+    }
+    // The heights of `from` up to `to` (not including it) that `others` leave open, each stretch given to `open`.
+    fn gaps(from: i32, to: i32, others: &[Run], mut open: impl FnMut(i32, i32)) {
+        let mut z = from;
+        for other in others {
+            if other.to <= z {
+                continue;
+            }
+            if other.from >= to {
+                break;
+            }
+            if other.from > z {
+                open(z, other.from - 1);
+            }
+            z = z.max(other.to);
+            if z >= to {
+                return;
+            }
+        }
+        if z < to {
+            open(z, to - 1);
+        }
+    }
+    gaps(water.0, water.1 + 1, runs, |from, to| add_range(cells, cell, from, to, |sums, from, to| sums.water += (to - from + 1) as u64));
+    for (i, run) in runs.iter().enumerate() {
+        // Its top block's face looking up, if nothing solid stands on it; its bottom block's looking down, if it
+        // stands over air (bedrock's never shows).
+        if run.to < height && runs.get(i + 1).is_none_or(|next| next.from > run.to) || run.to >= height {
+            let up = colours.colour(run.block, true);
+            add_range(cells, cell, run.to - 1, run.to - 1, |sums, from, to| sums.add_faces(UP, from, to, up));
+        }
+        if run.from > 0 && (i == 0 || runs[i - 1].to < run.from) {
+            let down = colours.colour(run.block, false);
+            add_range(cells, cell, run.from, run.from, |sums, from, to| sums.add_faces(1, from, to, down));
+        }
+        // Each side: its faces wherever the column beside it isn't solid.
+        let side = colours.colour(run.block, false);
+        for (d, other) in beside.iter().enumerate() {
+            gaps(run.from, run.to, other, |from, to| add_range(cells, cell, from, to, |sums, from, to| sums.add_faces(2 + d, from, to, side)));
+        }
+    }
 }
 
 /// The heights `from` to `to` (from bedrock up), split at the edges of the cells of `cell` blocks, each piece added
@@ -753,6 +843,152 @@ mod tests {
             }
         }
         eprintln!("The cells of 8: {cells_checked} cells of 16 are exactly their eight cells of 8 added");
+    }
+
+    /// Plain ground summed from its runs is plain ground summed its own quick way, to the number (the road a column
+    /// the scatter stage changed goes, given the export's own columns): cells of 8, 16 and 32 at the spawn, on a
+    /// mountain, by the sea and at the map's edge.
+    #[test]
+    fn plain_ground_summed_from_its_runs_is_the_same() {
+        let mut doorway = Doorway::open_with(&crate::doorway::test_world(), false).unwrap();
+        let colours = FarColours::load(&mut doorway).unwrap();
+        let (from, _) = regions_of(&doorway);
+        let size = 1 << REGION;
+        let mut columns_checked = 0;
+        for at in [[0, 0], [-640, 64], [-2048 - 512, -3072], [from[0] * size, from[1] * size]] {
+            for (cell, across) in [(8, 32), (16, 16), (32, 8)] {
+                let quick = cells(&doorway, &colours, cell, at, across, |tx, ty| doorway.tile(tx, ty).map(std::rc::Rc::new)).unwrap();
+                let by_runs = cells_by(&doorway, &colours, cell, at, across, |tx, ty| doorway.tile(tx, ty).map(std::rc::Rc::new), true).unwrap();
+                assert_eq!(quick, by_runs, "the square at {at:?}, cells of {cell}");
+                columns_checked += quick.len();
+            }
+        }
+        eprintln!("Plain ground from its runs: {columns_checked} cell columns the same as the quick way's");
+    }
+
+    /// With the scatter stage on, the cells are what counting says: over squares that hold a tower (its ring stands
+    /// out over air), the free-standing arch, the slab in the air, the castle's gate, a town's roofs, the hall cut
+    /// into the hillside, a cave and a wood, the cells of 8 summed by the summer are the cells counted one block and
+    /// one face at a time from the doorway's own answer for each column.
+    #[test]
+    fn the_stage_s_cells_are_counted_block_by_block() {
+        use crate::doorway::Column;
+        use crate::scatter_stage::Kind;
+        let mut doorway = Doorway::open_with(&crate::doorway::test_world(), true).unwrap();
+        let colours = FarColours::load(&mut doorway).unwrap();
+        let height = doorway.height();
+        let sites = doorway.stage().unwrap().sites().to_vec();
+        for site in &sites {
+            eprintln!("The stage's places: {:?} at north {}, east {}, its floor {}", site.kind, site.at[0], site.at[1], site.floor);
+        }
+        let first = |wanted: fn(&Kind) -> bool| sites.iter().find(|site| wanted(&site.kind)).map(|site| site.at);
+        let mut squares: Vec<(&str, [i32; 2])> = Vec::new();
+        for (name, at) in [
+            ("a tower", first(|kind| matches!(kind, Kind::Tower { .. }))),
+            ("the arch", first(|kind| matches!(kind, Kind::Arch { .. }))),
+            ("the slab", first(|kind| matches!(kind, Kind::Slab { .. }))),
+            ("the castle's gate", first(|kind| matches!(kind, Kind::Castle { .. })).map(|at| [at[0] + 50, at[1]])),
+            ("a town", first(|kind| matches!(kind, Kind::House { make: 2, .. }))),
+            ("the hall", first(|kind| matches!(kind, Kind::Hall { .. })).map(|at| [at[0] - 20, at[1]])),
+            ("a cave", first(|kind| matches!(kind, Kind::Cave { .. }))),
+        ] {
+            squares.push((name, at.unwrap_or_else(|| panic!("the stage has no {name}"))));
+        }
+        // A wood: the first place north of the spawn where a crown of leaves stands.
+        let leaves = doorway.block("incus:leaves");
+        let wood = (0..4000).map(|k| [k * 8, 300]).find(|at| matches!(doorway.column(at[0], at[1]), Ok(Column::Here { runs, .. }) if runs.iter().any(|run| run.block == leaves))).expect("a wood north of the spawn");
+        squares.push(("a wood", wood));
+        let (cell, across) = (8, 8usize);
+        let side = cell as usize * across;
+        let (mut blocks_counted, mut faces_counted) = (0u64, 0u64);
+        for (name, middle) in squares {
+            let at = [(middle[0] - side as i32 / 2).div_euclid(cell) * cell, (middle[1] - side as i32 / 2).div_euclid(cell) * cell];
+            let summed = cells(&doorway, &colours, cell, at, across, |tx, ty| doorway.tile(tx, ty).map(std::rc::Rc::new)).unwrap();
+            // Every block of the square and one column round it: 0 air, 1 water, else its block's number + 2.
+            let wide = side + 2;
+            let mut blocks = vec![0u16; wide * wide * height as usize];
+            let mut tiles: HashMap<[i32; 2], crate::doorway::Tile> = HashMap::new();
+            for j in 0..wide {
+                for i in 0..wide {
+                    let (tile, [ti, tj]) = doorway.place(at[0] + i as i32 - 1, at[1] + j as i32 - 1);
+                    let answer = tiles.entry(tile).or_insert_with(|| doorway.tile(tile[0], tile[1]).unwrap());
+                    if let Column::Here { runs, .. } = answer.column(&doorway, ti, tj).unwrap() {
+                        for run in runs {
+                            for z in run.from..run.to.min(height) {
+                                blocks[(i + j * wide) * height as usize + z as usize] = if run.block == WATER { 1 } else { run.block + 2 };
+                            }
+                        }
+                    }
+                }
+            }
+            let block = |i: usize, j: usize, z: i32| if z < 0 { 2 } else if z >= height { 0 } else { blocks[(i + j * wide) * height as usize + z as usize] };
+            let mut looking_down = 0;
+            for cy in 0..across {
+                for cx in 0..across {
+                    let mut counted = vec![Sums::default(); (height / cell) as usize];
+                    for j in 0..cell as usize {
+                        for i in 0..cell as usize {
+                            let (i, j) = (cx * cell as usize + i + 1, cy * cell as usize + j + 1);
+                            for z in 0..height {
+                                let here = block(i, j, z);
+                                let sums = &mut counted[(z / cell) as usize];
+                                if here == 1 {
+                                    sums.water += 1;
+                                }
+                                if here < 2 {
+                                    continue;
+                                }
+                                sums.solid += 1;
+                                blocks_counted += 1;
+                                let beside = [block(i, j, z + 1), block(i, j, z - 1), block(i + 1, j, z), block(i - 1, j, z), block(i, j + 1, z), block(i, j - 1, z)];
+                                for (d, other) in beside.into_iter().enumerate() {
+                                    if other < 2 {
+                                        sums.add_faces(d, z, z, colours.colour(here - 2, d == UP));
+                                        faces_counted += 1;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    let column = &summed[cx + cy * across];
+                    for z in 0..height / cell {
+                        assert_eq!(column.at(z, cell), counted[z as usize], "{name}: the cell column {cx} {cy} of the square at {at:?}, cell {z} up");
+                    }
+                    looking_down += counted.iter().filter(|sums| sums.faces[1] > 0).count();
+                }
+            }
+            eprintln!("The stage's cells, {name}: the square at {at:?} counted block by block ({looking_down} cells hold a face looking down)");
+        }
+        eprintln!("The stage's cells: {blocks_counted} blocks and {faces_counted} faces counted one at a time, every cell the summer's");
+    }
+
+    /// And with the scatter stage on, every level is still its children added: a 32 its eight 16s, a 16 its eight 8s,
+    /// over the squares that hold the castle, the towns and the hall.
+    #[test]
+    fn the_stage_s_cells_add_up() {
+        use crate::scatter_stage::Kind;
+        let mut doorway = Doorway::open_with(&crate::doorway::test_world(), true).unwrap();
+        let colours = FarColours::load(&mut doorway).unwrap();
+        let sites = doorway.stage().unwrap().sites().to_vec();
+        let mut cells_checked = 0;
+        for site in sites.iter().filter(|site| matches!(site.kind, Kind::Castle { .. } | Kind::Hall { .. } | Kind::House { make: 2, .. })) {
+            let at = [(site.at[0] - 128).div_euclid(32) * 32, (site.at[1] - 128).div_euclid(32) * 32];
+            let thirty_twos = cells(&doorway, &colours, 32, at, 8, |tx, ty| doorway.tile(tx, ty).map(std::rc::Rc::new)).unwrap();
+            let sixteens = cells(&doorway, &colours, 16, at, 16, |tx, ty| doorway.tile(tx, ty).map(std::rc::Rc::new)).unwrap();
+            let eights = cells(&doorway, &colours, 8, at, 32, |tx, ty| doorway.tile(tx, ty).map(std::rc::Rc::new)).unwrap();
+            for (children, parents, child_size, across) in [(&sixteens, &thirty_twos, 16, 8usize), (&eights, &sixteens, 8, 16)] {
+                for (k, parent) in parents.iter().enumerate() {
+                    let (x, y) = (k % across, k / across);
+                    let child = |a: usize, b: usize| &children[(y * 2 + b) * across * 2 + x * 2 + a];
+                    let made = parent_of([child(0, 0), child(1, 0), child(0, 1), child(1, 1)], child_size);
+                    for z in 0..(doorway.height() / (child_size * 2)) {
+                        assert_eq!(made.at(z, child_size * 2), parent.at(z, child_size * 2), "{:?} at {:?}: the cell column {x} {y} of {}, cell {z} up", site.kind, site.at, child_size * 2);
+                        cells_checked += 1;
+                    }
+                }
+            }
+        }
+        eprintln!("The stage's cells add up: {cells_checked} cells are exactly their eight children added");
     }
 
     /// The height table's numbers are true: over whole regions (a mountain's, the spawn's, the sea's), each cell column

@@ -38,3 +38,43 @@ side = [558, 604, 725]
 name = "incus:dry_grass"
 top = [199, 221, 49]
 side = [199, 221, 49]
+
+# The scatter stage's blocks (`src/scatter_stage.rs`: test detail, off unless INCUS_SCATTER_STAGE=1). Kept last, so the
+# blocks above keep their numbers. The oak's is David's `oak.png` (Art/, 2026-11-15) shrunk to one pixel, as light, by
+# old's rule; the others are Builder's picks for pretend [David: "you did a good job picking blocks for pretend last
+# time"], to be set again with everything else at the Registrar.
+
+[[block]]
+name = "incus:oak"
+top = [32, 14, 6]
+side = [32, 14, 6]
+
+[[block]]
+name = "incus:leaves"
+top = [22, 70, 16]
+side = [16, 52, 12]
+
+[[block]]
+name = "incus:dressed_stone"
+top = [190, 185, 170]
+side = [190, 185, 170]
+
+[[block]]
+name = "incus:roof_tiles"
+top = [170, 50, 28]
+side = [170, 50, 28]
+
+[[block]]
+name = "incus:plaster"
+top = [470, 440, 360]
+side = [470, 440, 360]
+
+[[block]]
+name = "incus:planks"
+top = [110, 68, 30]
+side = [110, 68, 30]
+
+[[block]]
+name = "incus:thatch"
+top = [230, 180, 70]
+side = [230, 180, 70]

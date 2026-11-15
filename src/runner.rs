@@ -45,10 +45,14 @@ pub fn run() {
             None
         }
     };
-    let marks = crate::marks::load().unwrap_or_else(|error| {
+    let mut marks = crate::marks::load().unwrap_or_else(|error| {
         log::error!("The marks couldn't be read: {error}");
         Vec::new()
     });
+    // The scatter stage's own marks, after the file's, while it's on.
+    if let Some(stage) = doorway.as_ref().and_then(Doorway::stage) {
+        marks.extend(stage.marks());
+    }
     // The mark the game starts at: `INCUS_MARK` by its name, else the first.
     let first_mark = std::env::var("INCUS_MARK").ok().and_then(|name| {
         let found = marks.iter().position(|mark| mark.name == name);

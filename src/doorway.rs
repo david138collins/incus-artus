@@ -8,6 +8,10 @@
 //! and what changed, a tile at a time (a mark's changes: David's build, the scatter). Its other answers (pieces,
 //! objects and lights; named fields over the land) come with what first feeds them. Going to a mark asks it for the
 //! ground under the eye; the far cells' lane will ask for tiles (2.2).
+//!
+//! The scatter stage (`scatter_stage.rs`, off unless `INCUS_SCATTER_STAGE=1`) is applied here, as a tile is answered:
+//! test detail (woods, towers, a castle, a town, a hall's entrance, caves) that costs nothing to keep. A column it
+//! changed is answered as its solid blocks with air between them.
 
 use serde::Deserialize;
 use std::cell::RefCell;
@@ -107,20 +111,30 @@ pub struct Doorway {
     changes: HashMap<[i32; 2], Vec<Change>>,
     /// How long each tile asked for took to answer (ms), since they were last taken.
     times: RefCell<Vec<f32>>,
+    /// The scatter stage, if it's on: applied to every tile answered.
+    stage: Option<std::sync::Arc<crate::scatter_stage::Stage>>,
 }
 
 /// A tile's columns as the export holds them, north fastest (column i north, j east at i + j × side): the ground (−1
 /// past the map), the water (0 none) and the profile's number. Each column's runs are made from these when asked.
+/// And the columns the scatter stage changed, if it's on, each as its solid runs.
 pub struct Tile {
     side: usize,
     grounds: Vec<i32>,
     waters: Vec<i32>,
     profiles: Vec<u32>,
+    staged: Option<crate::scatter_stage::Staged>,
 }
 
 impl Doorway {
-    /// The doorway, opened on the export in `folder` (its `world.toml` read; its tiles when asked for).
+    /// The doorway, opened on the export in `folder` (its `world.toml` read; its tiles when asked for), with the
+    /// scatter stage if its switch is set.
     pub fn open(folder: &Path) -> Result<Self, String> {
+        Self::open_with(folder, crate::scatter_stage::on())
+    }
+
+    /// The doorway opened, the scatter stage applied or not as told.
+    pub fn open_with(folder: &Path, staged: bool) -> Result<Self, String> {
         let path = folder.join("world.toml");
         let text = std::fs::read_to_string(&path).map_err(|error| format!("{}: {error}", path.display()))?;
         let world: WorldFile = toml::from_str(&text).map_err(|error| format!("{}: {error}", path.display()))?;
@@ -142,7 +156,7 @@ impl Doorway {
             }
             profiles[number] = Some(Profile { top: block(&profile.top), under: profile.under.iter().map(|(name, depth)| (block(name), *depth)).collect() });
         }
-        Ok(Self {
+        let mut doorway = Self {
             folder: folder.to_path_buf(),
             least: world.least,
             side: world.tile as i32,
@@ -153,7 +167,62 @@ impl Doorway {
             profiles,
             changes: HashMap::new(),
             times: RefCell::new(Vec::new()),
-        })
+            stage: None,
+        };
+        if staged {
+            doorway.stage = Some(doorway.the_stage()?);
+        }
+        Ok(doorway)
+    }
+
+    /// The scatter stage for this world: its blocks learned first, in its own order, so every doorway opened on the
+    /// world numbers them alike; its places chosen once for the whole game (every lane opens a doorway of its own),
+    /// their floors read from the export's own ground.
+    fn the_stage(&mut self) -> Result<std::sync::Arc<crate::scatter_stage::Stage>, String> {
+        use crate::scatter_stage::{BLOCKS, Stage};
+        static MADE: std::sync::Mutex<Vec<(PathBuf, [Block; 7], std::sync::Arc<Stage>)>> = std::sync::Mutex::new(Vec::new());
+        let blocks = BLOCKS.map(|name| self.block(name));
+        let mut made = MADE.lock().map_err(|_| "the scatter stage's list is broken".to_string())?;
+        if let Some((_, numbered, stage)) = made.iter().find(|(folder, _, _)| *folder == self.folder) {
+            if *numbered != blocks {
+                return Err("the scatter stage's blocks are numbered differently by two doorways".to_string());
+            }
+            return Ok(stage.clone());
+        }
+        let started = std::time::Instant::now();
+        let mut tiles: HashMap<[i32; 2], Tile> = HashMap::new();
+        let mut failed: Option<String> = None;
+        let stage = Stage::new(blocks, self.sea_level, self.world_height, |north, east| {
+            let (tile, [i, j]) = self.place(north, east);
+            if !tiles.contains_key(&tile) {
+                match self.read_tile(tile[0], tile[1]) {
+                    Ok(read) => {
+                        tiles.insert(tile, read);
+                    }
+                    Err(error) => {
+                        failed.get_or_insert(error);
+                        return None;
+                    }
+                }
+            }
+            let (ground, water, _) = tiles[&tile].raw(i, j);
+            (ground >= 0 && ground + 1 >= self.sea_level && water == 0).then_some(ground)
+        });
+        if let Some(error) = failed {
+            return Err(error);
+        }
+        log::info!("The scatter stage is on (INCUS_SCATTER_STAGE=1): woods within 10 km of the spawn, and {} places, chosen in {:.1} s", stage.sites().len(), started.elapsed().as_secs_f32());
+        for site in stage.sites() {
+            log::info!("  the scatter stage: {:?} at north {}, east {}, its floor {}", site.kind, site.at[0], site.at[1], site.floor);
+        }
+        let stage = std::sync::Arc::new(stage);
+        made.push((self.folder.clone(), blocks, stage.clone()));
+        Ok(stage)
+    }
+
+    /// The scatter stage, if it's on.
+    pub fn stage(&self) -> Option<&crate::scatter_stage::Stage> {
+        self.stage.as_deref()
     }
 
     /// A block by its name, added to the world's list if it isn't there yet (a change can bring blocks the export
@@ -212,7 +281,13 @@ impl Doorway {
     /// the export writes none where no column is on the map), every column is past.
     pub fn tile(&self, tx: i32, ty: i32) -> Result<Tile, String> {
         let started = std::time::Instant::now();
-        let tile = self.read_tile(tx, ty);
+        let mut tile = self.read_tile(tx, ty);
+        // The scatter stage, applied as the tile is answered.
+        if let (Some(stage), Ok(read)) = (&self.stage, &mut tile) {
+            let least = [self.least[0] + tx * self.side, self.least[1] + ty * self.side];
+            let staged = stage.apply(least, read.side, &read.grounds, &read.waters, |k| self.solid_runs(read.grounds[k], read.profiles[k]).unwrap_or_default());
+            read.staged = staged;
+        }
         self.times.borrow_mut().push(started.elapsed().as_secs_f32() * 1000.0);
         tile
     }
@@ -220,7 +295,7 @@ impl Doorway {
     fn read_tile(&self, tx: i32, ty: i32) -> Result<Tile, String> {
         let side = self.side as usize;
         let n = side * side;
-        let past = || Tile { side, grounds: vec![-1; n], waters: vec![0; n], profiles: vec![0; n] };
+        let past = || Tile { side, grounds: vec![-1; n], waters: vec![0; n], profiles: vec![0; n], staged: None };
         if tx < 0 || ty < 0 || tx >= self.tiles || ty >= self.tiles {
             return Ok(past());
         }
@@ -254,7 +329,7 @@ impl Doorway {
         }
         let waters = (0..n).map(|_| leb().map(|value| value as i32)).collect::<Result<Vec<_>, _>>()?;
         let profiles = (0..n).map(|_| leb().map(|value| value as u32)).collect::<Result<Vec<_>, _>>()?;
-        Ok(Tile { side, grounds, waters, profiles })
+        Ok(Tile { side, grounds, waters, profiles, staged: None })
     }
 
     /// One column (its whole tile is read for it).
@@ -301,6 +376,13 @@ impl Doorway {
         Ok(runs)
     }
 
+    /// A column's solid blocks from bedrock up as the export has them (its runs without its water).
+    pub fn solid_runs(&self, ground: i32, profile: u32) -> Result<Vec<Run>, String> {
+        let mut runs = self.runs(ground, 0, profile)?;
+        runs.retain(|run| run.block != WATER);
+        Ok(runs)
+    }
+
     /// The least corner's column (north, east), and columns a side of a tile.
     pub fn grid(&self) -> ([i32; 2], i32) {
         (self.least, self.side)
@@ -331,12 +413,27 @@ impl Tile {
         (self.grounds[k], self.waters[k], self.profiles[k])
     }
 
+    /// Whether the scatter stage changed any column of the tile.
+    pub fn any_staged(&self) -> bool {
+        self.staged.is_some()
+    }
+
+    /// The solid runs of the column `i` north and `j` east, bedrock up with air between, if the scatter stage changed
+    /// it (such a column is dry land: it has no water).
+    pub fn staged(&self, i: usize, j: usize) -> Option<&[Run]> {
+        self.staged.as_ref().and_then(|staged| staged.column(i + j * self.side))
+    }
+
     /// The column `i` north and `j` east of the tile's least corner.
     pub fn column(&self, doorway: &Doorway, i: usize, j: usize) -> Result<Column, String> {
         let k = i + j * self.side;
         let (ground, water, profile) = (self.grounds[k], self.waters[k], self.profiles[k]);
         if ground < 0 {
             return Ok(Column::Past);
+        }
+        // A column the scatter stage changed: its ground is the top of what stands there now.
+        if let Some(runs) = self.staged(i, j) {
+            return Ok(Column::Here { ground: runs.last().map_or(0, |run| run.to) - 1, water: None, runs: runs.to_vec() });
         }
         Ok(Column::Here { ground, water: (water > 0).then_some(water), runs: doorway.runs(ground, water, profile)? })
     }
@@ -413,6 +510,7 @@ mod tests {
             profiles: vec![Some(Profile { top: 2, under: vec![(3, 3), (4, 5)] })],
             changes: HashMap::new(),
             times: RefCell::new(Vec::new()),
+            stage: None,
         };
         // Ground 200: stone below 195, clay 195 to 197, dirt 197 to 200, grass at 200, nothing over it.
         assert_eq!(doorway.runs(200, 0, 0).unwrap(), vec![Run { block: STONE, from: 0, to: 195 }, Run { block: 4, from: 195, to: 197 }, Run { block: 3, from: 197, to: 200 }, Run { block: 2, from: 200, to: 201 }]);

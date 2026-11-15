@@ -5408,3 +5408,55 @@ scatter's marks fly at the bare plain's times, to the hair). So the stage needs 
   the size the far cells allow), then David's look in the game.
 - **Flights with the stage on:** for information (what detail costs the far eye), once his look is given; no
   line set.
+
+### Build 188 built (unflown), the scatter stage: what was built and what was checked off the screen
+
+**Built as the mark says.**
+- **The far cells summed from any column** (`far.rs`, `add_column_runs`): a column's solid blocks as runs with
+  air between; a face wherever the block beside, over or under it isn't solid. A column the stage changed, or
+  one beside such a column, goes this road; plain ground keeps its own quick one, untouched.
+- **The scatter stage** (`scatter_stage.rs`), applied by the doorway as it answers a tile; on with
+  `INCUS_SCATTER_STAGE=1`. What stands where (its places chosen once for a world, each floor read from the
+  export's own ground):
+  - *woods* in patches a few hundred blocks across, within 10 km of the spawn: a tree to a square of 7, trunks 4
+    to 20 high under a ball of leaves, on dry land under 700;
+  - *on the plain, ahead of the plain's mark* (it looks south): three rows of posts one block wide, a
+    free-standing arch, a slab in the air, a tower of 70, a castle (walls, corner towers with roofs, a keep, an
+    arched gate through a gatehouse), a town (houses under pitched roofs, a church with a spire) and a tower of
+    140;
+  - *by the spawn:* a town on the flattest ground ahead of it, and a tower of 90;
+  - *in the mountains south of the mountain top's mark:* three towers on the highest ground, well apart, and an
+    arched entrance through a stone portal into a hall cut into the steepest hillside (a passage 20 wide and 30
+    high, then a hall 40 wide and 50 high with two rows of pillars left standing);
+  - *cave mouths* where the ground rises steeply, about sixty within 4 km of the spawn.
+- **Its blocks' far colours** (`data/far colours.toml`, kept last so the others keep their numbers): the oak's
+  from David's `oak.png` (32, 14, 6 of 1,023), the rest Builder's picks.
+- **Its marks** are made by the stage itself and follow its places (not kept in `data/marks.toml`; they exist only
+  while it's on): the castle, the two towns, the hall in the mountain, over a wood, a cave mouth.
+
+**Off, nothing changes:** all 34 tests pass, old's bake byte for byte among them; the pictures at the plain, high
+over the spawn and the mountain top are build 182's (no pixel, 1 of 255, 1 of 255).
+
+**On, the summing is exact**, three ways (three new tests):
+- over eight squares (a tower, the arch, the slab, the castle's gate, a church, the hall, a cave, a wood), 8.1
+  million blocks and 89,495 faces counted one at a time from the doorway's own answers give the summer's cells,
+  to the number (hundreds of those cells hold faces looking down, which plain ground never has);
+- every level is its children added: 73,728 cells, each exactly its eight;
+- plain ground sent down the new road gives the quick road's cells: 5,376 cell columns, to the number.
+
+**What it costs:** the picture test with the whole world summed takes 80 s with the stage on for 74 s off (the
+line: under twice). The far cells' memory on the card: owed, read at the first launch with it on.
+
+**Mistakes of mine on the way, seen in the pictures and mended:** the stage's blocks had no far colours at first
+(everything built came out mid grey, the woods a grey speckle); the town by the spawn stood on a steep slope with
+one floor for all its houses, which made pillars of them (each house now stands on its own ground, and the town
+is laid where the ground is flattest); three mountain towers stood side by side; a tower stood on a peak too high
+to hold it; the caves were all in one corner.
+
+**Builder's look at the pictures (1,280 x 800):** from high over the spawn the slopes are wooded, a town by the
+lake; the castle reads as grey walls with red-roofed towers and a keep, a wood behind it; the hall's entrance as a
+pale frame round a dark opening on the mountainside, a tower on the peak over it; the town on the plain as pale
+houses with the great tower behind. Thin things nearly vanish against the sky at the far cells' size, as expected:
+the arch's piers (4 blocks square in cells of 8) are a faint ring, the posts a pale band on the ground, and a cave
+mouth mostly doesn't read from the front, lit inside as outside (the far light is a height a column, so nothing
+is dark under a roof): the things this detail is here to judge.
