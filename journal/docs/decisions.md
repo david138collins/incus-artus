@@ -2140,6 +2140,14 @@ Reference: `Art/quartile minecraft illustration.png`
     - **The 4 × 4 counted alongside** (David, to Counsel, asked whether Builder adds each layer's rays and steps to
       the reports now, beside the cut, or after it): "yes". So the next high spot (the working marks, whose largest
       known part is the 4 × 4 layer) is aimed by measurement while the cut is built. An instrument, no look.
+    - *Build 181* (6657e17, unflown): the cut's first stage (the list of long rays, nothing reading it yet; the picture
+      build 178's at five marks, each long ray listed once) and each layer's rays and steps in every report. **The
+      counts place the working marks' time:** the mountain top's 4 × 4 marches 69,700 rays and 4,556,000 steps, over
+      two thirds of the far eye's steps there, at 65 steps a ray where a base ray takes 32 (its 8 × 8: 2,039,000). The
+      plain's 4 × 4 marches none (the 8 × 8: 64,000 rays, 1,178,000 steps, 890 long); the sea's 10,000 rays and
+      490,000 steps. Why a 4 × 4 ray takes twice a base ray's steps, though it starts just short of where the base ray
+      touched, isn't looked at yet: the next aim for the marks that work, once the cut is through. One flight asked to
+      show the bookkeeping costs nothing, then the second stage.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
