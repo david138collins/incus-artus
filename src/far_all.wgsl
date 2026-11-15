@@ -69,6 +69,25 @@ fn get_far_above(at: vec2<i32>) -> f32 {
     return textureLoad(far_prev, at + vec2<i32>(far_left(max(layer_now, 1u) - 1u), 0), 0).x;
 }
 
+// A long ray listed (the cut, its first stage): a ray that took `list.z` steps or more adds its pixel to this
+// frame's list, kept after the tiles' starts in `starts` (a count, then the pixels, the layer in the top two bits),
+// and its place in the list, one up, goes beside its distance for the frame after (0: not long, or the list was
+// full). [Rays long enough to set the far eye's time are a few hundred, in a thin band at the horizon, and mostly
+// the same from frame to frame: David, 2026-11-14, "we have to reduce the longest rays, one by one in order of
+// length".]
+fn list_long(i: u32, steps: f32) -> f32 {
+    if (steps < cameras[0].list.z) {
+        return 0.0;
+    }
+    let at = u32(cameras[0].list.x);
+    let slot = atomicAdd(&starts[at], 1u);
+    if (slot >= u32(cameras[0].list.w)) {
+        return 0.0;
+    }
+    atomicStore(&starts[at + 1u + slot], (layer_now << 30u) | i);
+    return f32(slot + 1u);
+}
+
 // The dispatch's grid: the base, the middle layer and the finest side by side across it, each from its top row (each
 // rounded up to whole groups of 8), so the base's rows are the middle layer's too and neither goes first [the grid's
 // order matters: builds 155 and 156]. `march_pixel` turns away what falls outside its layer.

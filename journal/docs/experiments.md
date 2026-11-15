@@ -4635,3 +4635,29 @@ summed, its rays of 128 steps or more, and how many of those were listed.
 - **Flown, against build 180's flight as it is:** every mark's march within 1%. The bookkeeping is a compare and,
   for a few hundred rays, a write; it should cost nothing. Over 2% at any mark is a miss (code added to the march
   has cost before with nothing switched on).
+
+### Build 181 built (unflown): the list of long rays, and what each layer marches
+
+As the pass mark said. A ray of 128 steps or more adds its pixel to the frame's list (`far_all.wgsl`'s
+`list_long`), which rides after the tiles' starts in the buffer the march already had (now words written by many
+rays at once: two lists of 8,192, this frame's and the frame before's); its place in the list goes beside its
+distance. No ray is listed in a frame the layers were remade. Nothing reads the list yet. The count of the longest
+ray holds eight numbers a layer now, and a flight's report says what each layer marches.
+
+Off the screen:
+- **The picture is build 178's at the five marks** (no pixel at three, the most 1 of 255 at two).
+- **The list holds each long ray once** (a test: its count is the long rays' over the three layers, each carries
+  its place, none twice).
+- **What each layer marches, at the flight's size:**
+
+| mark | the 8 x 8: rays, steps, long | the 4 x 4: rays, steps, long | the 2 x 2 |
+|---|---|---|---|
+| the bare plain | 64,000; 1,178,000; 890 | none | none |
+| the mountain top | 64,000; 2,039,000; 983 | 69,700; 4,556,000; 600 | none |
+| low over the sea | 64,000; 1,355,000; 268 | 10,000; 490,000; 485 | none |
+
+- **The mountain top's work is the 4 x 4's: 4.56 million steps of its 6.6 million,** from 69,700 rays at 65 steps
+  each, where a base ray takes 32. That's the answer to "what is the mountain top's time", as far as counts say: a
+  little over a quarter of the 4 x 4's pixels are wanted there, and each marches twice as long as a base ray though
+  it starts just short of where the base ray touched. Why they take so many steps isn't looked at yet.
+- All 31 tests pass. Waiting on David's go for one flight, against build 180's as it is.

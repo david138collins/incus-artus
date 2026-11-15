@@ -61,7 +61,7 @@ pub struct Standing {
     most_main_memory: Option<u64>,
     /// The longest rays over the measured frames (step 0): each far layer's most steps, and the most rays at once over
     /// 256, 384 and 512.
-    longest: Vec<[u32; 4]>,
+    longest: Vec<[u32; crate::far_eye::TALLY]>,
 }
 
 pub struct Flight {
@@ -176,10 +176,10 @@ impl Flight {
     }
 
     /// The far layers' longest rays, as last counted: the most of each kept over the measured frames.
-    pub fn longest(&mut self, now: Instant, counts: &[[u32; 4]]) {
+    pub fn longest(&mut self, now: Instant, counts: &[[u32; crate::far_eye::TALLY]]) {
         if let Some(standing) = self.measuring(now) {
             if standing.longest.len() != counts.len() {
-                standing.longest = vec![[0; 4]; counts.len()];
+                standing.longest = vec![[0; crate::far_eye::TALLY]; counts.len()];
             }
             for (kept, new) in standing.longest.iter_mut().zip(counts) {
                 *kept = std::array::from_fn(|k| kept[k].max(new[k]));
@@ -287,6 +287,9 @@ impl Flight {
             if !standing.longest.is_empty() {
                 let layers: Vec<String> = standing.longest.iter().zip(["8 x 8", "4 x 4", "2 x 2"]).map(|(c, name)| format!("the {name} {} steps ({} rays over 256, {} over 384, {} over 512)", c[0], c[1], c[2], c[3])).collect();
                 text += &format!("  the longest ray: {}\n", layers.join("; "));
+                // What each layer marches (each number the most over the measured frames), and its long rays for the cut.
+                let layers: Vec<String> = standing.longest.iter().zip(["8 x 8", "4 x 4", "2 x 2"]).map(|(c, name)| format!("the {name} {} rays marched, {} steps, {} of {} steps or more ({} listed)", c[6], c[7], c[4], crate::far_eye::LONG_STEPS, c[5])).collect();
+                text += &format!("  the rays: {}\n", layers.join("; "));
             }
             if let Some(most) = standing.most_main_memory {
                 text += &format!("  the main memory: at most {:.0} MB in use\n", most as f64 / 1e6);

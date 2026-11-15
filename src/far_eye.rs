@@ -53,7 +53,14 @@ const WATER_CLARITY: f32 = 16.0;
 /// The most a frame spends putting regions on the card (ms), so the view sharpens in without holding the frame up.
 const PUTTING_MS: f32 = 3.0;
 /// Numbers in the march's camera (`far.wgsl`'s `Camera`): rows of four.
-const CAMERA_ROWS: usize = 23;
+const CAMERA_ROWS: usize = 24;
+/// The cut (the long rays cut into lengths): a ray is long at this many steps or more, and a frame's list of long
+/// rays holds this many (the plain has about 850 of 128 steps or more, the mountain top about 1,000, by the count
+/// off the screen at build 176).
+pub const LONG_STEPS: u32 = 128;
+const LONG_LIST: u32 = 8192;
+/// How many numbers the count of a layer's rays holds (`far_tally.wgsl`).
+pub const TALLY: usize = 8;
 /// The most of a frame the ring's sending takes (ms): its maker works off the frame, the frame only hands its bricks on.
 const RING_MS: f32 = 0.3;
 
@@ -173,6 +180,8 @@ struct Targets {
     up_group: [wgpu::BindGroup; 2],
     /// The one-dispatch form's: every layer's numbers in one buffer, and its bind group for each of the two copies.
     one: Option<(wgpu::Buffer, [wgpu::BindGroup; 2])>,
+    /// The tiles' starts and, after them, the long rays' two lists (`far_all.wgsl`'s `list_long`).
+    starts: wgpu::Buffer,
     /// The audit's own bind group (`FarEye::audit`): the far eye's, with scratch in place of everything it writes.
     audit: Option<wgpu::BindGroup>,
 }
@@ -459,8 +468,8 @@ impl FarEye {
         log::info!("The far rays: {}, {most_steps:.0} steps at most", if edge { "ended at the map's edge" } else { "marched on past the map's edge (INCUS_FAR_EDGE=0)" });
         let tally_module = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some("the longest ray"), source: wgpu::ShaderSource::Wgsl(include_str!("far_tally.wgsl").into()) });
         let tally = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("the longest ray"), layout: None, module: &tally_module, entry_point: Some("tally_pass"), compilation_options: Default::default(), cache: None });
-        let tally_counts = LAYERS.iter().map(|_| device.create_buffer(&wgpu::BufferDescriptor { label: Some("a far layer's longest ray"), size: 16, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false })).collect();
-        let tally_back = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the longest rays read back"), size: 16 * LAYERS.len() as u64, usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
+        let tally_counts = LAYERS.iter().map(|_| device.create_buffer(&wgpu::BufferDescriptor { label: Some("a far layer's longest ray"), size: 4 * TALLY as u64, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false })).collect();
+        let tally_back = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the longest rays read back"), size: 4 * (TALLY * LAYERS.len()) as u64, usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let tally_state = std::sync::Arc::new(std::sync::atomic::AtomicU8::new(0));
         Self { store, lane, rings, eye: [0.0; 2], start, march, up, layout, up_layout, sampler, targets: None, look, textures, atlas: None, building: None, stand_ins, light: None, lighting: None, sweeping: None, sun_asked, light_stand_ins, blue, blue_bytes, edge, layers, one, one_loaded, loaded_off: std::env::var("INCUS_FAR_LOADED").as_deref() == Ok("0"), loaded_said: std::sync::atomic::AtomicBool::new(false), audit, parity: 0, fresh: false, haze_step, most_steps, tops_making: None, tops_made: None, tops_off: false, reach, begin, tally, tally_counts, tally_back, tally_state }
     }
@@ -733,7 +742,7 @@ impl FarEye {
         let buffer = |label: &str, size: u64, usage: wgpu::BufferUsages| device.create_buffer(&wgpu::BufferDescriptor { label: Some(label), size: size.max(16), usage, mapped_at_creation: false });
         let storage = wgpu::BufferUsages::STORAGE;
         let tiles = (screen.0.div_ceil(TILE), screen.1.div_ceil(TILE));
-        let starts = buffer("the far starts", (tiles.0 * tiles.1) as u64 * 4, storage);
+        let starts = buffer("the far starts and the long rays' lists", (tiles.0 * tiles.1 + 2 * (1 + LONG_LIST)) as u64 * 4, storage | wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::COPY_SRC);
         let nothing_above = buffer("the far layers' nothing above", 16, storage);
         let no_far = texture("the far layers' no distances above", (1, 1), wgpu::TextureFormat::Rgba32Float);
         let mut layers: Vec<Layer> = Vec::new();
@@ -877,14 +886,14 @@ impl FarEye {
                 wgpu::BindGroupEntry { binding: 5, resource: up_numbers.as_entire_binding() },
             ],
         }));
-        let tally_parts: Vec<wgpu::Buffer> = layers.iter().map(|_| buffer("a far layer's part of its distances", 16, wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST)).collect();
+        let tally_parts: Vec<wgpu::Buffer> = layers.iter().map(|_| buffer("a far layer's part of its distances", 32, wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST)).collect();
         let tally_groups = layers
             .iter()
             .zip(&self.tally_counts)
             .zip(&tally_parts)
             .map(|((layer, counts), part)| [0usize, 1].map(|p| device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("the longest ray"), layout: &self.tally.get_bind_group_layout(0), entries: &[entry(0, wgpu::BindingResource::TextureView(&layer.far[p])), entry(1, counts.as_entire_binding()), entry(2, part.as_entire_binding())] })))
             .collect();
-        self.targets = Some(Targets { screen, generation: self.store.generation, atlas_in: self.atlas.is_some(), atlas_generation, light: light_now, tiles, tally_groups, tally_parts, layers, up_numbers, up_group, one, audit });
+        self.targets = Some(Targets { screen, generation: self.store.generation, atlas_in: self.atlas.is_some(), atlas_generation, light: light_now, tiles, tally_groups, tally_parts, layers, up_numbers, up_group, one, starts, audit });
         true
     }
 
@@ -896,6 +905,9 @@ impl FarEye {
             self.parity ^= 1;
         }
         let Some(targets) = &self.targets else { return };
+        // This frame's list of long rays begins empty.
+        let tiles_n = targets.tiles.0 * targets.tiles.1;
+        queue.write_buffer(&targets.starts, (tiles_n + self.parity as u32 * (1 + LONG_LIST)) as u64 * 4, &0u32.to_le_bytes());
         let (facing, pitch) = (camera.facing.to_radians(), camera.pitch.to_radians());
         let forward = [pitch.cos() * facing.cos(), pitch.cos() * facing.sin(), pitch.sin()];
         let right = [-facing.sin(), facing.cos(), 0.0];
@@ -958,6 +970,9 @@ impl FarEye {
                 ring_boxes[1],
                 ring_boxes[2],
                 ring_boxes[3],
+                // The long rays' lists: this frame's and the frame before's, after the tiles' starts; none listed in a
+                // frame the layers were remade (its dispatch runs three times over).
+                [(tiles_n + self.parity as u32 * (1 + LONG_LIST)) as f32, (tiles_n + (1 - self.parity as u32) * (1 + LONG_LIST)) as f32, if self.fresh { 1e9 } else { LONG_STEPS as f32 }, LONG_LIST as f32],
             ];
             let bytes = numbers.iter().flatten().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>();
             queue.write_buffer(&layer.camera, 0, &bytes);
@@ -1026,15 +1041,15 @@ impl FarEye {
             return false;
         }
         for (k, layer) in targets.layers.iter().enumerate() {
-            queue.write_buffer(&self.tally_counts[k], 0, &[0u8; 16]);
-            queue.write_buffer(&targets.tally_parts[k], 0, &[layer.far_at, 0, layer.size.0, layer.size.1].iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
+            queue.write_buffer(&self.tally_counts[k], 0, &[0u8; 4 * TALLY]);
+            queue.write_buffer(&targets.tally_parts[k], 0, &[layer.far_at, 0, layer.size.0, layer.size.1, LONG_STEPS, 0, 0, 0].iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
             {
                 let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("the longest ray"), timestamp_writes: None });
                 pass.set_pipeline(&self.tally);
                 pass.set_bind_group(0, &targets.tally_groups[k][self.parity], &[]);
                 pass.dispatch_workgroups(layer.size.0.div_ceil(8), layer.size.1.div_ceil(8), 1);
             }
-            encoder.copy_buffer_to_buffer(&self.tally_counts[k], 0, &self.tally_back, 16 * k as u64, 16);
+            encoder.copy_buffer_to_buffer(&self.tally_counts[k], 0, &self.tally_back, (4 * TALLY * k) as u64, 4 * TALLY as u64);
         }
         true
     }
@@ -1047,14 +1062,30 @@ impl FarEye {
         self.tally_back.slice(..).map_async(wgpu::MapMode::Read, move |result| state.store(if result.is_ok() { 2 } else { 0 }, Ordering::Release));
     }
 
+    /// This frame's list of long rays read back from the card, for a test: its count, then its pixels.
+    #[cfg(test)]
+    fn long_list(&self, device: &wgpu::Device, queue: &wgpu::Queue) -> Vec<u32> {
+        let targets = self.targets.as_ref().expect("the far eye's targets");
+        let at = (targets.tiles.0 * targets.tiles.1 + self.parity as u32 * (1 + LONG_LIST)) as u64 * 4;
+        let size = (1 + LONG_LIST) as u64 * 4;
+        let back = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the long rays' list read back"), size, usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
+        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("the long rays' list read back") });
+        encoder.copy_buffer_to_buffer(&targets.starts, at, &back, 0, size);
+        queue.submit([encoder.finish()]);
+        back.slice(..).map_async(wgpu::MapMode::Read, |_| {});
+        device.poll(wgpu::PollType::wait_indefinitely()).expect("the card finished");
+        back.slice(..).get_mapped_range().unwrap().as_chunks::<4>().0.iter().map(|b| u32::from_le_bytes(*b)).collect()
+    }
+
     /// The longest rays, if a reading has come back: for each layer, the most steps any ray took and how many rays
-    /// took over 256, 384 and 512.
-    pub fn tally_read(&self) -> Option<Vec<[u32; 4]>> {
+    /// took over 256, 384 and 512; then how many took `LONG_STEPS` or more, how many of those are in the long rays'
+    /// list, how many rays marched at all and their steps summed.
+    pub fn tally_read(&self) -> Option<Vec<[u32; TALLY]>> {
         use std::sync::atomic::Ordering;
         if self.tally_state.load(Ordering::Acquire) != 2 {
             return None;
         }
-        let counts = self.tally_back.slice(..).get_mapped_range().unwrap().as_chunks::<16>().0.iter().map(|b| [0, 1, 2, 3].map(|k| u32::from_le_bytes([b[4 * k], b[4 * k + 1], b[4 * k + 2], b[4 * k + 3]]))).collect();
+        let counts = self.tally_back.slice(..).get_mapped_range().unwrap().as_chunks::<{ 4 * TALLY }>().0.iter().map(|b| std::array::from_fn(|k| u32::from_le_bytes([b[4 * k], b[4 * k + 1], b[4 * k + 2], b[4 * k + 3]]))).collect();
         self.tally_back.unmap();
         self.tally_state.store(0, Ordering::Release);
         Some(counts)
@@ -1430,6 +1461,32 @@ mod tests {
         readback.slice(..).map_async(wgpu::MapMode::Read, |_| {});
         device.poll(wgpu::PollType::wait_indefinitely()).expect("the card finished");
         let pixels = readback.slice(..).get_mapped_range().unwrap().to_vec();
+        // The long rays' list (the cut's first stage): a frame more (no ray is listed in the frame the layers were
+        // made), then every layer's rays counted and the list read back: it holds each long ray, once.
+        eye.prepare(&device, &queue, screen, &camera, doorway.sea_level as f32);
+        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("the far eye's test") });
+        eye.start(&mut encoder, None);
+        for k in 0..LAYERS.len() {
+            eye.layer(k, &mut encoder, None);
+        }
+        assert!(eye.tally(&queue, &mut encoder), "the rays are counted");
+        queue.submit([encoder.finish()]);
+        eye.tally_sent();
+        device.poll(wgpu::PollType::wait_indefinitely()).expect("the card finished");
+        let counts = eye.tally_read().expect("the rays' counts came back");
+        eprintln!("The rays: {}", counts.iter().zip(["8 x 8", "4 x 4", "2 x 2"]).map(|(c, name)| format!("the {name} {} marched, {} steps, the longest {}, {} of {LONG_STEPS} steps or more ({} listed)", c[6], c[7], c[0], c[4], c[5])).collect::<Vec<_>>().join("; "));
+        if eye.one.is_some() {
+            let list = eye.long_list(&device, &queue);
+            let (long, listed): (u32, u32) = (counts.iter().map(|c| c[4]).sum(), counts.iter().map(|c| c[5]).sum());
+            assert_eq!(list[0], long, "the list counts the long rays");
+            if long <= LONG_LIST {
+                assert_eq!(listed, long, "every long ray carries its place in the list");
+                let mut entries = list[1..1 + long as usize].to_vec();
+                entries.sort_unstable();
+                entries.dedup();
+                assert_eq!(entries.len() as u32, long, "and each is in it once");
+            }
+        }
         // The average colour of a band of rows.
         let average = |rows: std::ops::Range<u32>| {
             let mut sum = [0u64; 3];

@@ -73,6 +73,10 @@ struct Camera {
     // 4s' and the 2s'): each its least and most blocks north and east (xy and zw), a cell in from its edge; an empty
     // box (xy over zw) while it isn't there.
     rings: array<vec4<f32>, 4>,
+    // The long rays' list (the cut; the one dispatch only, `far_all.wgsl`): x where this frame's list starts in
+    // `starts`, y where the frame before's does, z how many steps make a ray long (a number no ray reaches: none is
+    // listed this frame), w how many rays a list holds.
+    list: vec4<f32>,
 }
 
 @group(0) @binding(0) var<uniform> camera: Camera;
@@ -83,8 +87,10 @@ struct Camera {
 @group(0) @binding(2) var<storage, read> entries: array<u32>;
 @group(0) @binding(3) var<storage, read> index: array<u32>;
 @group(0) @binding(4) var<storage, read> pool: array<vec4<u32>>;
-// Where each tile's rays start (the start pass's answers).
-@group(0) @binding(7) var<storage, read_write> starts: array<f32>;
+// Where each tile's rays start (the start pass's answers, each a number's bits); and after them, by the one
+// dispatch, the long rays' lists (`far_all.wgsl`: this frame's and the frame before's, each a count and then the
+// pixels). Words written by many rays at once, so read and written as such.
+@group(0) @binding(7) var<storage, read_write> starts: array<atomic<u32>>;
 // ── One layer's outputs: begin ── (the one-dispatch form, `far_all.wgsl`, is put in this part's place by `far_eye.rs`:
 // keep the two marks' lines as they are)
 @group(0) @binding(5) var picture: texture_storage_2d<rgba8unorm, write>;
@@ -119,6 +125,11 @@ fn far_above_edge() -> vec2<i32> {
 
 fn get_far_above(at: vec2<i32>) -> f32 {
     return textureLoad(far_above, at, 0).x;
+}
+
+// One layer after another, no ray is listed as long (the list is the one dispatch's).
+fn list_long(i: u32, steps: f32) -> f32 {
+    return 0.0;
 }
 
 // One layer of the pyramid: a ray a pixel, where the layer above said it's worth it.
@@ -1191,7 +1202,7 @@ fn start_pass(@builtin(global_invocation_id) id: vec3<u32>) {
     }
     let uv = min((vec2<f32>(id.xy) + 0.5) * camera.tiles.z / camera.view.xy, vec2<f32>(1.0));
     let d = normalize(camera.forward.xyz + (uv.x * 2.0 - 1.0) * camera.right.xyz + (1.0 - uv.y * 2.0) * camera.up.xyz);
-    starts[id.y * tiles.x + id.x] = cone_start(camera.position.xyz, d, camera.tiles.w);
+    atomicStore(&starts[id.y * tiles.x + id.x], bitcast<u32>(cone_start(camera.position.xyz, d, camera.tiles.w)));
 }
 
 fn to_srgb(c: vec3<f32>) -> vec3<f32> {
@@ -1264,7 +1275,7 @@ fn march_pixel(id: vec2<u32>) {
     var begin = 0.5;
     if (camera.tiles.z > 0.0) {
         let tile = vec2<u32>(vec2<f32>(id.xy) / camera.tiles.z);
-        begin = starts[tile.y * u32(camera.tiles.x) + tile.x];
+        begin = bitcast<f32>(atomicLoad(&starts[tile.y * u32(camera.tiles.x) + tile.x]));
     }
     // A finer layer's rays start a little short of the nearest touch among their parent and its neighbours.
     if (camera.layer.x > 0.0 && camera.follow.x > 0.5) {
@@ -1324,6 +1335,7 @@ fn march_pixel(id: vec2<u32>) {
     }
     // Kept with its alpha (premultiplied), so the screen can blend it over the layer above.
     put_picture(vec2<i32>(id.xy), vec4<f32>(to_srgb(clamp(colour, vec3<f32>(0.0), vec3<f32>(1.0))) * shown, shown));
-    // Kept for the layer below to start its rays from: where it first touched anything.
-    put_far(vec2<i32>(id.xy), vec4<f32>(seen.touched, seen.steps, 0.0, 0.0));
+    // Kept for the layer below to start its rays from: where it first touched anything; and beside it its steps, and
+    // its place in the long rays' list if it's long (one up; 0: not listed).
+    put_far(vec2<i32>(id.xy), vec4<f32>(seen.touched, seen.steps, 0.0, list_long(id.y * size.x + id.x, seen.steps)));
 }
