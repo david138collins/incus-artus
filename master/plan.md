@@ -61,13 +61,14 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** his look at the scatter stage (build 188: test detail behind the doorway, on with
-  `INCUS_SCATTER_STAGE=1`; woods, towers, a castle, two towns, a hall's entrance in a mountainside, cave mouths),
-  launched for him at one of its marks; then flights with it on, for what detail costs the far eye. His words for
-  it (2026-11-15): "go nuts, do whatever you want, have fun". After it by the plan: the skyline talk (haze or
-  cover), lazy rays, the Intel card's flight; then the near eye. The cut is done enough to go on and is on as the
-  game is launched (build 187; his look: "alarmingly fast and looks really nice"): flown as build 186, the far
-  eye's whole over the nine views 6.58 ms for 8.06 uncut; two views over 1 ms for four; the dearest 1.086 ms. **Build 183, the cut's second stage, is flown: a miss** (2026-11-15,
+- **Waiting on David:** his go for one flight session (build 189 as launched, for its mark's line, and once
+  with the scatter stage on, for what detail costs the far eye); then the skyline talk with Builder (haze, as now,
+  or cover), which the stage's pictures now feed: thin things (an arch's piers, posts) nearly vanish against the
+  sky at the far cells' size. After it by the plan: lazy rays, the Intel card's flight; then the near eye. His
+  looks today: the cut, "alarmingly fast and looks really nice"; the scatter stage (build 188, on with
+  `INCUS_SCATTER_STAGE=1`), "very nice builder. it looks like it should, i think"; the bright bands at the rings'
+  edges over shallow water, mended in build 189 (a coarser level's ground was counted against the finer cell
+  through every hand-over), "basically invisible ... well done. let us proceed." **Build 183, the cut's second stage, is flown: a miss** (2026-11-15,
   `journal/docs/experiments.md`). A ray long the frame before is marched as up to 17 lengths side by side and
   joined: the march is 49% shorter on the plain (0.769 to 0.396 ms) and 37% over the sea, where the card waits;
   and 18% longer at the mountain top, 32% high over the spawn, 17% on the run, where the card works. The dearest
@@ -368,7 +369,9 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
         here and there; the trees from his `oak.png`. *The scatter stage built* (build 188, unflown,
         `journal/docs/experiments.md`; on with `INCUS_SCATTER_STAGE=1`): the far cells summed from any column (they
         knew only a height, so nothing could stand over air), checked block by block; woods, towers, a castle, two
-        towns, a hall's entrance, cave mouths, posts, a slab and an arch; its own marks. His look owed. *The 16s and the 8s in* (builds 168 to 171: "looks pretty good"); the
+        towns, a hall's entrance, cave mouths, posts, a slab and an arch; its own marks. His look: "very nice builder. it
+        looks like it should, i think"; and of the rings' edges it showed over shallow water, mended in build 189:
+        "basically invisible ... well done. let us proceed." *The 16s and the 8s in* (builds 168 to 171: "looks pretty good"); the
         8s found the plain's wall (0.54 → 0.96 ms). The 4s and 2s held: at 128 cells a side they'd lie under the near
         eye's ground, so they're decided with the near eye, on David's answers to the Oracle's questions 1 and 5
   - [x] The far eye's speed work, for headroom to make it prettier (David, 2026-11-15: "i don't think we should leave

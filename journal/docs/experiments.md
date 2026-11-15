@@ -5550,3 +5550,14 @@ written down at build 182, still to mend.)
 
 **Owed:** David's look; then the flight for the mark's line (each mark's march within 2% of build 186's cut
 flight).
+
+### Build 189, David's look (2026-11-15): the rings' bands gone enough; done enough to go on
+
+Launched on his word with the stage on, by the town on the plain; 88 s, closed cleanly, no error in its log.
+**His words:** "after everything loaded in, it is basically invisible, and i don't think anyone will ever have the
+chance to pick it out amongst a finished world even if he got high up on a mountain. well done. let us proceed."
+Nothing said against the look on land, where every hand-over changed a little. So the mend is kept, and the
+scatter stage with it (his look at build 188: "very nice builder. it looks like it should, i think").
+
+**Still owed for builds 188 and 189:** one flight session: the game as launched (the mark's line: each mark's
+march within 2% of build 186's cut flight), and once with the stage on, for what detail costs the far eye.
