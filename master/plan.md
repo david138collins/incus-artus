@@ -361,7 +361,11 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
         wood, rows of posts, towers, slabs and an arch), off by default; marks from it. Before the fork. First the
         16s' ring alone (128 × 128 columns round the eye, old's size), to prove the moving ring, the store, the march
         and the light on one level before the other three reuse them; then the scatter stage's woods; then shapes
-        placed by hand, each placed with David. *The 16s and the 8s in* (builds 168 to 171: "looks pretty good"); the
+        placed by hand. *The scatter, on his word* (2026-11-15): Builder picks the blocks, colours and places, an
+        instrument for testing, not world generation ("its gonna be blurry and just for testing anyways, so go nuts,
+        do whatever you want, have fun"); what to check: arched entrances to mountain halls, castles with walls and
+        towers, towers in the mountains and on the ground, towns on the ground, forests here and there, cave mouths
+        here and there; the trees from his `oak.png`. *The 16s and the 8s in* (builds 168 to 171: "looks pretty good"); the
         8s found the plain's wall (0.54 → 0.96 ms). The 4s and 2s held: at 128 cells a side they'd lie under the near
         eye's ground, so they're decided with the near eye, on David's answers to the Oracle's questions 1 and 5
   - [x] The far eye's speed work, for headroom to make it prettier (David, 2026-11-15: "i don't think we should leave

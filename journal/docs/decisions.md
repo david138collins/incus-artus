@@ -2292,6 +2292,17 @@ Reference: `Art/quartile minecraft illustration.png`
       going. whats next?" He named no flicker or speckle at the horizon; Builder takes the look owed for the cut as
       given, and has told him so he can correct her. His thought on stronger systems is placed in the spec as an idea
       (The targets). Next by the plan: the scatter stage.
+- **[DECIDED 2026-11-15] The scatter stage: Builder's to place, his list to check** (David, to Builder, asked where
+  the wood should go and what its trees are made of): "go ahead and take the oak.png if you want, it won't matter
+  much; you did a good job picking blocks for pretend last time. i think the things we'd want to be checking are large
+  arched entranches to mountain halls, castles with walls and towers, towers in the mountain and on the ground, towns
+  on the ground, forests here and there, random cave mouths here and there. its gonna be blurry and just for testing
+  anyways, so go nuts, do whatever you want, have fun."
+  - How Builder reads it (hers): for the test detail he has lifted "each placed with David" (the plan's line): she
+    chooses the blocks, the colours and the places. It stays an instrument behind the doorway, off by default, not
+    world generation. What to check, his list: arched entrances to mountain halls; castles with walls and towers;
+    towers in the mountains and on the ground; towns on the ground; forests here and there; cave mouths here and
+    there. Next from her: reading the doorway, then the stage's pass mark before its code.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
