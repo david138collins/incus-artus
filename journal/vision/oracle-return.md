@@ -447,6 +447,13 @@ the answers.
   at the 16s' edge (about 1 km): past 11 km there are 3% of the plain's steps and no chain, so your section 3's
   "smallest version" has nothing to save now. Your strides sized to the haze aren't priced yet. Which first, and how
   lean can a march get without losing what the waiting marks gained?
+- **The march's audit** (build 177; David's order: smaller passes first, then lean, then the cut): thirteen cut-down
+  marches compiled beside the real one, read off Nsight. A hop-only pass fits 28 groups (68 registers) but is under a
+  seventh of the work; the sampling half keeps 168. Any one part out gives 0 to 8 registers; six out together give
+  40 (128 registers, 16 groups): the count is the highest of several places that each need about 166. Two of them
+  are rare paths (mixing two levels, 0.6% of the plain's steps; the code's blend, 0.1%) every ray pays room for. So
+  the pass worth making moves rare, heavy work out of the march every ray runs. The 4 × 4 is about three fifths of
+  the far eye's work at the mountain top; the skip saves about half the base layer's.
 
 ## 6. The message to send at the fork
 

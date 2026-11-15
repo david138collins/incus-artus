@@ -2037,6 +2037,20 @@ Reference: `Art/quartile minecraft illustration.png`
     samples only, without the finish, without the hand-over's second read, and so on) compiled and run on a token
     dispatch that touches no picture, so Nsight lists each one's registers and how many groups fit, one screenshot
     from David pricing the batch; it's the register audit the leaning needs too. The plan's 2.2 gains the line.
+  - *The audit, traced and read* (build 177; Nsight's counters went overnight and came back only with a restart,
+    cause unknown, the setting on all users throughout; traces at the mountain top and the plain, ended 06:28; David
+    read the rows off Nsight's window, three screenshots). **The split guessed at doesn't pay; trimming does.** The
+    control as the game's (168 registers, 12 groups). A hop-only pass would fit 28 groups (68 registers), but it's
+    under a seventh of the base layer's work at the mountain top and the sampling half keeps all 168: off. One part
+    out at a time gives next to nothing (the hand-over's second read 8 registers, the code's blend 1, the rest none);
+    **all six together give 40: 128 registers, 16 groups.** So several places in the march each need about 166 at
+    once, and the count is the highest of them. Two are paths few steps take (on the plain 0.6% of steps mix two
+    levels, 0.1% fall back to the code's blend), and every ray pays for their room: the pass worth making takes the
+    rare, heavy work out of the march every ray runs. Builder's guesses missed again on the single parts (15 to 30
+    for two that gave 8 and 1) and on the local memory (not the views' tints). On the side: without the skip the base
+    layer costs nearly twice, so the height table's skip is worth about half its work at the mountain top; the base
+    layer is about two fifths of the far eye's work there, the 4 × 4 the rest. Next: a second batch, the fewest trims
+    that reach 128, and whether 102 (20 groups) is in reach.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
