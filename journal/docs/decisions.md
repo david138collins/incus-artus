@@ -2266,6 +2266,25 @@ Reference: `Art/quartile minecraft illustration.png`
     - *Counsel's note:* this time he weighs the average and the count over 1 ms, the high spot allowed a little
       dearer, where his rule of 2026-11-14 was "the goal should always be to bring down the high spot". His newer
       word decides; written so the change is seen.
+    - *Build 186, the march's program trimmed* (03f0376, its pass mark first in 0db6d8d; flown on "it would only be
+      staying in because lazy-rays are a different form of it, as i understand it? go ahead with the flights";
+      15:26 to 15:39, `logs/flight-1794778376` as launched and `-1794778772` the cut on at 384, checked by Counsel).
+      Builder's answer to his question: yes; had it not beaten build 185 it would have stayed in, off, only because
+      lazy rays would reuse its parts (her view, not the plan's), and come out if lazy rays doesn't use it. The trim:
+      a ray listed whole gets its first cut from its join the frame after; where a length begins and what it lets
+      through go to its stack before it marches. On the way she mended a flaw that was in build 185's join too: a cut
+      put back inside a length guessed how the ray stood there, and where the cover was all in one place two small
+      rays went cut and whole every other frame (33 of 255 lighter); no guess now, frames 12 and 13 the same.
+      - **His bar met:** the far eye's whole with the cut on, summed over the nine views, 6.582 ms against build 185's
+        6.688 (uncut 8.059); views over 1 ms, 4 uncut and 2 cut. The dearest with the cut on high over the spawn,
+        1.086 ms (185: 1.117; this session's uncut dearest the sea, 1.071). The worst 99th 1.290 uncut, 1.245 cut.
+      - **The 4.5% explained:** uncut, the mountain top's march 0.917 ms (184: 0.916; 185: 0.958) and high over the
+        spawn's 0.933 (0.934; 0.975); the trim took it out, so the cut's weight in the march's program was the cause.
+      - Cut on against off, by the card's whole: the plain −35%, the sea −39%, the run −25%, the nodding marks −30%
+        and −33%; the mountain top +0.7%, high over the spawn +3.2%, the spawn +3.7%, fast across +3.0%.
+      - By build 186's mark the cut goes on as the game is launched (`INCUS_FAR_CUT=0` turns it off), as build 187,
+        and on to what's next in the plan. Still owed: his look at the horizon while turning his head, when he next
+        plays.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its

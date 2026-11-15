@@ -93,6 +93,14 @@ Practical things learned the hard way. Each has its reason, so a later session c
 
 - One big piece of card work holds the frame: background work goes in small pieces, waited for gently.
 - In a register-bound shader, code added costs every pixel even when it's switched off: price every change by flight.
+  Even a few numbers carried through a long loop count: a feature's bookkeeping held through every step cost 4.5%
+  where the card was full, with the feature off, and the cost went when the bookkeeping moved before and after the
+  loop.
+- **Splitting a long job across more threads pays only where the card waits.** Where it's full, the threads held
+  are the cost, not the steps: the card runs threads in groups, a group lasts as long as its slowest thread, and
+  idle threads in it still hold room. Count threads held (busy and idle) beside the steps; give each piece only the
+  threads it needs, of even length, packed together. A split that gave every long job sixteen helpers halved the
+  longest chain and still cost a sixth to a third where the card was full; packed, it came out level there.
 - Watch for card-hostile arithmetic: division and remainder by values known only at run time, local arrays.
 - Never take a slope as the difference of two nearby rounded values.
 - **Taking the graphics library's safety checks off isn't a sure win.** Once it made light views faster but the heavy

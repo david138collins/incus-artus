@@ -35,15 +35,14 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   near eye. The 8s found a wall on the plain, and a day of measuring placed it: the marks that wait wait on their
   longest rays, and the marks that work are full, the march holding 168 registers (12 groups of rays of 48). The
   height table took the sea and the run about a fifth faster. The Oracle, called again (her first reply in
-  `journal/vision/oracle-prompt-2026-11-14.md`), waits on his five answers for her fourth part. Now, in his order, for
-  headroom to make it prettier ("the goal should always be to bring down the high spot"): the march's smaller passes
-  and leaning went as far as they paid (builds 177 to 180, 2 to 7% off); then the long rays cut into lengths. Its
-  first form (build 183) was dearer where the card works; packed (build 185), a ray given only the lengths it needs,
-  it's level where the card works and 30 to 46% faster where it waits (the average over nine views 0.92 → 0.74 ms;
-  high over the spawn 1.10 → 1.12, now the dearest). His word: "it looks like the new cut does bring the overall
-  average down ... why don't you look over everything in the shader that can be trimmed and see how that works. and
-  then we can move on ... i'd like to get a move on." So the cut is kept, one round of trimming the march's program
-  is flown (build 186), and then on: the scatter stage, the skyline talk and lazy rays proper. Both near drawers are flown before the fork ("Yes, fly both").
+  `journal/vision/oracle-prompt-2026-11-14.md`), waits on his five answers for her fourth part. The far eye's speed
+  work is done enough to go on, in his order: the march's smaller passes and leaning went as far as they paid
+  (builds 177 to 180, 2 to 7% off); then the long rays cut into lengths, packed, a ray given only the lengths it needs
+  (builds 181 to 186). The cut is on as the game is launched (build 187; `INCUS_FAR_CUT=0` turns it off): 25 to 39%
+  faster where the card waits, within 4% where it works; summed over nine views 6.58 ms against 8.06 uncut; the
+  dearest view high over the spawn at 1.086 ms (uncut's the sea at 1.071); the worst 99th 1.25. His word on keeping
+  it: "it looks like the new cut does bring the overall average down ... i'd like to get a move on." Owed: his look
+  at the horizon while turning his head. Next: the scatter stage, then the skyline talk and lazy rays proper. Both near drawers are flown before the fork ("Yes, fly both").
 - **Just closed:** 2.1, done enough to go on (David: "yes, close 2.1. let us proceed."). Old is packed into `old\`
   and still runs; the journal is in `journal/`. The new project runs from the top of the folder (build 120; the
   numbers carry on from old's): a flying camera on old's keys, the panel (F3), the clocks a pass at a time, and the

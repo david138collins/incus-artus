@@ -493,6 +493,15 @@ the answers.
   average over nine views 0.92 → 0.74 ms, high over the spawn 1.10 → 1.12 (the dearest). The cut's code made the
   uncut march about 4.5% dearer at the working marks (likely registers; not yet traced). David kept it ("it looks
   like the new cut does bring the overall average down"), with one round of trimming the march's program, then on.
+  Trimmed (build 186: the cut's bookkeeping out of the march, into the join and the stack before a length marches),
+  the 4.5% went: uncut matches build 184's. With the cut on, summed over nine views, 6.58 ms against 8.06 uncut; the
+  dearest high over the spawn at 1.086 (uncut's dearest the sea at 1.071); the worst 99th 1.25 against 1.29. The cut
+  now goes on as the game is launched. The cut's four lessons, as Builder puts them:
+  - the list costs nothing if only long rays touch the buffer many threads write (181, 182);
+  - where the card works, threads kept waiting are the cost, not steps (183, 184);
+  - a ray wants only the lengths it needs, packed (185);
+  - the march's program has no room to carry more: a few numbers held through its steps cost 4.5% at the working
+    marks, and came back to the hair when taken out (185, 186).
   Does the cut by a list still beat yours (every ray cut) on a card that's full at the marks that work, and is it the
   footing for lazy rays (a far length kept, not re-marched every frame)?
 
