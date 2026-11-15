@@ -2303,6 +2303,24 @@ Reference: `Art/quartile minecraft illustration.png`
     world generation. What to check, his list: arched entrances to mountain halls; castles with walls and towers;
     towers in the mountains and on the ground; towns on the ground; forests here and there; cave mouths here and
     there. Next from her: reading the doorway, then the stage's pass mark before its code.
+  - *Build 188, the scatter stage* (pass mark d69a031; launched on "launch", started at the castle, 72 s, closed
+    cleanly). Found first: the far cells had been summed from a column's ground, water and profile alone, so nothing
+    far could stand over air and changes through the doorway never reached the far cells; now any column is summed
+    from its solid runs (plain ground keeps its quick road, the same sums by test). The stage, on with
+    `INCUS_SCATTER_STAGE=1`: woods, posts, an arch, a slab in the air, towers, a castle with an arched gate, towns, a
+    hall entrance in the mountains, about sixty cave mouths. Its costs met its mark (the world summed in 42.0 s for
+    36.6 off; the far cells 165 MB for 163). First pictures: thin things nearly vanish against the sky at the far
+    cells' size, and a cave mouth mostly doesn't read from the front (lit inside as outside, the far light a height
+    a column).
+    - **His look:** "very nice builder. it looks like it should, i think. but can we do anything about these square
+      light seams?" (a picture from high over the plain's town, tower and castle: a broad grey-olive region beyond the
+      tower with long straight edges and faint lines nested inside).
+    - Builder's finding: not light and not the stage's (the same with the stage off, and with shadows off). The
+      export's columns there are sand with the ground at 126, two blocks under the sea's 128, beside the same sand at
+      128: two blocks of sea over a nearly flat shelf, dimmed as the far eye dims what's seen through water, and with
+      heights in whole blocks on a near plane, the shore and each block of depth run as long straight contours.
+      Softening it is a look of water's (a shallow edge that fades in), which belongs with water's own design step;
+      his call whether to try it now.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
