@@ -2051,6 +2051,18 @@ Reference: `Art/quartile minecraft illustration.png`
     layer costs nearly twice, so the height table's skip is worth about half its work at the mountain top; the base
     layer is about two fifths of the far eye's work there, the 4 × 4 the rest. Next: a second batch, the fewest trims
     that reach 128, and whether 102 (20 groups) is in reach.
+  - *The audit's versions, timed* (0e5f8aa, from the traces' own tables). Crossing the air to the first sample costs
+    0.008 ms at both marks: no pass for it, so the hop/sample split is closed for good. **Two rare paths cost every
+    ray:** the hand-over's second read out makes the plain's march 20% shorter and the mountain top's base layer 9%;
+    the code's blend out, 14% and 10%; yet on the plain only 0.6% of steps mix two levels and 0.1% take the code's
+    blend. Builder's reading, not shown: rays march 32 to a group in step, and when one takes a slow path the other 31
+    wait. All six trims together: 30% off the plain's march and 23% off the mountain top's base layer, and 16 groups
+    fit where 12 do, so moving the rare, heavy work out of the march helps both kinds of mark. The base layer alone
+    waits even at the mountain top (7% in flight); the fullness there is the 4 × 4's. The height table's skip is worth
+    a third of the base layer's march at both marks. Nsight's window opened and closed didn't take the counters; why
+    they went stays unknown. Next, with no time of David's: each trim's picture against the whole's off the screen,
+    to sort the free ones (the views; the code's blend once the textures are in; the floor) from those that change
+    what's seen (the hand-over, his look); then the free ones out of the march into programs of their own, build 178.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
