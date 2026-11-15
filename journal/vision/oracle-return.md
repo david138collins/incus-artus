@@ -480,8 +480,11 @@ the answers.
   The steps are the same and the chain halved, so Builder's reading (not yet traced) is threads held waiting: sixteen
   a cut ray whatever its length, uneven lengths sharing a group. Her lesson for you: the measure to bring down is
   thread-steps in the strip, not the longest chain alone. Both probes (more rays cut, a later first cut) were dearer.
-  The mend proposed (build 184): as many lengths as a ray needs, about a hundred steps each, packed. Does the cut by
-  a list still beat yours (every ray cut) on a card that's full at the marks that work?
+  David: "yes, lets try your idea to make the cut work smarter, if it doesn't work it doesn't work. its pretty fast in
+  general now." So the cut is off by default; build 184 counts the threads it keeps waiting (testing the reading),
+  and the mend (build 185: as many lengths as a ray needs, about a hundred steps each, packed) stays only if the
+  slowest view comes to uncut or under. Does the cut by a list still beat yours (every ray cut) on a card that's full
+  at the marks that work?
 
 ## 6. The message to send at the fork
 

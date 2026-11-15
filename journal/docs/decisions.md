@@ -2202,6 +2202,20 @@ Reference: `Art/quartile minecraft illustration.png`
         neither counts. If the reading holds, what a full card pays for is threads held, busy or idle, so build 184's
         reports would do well to count them (the lesson Builder draws for the Oracle: the measure to bring down is
         thread-steps in the strip, not the longest chain alone).
+  - **[DECIDED 2026-11-15] The cut tried smarter, or dropped** (David, to Builder, asked "Shall I switch it off by
+    default now and go on to build 184?", after she said she'd drop the cut if the mend's flight doesn't bring the
+    slowest view to uncut or under): "yes, lets try your idea to make the cut work smarter, if it doesn't work it
+    doesn't work. its pretty fast in general now."
+    - Before it he asked "did the average of frames go up or down?": about level (the far eye on the card 3.7% down
+      over the nine views, the whole frame 1.3% up, within the spread; checked by Counsel from the four reports). And
+      "are you saying we should keep the cut rays, or that we should keep them? it looks like it increases the range
+      of speeds between the mark points, or are you proposing a way to make them work better?": he saw the wider
+      spread himself (0.47 to 1.08 ms uncut, 0.49 to 1.37 cut).
+    - So the cut goes off by default. **The numbering, corrected:** build 184 is the cut off by default plus the
+      count of threads kept waiting (busy and idle, beside the steps), flown on build 183's way of cutting to test
+      Builder's reading before anything is rebuilt. The mend itself (as many lengths as a ray needs, packed) is build
+      185, with its own pass mark after 184's count. Where build 183's entry above says "build 184" for the mend, read
+      185. The bar for keeping the cut: the slowest view at uncut or under.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its

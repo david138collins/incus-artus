@@ -39,8 +39,10 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   headroom to make it prettier ("the goal should always be to bring down the high spot"): the march's smaller passes
   and leaning went as far as they paid (builds 177 to 180, 2 to 7% off); the long rays cut into lengths is being
   built. Flown as build 183 it halves the march where the card waits but makes it a sixth to a third dearer where the
-  card works, the dearest mark 1.08 → 1.37 ms, so a mend is proposed (build 184). Then the scatter stage, the skyline
-  talk and lazy rays proper. Both near drawers are flown before the fork ("Yes, fly both").
+  card works, the dearest mark 1.08 → 1.37 ms. His word: "yes, lets try your idea to make the cut work smarter, if it
+  doesn't work it doesn't work. its pretty fast in general now." So the cut goes off by default; build 184 counts the
+  threads it keeps waiting, and the mend (build 185) is kept only if it brings the slowest view to uncut or under.
+  Then the scatter stage, the skyline talk and lazy rays proper. Both near drawers are flown before the fork ("Yes, fly both").
 - **Just closed:** 2.1, done enough to go on (David: "yes, close 2.1. let us proceed."). Old is packed into `old\`
   and still runs; the journal is in `journal/`. The new project runs from the top of the folder (build 120; the
   numbers carry on from old's): a flying camera on old's keys, the panel (F3), the clocks a pass at a time, and the
