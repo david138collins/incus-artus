@@ -4731,3 +4731,55 @@ plain's counts are build 181's to the last step (1,178,297 steps, 890 long rays,
 passes; one layer after another still draws. All 31 tests pass. *(A test of the main memory's reading failed once
 and passed on the next run: it asks that Windows' "in memory now" never be over its "most ever", which two readings
 a moment apart needn't keep. Not this build's; written down to mend.)*
+
+### Build 182 flown (2026-11-15, 09:54, hands off): the list costs nothing now. The cut's first stage is through
+
+David: "go". Told before take-off; one screen, on mains, the card idle before (5%); no hitch. Report
+`logs/flight-1794758479`, beside build 180's as it is and build 181's. The march, median ms:
+
+| mark | build 180 | build 181 | build 182 | 182 against 180 |
+|---|---|---|---|---|
+| the spawn | 0.357 | 0.388 | 0.359 | 0.6% more |
+| the mountain top | 0.934 | 0.990 | 0.927 | 0.7% less |
+| the bare plain | 0.776 | 0.826 | 0.777 | 0.1% more |
+| high over the spawn | 0.975 | 1.087 | 0.980 | 0.5% more |
+| low over the sea | 0.980 | 1.041 | 0.986 | 0.6% more |
+| a player's run | 0.861 | 0.915 | 0.865 | 0.5% more |
+| fast across the world | 0.642 | 0.665 | 0.612 | 4.7% less |
+| the plain, nodding | 0.751 | 0.797 | 0.752 | 0.1% more |
+| the sea, nodding | 0.920 | 1.000 | 0.927 | 0.8% more |
+
+- **Against the pass mark:** within 1% at eight marks: met. Fast across the world is 4.7% under, outside the band
+  on the cheap side; that mark has read 0.599 to 0.665 across today's flights of the same march, so it's taken as
+  that mark's own spread, not a gain.
+- **The reading of build 181's cost is shown:** with every ray's tile start read as a picture again and only the
+  long rays touching the buffer many rays write, the 4 to 11% is gone.
+- The start pass is a little shorter for writing a picture: 0.007 to 0.005 ms.
+
+### Build 183, the cut's second stage, the lengths and the join: the pass mark (written before the code)
+
+**What changes:** a ray in the frame before's list is marched as lengths. Its own thread marches the near length,
+to the first cut; sixteen more threads, in a strip added to the dispatch's grid, each march one length beyond, to
+the next cut; all put what they gathered (lit, by their own first surface) into the list's buffer; and a small
+pass after the march joins a ray's lengths front to back, finishes it as any ray is finished (the sky behind, fog,
+the sky's weight, what the layer below is worth) and writes its pixel, its distance and its steps. The cuts are a
+kilometre out and then every half doubling of distance, shifted ray to ray by the ray's own number so they never
+line up into a ring. A listed ray stays listed while its lengths' steps sum to 96 or more. A ray that's long and
+not yet listed marches whole, as now, and lists itself (the third stage evens that out). The one march is still in
+the program once: a pixel's thread and a length's thread come to it by the same road.
+
+**What it may cost every ray:** each pixel reads its own place in the frame before's distances, to know whether
+it's cut. One more read of a picture a ray, where the finer layers already read nine.
+
+**The marks:**
+- **Off the screen, the picture cut against uncut** (`INCUS_FAR_CUT=0`, for measuring), five marks, the second
+  frame on: the same in kind. Only pixels of listed rays differ, by 8 of 255 or less. More, or a ring or a seam at
+  a cut, and it's mended before it flies (a length's first step gathers nothing: that's where it could show).
+- **The longest chain** (a new count: the most steps any one thread takes): under 140 on the plain and over the
+  sea, where the longest rays are 324 and 409.
+- **Flown, one session, cut against uncut:**
+  - the plain's march from 0.777 to 0.55 or under, the sea's from 0.986 to 0.60 or under (rays stopped at 160
+    steps gave 0.494 and 0.554; the lengths are shorter than that, the join and the strip are extra);
+  - the run and the two nodding marks a tenth or more under (newly long rays still march whole there);
+  - the spawn, the mountain top and high over the spawn within 2% (the one read more).
+- **A miss:** the plain over 0.65; or any of the spawn, the mountain top and high over the spawn over 2% dearer.
