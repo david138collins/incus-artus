@@ -196,6 +196,8 @@ struct Targets {
     /// lengths' stacks: `far_all.wgsl`); and how many threads across the dispatch's strip for the lengths is.
     one_starts: Option<[wgpu::BindGroup; 2]>,
     long_rays: wgpu::Buffer,
+    /// (Read here only by the test's looks at the list and the lengths; the card reads it through the bind groups.)
+    #[cfg_attr(not(test), allow(dead_code))]
     cut: wgpu::Buffer,
     strip: u32,
     /// The audit's own bind group (`FarEye::audit`): the far eye's, with scratch in place of everything it writes.
