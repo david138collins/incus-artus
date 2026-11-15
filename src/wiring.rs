@@ -145,6 +145,7 @@ pub const LANES: [Lane; 4] = [
             ("WGPU_POWER_PREF", "the card, by power (low or high)"),
             ("WGPU_BACKEND", "the card's language (DirectX 12 unless set)"),
             ("WGPU_DX12_COMPILER", "the shader compiler (the Windows SDK's DXC unless set)"),
+            ("INCUS_SHADER_TEXT", "each shader's text as it's handed to the card's compiler, written to the session's log (to read Nsight's hot lines against: it names them by their place in the compiled program)"),
         ],
         files: &["src/main.rs", "src/runner.rs", "src/card.rs"],
     },

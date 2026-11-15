@@ -153,6 +153,7 @@ flowchart TB
 - **Switch** `WGPU_POWER_PREF`: the card, by power (low or high).
 - **Switch** `WGPU_BACKEND`: the card's language (DirectX 12 unless set).
 - **Switch** `WGPU_DX12_COMPILER`: the shader compiler (the Windows SDK's DXC unless set).
+- **Switch** `INCUS_SHADER_TEXT`: each shader's text as it's handed to the card's compiler, written to the session's log (to read Nsight's hot lines against: it names them by their place in the compiled program).
 - **Files:** src/main.rs, src/runner.rs and src/card.rs.
 
 ### loading

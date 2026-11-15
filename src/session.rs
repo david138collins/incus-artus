@@ -1,8 +1,9 @@
 //! The session: which build this is, where the project's folder is, and the session's log.
 //!
 //! Every session writes its own log to `logs/session-<seconds since 1970>.log` (and the same lines to the console):
-//! the game's own messages, and its libraries' warnings. A crash is written there too, with the file and line it
-//! happened at, so the first look after any crash or freeze is at `logs/` [old's lesson, "diagnostics first"].
+//! the game's own messages, its libraries' warnings, and on a switch each shader's text. A crash is written there too,
+//! with the file and line it happened at, so the first look after any crash or freeze is at `logs/` [old's lesson,
+//! "diagnostics first"].
 
 use std::io::Write;
 use std::path::PathBuf;
@@ -45,12 +46,24 @@ pub fn unix_seconds() -> u64 {
 struct Log {
     file: Mutex<Option<std::fs::File>>,
     started: Instant,
+    /// Whether each shader's text is kept too, as it's handed to the card's compiler (`INCUS_SHADER_TEXT`).
+    shader_text: bool,
 }
+
+/// The part of the card's library that says each shader's text as it hands it to the card's compiler (DirectX 12).
+const SHADER_TEXT_FROM: &str = "wgpu_hal::dx12::device";
 
 impl log::Log for Log {
     fn enabled(&self, metadata: &log::Metadata) -> bool {
-        // The game's own messages from "info" up; its libraries' only from "warn" up (wgpu says a lot otherwise).
-        if metadata.target().starts_with("incus_artus") { metadata.level() <= log::Level::Info } else { metadata.level() <= log::Level::Warn }
+        // The game's own messages from "info" up; its libraries' only from "warn" up (wgpu says a lot otherwise). On
+        // its switch, each shader's text too: the card's library says it more quietly than that.
+        if metadata.target().starts_with("incus_artus") {
+            metadata.level() <= log::Level::Info
+        } else if self.shader_text && metadata.target().starts_with(SHADER_TEXT_FROM) {
+            metadata.level() <= log::Level::Debug
+        } else {
+            metadata.level() <= log::Level::Warn
+        }
     }
 
     fn log(&self, record: &log::Record) {
@@ -79,9 +92,12 @@ impl log::Log for Log {
 pub fn start_log() {
     let path = logs_folder().join(format!("session-{}.log", unix_seconds()));
     let file = std::fs::File::create(&path).ok();
-    let log = Box::leak(Box::new(Log { file: Mutex::new(file), started: Instant::now() }));
+    // Each shader's text as the card's compiler is given it, if asked (`INCUS_SHADER_TEXT`): Nsight names a shader's hot
+    // lines by their place in the compiled program, and this is the text that program is compiled from.
+    let shader_text = std::env::var("INCUS_SHADER_TEXT").is_ok_and(|asked| asked != "0");
+    let log = Box::leak(Box::new(Log { file: Mutex::new(file), started: Instant::now(), shader_text }));
     if log::set_logger(log).is_ok() {
-        log::set_max_level(log::LevelFilter::Info);
+        log::set_max_level(if shader_text { log::LevelFilter::Debug } else { log::LevelFilter::Info });
     }
     let crashed = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
