@@ -1998,6 +1998,24 @@ Reference: `Art/quartile minecraft illustration.png`
       go at the same samples close over the ground that cover would. The assessment doesn't price them; they belong
       beside the cut and cover. And the Oracle's five questions to David are still unanswered; her fourth part, with
       today's measurements (the height table, Nsight, the step limit, the levels' table), would order these.
+  - **The working marks are full, and it's the march's size** (2026-11-15, just past midnight; David read Nsight's
+    window at the mountain top's trace; Builder's write-up 98ccfbd). The march: 168 registers (166 live), 12 groups of
+    rays fit of the 48 a unit holds (a quarter), 8,530 instructions, 85% of the samples; its top waits 35% "Wait", 17%
+    "Long Scoreboard". The traces' 17 to 19% in flight is seven tenths to three quarters of that ceiling, averaged over
+    a pass that fills and empties: full. Old's march had 125 registers and 16 groups; by the three rows, 16 groups
+    would want about 128 registers, 20 about 100 (a rule read off three rows, not NVIDIA's). The Oracle named the
+    trade on 2026-11-12 ("On a card that's working, every number held is room lost"): the numbers kept in hand and the
+    height table's third row were bought for the marks that wait, and at the marks that work they're room lost (fits,
+    not shown). A guess to check by taking it out: the march's 4,608 bytes of local memory, 72 a ray, the levels'
+    view's six-tint table.
+    - *So the high spot is two jobs* (Builder): the marks that wait (the sea 1.112, the run, the plain) want the long
+      rays cut into lengths; the marks that work (high over the spawn 1.080, the mountain top 1.071) want a **leaner
+      march**. The three dearest are within 4%, so the worst falls far only when both are done. A leaner march changes
+      no picture and is priced by a trace and David's reading each time; Builder wants old's twin, several variants
+      in one trace, so one screenshot prices a batch. A fault in the open: she gave him the trace file's name from
+      memory, a second out; he found the right one.
+    - *Counsel:* this is David's "no megakernels" goal of 2026-11-12, now measured as the working marks' cure: a march
+      split into smaller passes, each holding fewer numbers, fits more rays on the card.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its

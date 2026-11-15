@@ -438,6 +438,15 @@ the answers.
   and cost where they work. **What lazy rays could give, measured** (a budget of 160 steps a frame): the sea 1.11 →
   0.67 ms, the run 1.01 → 0.75, the plain 0.93 → 0.60; the dearest mark then high over the spawn, a working mark, at
   1.04. What the working marks spend their time on is next for Nsight.
+- **The working marks are full** (2026-11-15; David read Nsight's window at the mountain top): the march holds 168
+  registers, so 12 groups of rays fit of 48, a quarter; the traces' 17 to 19% in flight is most of that ceiling. Your
+  warning of 2026-11-12, measured: the numbers kept in hand and the height table's third row cost room at the marks
+  that work. Builder's lazy-rays assessment (`journal/docs/experiments.md`, d9a9682) puts the high spot as two jobs:
+  the long rays cut into lengths for the marks that wait (the sea 1.11, the run, the plain), a leaner march for the
+  marks that work (high over the spawn 1.08, the mountain top 1.07), the three within 4%. Lazy rays proper start only
+  at the 16s' edge (about 1 km): past 11 km there are 3% of the plain's steps and no chain, so your section 3's
+  "smallest version" has nothing to save now. Your strides sized to the haze aren't priced yet. Which first, and how
+  lean can a march get without losing what the waiting marks gained?
 
 ## 6. The message to send at the fork
 
