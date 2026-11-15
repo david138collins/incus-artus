@@ -1874,6 +1874,21 @@ Reference: `Art/quartile minecraft illustration.png`
     phone during two of them: the frame clock's worst 12 to 14 ms at the sea; medians and 99ths tight, only medians
     read. Next: the longest ray's steps by kind (the Oracle's question 7), a variant that exists only when asked for;
     then a steady watts reading.
+  - *The plain's steps by kind* (build 173, 75e042f: two instruments, the game's shader untouched; drawn off the
+    screen at the flight's size). **The wall is hopping, not haze.** The base layer's 64,000 rays: with both rings
+    2.84 million steps, 2.39 million of them skips and 0.41 million samples; with no rings 1.88 million, 1.36 skips,
+    0.48 samples. So with the rings the rays take *fewer* samples; what grew is skipping. The longest ray's 533 steps
+    are 422 hops over its own level's columns, 49 coarse skips and 65 samples (13 in haze); the 952 rays over 256
+    steps spend 233,000 of their 331,000 steps on those hops. Blends fallen back to the code: about 1,000 of 2.84
+    million. Why: a ray skimming a little over flat ground is under the top its coarser column gives (rounded up to
+    the coarse cell), so the coarse skip fails and it hops the fine columns one at a time, 8 blocks a hop in the 8s.
+    - *Builder's reading:* a table of each column's true highest ground, level by level, lets such a ray clear a
+      column of 128 or 512 blocks in one hop, the haze untouched. That's the plan's column-height table, which the
+      Oracle's section 4 had set aside as paying only with the skyline by cover; these counts say it pays with the
+      haze kept. Strides sized to the haze and the cut both act on samples, a sixth of the steps. The far light's
+      column tops are averages, so they can't serve. The record went round on this today (Counsel named the table,
+      corrected it by her section 4, she loosened section 4 herself); the counts settle it. Also: every standing now
+      reports the card's watts typically beside the highest (her question 8).
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its

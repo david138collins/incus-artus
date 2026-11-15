@@ -398,6 +398,19 @@ at that file's end: strides sized by how fast the haze changes before the cut; r
 size; the 4s and 2s decided with the near eye; five questions for David, three for Builder. Its fourth part waits on
 the answers.
 
+*Builder's three, answered (builds 172 and 173):*
+- **6, the near length alone and the far alone:** the near part cheap everywhere (0.36 to 0.42 ms at the ground marks,
+  no near ray over 158 steps); at the sea, the run and the mountain top the far part alone 86 to 102% of the whole, so a
+  cut could give back a tenth at most there. On the plain it can't answer: with the near land gone the 4 × 4 marched
+  728 long rays it doesn't march whole, so the far part alone cost more than the whole (1.18 against 0.97 ms).
+- **7, steps by kind, the plain:** **hopping, not haze.** Both rings: 2.84 million steps, 2.39 million skips, 0.41
+  million samples; no rings: 1.88 million, 1.36, 0.48. The longest ray: 533 steps, 422 hops over its own level's
+  columns, 49 coarse skips, 65 samples (13 in haze). A ray skimming a little over flat ground sits under its coarser
+  column's rounded-up top, so the coarse skip fails and it hops the fine columns one at a time. Builder's reading: a
+  table of each column's true highest ground, level by level, clears 128 or 512 blocks at a hop with the haze kept;
+  strides and the cut act only on samples, a sixth of the steps.
+- **8, watts:** every standing now reports the card's typical watts beside the highest.
+
 ## 6. The message to send at the fork
 
 A draft for David to edit when the time comes:
