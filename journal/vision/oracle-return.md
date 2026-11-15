@@ -454,6 +454,25 @@ the answers.
   are rare paths (mixing two levels, 0.6% of the plain's steps; the code's blend, 0.1%) every ray pays room for. So
   the pass worth making moves rare, heavy work out of the march every ray runs. The 4 × 4 is about three fifths of
   the far eye's work at the mountain top; the skip saves about half the base layer's.
+- **Leaner, then the registers let go** (builds 178 to 180): the first piece broken out (the code's blend and the
+  views out of the march once the textures are in) kept, 2 to 7% off, the march's need 186 → 167. Sixteen groups
+  against twelve where the card is full: 2 to 5.5% at the mountain top and high over the spawn, 3 to 4% *dearer*
+  where it waits; so the registers aren't chased further as a goal. The far eye then: high over the spawn 1.096 ms,
+  the sea 1.092, the mountain top 1.056, the run 0.977, the plain 0.886, the spawn 0.466. David: "go on with the cut".
+- **Your step 4, in Builder's form** (builds 181 to 183; `journal/docs/decisions.md` and `experiments.md`): only rays
+  that were long the frame before are cut, by a list riding in the words the layers already pass on, where yours cut
+  every ray; cut from about a kilometre, every half doubling; up to 17 lengths marched side by side in the one
+  dispatch, a small pass joining them. The list first cost 5 to 10% (the translator made every ray's read of a buffer
+  many rays write a locked read-and-write); moved into a corner of a picture the march already reads, it costs
+  nothing. The per-layer counts placed the working marks' time: the 4 × 4 marches most of the steps there (the
+  mountain top 4.56 million of 6.6), at 65 steps a ray where a base ray takes 32; why isn't looked at yet. Build 183
+  off the screen: the longest chain 324 → 127 steps on the plain, 409 → 127 over the sea; the picture within 8 of
+  255 but for three rays (two a flaw at the map's edge from before the cut). Two points for your eye:
+  - **Each length begins as the ray stood there the frame before:** exact with the eye still, a frame behind while
+    it moves. Is that within your design's honesty?
+  - **What sets the chain now:** rays just under the list's 128-step line (they march whole), and a cut ray's near
+    length before the first cut (up to 118 on the plain). Both are turned without building (`INCUS_FAR_LONG`,
+    `INCUS_FAR_CUT`); two probes of them were flown with build 183.
 
 ## 6. The message to send at the fork
 
