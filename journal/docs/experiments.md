@@ -3873,3 +3873,19 @@ sea nodding 1.052 to 0.685 (its 99th 1.359 to 0.751); the dearest mark would be 
 is the most lazy rays could give at that budget, not what they would: a ray's steps left over still have to be
 taken in later frames. David, this morning: "it would seem we have to reduce the longest rays, one by one in order
 of length, in order to actually free up warps more rapidly, consistently." The flight agrees with him.
+
+### Nsight at the working marks (build 176): what's expected, written before the traces
+
+David, 2026-11-14, on the two kinds of mark: "well the goal should always be to bring down the high spot. i was
+just about to ask if it is time for lazy rays. go ahead and do your test, and send your complete assessement of how
+lazy rays could get us that last bit off the plains to counsel."
+
+Three traces as before (20 frames from 100 s in, standing at a mark): the mountain top, high over the spawn, and the
+sea (the one that stood at the spawn last time; each run's log is now checked for where it stood).
+
+**Expected, if "working" is the right word for the mountain top and high over the spawn:** the card's room in
+flight while the far eye marches is several times the plain's 4.7%: over 20% at both. And the sea is like the plain:
+under 10%.
+
+**If the mountain top's is as low as the plain's:** the card isn't working there either, the watts mislead, and
+"two kinds of mark" needs another name and another reason for the step limit's result.
