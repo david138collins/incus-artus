@@ -511,6 +511,17 @@ the answers.
   - a ray wants only the lengths it needs, packed (185);
   - the march's program has no room to carry more: a few numbers held through its steps cost 4.5% at the working
     marks, and came back to the hair when taken out (185, 186).
+- **The scatter stage, and what it found first** (build 188, 2026-11-15; David: "its gonna be blurry and just for
+  testing anyways, so go nuts"): the far cells had been summed from a column's ground, water and profile alone, so
+  nothing the far eye drew could stand over air (no overhang, arch or cave), and changes made through the doorway
+  (David's build, any placed block) never reached the far cells at all. Now any column is summed from its solid
+  blocks as runs with air between, a face wherever a block beside, over or under isn't solid; plain ground keeps its
+  quick road (the same sums, tested). The stage, behind a switch: woods within 10 km of the spawn; posts, an arch, a
+  slab in the air, towers, a castle with an arched gate, towns; towers and an arched hall entrance in the mountains;
+  about sixty cave mouths. First pictures: thin things nearly vanish against the sky at the far cells' size (the
+  arch's piers a faint ring, the posts a pale band), and a cave mouth mostly doesn't read from the front, lit inside
+  as outside, the far light being a height a column. Is a height a column honest enough for far light once caves
+  and halls are in, and how should thin things hold at a skyline (the skyline talk: haze or cover)?
   Does the cut by a list still beat yours (every ray cut) on a card that's full at the marks that work, and is it the
   footing for lazy rays (a far length kept, not re-marched every frame)?
 
