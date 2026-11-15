@@ -53,11 +53,17 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** his look at build 174, the height table (a ray skimming low over flat ground now clears a
-  coarse column in one hop: on the plain the rays over 256 steps fall from 952 to 16, off the screen; the picture
-  scattered by about a part in 255, which he wants to see: "for all we know it might be nice"), then fourteen
-  minutes hands off to fly it against the skip without it. The 4s and 2s are held; the Oracle's reply and the plan's
-  updates are with him and Counsel. Behind us today: his look at the
+- **Waiting on David:** his go for about eight minutes hands off, for four Nsight traces (his question: "are you
+  using Nsight to check on what the plains time is actually spent on?"): the plain with the height table and without
+  its true numbers, the spawn, the sea, on build 175 (build 174's march untouched; each shader's text written to the
+  log on a switch, to read Nsight's hot lines against). Build 174, the height table, is flown, his look first ("from
+  those pics i cant see anything wrong", "it looks great, builder"): a mixed result. The long rays went (the plain's
+  rays over 256 steps 910 to 15), and the sea, the run and the sea nodding are 17 to 19% under build 172; but the
+  plain is 4% over (guessed at 0.6 ms, it's 1.01), and the spawn, the mountain top and high over the spawn 9 to 16%
+  over. A mend, the skip's own column first, was counted off the screen and not flown: more looks at every mark, not
+  fewer. Steps, hops and looks have each been counted and each failed to say where the time goes
+  (`journal/docs/experiments.md`). The 4s and 2s are held; the Oracle's reply and the plan's updates are with him
+  and Counsel. Behind us today: his look at the
   rings met ("i can't see any rings"; a longer hand-over saved for his polish list); the blocks "go away mostly with
   the hardware blend, after it loads in"; the rock switch cut and the textures sound (build 167, flown). The gate's
   line owes only the Intel card's numbers; the skyline look, talked through with Builder first (haze or cover), after
