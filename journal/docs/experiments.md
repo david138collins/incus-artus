@@ -4090,3 +4090,33 @@ or cover), set after the cells of 2 to 16; it shortens the same chain B does, by
   ground were a stepping artefact). It needs the look, and the cuts scattered ray to ray as the starts are now.
 - My sums today missed their pass marks twice (the skip's own column first; the three numbers read at once). The
   step-limit flight is a measurement; everything in section 2 past it is a sum.
+
+### The march's registers, read by David off Nsight's window (build 176, the mountain top's trace)
+
+David opened `logs/nsight/b176/b176-mountain/incus_artus_2026_11_14_20_56_04.ngfx-gputrace` (Builder gave the
+file's name a second out, from memory; he found it) and sent the Shader Pipelines rows:
+
+| shader | its share of the samples | groups of rays that fit (# Warp) | registers (# Reg; live) | Smem | instructions | its three top waits |
+|---|---|---|---|---|---|---|
+| `march_all` | 85% | 12 | 168 (166) | 4608 | 8.53K | Wait 35%, Long Scoreboard 17%, Selected 16% |
+| `brought_up` | 12% | about 48 | 21 (18) | about 36 to 288 | 264 | Long Scoreboard 60%, Short Scoreboard 19%, Wait 6% |
+| `fs_main_gamma_framebuffer` | 2% | about 18 | 26 (24) | about 108 to 864 | 136 | Long Scoreboard 29%, Short Scoreboard 19%, Wait 19% |
+| `start_pass` | under 1% | 40 | 48 (45) | 256 | 1.56K | Long Scoreboard 41%, Wait 15%, No Instructions 12% |
+
+- **The ceiling is real, and it's the march's size.** 12 groups fit of the 48 a unit of the card has room for: a
+  quarter. The traces found 17.4% in flight at the mountain top and 19.2% high over the spawn: seven tenths and
+  three quarters of all the march can keep in flight, averaged over a pass that has to fill and empty. Those marks
+  are full. This answers the assessment's second missing fact.
+- **By these rows and old's** (its march 125 registers, 16 groups; `start_pass` 48, 40): the groups that fit are
+  about 2,048 over the registers. 16 groups would want about 128 registers or fewer, 20 about 100. *[A rule read
+  off three rows, not from NVIDIA.]*
+- **The Oracle named the trade on 2026-11-12:** "On a card that's working, every number held is room lost, which
+  was old's lesson. Nsight's registers afterwards, as before." The lean step's numbers kept in hand, and the height
+  table's third row, were bought for the marks that wait; at the marks that work they're room lost. That the table
+  is why the spawn, the mountain top and high over the spawn got dearer fits, and isn't shown: there's no register
+  count from before it.
+- **Smem 4608** is 72 bytes a ray in a group of 64, which is the size of the levels' view's table of six tints
+  (`far.wgsl`, `march_pixel`): a guess, to be checked. Old's lesson called local arrays hostile to the card.
+- **So the high spot is two jobs:** the marks that wait (the sea 1.112 ms, the run, the plain) want their long rays
+  cut into lengths; the marks that work (high over the spawn 1.080, the mountain top 1.071) want a leaner march.
+  The three dearest are within 4% of each other, so the worst falls far only when both are done.

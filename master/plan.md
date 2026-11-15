@@ -56,8 +56,9 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
 - **Waiting on David:** his and Counsel's reading of Builder's assessment of lazy rays (his word: "the goal
   should always be to bring down the high spot. i was just about to ask if it is time for lazy rays ... send your
   complete assessement of how lazy rays could get us that last bit off the plains to counsel";
-  `journal/docs/experiments.md`, "Lazy rays: Builder's assessment"), and one reading from him: the march's
-  registers, off Nsight's window. What's measured behind it (build 176, the height table's numbers read at once,
+  `journal/docs/experiments.md`, "Lazy rays: Builder's assessment"). His reading off Nsight's window is in: the
+  march keeps 168 registers, so 12 groups of rays fit of the card's 48, and the marks that work run at seven tenths
+  to three quarters of that: they're full, and what they want is a leaner march. What's measured behind it (build 176, the height table's numbers read at once,
   flown and kept; the far eye's whole: the sea 1.112 ms, high over the spawn 1.080, the mountain top 1.071, the run
   1.007, the plain 0.934): there are two kinds of mark. *Waiting marks* (the plain, the sea, the run): the card is
   95% empty while the far eye marches and their time is their longest ray's chain; with rays stopped at 160 steps
