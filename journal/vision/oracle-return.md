@@ -411,6 +411,19 @@ the answers.
   strides and the cut act only on samples, a sixth of the steps.
 - **8, watts:** every standing now reports the card's typical watts beside the highest.
 
+*Then, before her fourth part (builds 174 and 175):*
+- **The height table built** (David: "go ahead and build the height table"): each column's highest thing and its
+  eight neighbours', every level, kept after the bands (29 MB). The counts fell as guessed (the plain's rays over 256
+  steps 910 to 15; the sea's 631 to 71; the run's 1,088 to 4), and the sea and the run got 17 to 19% faster. **The
+  plain didn't move** (4% dearer), and the spawn, high over the spawn and the mountain top got 9 to 16% dearer. Your
+  "stop counting steps as cost", met again: steps, hops and looks were each counted, and each failed to place the
+  plain's time.
+- **Nsight on the plain** (David's question): the card 95% empty while the march runs (4.7% in flight; the spawn 17%);
+  the wait for the height table's number the hottest named line at every mark. Builder's reading: the time is the
+  longest chain, each step's reads one after another; the table cut the longest ray's steps by 39% but made a hop
+  three reads in a row where it was two. Being tested next: the three looks' numbers read at once. Your 1b, read
+  together, in a new place. A count over all rays isn't the chain's cost: the third form of the same lesson.
+
 ## 6. The message to send at the fork
 
 A draft for David to edit when the time comes:

@@ -47,7 +47,9 @@ Practical things learned the hard way. Each has its reason, so a later session c
   counter that sorted the slowest ray's steps into kinds showed most were something nobody had pictured, and the fix
   aimed at them took three fifths of the steps away. The time didn't move there: those steps were cheap. (It did pay
   elsewhere, where the same kind of step was dear.) Price a kind of work by a flight with and without it before
-  calling it the cost; guesses, the outside reviewer's included, were reasoned well and still wrong both ways.
+  calling it the cost; guesses, the outside reviewer's included, were reasoned well and still wrong both ways. Where
+  the work waits on its longest chain (a mostly idle card), counts over all the work miss the chain altogether: ask
+  the profiler what the chain is waiting on.
 - **Taking part of the work away to time the rest can change the rest.** A test that timed only the far half of each
   ray changed the picture, so the far half did work it never does whole, and the test couldn't answer. Check the
   picture is the same before trusting a part timed alone.

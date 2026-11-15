@@ -1929,6 +1929,19 @@ Reference: `Art/quartile minecraft illustration.png`
       spent on?"; she wasn't, and agrees it's the right tool): four traces of build 174 as it's built (the plain with
       the table and without its true numbers, the spawn, the sea), about eight minutes hands off; no flight, compile
       or code change.
+    - *Read* (build 175, 467bc69: build 174's march plus a switch writing the shader's text to the log, so Nsight's
+      hot lines read against our code; traces on "go ahead", ended 20:07; write-up 42dbc9a). On the plain the far march
+      takes 0.896 ms with the card **95% empty** (4.7% of its room in flight); at the spawn 17% in flight for 0.421 ms,
+      two thirds more rays' time in under half the time. So the plain's time isn't work: the pass lasts as long as its
+      last few rays, and only the 8 × 8 layer marches there. The skip's looks are the biggest named part (a tenth of
+      the march on the plain, a sixth with the table's numbers off); the wait for the height table's number is the
+      hottest named line at every mark; a texture read about 420 cycles, a buffer read about 100. **Builder's reading,
+      not yet shown:** the time is the longest chain, its steps in a row and each step's reads in a row; the table took
+      39% of the steps off the plain's longest ray but put three reads in a row in a hop where there were two, so the
+      chain stayed as long. It fits the plain, the spawn and the sea, and why counts over all rays never placed it.
+      **Next:** the three looks' numbers read at once (the same skips and picture), built off the screen with its pass
+      mark first, one flight on his go. A fault in the open: the sea's trace stood at the spawn (a stray "; " in the
+      script), so two spawn traces (they agree) and none of the sea.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
