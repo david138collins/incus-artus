@@ -5274,3 +5274,35 @@ had before were priced by the audits of builds 177 to 180 and left):
   Not met: the cut stays in, off unless asked, as build 185, and we move on all the same (his word). Still owed
   either way: his look at the horizon while turning his head, when he next plays (a length begins by the frame
   before).
+
+### Build 186 built (unflown), the march's program trimmed: what was built and what was checked off the screen
+
+**Built as the mark says:** a ray listed whole gets no cuts at the end of its march (the sums for its first cuts,
+their writes and their lock on the count of lengths are out of the march's program); its join gives it its first
+cut the frame after, the next the frame after that. Where a length begins and what it begins letting through go
+to its stack before it marches; through the march the cut carries only where the stack is.
+
+**A mistake of mine the check found, mended before this was written** (it was in build 185's join too, and
+showed once the join made every first cut): when a join put a cut back inside a length, it guessed how the ray
+stood there, evenly between the length's ends. Where a ray's cover is all in one place the guess was far out
+(a ray uncovered till 3.9 km was taken as nine tenths covered at 3.2), the new length began thinking the ray
+nearly covered and stopped early, the two lengths then came to under 80 steps and were joined again, and the ray
+went from cut to whole and back every other frame: two 4 x 4 rays high over the spawn 33 of 255 lighter when
+cut, one at the mountain top 15. Now no guess is made: a length that begins at a cut just made takes up letting
+through all and looks before it skips, as a ray's lengths did on its first cut frame in build 185, and the join
+scales what it gathered by how the ray stands there in truth. The twelfth and thirteenth frames are then the same
+to the step.
+
+**Off the screen, 2,560 x 1,600, the twelfth frame:**
+
+| mark | rays listed | lengths in the strip | the strip waiting | held, cut over uncut | a listed ray's longest length | the picture cut against uncut, the most of 255 |
+|---|---|---|---|---|---|---|
+| the mountain top | 1,581 | 2,171 | 28% | level | 120 | 5 |
+| low over the sea | 754 | 1,252 | 36% | 5% less | 120 | 6 |
+| high over the spawn | 1,889 | 2,255 | 32% | 0.2% more | 120 | 7 |
+
+- The marks off the screen: met (within 8 of 255; the strip's waiting share 40% or under; held within 3%; the
+  longest chain 127, the rays just under the line). The uncut picture is build 182's (no pixel at three marks, 1
+  of 255 at two). All 31 tests pass; the far eye's test takes what it took.
+
+**The flights asked for, one session, hands off:** the game as launched (the cut off), then `INCUS_FAR_CUT=384`.

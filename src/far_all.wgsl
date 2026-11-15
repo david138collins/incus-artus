@@ -153,7 +153,8 @@ fn list_long(id: vec2<u32>, steps: f32, joined: bool) -> f32 {
     if (slot >= u32(cameras[0].list.z)) {
         return 0.0;
     }
-    // (No cuts until `give_cuts` says: its join's, or `cut_begin`'s for a ray listed whole.)
+    // (No cuts yet: a ray listed whole is marched whole once more the frame after, by its own thread, and its join
+    // then gives it its first cut by what that took: `give_cuts`.)
     let at = list_at(now, slot);
     cut[at] = (layer_now << 30u) | (id.y << 15u) | id.x;
     cut[at + 1u] = 0u;
@@ -188,34 +189,6 @@ fn give_cuts(slot: u32, asked: u32) {
 // The place nearest `distance` along a pixel's ray that it may be cut at (1 to 16; outside that: none there).
 fn place_near(distance: f32, shift: f32) -> i32 {
     return i32(round(2.0 * log2(max(distance, 1.0) / cameras[0].cut.x) - shift)) + 1;
-}
-
-// A ray just listed, marched whole this frame: its first cuts. As many lengths as its steps over 80 say, the cuts
-// spread evenly (by doublings of distance, as a ray's steps fall) over the stretch it marched. How it stands at
-// each isn't known: the frame after, each length takes up letting through all, and looks before it skips.
-fn cut_begin(id: vec2<u32>, starts: f32, seen: Seen) {
-    if (listed_now == NOT_CUT || cameras[0].cut.x <= 0.0) {
-        return;
-    }
-    let befores = befores_at(u32(cameras[0].list.x), listed_now);
-    for (var k = 0u; k < 17u; k++) {
-        cut[befores + k] = bitcast<u32>(-1.0);
-    }
-    let shift = scatter(id * 2u + vec2<u32>(1u, 1u));
-    let low = max(starts, cameras[0].cut.x * 0.7);
-    let high = max(seen.ended_at, low);
-    let lengths = min(u32(ceil(seen.steps / 80.0)), 17u);
-    var cuts = 0u;
-    for (var j = 1u; j < lengths; j++) {
-        let k = place_near(low * pow(high / low, f32(j) / f32(lengths)), shift);
-        if (k >= 1 && k <= 16) {
-            let at = cut_place(u32(k), shift);
-            if (at > low && at < high) {
-                cuts |= 1u << u32(k - 1);
-            }
-        }
-    }
-    give_cuts(listed_now, cuts);
 }
 
 // The ray at a place in the frame before's list: its pixel (x, y) and its layer; layer 3 if no ray was listed there
@@ -260,8 +233,14 @@ fn cut_before(slot: u32, place: u32) -> f32 {
     return bitcast<f32>(cut[befores_at(1u - u32(cameras[0].list.x), slot) + place]);
 }
 
-// What a length gathered, put by for the join; what it began letting through; where it began and where it stopped.
-fn put_stack(at: u32, seen: Seen, began: f32, starts: f32) {
+// What a length begins letting through and where it begins, put in its stack before it marches.
+fn put_began(at: u32, began: f32, starts: f32) {
+    cut[at + 10u] = bitcast<u32>(began);
+    cut[at + 11u] = bitcast<u32>(starts);
+}
+
+// What a length gathered, put by for the join, and where it stopped.
+fn put_stack(at: u32, seen: Seen) {
     let gathered = seen.skyish + seen.sunny;
     cut[at] = bitcast<u32>(gathered.r);
     cut[at + 1u] = bitcast<u32>(gathered.g);
@@ -273,8 +252,6 @@ fn put_stack(at: u32, seen: Seen, began: f32, starts: f32) {
     cut[at + 7u] = bitcast<u32>(seen.reached);
     cut[at + 8u] = bitcast<u32>(seen.touched);
     cut[at + 9u] = (u32(seen.steps) << 5u) | u32(seen.reached_level + 1) | (u32(seen.ended_in_air) << 31u);
-    cut[at + 10u] = bitcast<u32>(began);
-    cut[at + 11u] = bitcast<u32>(starts);
     cut[at + 12u] = bitcast<u32>(seen.ended_at);
 }
 
@@ -382,12 +359,12 @@ fn join_pass(@builtin(global_invocation_id) id: vec3<u32>) {
                 first_level = level_at(touch);
             }
         }
-        // The places inside this length that aren't cuts: how the ray stands there is taken evenly between the
-        // length's ends, and looked at first (it's only asked if one is made a cut).
-        for (var k = from_cut + 1u; k < min(to_cut, 17u); k++) {
-            let along = f32(k - from_cut) / f32(to_cut - from_cut);
-            befores[k] = -max(through * pow(clamp(after / through, 1e-4, 1.0), along), 1e-4);
-        }
+        // (The places inside this length that aren't cuts stay "not known": a length that begins at one made a cut
+        // takes up letting through all, looks before it skips, and the join scales what it gathered by how the ray
+        // stands there in truth. [Build 186's first try guessed how the ray stood there, evenly between the length's
+        // ends: where a ray's cover is all in one place the guess was far out, the new length stopped early
+        // thinking the ray nearly covered, and the ray went from cut to whole and back every other frame, 33 of
+        // 255 lighter when cut.])
         // Cut again for the frame after.
         if (took > 120.0) {
             // A cut put back at the place nearest the middle of the stretch it marched (by doublings), if a place
@@ -445,7 +422,6 @@ fn march_all(@builtin(global_invocation_id) id: vec3<u32>) {
     let base_across = (u32(cameras[0].view.x) + 7u) / 8u * 8u;
     let middle_across = (u32(cameras[1].view.x) + 7u) / 8u * 8u;
     let fine_across = (u32(cameras[2].view.x) + 7u) / 8u * 8u;
-    listed_now = NOT_CUT;
     // (One call of the march at the end, whichever thread this is: called from two places, the whole march would be
     // in the program twice.)
     var at = id.xy;

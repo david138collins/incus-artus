@@ -157,14 +157,14 @@ fn own_stack(slot: u32) -> u32 {
     return 0u;
 }
 
-fn put_stack(at: u32, seen: Seen, began: f32, starts: f32) {
+fn put_began(at: u32, began: f32, starts: f32) {
+}
+
+fn put_stack(at: u32, seen: Seen) {
 }
 
 fn cut_before(slot: u32, place: u32) -> f32 {
     return 1.0;
-}
-
-fn cut_begin(id: vec2<u32>, starts: f32, seen: Seen) {
 }
 
 // One layer of the pyramid: a ray a pixel, where the layer above said it's worth it.
@@ -1411,8 +1411,11 @@ fn march_pixel(id: vec2<u32>, given: u32, from_cut: u32, to_cut: u32, stack: u32
     let phase = ray_start(id.xy);
     var slot = given;
     var stops_at = to_cut;
-    var put = stack;
-    if (from_cut == 0u) {
+    // Where this length's stack goes (`NOT_CUT`: the ray isn't listed; it's marched whole and finished here).
+    var put = NOT_CUT;
+    if (from_cut > 0u) {
+        put = stack;
+    } else {
         slot = cut_slot(id);
         if (slot != NOT_CUT) {
             stops_at = cut_first(slot);
@@ -1423,7 +1426,7 @@ fn march_pixel(id: vec2<u32>, given: u32, from_cut: u32, to_cut: u32, stack: u32
     var stop = 1e30;
     var through0 = 1.0;
     var look_first = false;
-    if (slot != NOT_CUT) {
+    if (put != NOT_CUT) {
         let shift = scatter(id * 2u + vec2<u32>(1u, 1u));
         let near = cut_place(from_cut, shift);
         starts = max(begin, near);
@@ -1439,15 +1442,18 @@ fn march_pixel(id: vec2<u32>, given: u32, from_cut: u32, to_cut: u32, stack: u32
             through0 = clamp(abs(before), 0.05, 1.0);
             look_first = before < 0.0;
         }
+        // Where it begins and what it begins letting through go to its stack now, before it marches: nothing of
+        // the cut is carried through the march but where the stack is. [Build 185 carried more, and worked out a
+        // ray's first cuts at the march's end: its flight was 4.5% dearer at the two marks where the card works,
+        // cut or not.]
+        put_began(put, through0, starts);
     }
     let seen = march(camera.position.xyz, d, phase, starts, end, stop, through0, look_first);
-    if (slot != NOT_CUT) {
-        put_stack(put, seen, through0, starts);
+    if (put != NOT_CUT) {
+        put_stack(put, seen);
         return;
     }
     finish(id, d, shown, seen, false, 0.0);
-    // If that listed it as long: its first cuts, for the frame after.
-    cut_begin(id, starts, seen);
 }
 
 // A ray finished into its pixel: lit, the sky behind it and the fog before it, what the layer below is worth there,
