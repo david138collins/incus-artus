@@ -3711,3 +3711,32 @@ is one chain's.
 **What would test it:** the three looks' numbers read at once, not one after another (three reads issued together
 wait about as long as one; the card has the room: it's 95% empty). The same skips, so the same picture. If the
 reading is right, the plain and the spawn both fall; if they don't, it's wrong. Not built: put to David first.
+
+### Build 176, the three looks' numbers read at once: the pass mark (written before the code)
+
+The test of the reading above. David was told it's being built off the screen; it flies on his go.
+
+**What changes, and only this:** when the skip's three numbers are read. All three (the column four levels coarser,
+two coarser, its own) are asked for before the first is used, so the card waits for them together and not one
+after another. The choice among them is build 174's as it stands: the biggest column the ray is clear of. So the
+skips and the steps are the same, and so is the picture. No switch: a switch in the march costs.
+
+**The marks:**
+- **Off the screen, the plain:** the steps by kind are build 174's (1,173,000 steps, 16 rays over 256, the longest
+  326), and the picture is build 174's as far as it repeats (two rings repeat to a last digit).
+- **Flown, if the reading is right:**
+  - near the ground, under build 172's, which read two in a row: the spawn under 0.429, the mountain top under
+    1.042, high over the spawn under 1.015;
+  - the plain under 0.90 (build 174's 1.010 less a tenth or more);
+  - the sea, the run and the sea nodding at or under build 174's 1.158, 1.061 and 1.108.
+- **By how much, a sum and not a promise:** the plain's longest ray takes 326 steps: 137 hops, 89 samples in air
+  after three looks, 87 samples with no look. If a look waits one read and a sample two to five, its chain is 27 to
+  41% shorter with the looks' reads together. My guesses in ms have missed five times; the pass line above asks a
+  tenth.
+- **What it costs:** every step in clear air now reads all three numbers where it read one to three (on the plain
+  about 2.5 million reads a frame for 1.4 million). The card is 95% empty while it marches there; if the reads'
+  number mattered and not their order, this build is dearer and the reading is wrong.
+
+**If it misses:** the plain within 5% of build 174's means the long chain isn't the looks. Then the tail itself,
+seen: one frame's rays in flight over time in Nsight's window (a screenshot from David), before anything else is
+built on the reading.
