@@ -50,6 +50,9 @@ pub struct Standing {
     reach: Option<[f32; 2]>,
     /// The hottest the CPU area and the GPU read over the measured frames, and the GPU's slowest clock.
     hottest: Temperatures,
+    /// The card's watts as read over the measured frames, every reading (for a typical one: a standing's first reading
+    /// can be the mark before's, the Oracle, 2026-11-14).
+    gpu_watts: Vec<f32>,
     /// How long the GPU's clock read under `SLOW_CLOCK` over the measured frames (seconds), and when it was last read
     /// (the Oracle, 2026-11-13: the least alone can't tell a blink from a long stretch).
     slow_clock: f32,
@@ -93,7 +96,7 @@ impl Flight {
                 None => vec![None],
             };
             for count in counts {
-                standings.push(Standing { mark: k, count, made: Made::default(), eye: None, going: None, frames: Vec::new(), passes: vec![Vec::new(); PASSES.len()], card: Vec::new(), end: None, reach: None, hottest: Temperatures::default(), slow_clock: 0.0, heat_at: None, most_main_memory: None, longest: Vec::new() });
+                standings.push(Standing { mark: k, count, made: Made::default(), eye: None, going: None, frames: Vec::new(), passes: vec![Vec::new(); PASSES.len()], card: Vec::new(), end: None, reach: None, hottest: Temperatures::default(), gpu_watts: Vec::new(), slow_clock: 0.0, heat_at: None, most_main_memory: None, longest: Vec::new() });
             }
         }
         log::info!("A flight: {} standings at {} marks, {} s settling and {} s measured at each (the first settling {} s more)", standings.len(), marks.len(), SETTLE.as_secs(), MEASURE.as_secs(), WARM_UP.as_secs());
@@ -213,6 +216,9 @@ impl Flight {
                 (Some(a), Some(b)) => Some(a.min(b)),
                 (a, b) => a.or(b),
             };
+            if let Some(watts) = reading.gpu_watts {
+                standing.gpu_watts.push(watts);
+            }
             let h = &mut standing.hottest;
             *h = Temperatures {
                 cpu_area: most(h.cpu_area, reading.cpu_area),
@@ -288,6 +294,13 @@ impl Flight {
             let heat = standing.hottest;
             if heat != Temperatures::default() {
                 text += &format!("  the heat, each at its most (the GPU's clock at its least): {}; its clock under {SLOW_CLOCK:.0} MHz for {:.1} s of the {} measured\n", heat.line(), standing.slow_clock, MEASURE.as_secs());
+                // The card's watts as a typical reading too (the middle one): the highest can be the mark before's.
+                let mut watts = standing.gpu_watts.clone();
+                watts.sort_by(f32::total_cmp);
+                if let Some(typical) = watts.get(watts.len() / 2) {
+                    text += &format!("  the GPU's watts, typically: {typical:.0} W (the middle of {} readings)
+", watts.len());
+                }
             }
             if let Some(reach) = standing.reach {
                 text += &format!("  the window round the eye: the usable 32s reached at least {:.0} blocks round it over the measured frames, the 64s {:.0}\n", reach[0], reach[1]);

@@ -3454,3 +3454,40 @@ don't change, the start and the bringing up.)
   cut must not do: far lengths marched where near land hides them aren't cheap unless they're told not to start.
 - **Next in the dive:** the longest ray's steps by kind (the Oracle's question 7), which reads the plain directly
   instead of by taking the ray apart.
+
+### The plain's steps by kind (build 173; the Oracle's question 7): the long rays hop, they don't sum haze
+
+David: "proceed". Two instruments built, neither in the game's shader:
+- **Steps by kind:** a variant of the march that only the picture test builds (`kinds_source` in `far_eye.rs`,
+  `FAR_TEST_KINDS`: three kinds drawn as a picture's red, green and blue, a 1,024th a step), so it costs the game
+  nothing. Its longest ray on the plain reads 533 steps against the flight's 536 (an 8-bit picture's rounding).
+- **Watts, typically** (her question 8): each standing's report gives the card's middle reading beside its highest.
+
+**The bare plain, the base layer's 64,000 rays, at the flight's size, drawn off the screen** (steps of each kind):
+
+| kind | no rings, all rays | both rings, all rays | both rings, the 952 rays over 256 | both rings, the longest ray |
+|---|---|---|---|---|
+| every step | 1,877,000 | 2,844,000 | 331,000 | 533 |
+| skips over a column two levels coarser | 850,000 | 1,659,000 | 60,000 | 49 |
+| skips over its own level's column | 513,000 | 735,000 | 233,000 | 422 |
+| strides through air | 46,000 | 65,000 | 17,000 | 36 |
+| steps in thin haze | 24,000 | 39,000 | 7,000 | 13 |
+| steps at a surface | 409,000 | 307,000 | 13,000 | 16 |
+| samples mixed from two levels | 2,600 | 5,800 | 1,600 | 0 |
+| blends fallen back to the code | 580 | 1,000 | 750 | 3 |
+
+(The 16s alone: 2,211,000 steps, 135 rays over 256, the longest 396 with 290 skips over its own column. Back-ups
+after a first touch: none on the plain.)
+- **Five steps in six are skips, not samples.** With both rings the rays take fewer samples than with none (412,000
+  against 480,000); what grew is skipping, from 1.36 to 2.39 million.
+- **The long rays are hopping over their own level's columns one at a time.** The longest ray's 533 steps are 422
+  such hops and 65 samples. A ray skimming a little over flat ground is under the top the coarser column gives
+  (its band's top is rounded up to its own, bigger, cell), so the coarse skip fails and the ray falls back to
+  hopping the fine columns: 8 blocks a hop in the 8s, 16 in the 16s, 32 beyond.
+- **So the wall isn't haze being summed, and it isn't the samples' steps.** Builder's reading for the Oracle and
+  David: a table of each column's true highest ground, level by level (not rounded to the cell), would let such a
+  ray skip a column of 128 or 512 blocks in one hop while it's clear of everything in it, with the haze untouched.
+  This is the plan's column-height table, which the Oracle's section 4 set aside as paying only with the skyline by
+  cover; these counts say it pays with the haze kept. Neither strides sized to the haze nor the cut into lengths
+  goes at the hops: both act on samples, which are a sixth of the steps.
+- The far light's tops are each column's average height, not its highest, so they can't serve as that table.

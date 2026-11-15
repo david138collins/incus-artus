@@ -241,7 +241,13 @@ pub struct FarEye {
 
 impl FarEye {
     pub fn new(device: &wgpu::Device, format: wgpu::TextureFormat, store: Store, lane: Option<Lane>, rings: Vec<crate::far_ring::Ring>) -> Self {
-        let module = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some("the far eye"), source: wgpu::ShaderSource::Wgsl(include_str!("far.wgsl").into()) });
+        // The march's source: as it's written, or for a picture test asked to count a ray's steps by kind, a variant
+        // that counts them (`kinds_source`; the game never builds it, so it costs the game nothing).
+        #[cfg(not(test))]
+        let far_source = include_str!("far.wgsl").to_string();
+        #[cfg(test)]
+        let far_source = kinds_source(include_str!("far.wgsl"));
+        let module = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some("the far eye"), source: wgpu::ShaderSource::Wgsl(far_source.as_str().into()) });
         let compute = wgpu::ShaderStages::COMPUTE;
         let storage = |binding: u32, read_only: bool| wgpu::BindGroupLayoutEntry { binding, visibility: compute, ty: wgpu::BindingType::Buffer { ty: wgpu::BufferBindingType::Storage { read_only }, has_dynamic_offset: false, min_binding_size: None }, count: None };
         let written = |binding: u32, format: wgpu::TextureFormat| wgpu::BindGroupLayoutEntry { binding, visibility: compute, ty: wgpu::BindingType::StorageTexture { access: wgpu::StorageTextureAccess::WriteOnly, format, view_dimension: wgpu::TextureViewDimension::D2 }, count: None };
@@ -366,7 +372,7 @@ impl FarEye {
         // The one dispatch: `far.wgsl` with one layer's outputs changed for every layer's (`far_all.wgsl`), and its
         // camera read in place from its layer's row.
         let one = (std::env::var("INCUS_FAR_SIDE").as_deref() != Ok("0")).then(|| {
-            let whole = include_str!("far.wgsl");
+            let whole = far_source.as_str();
             let (begin, end) = ("// ── One layer's outputs: begin ──", "// ── One layer's outputs: end ──");
             let (from, to) = (whole.find(begin).expect("the outputs' first mark"), whole.find(end).expect("the outputs' last mark"));
             let source = format!("{}{}{}", &whole[..from], include_str!("far_all.wgsl"), &whole[to..]).replace("camera.", "cameras[layer_now].").replace("@group(0) @binding(0) var<uniform> camera: Camera;", "@group(0) @binding(0) var<uniform> cameras: array<Camera, 3>;");
@@ -946,6 +952,43 @@ fn daylight(sun_up: f32) -> (f32, f32) {
     (smooth(-2.0, 4.0), glow * glow)
 }
 
+/// For the Oracle's question of 2026-11-14 ("the longest ray's steps by kind"): the march's source with a ray's steps
+/// counted by kind, if a picture test asks (`FAR_TEST_KINDS`: three kinds' numbers, drawn as the picture's red, green
+/// and blue, a 1,024th a step). The kinds: 0 a region not summed passed whole; 1 a skip over the column two levels
+/// coarser, 2 over its own level's; 3 a back-up after a first touch; 4 a stride through air; 5 a step walking back in
+/// through air; 6 a step in thin haze; 7 a step at a surface; 8 a sample mixed from two levels; 9 a blend fallen back
+/// to the code; 10 a sample read from the 8s, 11 from the 16s; 12 every step. Each change must find its one place in
+/// the source, or the variant isn't made and the test says so.
+#[cfg(test)]
+fn kinds_source(source: &str) -> String {
+    let Ok(asked) = std::env::var("FAR_TEST_KINDS") else { return source.to_string() };
+    let show: Vec<usize> = asked.split(',').filter_map(|n| n.trim().parse().ok()).collect();
+    assert_eq!(show.len(), 3, "FAR_TEST_KINDS wants three kinds");
+    let kind = |k: usize| if k == 12 { "seen.steps".to_string() } else { format!("seen.kinds[{k}]") };
+    let changes: [(&str, String); 14] = [
+        ("    sky_share: f32,\n}", "    sky_share: f32,\n    kinds: array<f32, 12>,\n}".into()),
+        ("    var steps = 0;\n", "    var steps = 0;\n    var kinds: array<f32, 12>;\n".into()),
+        ("                t = max(leave2(o.xy, d.xy, vec2<f32>(place.region), f32(1 << u32(REGION))), t) + 0.01;\n", "                t = max(leave2(o.xy, d.xy, vec2<f32>(place.region), f32(1 << u32(REGION))), t) + 0.01;\n                kinds[0] += 1.0;\n".into()),
+        ("                skipped = true;\n", "                skipped = true;\n                kinds[1 + k] += 1.0;\n".into()),
+        ("        var over = 0.0;\n", "        if (level == 3) { kinds[10] += 1.0; } else if (level == 4) { kinds[11] += 1.0; }\n        var over = 0.0;\n".into()),
+        ("        if (mixed > 0.0) {\n", "        if (mixed > 0.0) {\n            kinds[8] += 1.0;\n".into()),
+        ("            } else {\n                look = look_at(here, p);\n", "            } else {\n                kinds[9] += 1.0;\n                look = look_at(here, p);\n".into()),
+        ("            look = far_blend_kept(&kept, place, level, p);\n", "            let spot_k = spot_kept(&kept, place, level, p);\n            if (spot_k.kind == 1) { kinds[9] += 1.0; }\n            look = look_at(spot_k, p);\n".into()),
+        ("            walk_to = t;\n", "            walk_to = t;\n            kinds[3] += 1.0;\n".into()),
+        ("        if (thick > 0.0) {\n            in_air = false;\n            walking = true;\n", "        if (thick > 0.0) {\n            in_air = false;\n            walking = true;\n            if (thick > 0.02) { kinds[7] += 1.0; } else { kinds[6] += 1.0; }\n".into()),
+        ("        } else if (walking && t < walk_to) {\n            in_air = false;\n", "        } else if (walking && t < walk_to) {\n            in_air = false;\n            kinds[5] += 1.0;\n".into()),
+        ("        } else {\n            last_air = t;\n            walking = false;\n", "        } else {\n            last_air = t;\n            walking = false;\n            kinds[4] += 1.0;\n".into()),
+        ("gathered - sunny, touched, through);", "gathered - sunny, touched, through, kinds);".into()),
+        ("    put_picture(vec2<i32>(id.xy), vec4<f32>(to_srgb(clamp(colour,", format!("    colour = vec3<f32>({}, {}, {}) / 1024.0;\n    put_picture(vec2<i32>(id.xy), vec4<f32>(to_srgb(clamp(colour,", kind(show[0]), kind(show[1]), kind(show[2]))),
+    ];
+    let mut made = source.replace("\r\n", "\n");
+    for (old, new) in changes {
+        assert_eq!(made.matches(old).count(), 1, "the steps-by-kind variant can't find its place in far.wgsl: {old:?}");
+        made = made.replace(old, &new);
+    }
+    made
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1130,7 +1173,7 @@ mod tests {
             for y in 0..screen.1 {
                 raw.extend_from_slice(&pixels[(y * row) as usize..(y * row + screen.0 * 4) as usize]);
             }
-            let _ = std::fs::write(std::path::Path::new(&folder).join(format!("far eye {} {}x{} weight {}{} blend {} detail {}", mark.name, screen.0, screen.1, eye.look.sky_weight, if std::env::var_os("INCUS_SIGHT_NO_SHADOWS").is_some() { " unlit" } else { "" }, eye.look.blend, eye.look.detail) + &std::env::var("FAR_TEST_START").map_or(String::new(), |s| format!(" start {s}")) + if eye_asked.is_some() { " eye" } else { "" } + ".rgba"), raw);
+            let _ = std::fs::write(std::path::Path::new(&folder).join(format!("far eye {} {}x{} weight {}{} blend {} detail {}", mark.name, screen.0, screen.1, eye.look.sky_weight, if std::env::var_os("INCUS_SIGHT_NO_SHADOWS").is_some() { " unlit" } else { "" }, eye.look.blend, eye.look.detail) + &std::env::var("FAR_TEST_START").map_or(String::new(), |s| format!(" start {s}")) + &std::env::var("FAR_TEST_KINDS").map_or(String::new(), |s| format!(" kinds {s}")) + if eye_asked.is_some() { " eye" } else { "" } + ".rgba"), raw);
         }
         let (top, bottom) = (average(0..20), average(screen.1 - 20..screen.1));
         eprintln!("The far eye's test picture: the top rows {top:?}, the bottom rows {bottom:?} (red, green, blue of 255)");
