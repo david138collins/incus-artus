@@ -61,15 +61,18 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** his go for build 185's two flights (the cut packed: a ray cut only where it needs,
-  its lengths side by side in the strip; the game as launched, then the cut on). Kept only if the working marks
-  fly within 3% of uncut and the dearest mark is no dearer than uncut's (1.08 ms); else the cut is dropped and its
-  code taken out. His word (2026-11-15): "yes, lets try your idea to make the cut work smarter, if it doesn't work
-  it doesn't work. its pretty fast in general now." Off the screen build 185 meets its marks: a long ray takes one
-  or two lengths beyond its first, not sixteen; the strip's waiting share is 24 to 42%, from 80%; held thread-steps
-  are level with uncut; the longest chain is 127 from 261 to 409; the picture is within 8 of 255 at every mark.
-  Build 184's flights confirmed the reading (where the card works the march lengthens as held thread-steps do),
-  and the mend's ceiling there is level with uncut, not under. The game as launched marches uncut. **Build 183, the cut's second stage, is flown: a miss** (2026-11-15,
+- **Waiting on David:** his call on the cut, after build 185's flight (2026-11-15,
+  `journal/docs/experiments.md`). The packed cut (a ray cut only where it needs, its lengths side by side) flew
+  level where the card works (the march within 3% of uncut: the mountain top 1.7% less, high over the spawn 1.1%
+  more, the spawn 2.8% more) and a third to a half faster where it waits (the far eye's whole: the plain 0.877 to
+  0.572 ms, the sea 1.086 to 0.655, the run 0.975 to 0.729). One keep-or-drop line is missed by a hair: the
+  dearest mark with the cut on is 1.117 ms for the line's 1.08 (the same session's uncut dearest: 1.096). And the
+  build itself flew 4.5% dearer at the two working marks than build 184, cut or not, which Builder reads as the
+  march's program needing more registers (unseen in a trace); that sits on the game as launched and is mended
+  either way. Builder's recommendation: one more round to take the cut's new code out of the march's program, and
+  fly again; by the rule's letter today, dropped. His word on the mend (2026-11-15): "yes, lets try your idea to
+  make the cut work smarter, if it doesn't work it doesn't work. its pretty fast in general now." The game as
+  launched marches uncut. **Build 183, the cut's second stage, is flown: a miss** (2026-11-15,
   `journal/docs/experiments.md`). A ray long the frame before is marched as up to 17 lengths side by side and
   joined: the march is 49% shorter on the plain (0.769 to 0.396 ms) and 37% over the sea, where the card waits;
   and 18% longer at the mountain top, 32% high over the spawn, 17% on the run, where the card works. The dearest
