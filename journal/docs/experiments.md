@@ -4950,3 +4950,46 @@ reading is right, that is a gain at the working marks too; if it's wrong, the fl
 **Left as it is meanwhile:** build 183 marches with the cut on unless `INCUS_FAR_CUT=0` (every mark still under
 David's 2 ms: the dearest at the 99th is fast across the world, 1.60 ms). David's look at the horizon band, standing and nodding, can be had
 on it now: whether a length beginning by the frame before shows while the view moves bears on the mend.
+
+### Build 184, the cut off unless asked, and a count of threads kept waiting: the pass mark (written before the code)
+
+David, 2026-11-15, asked whether to switch the cut off by default and go on to the mend: "yes, lets try your idea to
+make the cut work smarter, if it doesn't work it doesn't work. its pretty fast in general now." He'd seen the spread
+widen himself: "it looks like it increases the range of speeds between the mark points". Builder's word to him: if
+the mend's flight doesn't bring the slowest view to uncut or under, the cut is dropped. *(The numbering: this
+build, 184, is the switch and the count, flown on build 183's way of cutting to test the reading before anything is
+built on it. The mend itself is build 185, with its own pass mark after this count. Where build 183's entry says
+"build 184" for the mend, read 185.)*
+
+**What changes:**
+1. **The cut is off unless asked.** `INCUS_FAR_CUT` set to a distance of 64 blocks or more turns it on, the first
+   cut there (1024: as build 183 flew); unset or 0, no ray is cut. The game as launched marches as build 183 uncut.
+2. **A count of threads kept waiting** (Counsel's suggestion, so a flight reads the cause and not only the time),
+   on flights, once a second, beside the rays' count and outside the passes' timing. Over the march's grid, for
+   every group of 32 threads: the steps its threads took (busy), and its longest thread's steps times 32 (held:
+   a group runs as long as its longest thread, and the rest wait). In two parts: the layers' threads, and the
+   strip's (the cut rays' lengths). A thread's steps: a whole ray's steps; a cut ray's own thread, its near
+   length's; a thread of the strip, its length's. And how many of the strip's threads marched at all.
+   - *Taken, not known:* that the card runs an 8 x 8 group as two groups of 32, its first four rows and its last
+     four. So the same count by whole groups of 64 is kept beside it; the truth is one or between.
+   - *What it leaves out:* a thread's work before its first step (finding where its ray starts: a dozen reads) and
+     after its last. The strip's threads that marched say how many times that is paid.
+
+**The reading it tests** (build 183's flight): the steps are the same cut and uncut, and what the cut costs where
+the card works is threads kept waiting, mostly in the strip.
+
+**The marks:**
+- **The count is sound** (off the screen, before it flies): busy, the layers' and the strip's together, is the
+  rays' steps summed, to the step, cut and uncut.
+- **Flown, one session, the game as launched (uncut) and with `INCUS_FAR_CUT=1024`:** each mark's march within 2%
+  of build 183's same flight (uncut: the plain 0.769 ms, high over the spawn 0.939, the mountain top 0.919; cut:
+  0.396, 1.235, 1.082). Over that, the count or the switch changed the march, and that's found first.
+- **The reading stands** if, at the mountain top and at high over the spawn, held thread-steps (the layers' and the
+  strip's together) are up, cut over uncut, by half or more of what the march's time is up: 9% or more at the
+  mountain top (its march 17.7% longer), 16% or more high over the spawn (31.5% longer), with busy within 1%.
+- **The reading falls** if held is up by under 5% at both. Then nothing is built on it: the mend isn't begun, and
+  the next step is Nsight at those two marks, cut against uncut.
+- **Between the two:** said as it is, with the strip's threads that marched beside it (their work before a first
+  step is the other place the cost could be).
+- No mark for the plain or the sea: the card waits there, and threads kept waiting cost it nothing. Their numbers
+  are reported.
