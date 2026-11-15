@@ -423,6 +423,14 @@ the answers.
   longest chain, each step's reads one after another; the table cut the longest ray's steps by 39% but made a hop
   three reads in a row where it was two. Being tested next: the three looks' numbers read at once. Your 1b, read
   together, in a new place. A count over all rays isn't the chain's cost: the third form of the same lesson.
+- **The looks read at once** (build 176): 4 to 8% cheaper than build 174 at eight marks of nine, kept; its pass mark
+  missed (the plain 0.934 ms, not under 0.90; the near-ground marks still 3 to 9% over build 172's). Builder's
+  chain sum (27 to 41% off) withdrawn: the plain's march fell 8%. The reads' order mattered, their number didn't.
+  Nsight's own words for the waits: 14% of the march's samples (of the 38% it names) on memory, 21% on the program's
+  own sums and branches; the march comes to 2.1 to 2.7 microseconds per step of each mark's longest ray at seven
+  marks of nine. Against build 172 the table now leaves the long-ray marks 4 to 23% cheaper (the sea 1.40 → 1.11 ms)
+  and the near ones 3 to 9% dearer. Next, no code: the step limit at 160, to see whether a mark's time is its
+  longest ray's chain.
 
 ## 6. The message to send at the fork
 

@@ -1942,6 +1942,18 @@ Reference: `Art/quartile minecraft illustration.png`
       **Next:** the three looks' numbers read at once (the same skips and picture), built off the screen with its pass
       mark first, one flight on his go. A fault in the open: the sea's trace stood at the spawn (a stray "; " in the
       script), so two spawn traces (they agree) and none of the sea.
+    - *Build 176, the three looks read at once* (325b42f; pass mark first, 2de71c4; flown on "go", ended 20:36,
+      `logs/flight-1794710172`, checked by Counsel): 4 to 8% cheaper than build 174 at eight marks of nine (fast across
+      the same); **its pass mark missed**: the plain 0.934 ms, not under 0.90, and the three near-ground marks still 3
+      to 9% over build 172's. Kept, being the same picture and cheaper. The height table as it stands, against build
+      172: the long-ray marks 4 to 23% cheaper (the sea 1.401 → 1.112, the run 1.312 → 1.007), the near marks 3 to 9%
+      dearer. **Builder's reading withdrawn as the reason** for the dearer near marks: its sum said 27 to 41% off the
+      longest chain, the plain's march fell 8%. What holds, small: the reads' order mattered, their number didn't
+      (three quarters more reads on the plain, 8% cheaper). Nsight's own names for the waits: 14% of the march's
+      samples (of the 38% it names) on memory, 21% on the program's own sums and branches; each mark's march over its
+      longest ray's steps 2.1 to 2.7 microseconds a step at seven marks of nine.
+    - **Next, put to him:** one flight with no code changed, the step limit at 160 (`INCUS_TEST_STEPS`), to see
+      whether a mark's time is its longest ray's chain, before anything more is built on that idea.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
