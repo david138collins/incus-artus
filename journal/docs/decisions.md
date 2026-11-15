@@ -2092,6 +2092,21 @@ Reference: `Art/quartile minecraft illustration.png`
       versions of the new program, the hand-over's second read and the things kept the whole way (the floor's cells,
       the third row, the rings' boxes, what the finish needs), alone and together; ceilings, as build 178 taught.
       About 7 minutes hands off (two traces) and one screenshot asked.
+    - *Traced on "go" (ended 08:32) and read by David* (33f92dd). The hand-over's second read is the fullest place left:
+      14 registers (167 → 153) and 10 to 16% of the base layer's march; the floor's cells, the third row and the finish
+      6 each; the rings none. With the hand-over out and any one of the three, the compiler takes 16 groups but puts 15
+      to 22 words a ray by in memory; all of them out reaches 127 with nothing put by. The compiler's choice isn't a
+      line at 128 (at a need of 150 it took 16 groups, at 153 and 142 it kept 12): the rule read off the first rows was
+      too simple. **16 groups bought with words put by don't shorten the base layer** (0.97 to 0.99 of its time, where
+      the hand-over out at 12 groups reads 0.84 to 0.90): the base layer alone waits; what 16 groups are worth where
+      the card is full the audit can't say. Not understood, written down: the floor, the third row or the finish out
+      alone 5 to 12% *longer*; how the compiler chooses; the far eye's pass at 1.5 ms in the mountain top's audit trace.
+    - **Build 180** (no change to the march): a measuring switch (`INCUS_FAR_AS`) marches one of the audit's versions
+      as the far eye's own program, the picture wrong on purpose. Four flights in one session: as it is; the hand-over
+      out (12 groups); the hand-over and the floor out (16 groups, 15 put by); those and the third row out (16, 7 put
+      by). Pass mark: a tenth or more for 16 groups at the mountain top and high over the spawn means the hand-over and
+      one other piece are next; under 5% means the registers aren't chased further and the cut of the long rays comes
+      next (the hand-over still worth its shorter step). About 26 minutes hands off asked.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
