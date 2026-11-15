@@ -400,7 +400,9 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
   - [ ] The looks (David's "2, 3 and 4"): the skyline by cover, with a column-height table (haze or cover is his);
         if cover, the sheet (plain far land as rings of mesh) flown as the far levels' rival; the horizon band over
         frames comes as lazy rays. After the cells of 2 to 16, so it's judged on them (David, 2026-11-14: "yes and
-        yes, you can proceed")
+        yes, you can proceed"). His lean (2026-11-15): "i like the way cover works", with an idea for the talk:
+        weights like the sky's feather, by kind of far hit, to pull thin things (posts, towers, trunks) up in the
+        picture
   - [ ] Lazy rays (David's lead: "spread out any rays that can be lazy"), by lengths of distance, under the Oracle's
         nine rules (a ray in flight always finishes; light and fog put on every frame; the gate read moving); its
         tests amended (the store, once whole, equals a full march of its own directions; the lag; card time moving,

@@ -2344,6 +2344,18 @@ Reference: `Art/quartile minecraft illustration.png`
     nothing said against the look on land. Owed for builds 188 and 189: one flight session (as launched, for the
     mark's 2% line; and with the stage on, for what detail costs). Then by the plan the skyline talk, which the
     stage's pictures now feed.
+- **[OPEN, his lean 2026-11-15] The skyline: cover, with weights by kind** (David, to Counsel, after haze and cover
+  were explained again with a picture of one ridge each way): "i like the way cover works. remember how we fixed the
+  sky glowing too much into the mountain by weighting those rays? perhaps the same approach can be applied to
+  balance/tune the strength of different types of hits in the distance and pull them up in the picture a bit."
+  - A lean, not the choice: the plan has the skyline talk with Builder first, then his look. His idea goes to it: the
+    sky's feather (2026-11-12, a power on each skyline pixel's share) turned the other way, a weight for each kind of
+    far thing, so thin things (posts, towers, trunks, an arch's piers) hold their place at a distance.
+  - *Counsel's note:* the trick has a known cousin, used for far foliage (alpha kept to the same coverage at every
+    coarser level, Castaño 2010). It could be done where the far cells are summed, a weight a level and a kind,
+    the coarser the stronger, which costs the frame nothing; the march, full at the marks that work, would carry
+    nothing new. Pulling far things up is a chosen exaggeration, owned as style ("every element has to own its
+    compromise artistically"), on a slider of his.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its

@@ -521,7 +521,10 @@ the answers.
   about sixty cave mouths. First pictures: thin things nearly vanish against the sky at the far cells' size (the
   arch's piers a faint ring, the posts a pale band), and a cave mouth mostly doesn't read from the front, lit inside
   as outside, the far light being a height a column. Is a height a column honest enough for far light once caves
-  and halls are in, and how should thin things hold at a skyline (the skyline talk: haze or cover)?
+  and halls are in, and how should thin things hold at a skyline (the skyline talk: haze or cover)? David's lean,
+  after build 189: "i like the way cover works", with an idea of his: weights like the sky's feather, by kind of far
+  hit, "to balance/tune the strength of different types of hits in the distance and pull them up in the picture a
+  bit" (Counsel: done where the cells are summed, a weight a level and a kind, as far foliage keeps its coverage).
   Does the cut by a list still beat yours (every ray cut) on a card that's full at the marks that work, and is it the
   footing for lazy rays (a far length kept, not re-marched every frame)?
 
