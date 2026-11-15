@@ -5484,3 +5484,37 @@ off): within 15%, met. The 16s' ring's first making 2.5 s for 1.35 (its tiles ho
 - So it's the test world's own shape and the far eye's water, there before the stage and before the cut. What
   could be done is a look of water's (a shallow edge that fades in, not a step at the first block) and belongs
   with water's own design step; put to David as his call.
+
+### Build 189, the bright bands at the rings' edges over shallow water: Builder's first answer wrong, the cause, and the pass mark (written before the code)
+
+**Builder's answer to David was wrong about what he meant.** The grey region is shallow sea, as said; but his
+"square light seams" are the faint brighter lines inside it. David: "definitely not the shores. its two square
+rings that move with me, it looks fine on either direction of the seams but there's bright square seams; if you
+look in that sea bed for two bands with a right angle turn that are more saturated yellow, you'll see it; it
+moves with you as you fly." They are the edges of the 8s' and the 16s' rings round the eye. (His look of build
+167, "i can't see any rings", was of the levels' hand-over by distance, before these rings were built.)
+
+**Seen off the screen:** from 300 over the shallow shelf, looking down: a square outline a little more yellow
+than the sea bed either side of it (`rings-before.png`, kept with the session's pictures).
+
+**The cause, as Builder reads the march** (to be shown by the mend): where a level hands over to the next, the
+step's look is the two levels' looks mixed, and the mixed solid share is gathered as a share of the finer level's
+cell (`1 - (1 - share) ^ (length / size)`, `size` the finer cell's). A coarser cell's share is of a cell twice the
+size: counted against the finer cell it stops a ray in half the distance it should. So through a hand-over the
+ground is too dense from too high, a ray is stopped before it has crossed all the water over the bed, the bed is
+dimmed less, and it shows brighter: most at the hand-over's outer end, where the look is all the coarser level's,
+and gone the step after, when the steps are counted in the coarser cell. Over dry ground the same is there and
+can't be seen. It is the same at the hand-overs by distance, which are rings round the eye too.
+
+**The mend:** a look read from a coarser level than the step is counted in has its solid share turned into the
+share of the finer cell that stops a ray as much (`1 - (1 - share) ^ (finer cell / coarser cell)`: for the next
+level, a square root), before the two are mixed. Water needs none: it's gathered by its share and the distance
+alone.
+
+**The marks:**
+- **Off the screen, the same view over the shelf:** the square outline gone (Builder's look, the two pictures
+  side by side); then David's look in the game, flying over the shallow sea.
+- **The five marks' pictures** against build 188's: changed only through hand-overs, and by how much is
+  reported (no line: every hand-over's surface gets a little thinner, as it should have been).
+- **Flown** (the mend is a power in the hand-over's steps only): each mark's march within 2% of build 186's cut
+  flight; over that at a working mark, said, and a cheaper form looked for.
