@@ -43,6 +43,13 @@ Practical things learned the hard way. Each has its reason, so a later session c
   doubled, while the laptop played videos on a TV; flown again the next day with the TV unplugged, it matched the
   earlier afternoon to about 0.01 ms. Before an unattended run: nothing else plugged in or playing,
   plugged in, the power mode checked, kept awake.
+- **Count what the slow thing is doing, by kind, before choosing a fix.** Three fixes were on the table for a slow
+  view, and two of them would have worked on a sixth of the time: a counter that sorted the slowest ray's steps into
+  kinds showed most of them were something nobody had pictured. Guesses, the outside reviewer's included, were
+  reasoned well and still wrong.
+- **Taking part of the work away to time the rest can change the rest.** A test that timed only the far half of each
+  ray changed the picture, so the far half did work it never does whole, and the test couldn't answer. Check the
+  picture is the same before trusting a part timed alone.
 - **Compare within one session, alternating.** Two builds flown back to back, A B A B, agreed to about 1%; the same
   builds compared across sessions (other heat, other runs) differed by up to about 5%, and once showed a 7.5% "cost"
   that wasn't there. Small differences are only real inside one session.
