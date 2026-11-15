@@ -275,6 +275,7 @@ Where the sources disagree. Each version is given with its ref; nothing here is 
 - Far fewer lakes and ponds in rugged regions; only a few in the mountains, spilling into a stream on the way to the sea; not every crag pit a pond: "way way way less lakes and ponds in the rugged regions". [wanted] (WS:602-603, 739; water-inventory.md:224)
 - Swamps pocked with many small ponds, placed deliberately: "we definitely need to place swamps". [wanted] (WG:1375-1376)
 - Pick lakes and ponds before the water moves, to control how many there are. [idea] (WS:536-538)
+- For the rebuild: water after the land's shape altogether; natural hollows filled into lakes and ponds that know their spill points; an easing stage that gently deepens the paths water would take; then rivers from springs and from lakes' overflows along them: "a topography layer between water and rivers that eases/erodes for logical waterways to follow". [idea] (decisions.md, World Creation, 2026-11-14)
 - (How many ponds: see To settle.)
 
 ### Water in play

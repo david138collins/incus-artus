@@ -1028,6 +1028,20 @@ Reference: `Art/quartile minecraft illustration.png`
   10 minutes on a slightly below-average PC, shown as a loading screen with the generation drawn live,
   with lore and art. While designing: live sliders, a fast make (seconds) and a full make (minutes).
   Pipeline and reasons in `docs/worldgen.md` ("The pipeline after the landform").
+- **[IDEA 2026-11-14] Water after the land's shape, with an easing stage before rivers** (David, to Counsel, for when
+  world gen is rebuilt): "thinking about how we do world gen again, we should be able to construct it to get the
+  right results in a more streamlined way. perhaps by water coming after topography altogether so rivers could
+  generate from natural lakes and ponds as well as from springs, or perhaps, even a topography layer between water
+  and rivers that eases/erodes for logical waterways to follow. just a thought".
+  - *Counsel's reading, as a straight line of stages:* the land's shape; standing water, every natural hollow filled
+    to its brim so lakes and ponds come where the land makes them, each knowing its spill point (priority flood, a
+    known fast method); an easing stage that finds where water would gather and gently deepens and smooths those
+    paths; then rivers traced from springs and lake overflows along them. Water runs downhill and connects by the
+    spill points; the easing does the changing gently in one place, so the rivers barely carve ("the less it changes
+    the land, and the more gradually, the better").
+  - *Old threads it gathers:* "lakes can feed rivers; ponds only take them in"; springs that reach no river find a
+    lake or pond; "pick lakes and ponds before the water moves"; an erosion pass, real water erosion later; the
+    webbing for water to follow. Old's rivers were done enough to go on; this is for the rebuild.
 
 ---
 
@@ -1848,6 +1862,18 @@ Reference: `Art/quartile minecraft illustration.png`
     logic in the hottest loop, to be priced by flight; switches fixed at build, strongly. Her order: build 172's
     flights, the counter and a steady watts reading, the 4s and 2s held for his answers to questions 1 and 5, then the
     no-hard-stop storage off the screen.
+  - *Build 172's three flights* (on "you may proceed with the tests"; whole `logs/flight-1794701437`, the near length
+    alone to 1,024 blocks `-1794701828`, the far alone from 1,024 `-1794702221`; checked by Counsel). The near length
+    alone is cheap and short everywhere (0.36 to 0.42 ms at the ground marks, no near ray over 158 steps). At the sea,
+    the run and the mountain top the far length alone costs 86 to 102% of the whole, so the rings' near work adds a
+    tenth or less there, and a cut could give back that tenth at most. **A fault in the measurement's design, in the
+    open (Builder):** on the plain the far length alone costs *more* than the whole (1.18 against 0.97 ms; guessed
+    0.6): with the near land gone the picture changes, and the 4 × 4 layer, which marches nothing on the plain when the
+    ray is whole, marches 728 long rays. So it doesn't answer "waiting or working" on the plain; it does show that far
+    lengths behind near land aren't cheap unless told not to start, which any cut must respect. David wrote from his
+    phone during two of them: the frame clock's worst 12 to 14 ms at the sea; medians and 99ths tight, only medians
+    read. Next: the longest ray's steps by kind (the Oracle's question 7), a variant that exists only when asked for;
+    then a steady watts reading.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its

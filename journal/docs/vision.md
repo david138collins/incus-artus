@@ -1020,6 +1020,10 @@ bending, to get crazy looking things that happen deep down instantly in the engi
     summons, things made of magic), so it stays a sign of what they are.
   - David, after: "there's a bit of mysticism in rays vs triangles, if it's used deliberately. but, i agree this
     will be for later, because i'll need things to actually play with to tune it."
+  - And to Builder, answering the Oracle's question on the per-pixel tag: "i discussed with counsel 'per-pixel' type
+    of circuit bending vfx at some point where we could swap an entity from vertex to rays briefly, like a ghost dying
+    into pixels that glow along their ray a bit. also, messing with the horizon rays to get neat colors and stuff,
+    almost like that dev view that shows the layers." A wish for the near eye's design, not to build now.
   - The per-pixel tag is the same thing his pixel weights want ("being able to weight different kinds of pixels may
     be a very cheap and useful tool", 2026-11-12).
 - Belongs with the FX Lab and the polish passes, after the speed plan settles.
