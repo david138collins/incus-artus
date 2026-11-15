@@ -1969,6 +1969,14 @@ Reference: `Art/quartile minecraft illustration.png`
       one in order of length, in order to actually free up warps more rapidly, consistently." Builder puts to him
       Nsight at a working mark, and the lazy rays' talk with its prize known; the plan's order (the cells of 2 to 16,
       the skyline talk, then lazy rays) is his and Counsel's to keep or change.
+- **[DECIDED 2026-11-14] Bring down the high spot** (David, to Builder, after the step-limit flight): "well the goal
+  should always be to bring down the high spot. i was just about to ask if it is time for lazy rays. go ahead and do
+  your test, and send your complete assessement of how lazy rays could get us that last bit off the plains to
+  counsel." So speed work is ranked by what it takes off the dearest mark (now the sea 1.112 ms, high over the spawn
+  1.080, the mountain top 1.071, the run 1.007, the plain 0.934), reported dearest first; kept in the shared memory as
+  a standing habit. Next: three Nsight traces at the mountain top, high over the spawn and the sea (what's expected
+  committed first, 9bacd38; taken, ended 21:00, each at its own mark), two counts of where along a long ray its steps
+  lie, then Builder's complete assessment of lazy rays, to Counsel.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
