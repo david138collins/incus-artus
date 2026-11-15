@@ -255,6 +255,7 @@ pub const PASSES: [Pass; 21] = [
             ("INCUS_FAR_HAZE_STEP", "a far ray's step through thin haze (the land's faint fringe), in cells: 1 a whole cell (unset; the lean step, 1d, David's look), 0.5 as old's"),
             ("INCUS_FAR_BASE", "the far eye's first layer in screen pixels: 8 (unset, old's) or 4, the layers under it each half the one above (step 2's probe)"),
             ("INCUS_FAR_SIDE", "0: the far eye's layers marched one after another (the baseline flights are read against, and the picture's reference); unset, by one dispatch, a finer layer led by the coarser layer of the frame before (step 2)"),
+            ("INCUS_FAR_AUDIT", "for measuring: cut-down versions of the march (the hops alone, the samples alone, one part taken out at a time) compiled beside it and marched over the base layer into scratch after the far eye, so one Nsight trace names each one's registers, the groups of rays that fit and its time; the picture untouched, the frame that much longer"),
             ("INCUS_TEST_STEPS", "for measuring (the Oracle's test): the most steps a far ray takes (unset: 768)"),
             ("INCUS_TEST_REACH", "for measuring a ray's near length alone (the deep dive into the rings' cost): the farthest a far ray goes, blocks (unset: the reach as it is)"),
             ("INCUS_TEST_BEGIN", "for measuring a ray's far length alone: the nearest a far ray begins, blocks (unset: where it would)"),

@@ -4120,3 +4120,57 @@ file's name a second out, from memory; he found it) and sent the Shader Pipeline
 - **So the high spot is two jobs:** the marks that wait (the sea 1.112 ms, the run, the plain) want their long rays
   cut into lengths; the marks that work (high over the spawn 1.080, the mountain top 1.071) want a leaner march.
   The three dearest are within 4% of each other, so the worst falls far only when both are done.
+
+## Smaller passes, a leaner march, the long rays cut: David's order  *(plan 2.2)*
+
+David, 2026-11-14, after the assessment and his reading of the registers: "seems like that last bit of performance
+is behind leaning out the rays, lazying the rays, and breaking the shader into smaller passes. do you think you can
+do all that?" Builder: yes to building all three, no promise of what each gives. Then: "i don't think we should
+leave anything undone. if atomizing the megakernal a bit with the main shader being broken into passes *can* give
+higher performance at no cost, that will translate directly to more headroom for prettying it up. i think we should
+probably start with trying to break it into smaller passes to fit more, and then lean and cut the rays."
+
+So the order is his: smaller passes first, then leaning, then the cut.
+
+### Build 177, the march's audit: what's expected (written before the trace)
+
+Not a split yet: the instrument that says which split fits how much more, so a pass isn't built on a guess (two
+sums missed their pass marks on 2026-11-14). `INCUS_FAR_AUDIT=1`: thirteen cut-down versions of the march are
+compiled beside it, each under its own name, and each marched over the base layer into scratch after the far eye,
+in a pass of its own. One Nsight trace then names each one's registers and how many groups of rays fit (David's
+reading, one screenshot) and its time (the trace's passes). Without the switch the game builds none of it.
+
+| version | what's taken out | what it says |
+|---|---|---|
+| `audit_whole` | nothing | the control: it must read as the march does, 168 registers and 12 groups |
+| `audit_hops` | all sampling: a ray stops where it would first sample | what a pass that only crosses clear air would fit |
+| `audit_samples` | the skip: every step samples | what a pass that only samples would fit |
+| `audit_no_handover` | the second level read and mixed over a hand-over | that part's registers |
+| `audit_no_code_blend` | the code's blend of eight cells where the bricks can't answer | that part's registers |
+| `audit_no_floor` | what's kept of the cells over the world's floor | that part's |
+| `audit_two_rows` | the skip's third column (the height table's far row) | that part's |
+| `audit_no_rings` | the rings' levels and their edges' fade | that part's |
+| `audit_no_finish` | light, fog, the sky's weight and the views after the march | that part's |
+| `audit_no_views` | the steps' and the levels' views (the table of six tints) | whether Smem 4608 is that table |
+| `audit_lean` | the six trims that leave a whole march, together | how lean one program gets by trimming |
+| `audit_samples_lean`, `audit_hops_lean` | the two pieces, trimmed | what the pieces of a split would fit |
+
+Off the screen: all thirteen parse and are sound (a test, without the card), compile on the card, and with the
+audit on the plain's and the mountain top's pictures are build 176's (no pixel on the plain, the most 1 of 255 at
+the mountain top). The game's start is about a minute longer under the switch (thirteen compiles).
+
+**Expected** *[guesses; of registers Builder has no record to go by]*:
+- `audit_whole`: 168 and 12. If not, the audit's programs aren't the game's and nothing else in the batch is read.
+- `audit_hops`: under 64 registers, so 32 groups or more.
+- `audit_samples`: 150 to 160: the skip isn't where the registers are.
+- The dearest single parts: the hand-over's second read and the code's blend, 15 to 30 registers each; the floor,
+  the third row and the rings 5 to 10 each; the finish under 10; the views none, and Smem to nothing.
+- `audit_lean`: 120 to 140. Under 128 would mean 16 groups fit by trimming alone.
+
+**What it decides:**
+- If the hops fit three times the groups and the samples no more than now, a split into "cross the air" and "the
+  rest" pays only as far as hops are the working marks' time: the versions' own times over the base layer say how
+  far.
+- If trimming alone gets under 128, leaning comes before any split.
+- If no version but the hops gets well under 168, the registers are in the gather itself, and the split has to be
+  inside a step (find the place; read it; gather it), which is the dearer build.

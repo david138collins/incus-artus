@@ -57,21 +57,20 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** his and Counsel's reading of Builder's assessment of lazy rays (his word: "the goal
-  should always be to bring down the high spot. i was just about to ask if it is time for lazy rays ... send your
-  complete assessement of how lazy rays could get us that last bit off the plains to counsel";
-  `journal/docs/experiments.md`, "Lazy rays: Builder's assessment"). His reading off Nsight's window is in: the
-  march keeps 168 registers, so 12 groups of rays fit of the card's 48, and the marks that work run at seven tenths
-  to three quarters of that: they're full, and what they want is a leaner march. What's measured behind it (build 176, the height table's numbers read at once,
-  flown and kept; the far eye's whole: the sea 1.112 ms, high over the spawn 1.080, the mountain top 1.071, the run
-  1.007, the plain 0.934): there are two kinds of mark. *Waiting marks* (the plain, the sea, the run): the card is
-  95% empty while the far eye marches and their time is their longest ray's chain; with rays stopped at 160 steps
-  the march is 29 to 45% shorter. *Working marks* (the mountain top, high over the spawn): about four times as
-  full, and cutting their longest rays moves them 2 to 9%. The long rays are a few hundred in a thin band at the
-  horizon, and their steps lie mostly 1 to 11 km out, in the 32s and the 64s, not at the far edge. The assessment in
-  a line: the plains can come down by about half, by the long ray cut into lengths (the Oracle's step 4, no lag),
-  which lazy rays are built on; lazy rays proper have to begin at the 16s' edge, about a kilometre out, where his
-  eye has to judge them first; and the high spot after that is the working marks, which need their own answer.
+- **Waiting on David:** his go for two traces of build 177 and one screenshot of Nsight's rows. He has set the
+  order for the far eye's last stretch of speed (2026-11-14): "i don't think we should leave anything undone ... we
+  should probably start with trying to break it into smaller passes to fit more, and then lean and cut the rays."
+  Why: his reading off Nsight's window: the march keeps 168 registers, so 12 groups of rays fit of the card's 48,
+  and the marks that work (the mountain top, high over the spawn) run at seven tenths to three quarters of that:
+  they're full. Build 177 is the instrument for the first step, not a split yet: thirteen cut-down versions of the
+  march compiled beside it on a switch (the hops alone, the samples alone, one part out at a time), so one trace
+  says what each piece of a split would fit and what each part costs in registers. Behind it (build 176, the far
+  eye's whole: the sea 1.112 ms, high over the spawn 1.080, the mountain top 1.071, the run 1.007, the plain 0.934):
+  two kinds of mark. *Waiting marks* (the plain, the sea, the run): the card 95% empty, their time their longest
+  ray's chain; with rays stopped at 160 steps the march is 29 to 45% shorter. *Working marks*: full, and cutting
+  their longest rays moves them 2 to 9%. The long rays are a few hundred in a thin band, their steps mostly 1 to
+  11 km out. Builder's assessment of lazy rays is with him and Counsel (`journal/docs/experiments.md`): the plains
+  by the long ray cut into lengths; lazy rays proper only from the 16s' edge, where his eye judges first.
   The 4s and 2s are held; the Oracle's reply and the plan's updates are with him
   and Counsel. Behind us today: his look at the
   rings met ("i can't see any rings"; a longer hand-over saved for his polish list); the blocks "go away mostly with

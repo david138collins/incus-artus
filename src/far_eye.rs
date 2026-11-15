@@ -173,6 +173,8 @@ struct Targets {
     up_group: [wgpu::BindGroup; 2],
     /// The one-dispatch form's: every layer's numbers in one buffer, and its bind group for each of the two copies.
     one: Option<(wgpu::Buffer, [wgpu::BindGroup; 2])>,
+    /// The audit's own bind group (`FarEye::audit`): the far eye's, with scratch in place of everything it writes.
+    audit: Option<wgpu::BindGroup>,
 }
 
 pub struct FarEye {
@@ -219,6 +221,12 @@ pub struct FarEye {
     /// which of the two copies this frame writes; and whether the layers were remade this frame (its lead is then
     /// made in the frame itself: the dispatch run three times).
     one: Option<(wgpu::ComputePipeline, wgpu::BindGroupLayout)>,
+    /// The march's audit (`INCUS_FAR_AUDIT`, for measuring): cut-down versions of the march (`audit_variants`), each
+    /// compiled beside it under its own name and marched over the base layer into scratch after the far eye, so one
+    /// Nsight trace names each one's registers, how many groups of rays fit and its time. Empty unless asked: the
+    /// game never builds them [David, 2026-11-14: "start with trying to break it into smaller passes to fit more"; the
+    /// march keeps 168 registers and 12 groups fit of 48].
+    audit: Vec<(&'static str, wgpu::ComputePipeline)>,
     parity: usize,
     fresh: bool,
     /// A ray's step through thin haze, in cells (the lean step, 1d; `INCUS_FAR_HAZE_STEP`): a whole cell (20% off the
@@ -377,11 +385,9 @@ impl FarEye {
         let layers = [base, base / 2.0, base / 4.0];
         // The one dispatch: `far.wgsl` with one layer's outputs changed for every layer's (`far_all.wgsl`), and its
         // camera read in place from its layer's row.
+        let mut audit = Vec::new();
         let one = (std::env::var("INCUS_FAR_SIDE").as_deref() != Ok("0")).then(|| {
-            let whole = far_source.as_str();
-            let (begin, end) = ("// ── One layer's outputs: begin ──", "// ── One layer's outputs: end ──");
-            let (from, to) = (whole.find(begin).expect("the outputs' first mark"), whole.find(end).expect("the outputs' last mark"));
-            let source = format!("{}{}{}", &whole[..from], include_str!("far_all.wgsl"), &whole[to..]).replace("camera.", "cameras[layer_now].").replace("@group(0) @binding(0) var<uniform> camera: Camera;", "@group(0) @binding(0) var<uniform> cameras: array<Camera, 3>;");
+            let source = one_source(far_source.as_str());
             let module = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some("the far eye, one dispatch"), source: wgpu::ShaderSource::Wgsl(source.into()) });
             let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: Some("the far eye, one dispatch"),
@@ -412,6 +418,15 @@ impl FarEye {
             });
             let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor { label: Some("the far eye, one dispatch"), bind_group_layouts: &[Some(&layout)], immediate_size: 0 });
             let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("march_all"), layout: Some(&pipeline_layout), module: &module, entry_point: Some("march_all"), compilation_options: Default::default(), cache: None });
+            // The audit's variants, if asked: the same layout, each its own module and its own name.
+            if std::env::var("INCUS_FAR_AUDIT").is_ok_and(|asked| asked != "0") {
+                for (name, text) in audit_variants(far_source.as_str()) {
+                    let source = one_source(&text).replace("fn march_all(", &format!("fn {name}("));
+                    let module = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some(name), source: wgpu::ShaderSource::Wgsl(source.into()) });
+                    audit.push((name, device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some(name), layout: Some(&pipeline_layout), module: &module, entry_point: Some(name), compilation_options: Default::default(), cache: None })));
+                }
+                log::info!("The march's audit: {} cut-down versions compiled; each is marched over the base layer into scratch after the far eye (for measuring: the frame is that much longer)", audit.len());
+            }
             (pipeline, layout)
         });
         let blocks = |name: &str| std::env::var(name).ok().and_then(|n| n.parse::<f32>().ok()).filter(|n| *n > 0.0);
@@ -423,7 +438,7 @@ impl FarEye {
         let tally_counts = LAYERS.iter().map(|_| device.create_buffer(&wgpu::BufferDescriptor { label: Some("a far layer's longest ray"), size: 16, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false })).collect();
         let tally_back = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the longest rays read back"), size: 16 * LAYERS.len() as u64, usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let tally_state = std::sync::Arc::new(std::sync::atomic::AtomicU8::new(0));
-        Self { store, lane, rings, eye: [0.0; 2], start, march, up, layout, up_layout, sampler, targets: None, look, textures, atlas: None, building: None, stand_ins, light: None, lighting: None, sweeping: None, sun_asked, light_stand_ins, blue, blue_bytes, edge, layers, one, parity: 0, fresh: false, haze_step, most_steps, tops_making: None, tops_made: None, tops_off: false, reach, begin, tally, tally_counts, tally_back, tally_state }
+        Self { store, lane, rings, eye: [0.0; 2], start, march, up, layout, up_layout, sampler, targets: None, look, textures, atlas: None, building: None, stand_ins, light: None, lighting: None, sweeping: None, sun_asked, light_stand_ins, blue, blue_bytes, edge, layers, one, audit, parity: 0, fresh: false, haze_step, most_steps, tops_making: None, tops_made: None, tops_off: false, reach, begin, tally, tally_counts, tally_back, tally_state }
     }
 
     /// Whether every region is on the card, the window's regions round the eye too, and the far textures if they're made.
@@ -776,6 +791,43 @@ impl FarEye {
             });
             (cameras, groups)
         });
+        // The audit's bind group: the far eye's own, with scratch in place of all it writes (its pictures, its
+        // distances, its words) and of the words it reads, so a variant's march touches nothing that's shown or kept.
+        // (Scratch a few pixels across: a write outside a texture isn't made, and a word past a buffer's end lands on
+        // its last.)
+        let audit = (!self.audit.is_empty()).then(|| self.one.as_ref().zip(one.as_ref())).flatten().map(|((_, layout), (cameras, _))| {
+            let pictures = [0, 1, 2].map(|_| texture("the audit's scratch", (8, 8), wgpu::TextureFormat::Rgba8Unorm));
+            let distances = texture("the audit's scratch", (8, 8), wgpu::TextureFormat::Rgba32Float);
+            let words = [buffer("the audit's scratch", 16, storage), buffer("the audit's scratch", 16, storage)];
+            device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("the march's audit"),
+                layout,
+                entries: &[
+                    entry(0, cameras.as_entire_binding()),
+                    entry(1, self.store.table.as_entire_binding()),
+                    entry(2, self.store.entries.as_entire_binding()),
+                    entry(3, self.store.index.as_entire_binding()),
+                    entry(4, self.store.pool.as_entire_binding()),
+                    entry(5, wgpu::BindingResource::TextureView(&pictures[0])),
+                    entry(6, wgpu::BindingResource::TextureView(&distances)),
+                    entry(7, starts.as_entire_binding()),
+                    entry(8, words[0].as_entire_binding()),
+                    entry(9, words[1].as_entire_binding()),
+                    entry(10, wgpu::BindingResource::TextureView(&layers[0].far[0])),
+                    entry(11, self.atlas.as_ref().map_or(&self.store.index, |a| &a.slots).as_entire_binding()),
+                    entry(12, wgpu::BindingResource::Sampler(&self.sampler)),
+                    entry(13, wgpu::BindingResource::TextureView(self.atlas.as_ref().map_or(&self.stand_ins[0], |a| &a.solid))),
+                    entry(14, wgpu::BindingResource::TextureView(self.atlas.as_ref().map_or(&self.stand_ins[1], |a| &a.spread[0]))),
+                    entry(15, wgpu::BindingResource::TextureView(self.atlas.as_ref().map_or(&self.stand_ins[1], |a| &a.spread[1]))),
+                    entry(16, wgpu::BindingResource::TextureView(self.atlas.as_ref().map_or(&self.stand_ins[1], |a| &a.spread[2]))),
+                    entry(22, wgpu::BindingResource::TextureView(shadow)),
+                    entry(23, wgpu::BindingResource::TextureView(sky)),
+                    entry(24, wgpu::BindingResource::TextureView(&self.blue.1)),
+                    entry(17, wgpu::BindingResource::TextureView(&pictures[1])),
+                    entry(19, wgpu::BindingResource::TextureView(&pictures[2])),
+                ],
+            })
+        });
         let up_numbers = buffer("bringing it up's numbers", 32, wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST);
         let view = |k: usize| wgpu::BindingResource::TextureView(&layers[k].picture);
         let up_group = [0usize, 1].map(|p| device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -797,7 +849,7 @@ impl FarEye {
             .zip(&tally_parts)
             .map(|((layer, counts), part)| [0usize, 1].map(|p| device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("the longest ray"), layout: &self.tally.get_bind_group_layout(0), entries: &[entry(0, wgpu::BindingResource::TextureView(&layer.far[p])), entry(1, counts.as_entire_binding()), entry(2, part.as_entire_binding())] })))
             .collect();
-        self.targets = Some(Targets { screen, generation: self.store.generation, atlas_in: self.atlas.is_some(), atlas_generation, light: light_now, tiles, tally_groups, tally_parts, layers, up_numbers, up_group, one });
+        self.targets = Some(Targets { screen, generation: self.store.generation, atlas_in: self.atlas.is_some(), atlas_generation, light: light_now, tiles, tally_groups, tally_parts, layers, up_numbers, up_group, one, audit });
         true
     }
 
@@ -911,6 +963,17 @@ impl FarEye {
                     pass.set_bind_group(0, &groups[copy], &[]);
                     pass.dispatch_workgroups(base.0 + middle.0 + fine.0, fine.1.max(middle.1).max(base.1), 1);
                 }
+                // The audit's variants, each in a pass of its own under its own name (so a trace gives each its
+                // time): the base layer's groups, into scratch.
+                if let Some(group) = &targets.audit {
+                    drop(pass);
+                    for (name, pipeline) in &self.audit {
+                        let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some(name), timestamp_writes: None });
+                        pass.set_pipeline(pipeline);
+                        pass.set_bind_group(0, group, &[]);
+                        pass.dispatch_workgroups(base.0, base.1, 1);
+                    }
+                }
             }
             return;
         }
@@ -989,6 +1052,83 @@ fn daylight(sun_up: f32) -> (f32, f32) {
     (smooth(-2.0, 4.0), glow * glow)
 }
 
+/// The one dispatch's source from the march's (`far.wgsl`): `far_all.wgsl` put in the place of one layer's outputs,
+/// and every use of the camera made a read of this invocation's layer's row.
+fn one_source(whole: &str) -> String {
+    let (begin, end) = ("// ── One layer's outputs: begin ──", "// ── One layer's outputs: end ──");
+    let (from, to) = (whole.find(begin).expect("the outputs' first mark"), whole.find(end).expect("the outputs' last mark"));
+    format!("{}{}{}", &whole[..from], include_str!("far_all.wgsl"), &whole[to..]).replace("camera.", "cameras[layer_now].").replace("@group(0) @binding(0) var<uniform> camera: Camera;", "@group(0) @binding(0) var<uniform> cameras: array<Camera, 3>;")
+}
+
+/// The march's audit (`FarEye::audit`): cut-down versions of `far.wgsl`, each with one part taken out, by name. What
+/// each says, read off Nsight's Shader Pipelines rows (# Reg, # Warp) and the trace's passes: what that part costs
+/// the march in registers, and what a pass holding only the rest would fit. They draw wrong pictures on purpose
+/// (into scratch). Each change must find its one place in the source: a variant that can't is a panic at start,
+/// under the switch only, and `the_audit_s_variants_are_sound` says so first.
+fn audit_variants(whole: &str) -> Vec<(&'static str, String)> {
+    let whole = whole.replace("\r\n", "\n");
+    // One place changed.
+    fn once(text: &str, old: &str, new: &str) -> String {
+        assert_eq!(text.matches(old).count(), 1, "the audit can't find its place in far.wgsl: {old:?}");
+        text.replace(old, new)
+    }
+    // From one place up to another, changed.
+    fn cut(text: &str, from: &str, to: &str, with: &str) -> String {
+        assert_eq!(text.matches(from).count(), 1, "the audit can't find its place in far.wgsl: {from:?}");
+        let a = text.find(from).unwrap();
+        let b = a + text[a..].find(to).unwrap_or_else(|| panic!("the audit can't find its place in far.wgsl after {from:?}: {to:?}"));
+        format!("{}{}{}", &text[..a], with, &text[b..])
+    }
+    const SKIP: &str = "        // Space with nothing in it is skipped whole.";
+    const SAMPLE: &str = "        // Over the last stretch before the next level takes over";
+    const AFTER: &str = "    // Down through the world's floor having gathered";
+    const FINISH: &str = "    // Its shadow and sky light only where it shows";
+    const VIEWS: &str = "    if (camera.reach.z > 1.5 && seen.level >= 0) {\n";
+    const PUT: &str = "    // Kept with its alpha (premultiplied)";
+    // A ray stops where it would first sample: the hops alone (what a pass that only crosses clear air would be).
+    let hops = |t: &str| cut(t, SAMPLE, AFTER, "        first = t;\n        first_level = level;\n        break;\n    }\n");
+    // No skipping: every step samples (what a pass that only samples would be).
+    let samples = |t: &str| cut(t, SKIP, SAMPLE, "");
+    // Over a hand-over, the level's own blend alone: no second level read and mixed.
+    let no_handover = |t: &str| once(t, "        if (mixed > 0.0) {\n", "        if (false) {\n");
+    // The ray's answer written as it is: no light, fog, sky's weight or views after the march.
+    let no_finish = |t: &str| cut(t, FINISH, PUT, "    if (camera.layer.y > 0.5) {\n        put_worth(id.y * size.x + id.x, u32(round(worth_of(seen.distance, seen.level) * 255.0)));\n    }\n    var colour = seen.colour;\n");
+    // Nothing kept of the cells over the world's floor.
+    let no_floor = |t: &str| once(t, "                if (p.z <= size * 1.5) {\n                    bottom = true;\n                    bottom_here = here;\n                    bottom_sun = here_sun;\n                    bottom_t = t;\n                    bottom_level = level;\n                }\n", "");
+    // The skip with two columns, its own and the one two levels coarser: no third row kept.
+    let two_rows = |t: &str| {
+        let t = once(t, "        for (var k = 0; k < 3 && in_air && !walking; k++) {\n", "        for (var k = 1; k < 3 && in_air && !walking; k++) {\n");
+        let t = once(&t, "            keep_row(&row_far, far_level);\n", "");
+        once(&t, "            high_far = top_in(row_far, i32(cc_far.x), i32(cc_far.y));\n", "")
+    };
+    // No rings: a level is its distance's, and nothing fades at a ring's edge.
+    let no_rings = |t: &str| {
+        let t = once(t, "        level = ring_level(level, p);\n", "");
+        let t = once(&t, "    l = ring_level(l, p);\n", "");
+        once(&t, "        if (level < FIRST) {\n            mixed = max(mixed, 1.0 - in_ring(level, p) / (RING_FADE * f32(1 << u32(level))));\n        }\n", "")
+    };
+    // Neither of the views (the steps', the levels' with its table of six tints).
+    let no_views = |t: &str| cut(t, VIEWS, PUT, "");
+    // Where the bricks can't answer, nothing: no blend of eight cells by the code.
+    let no_code_blend = |t: &str| once(t, "    if (spot.kind == 1) {\n        return blend(spot.level, p);\n    }\n", "    if (spot.kind == 1) {\n        return empty_look(true);\n    }\n");
+    let lean = |t: &str| no_code_blend(&no_views(&no_rings(&two_rows(&no_floor(&no_handover(t))))));
+    vec![
+        ("audit_whole", whole.clone()),
+        ("audit_hops", hops(&whole)),
+        ("audit_samples", samples(&whole)),
+        ("audit_no_handover", no_handover(&whole)),
+        ("audit_no_finish", no_finish(&whole)),
+        ("audit_no_floor", no_floor(&whole)),
+        ("audit_two_rows", two_rows(&whole)),
+        ("audit_no_rings", no_rings(&whole)),
+        ("audit_no_views", no_views(&whole)),
+        ("audit_no_code_blend", no_code_blend(&whole)),
+        ("audit_lean", lean(&whole)),
+        ("audit_samples_lean", samples(&no_code_blend(&no_views(&no_floor(&no_handover(&whole)))))),
+        ("audit_hops_lean", hops(&no_views(&no_floor(&whole)))),
+    ]
+}
+
 /// For the Oracle's question of 2026-11-14 ("the longest ray's steps by kind"): the march's source with a ray's steps
 /// counted by kind, if a picture test asks (`FAR_TEST_KINDS`: three kinds' numbers, drawn as the picture's red, green
 /// and blue, a 1,024th a step). The kinds: 0 a region not summed passed whole; 1 a skip over a coarser column
@@ -1048,6 +1188,20 @@ fn kinds_source(source: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    /// The audit's variants each find their places in the march and are sound shaders (parsed and checked without the
+    /// card), so `INCUS_FAR_AUDIT` can't fail at the game's start.
+    #[test]
+    fn the_audit_s_variants_are_sound() {
+        let variants = super::audit_variants(include_str!("far.wgsl"));
+        assert!(variants.len() >= 10);
+        for (name, text) in variants {
+            let source = super::one_source(&text).replace("fn march_all(", &format!("fn {name}("));
+            let module = wgpu::naga::front::wgsl::parse_str(&source).unwrap_or_else(|error| panic!("{name} doesn't parse: {}", error.emit_to_string(&source)));
+            wgpu::naga::valid::Validator::new(wgpu::naga::valid::ValidationFlags::all(), wgpu::naga::valid::Capabilities::all()).validate(&module).unwrap_or_else(|error| panic!("{name} isn't sound: {error:?}"));
+            assert!(module.entry_points.iter().any(|entry| entry.name == name), "{name} has no entry of its name");
+        }
+    }
+
     use super::*;
     use crate::doorway::Doorway;
     use crate::far::{FarColours, region, regions_of};
