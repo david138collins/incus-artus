@@ -53,16 +53,18 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** his go for about eight minutes hands off, for four Nsight traces (his question: "are you
-  using Nsight to check on what the plains time is actually spent on?"): the plain with the height table and without
-  its true numbers, the spawn, the sea, on build 175 (build 174's march untouched; each shader's text written to the
-  log on a switch, to read Nsight's hot lines against). Build 174, the height table, is flown, his look first ("from
-  those pics i cant see anything wrong", "it looks great, builder"): a mixed result. The long rays went (the plain's
-  rays over 256 steps 910 to 15), and the sea, the run and the sea nodding are 17 to 19% under build 172; but the
-  plain is 4% over (guessed at 0.6 ms, it's 1.01), and the spawn, the mountain top and high over the spawn 9 to 16%
-  over. A mend, the skip's own column first, was counted off the screen and not flown: more looks at every mark, not
-  fewer. Steps, hops and looks have each been counted and each failed to say where the time goes
-  (`journal/docs/experiments.md`). The 4s and 2s are held; the Oracle's reply and the plan's updates are with him
+- **Waiting on David:** his word on the test of Builder's reading of the Nsight look (his question: "are you using
+  Nsight to check on what the plains time is actually spent on?"; "go ahead"). Nsight, build 175 (build 174's march;
+  each shader's text logged on a switch, so its hot lines read against our code): on the plain the far march takes
+  0.9 ms with the card 95% empty, where the spawn keeps two thirds more rays' time in flight and is done in under
+  half the time. So the plain's time is its longest chain, not its work; the skip's looks are the largest named part
+  of the march's time, and the wait for the height table's number its hottest line. Builder's reading, not shown
+  yet: the height table took two fifths of the steps off the longest ray and put three memory reads in a row in a
+  hop where there were two, so the chain stayed as long (the plain 4% over build 172, the spawn 16% over, the sea 17%
+  under). The test: the three looks' numbers read at once (the same skips, the same picture), one flight. A mend
+  tried first, the skip's own column first, was counted off the screen and not flown (more looks at every mark).
+  Steps, hops and looks, counted over all the rays, never said where the time went (`journal/docs/experiments.md`).
+  The 4s and 2s are held; the Oracle's reply and the plan's updates are with him
   and Counsel. Behind us today: his look at the
   rings met ("i can't see any rings"; a longer hand-over saved for his polish list); the blocks "go away mostly with
   the hardware blend, after it loads in"; the rock switch cut and the textures sound (build 167, flown). The gate's
