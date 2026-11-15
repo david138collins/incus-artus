@@ -5232,3 +5232,45 @@ At the 99th the worst mark uncut is the sea nodding, 1.308 ms; with the cut on i
 **Moving, the longest chain stays long** (the run 217, the nodding marks 240 and 248): rays newly long march
 whole for a frame, and a ray is cut finer one cut a frame. The march is a quarter to two fifths shorter there all
 the same. That is the cut's third stage, if it's kept.
+
+### Build 186, the march's program trimmed of what the cut put in it: the pass mark (written before the code)
+
+David, 2026-11-15, on build 185's flight: "it looks like the new cut does bring the overall average down, and
+doesn't add much to the high over spawn. half as many figures over 1. why don't you look over everything in the
+shader that can be trimmed and see how that works. and then we can move on, if it gets a little better overall
+than it is now. but if the thing ever gets too big this would be something to look at. not sure exactly where we
+are with that, but i'd like to get a move on." So the cut is kept; his bar, "a little better overall than it is
+now", stands in place of Builder's keep-or-drop line; and the march's program size is a thing to look at if it
+grows. *(Where that is: last measured at build 178, the march needs 167 registers and 12 groups of rays of 48
+fit. Not measured since the cut went in; it's read in Nsight's own window.)*
+
+**What's trimmed** (gone over: everything builds 183 to 185 put in the march's own program; the parts the march
+had before were priced by the audits of builds 177 to 180 and left):
+- **A ray's first cuts aren't worked out at the end of its march.** A ray listed whole is listed uncut; the frame
+  after, its join (which already re-cuts every listed ray by what its lengths took) gives it its first cut, and
+  the frame after that the next. So the march's program loses the sums for the first cuts, their writes and
+  their lock on the count of lengths; and a newly long ray is cut a frame or two later than in build 185.
+- **Nothing of the cut is kept through the march but where a length's stack is.** Where a length began and what
+  it began letting through are written to its stack before it marches, not carried to the end of it. (A thing a
+  march holds from before its steps to after them takes room for all its steps.)
+- What stays in the march's program, looked at and left: a pixel's one read of whether its ray is listed (the
+  spawn's 2.8% with the cut on is likely this); the place to stop, which every ray's steps test (flown free,
+  build 183 uncut); a long ray listing itself (flown free, build 182).
+
+**The marks:**
+- **Off the screen:** the uncut picture build 182's; the picture cut against uncut within 8 of 255 at the
+  mountain top and the sea (the twelfth frame: a ray's cuts now settle a frame or two later); the count as
+  build 185's (the strip's waiting share 40% or under and held within 3% of uncut at the mountain top and high
+  over the spawn; the longest chain 140 or under).
+- **Flown, one session, the game as launched and the cut on:**
+  - **the reading of the 4.5%:** uncut, the mountain top's march within 2% of build 184's 0.916 ms and high over
+    the spawn's within 2% of 0.934. If they stay at build 185's 0.958 and 0.975, the reading (the program's
+    weight) is wrong, said so, and Nsight's window is where to look next;
+  - **David's bar:** the far eye's whole with the cut on, summed over the nine views, under build 185's 6.69 ms
+    (the spawn 0.486, the mountain top 1.076, the plain 0.572, high over the spawn 1.117, the sea 0.655, the
+    run 0.729, fast across 0.750, the plain nodding 0.613, the sea nodding 0.690);
+  - the dearest mark with the cut on at or under build 185's uncut dearest, 1.096 ms.
+- **Then:** his bar met, the cut is on as the game is launched (`INCUS_FAR_CUT=0` turns it off), and we move on.
+  Not met: the cut stays in, off unless asked, as build 185, and we move on all the same (his word). Still owed
+  either way: his look at the horizon while turning his head, when he next plays (a length begins by the frame
+  before).
