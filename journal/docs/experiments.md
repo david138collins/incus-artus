@@ -4259,3 +4259,55 @@ Every version's three top waits are the march's own: Wait 34 to 39%, Selected 15
 **Next:** each version's time from the two traces (Nsight's reader, once David has closed its window); then a
 second batch to find the fewest trims that reach 128 and whether 102 (20 groups) is in reach: the hand-over and the
 code's blend out together, then the floor, the rings and the third row added one at a time.
+
+### The audit's versions, timed (build 177's two traces)
+
+Each version's pass over the base layer, the middle of 20 frames, with how full the card was during it. From the
+tables the trace itself exports (`BASE_UNLOCKED/D3DPERF_EVENTS.xls`, a pass's time a frame; `GPUTRACE_REGIMES.xls`,
+its numbers a pass): Nsight's reader ground at the first of these traces for half an hour and was stopped (they're
+four times last night's size); the exported tables needed no reader. (Nsight's window opened and closed did not take
+the counters: the 45-second check passed after it. Why they went on 2026-11-14 stays unknown.)
+
+| pass | the mountain top, ms | against the whole | in flight | the plain, ms | against the whole | in flight |
+|---|---|---|---|---|---|---|
+| the far eye itself (three layers) | 0.954 | | 17.5% | 0.833 | | 4.4% |
+| `audit_whole` (its base layer alone) | 0.707 | 1 | 7.3% | 0.800 | 1 | 3.1% |
+| `audit_hops` (to the first sample, no further) | 0.008 | 0.01 | 25% | 0.008 | 0.01 | 20% |
+| `audit_samples` (no skip) | 1.016 | 1.44 | 11.5% | 1.242 | 1.55 | 10.0% |
+| `audit_no_handover` | 0.641 | 0.91 | 7.7% | 0.637 | 0.80 | 3.5% |
+| `audit_no_code_blend` | 0.634 | 0.90 | 7.6% | 0.685 | 0.86 | 3.4% |
+| `audit_two_rows` | 0.644 | 0.91 | 8.1% | 0.770 | 0.96 | 4.3% |
+| `audit_no_rings` | 0.678 | 0.96 | 10.3% | 0.667 | 0.83 | 3.4% |
+| `audit_no_finish` | 0.681 | 0.96 | 7.4% | 0.795 | 0.99 | 2.9% |
+| `audit_no_floor` | 0.680 | 0.96 | 7.5% | 0.790 | 0.99 | 2.9% |
+| `audit_no_views` | 0.681 | 0.96 | 7.6% | 0.798 | 1.00 | 2.9% |
+| `audit_lean` (the six together) | 0.547 | 0.77 | 8.5% | 0.563 | 0.70 | 5.7% |
+| `audit_samples_lean` | 0.465 | 0.66 | 10.4% | 0.653 | 0.82 | 6.7% |
+
+(At the mountain top every version but the first reads about 4% under the whole, the views' too, which changes
+nothing a ray does: taken as the batch's noise there. On the plain the three that should change nothing read 0.99
+to 1.00.)
+
+- **Crossing the air to the first sample is 0.008 ms: nothing.** A pass for it would save nothing. The hops that
+  cost are the ones between samples, inside the march.
+- **The base layer alone is a waiting pass at both marks** (3 to 7% in flight). The mountain top's far eye is 0.954
+  ms at 17.5% where its base layer alone is 0.707 at 7.3%: the difference is the 4 x 4 layer, and the fullness is
+  its.
+- **Two rare paths cost every ray.** With the hand-over's second read out the plain is 20% shorter and the mountain
+  top's base 9%; with the code's blend out, 14% and 10%. On the plain 0.6% of steps mix two levels and 0.1% take the
+  code's blend. Builder's reading: rays march 32 to a group in step, and when one ray of a group takes a slow path
+  the other 31 wait for it; so a path one ray in a thousand takes can be in a good share of the groups' steps. It
+  fits the size of the two effects; it isn't shown.
+- **The march carries the code's blend three times over** (in the plain read, and twice in the hand-over's
+  fall-back): 4.26K instructions with it, 3.25K without, 2.75K without the hand-over's read.
+- **All six trims: 30% off the plain and 23% off the mountain top's base,** and 16 groups fit where 12 do. So the
+  rare, heavy work taken out of the march every ray runs would help both kinds of mark: a shorter step where the
+  card waits, more room and less work where it's full.
+- **The skip is worth a third of the plain's march and of the mountain top's base** (without it 1.55 and 1.44
+  times).
+- **The other layers' empty groups cost 0.03 ms on the plain** (0.833 against 0.800): the launching of 27,000 groups
+  that do nothing isn't the 0.17 ms that doesn't shorten with the chain.
+
+**Next, off the screen and no time of David's:** each trim's picture against the whole's, to say which of them are
+free (the views; the code's blend once the textures are in, if nothing shows where it's read; the floor) and which
+change what's seen (the hand-over). Then the free ones out of the march into programs of their own, build 178.
