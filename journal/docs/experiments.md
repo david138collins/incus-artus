@@ -5043,3 +5043,94 @@ same within a point):
   frame's). So **the best the mend can do where the card works is about level with uncut**: 4.1% freed, 4.0%
   spent, high over the spawn; 3.5% and 3.0% at the mountain top; less the threads' work before a first step.
   Where the card waits it keeps the gain (the sea, the dearest mark uncut at 1.083 ms, flew 0.739 cut).
+
+### Build 184 flown (2026-11-15, 13:29 to 13:42, hands off): the reading stands. Four fifths of the strip's thread-steps are waiting
+
+David: "go ahead with the two flights" (he'd asked what they were for: the still count confirmed in flight, and
+that nothing else moved; offered folded into build 185's session instead, he chose now). Told before take-off; one
+screen, on mains, the card idle before (5%); no hitch. The game as launched, the cut off
+(`logs/flight-1794771340`), and with `INCUS_FAR_CUT=1024` (`logs/flight-1794771730`). Thread-steps held by groups
+of 32, the layers' and the strip's together:
+
+| mark | the march uncut, ms | cut | | held uncut | held cut | | the strip waiting | rays cut (build 183's) |
+|---|---|---|---|---|---|---|---|---|
+| the spawn | 0.359 | 0.371 | 3.3% more | 2,806,496 | 2,896,160 | 3.2% more | 84% | 282 (282) |
+| the mountain top | 0.916 | 1.062 | 15.9% more | 7,485,664 | 8,743,680 | 16.8% more | 83% | 2,000 (1,902) |
+| the bare plain | 0.765 | 0.432 | 43.5% less | 1,392,640 | 2,271,488 | 63.1% more | 81% | 1,681 (1,455) |
+| high over the spawn | 0.934 | 1.301 | 39.3% more | 7,497,792 | 9,509,760 | 26.8% more | 84% | 3,669 (2,682) |
+| low over the sea | 0.969 | 0.710 | 26.7% less | 2,484,000 | 3,690,464 | 48.6% more | 81% | 2,572 (1,591) |
+| a player's run | 0.853 | 1.067 | 25.1% more | 3,120,000 | 6,150,496 | 97.1% more | 81% | 4,358 (4,346) |
+| fast across the world | 0.623 | 0.685 | 10.0% more | 6,221,600 | 9,202,368 | 47.9% more | 88% | 4,574 (5,234) |
+| the plain, nodding | 0.743 | 0.515 | 30.7% less | 1,433,920 | 2,563,264 | 78.8% more | 79% | 2,057 (1,769) |
+| the sea, nodding | 0.916 | 0.861 | 6.0% less | 2,499,104 | 4,636,544 | 85.5% more | 82% | 4,031 (2,789) |
+
+**Against the pass mark:**
+- **The count is sound in flight:** at every standing mark busy is the rays' steps summed, to the step (the moving
+  marks' differ by under 3%: each number is its own most over the measured frames).
+- **The game as launched within 2% of build 183's uncut flight: met**, within 0.5% at every mark. The count and
+  the switch cost the march nothing.
+- **The reading stands.** The mountain top's held is up 16.8% where its march is 15.9% longer (the line: 9% or
+  more). High over the spawn's is up 26.8% (29.8% by groups of 64) where its march is 39.3% longer (the line: 16%
+  or more). The spawn the same way: 3.2% and 3.3%. Where the card works, the march lengthens about as held
+  thread-steps do; high over the spawn's last third is likely the strip's threads' work before a first step
+  (40,783 of them marched there), which the count doesn't hold.
+- Where the card waits, held rises as much or more and the march shortens (the plain: 63% more held, 43% less
+  time): threads kept waiting cost it nothing there, as supposed.
+- **With the cut on, within 2% of build 183's cut flight: missed, and found.** The plain 0.432 ms for 0.396, the
+  sea 0.710 for 0.609, high over the spawn 1.301 for 1.235, the nodding marks a fifth dearer. Not the count (it
+  runs outside the passes, and the uncut flight is to the hair): build 184's join counts the steps of the lengths
+  behind what covers a ray, and the line that keeps a cut ray listed (32 steps) reads that sum, so more rays stay
+  cut (the sea 2,572 for 1,591, high over the spawn 3,669 for 2,682). Builder's reading from the counts and the
+  one line changed; not flown apart.
+- **A waste this shows, not named before:** a cut ray's lengths behind its cover march on (each begins letting
+  through a twentieth and goes till it is covered itself, or to its end), where the whole ray stops at the cover.
+  Build 183 had it too; it only kept fewer such rays listed.
+
+**What it says for the mend:** the strip holds 640 thread-steps a cut ray high over the spawn for 100 steps
+taken; packed with no waiting it would hold 368,519, 4.9% of the frame's, against 4.6% the layers free with the
+long rays out (7,497,792 to 7,151,392). So the ceiling where the card works is level with uncut, as the still
+count said. Three wastes for the mend to end: sixteen threads a ray whatever its length; lengths behind a ray's
+cover; and rays kept cut that aren't long.
+
+### Build 185, the cut packed, a ray given the lengths it needs: the pass mark (written before the code)
+
+David, 2026-11-15: "yes, lets try your idea to make the cut work smarter, if it doesn't work it doesn't work."
+Told since, in the open: its ceiling where the card works is level with uncut, not under; the gain is where the
+card waits.
+
+**What changes:**
+- **A ray's cuts are its own.** The places a ray may be cut stay as they are (sixteen, each half a doubling of
+  distance on, shifted ray to ray), but a ray is cut only at those it needs: a word of sixteen bits a listed ray.
+  When a ray is first listed, marched whole, it's given as many cuts as its steps over about 80 say, spread
+  evenly over the stretch it marched. After that its join re-cuts it each frame from what its lengths took: a
+  length of over 120 steps gets a cut put back near the middle of the stretch it marched; two neighbours of under
+  80 steps together lose the cut between them; and where the ray was covered, the cuts beyond are taken out, so
+  the length that reaches the cover runs on to the ray's end and stops there as a whole ray does. So nothing
+  marches behind a ray's cover, and a ray that has grown short becomes one length again, its own thread's, at no
+  thread of the strip's.
+- **The strip is packed.** A list of lengths beside the list of rays: a join gives its ray's lengths places in
+  it, one after another, and the strip's threads are those places, row after row from its top. A group of the
+  strip then holds 32 lengths of 40 to 120 steps each.
+- **A cut ray stays listed down to half the line** (64 steps, by its lengths' steps, which are now all before its
+  cover): listed with no cuts it costs nothing in the strip.
+- The first cut's distance (`INCUS_FAR_CUT`) is 384 blocks as flown, so the sixteen places reach from there to
+  70 km and the stretch near the eye can be cut too (a cut ray's near length took up to 147 steps).
+- The cut stays off unless asked, as build 184.
+
+**The marks:**
+- **Off the screen, the picture cut against uncut**, five marks at 2,560 x 1,600, the tenth frame (a ray's cuts
+  settle over a few): as build 183's line. Within 8 of 255 but for rays of the map's-edge flaw (build 183's
+  entry); no ring, no seam.
+- **Off the screen, the count** (sound first: busy is the rays' steps, to the step): at the mountain top and
+  high over the spawn the strip's waiting share is 40% or under (it's 80%), and held thread-steps, cut over
+  uncut, are within 3% (they're 13 and 16% more off the screen). The longest chain 140 or under at all five
+  marks.
+- **Flown, one session, uncut then the cut on:**
+  - where the card works (the mountain top, high over the spawn, the spawn): the march within 3% of uncut;
+  - the dearest mark with the cut on no dearer than the dearest uncut (the far eye's whole: 1.08 ms, the sea);
+  - where the card waits: the plain's march 0.40 ms or under, the sea's 0.62 or under (build 183's cut: 0.396
+    and 0.609; build 184's: 0.432 and 0.710);
+  - the run and fast across the world: within 3% of uncut or under (rays newly long still march whole).
+- **Kept or dropped** (Builder's word to David): kept only if the first two flown lines are met. Else the cut is
+  dropped, its code taken out, and the far eye stays as build 182 marches it. The other lines missed alone: said,
+  and David's call.
