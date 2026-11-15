@@ -4197,3 +4197,65 @@ users". He reset the graphics driver (Win+Ctrl+Shift+B: "ok, i did it") and the 
 way. Windows isn't waiting for a restart and installed nothing overnight but a Store runtime. What's left is a
 restart of the laptop. The traces' script no longer points into Builder's scratchpad: it runs from the project
 (`bash "kept logs/nsight/b177/scripts/nsight-177.sh"`) and its traces land in `logs/nsight/b177/`.
+
+### The march's audit, traced and read (build 177, 2026-11-15, 06:21 to 06:28, hands off)
+
+A restart of the laptop gave Nsight its counters back (David: "ok, i restarted"; the 45-second check then passed;
+why they went isn't known: it outlasted a driver reset with the setting on all users). Two traces, the mountain top
+and the plain, each at its mark with the far eye whole two minutes before the frames:
+`logs/nsight/b177/b177-mountain/incus_artus_2026_11_15_06_24_54.ngfx-gputrace` and
+`.../b177-plain/incus_artus_2026_11_15_06_28_12.ngfx-gputrace`. David read the mountain top's Shader Pipelines rows
+off Nsight's window (three screenshots):
+
+| version | share of the samples | groups that fit (# Warp) | registers (live) | Smem | instructions |
+|---|---|---|---|---|---|
+| `march_all` (the far eye itself, all three layers) | 17% | 12 | 168 (166) | 4608 | 4.26K |
+| `audit_whole` (the same program, the base layer alone) | 7% | 12 | 168 (166) | 4608 | 4.26K |
+| `audit_samples` (no skip) | 13% | 12 | 168 (166) | 1024 | 3.93K |
+| `audit_no_rings` | 9% | 12 | 168 (166) | 4608 | 4.13K |
+| `audit_no_code_blend` | 7% | 12 | 167 (163) | 0 | 3.25K |
+| `audit_no_views` | 7% | 12 | 168 (166) | 4608 | 4.23K |
+| `audit_no_finish` | 7% | 12 | 168 (166) | 2816 | 3.8K |
+| `audit_two_rows` | 7% | 12 | 168 (166) | 3328 | 4.15K |
+| `audit_no_handover` | 7% | 12 | 160 (157) | 0 | 2.75K |
+| `audit_no_floor` | 7% | 12 | 168 (166) | 2560 | 4.15K |
+| `audit_lean` (the six trims together) | 5% | **16** | **128** (126) | 768 | 2.26K |
+| `audit_samples_lean` | 4% | 16 | 119 (116) | 0 | 2.12K |
+| `audit_hops` (no sampling) | under 1% | 28 | 68 (65) | 0 | 1.42K |
+| `audit_hops_lean` | under 1% | 28 | 68 (65) | 0 | 1.38K |
+| `start_pass` | under 1% | 40 | 48 (45) | 256 | 1.56K |
+
+Every version's three top waits are the march's own: Wait 34 to 39%, Selected 15 to 19%, Long Scoreboard 11 to 17%.
+
+**Against what was expected:**
+- **The control holds:** `audit_whole` reads as the march does (168, 12, 4608, 4.26K). The audit's programs are
+  the game's.
+- **The hops alone:** 68 registers and 28 groups, for "under 64 and 32 or more". Near.
+- **The samples alone:** 168, for "150 to 160". The skip holds none of the registers at the peak.
+- **One part out at a time: nearly nothing, and the guesses missed.** The hand-over's second read 8 registers (15
+  to 30 guessed); the code's blend 1 (15 to 30); the floor, the third row, the rings, the finish and the views
+  none (5 to 10 guessed for three of them).
+- **All six trims together: 128 registers, and 16 groups fit.** ("120 to 140"; "under 128 would mean 16 groups by
+  trimming alone": it's 128 exactly, and 16.) Together they give 40 where one at a time they give 9. So the march
+  has several places that each need about 166 at once, and the count is the highest of them: take one down and
+  another holds it up.
+- **Smem isn't the views' table of tints** (out, and Smem is still 4608): that guess was wrong. It goes to nothing
+  when either the code's blend or the hand-over's second read is taken out, and part of the way with the finish,
+  the floor or the third row out: it looks like what the program can't keep in registers at its fullest places
+  and puts by in memory instead (72 bytes a ray). Not shown.
+
+**What it says about a split, which was the question:**
+- **"Cross the air" and "the rest" as two passes doesn't pay.** The hops would fit 28 groups, but they're under a
+  seventh of the base layer's samples at the mountain top (under 1% against 7%), and the rest keeps all 168
+  registers.
+- **What pays is inside the step:** the fullest places are two paths few steps take. On the plain 0.6% of steps mix
+  two levels at a hand-over and 0.1% fall back to the code's blend, and every ray pays for the room they need.
+  The pass worth making is the one that takes the rare, heavy work out of the march that every ray runs.
+- **Without the skip the base layer costs nearly twice** (13% against 7%): the height table's skip is worth about
+  half the base layer's work at the mountain top.
+- **The base layer is about two fifths of the far eye's work there** (7% of 17%): the rest is the 4 x 4's. That's
+  the assessment's first missing fact, roughly (whole percents; the trace's own counts to come).
+
+**Next:** each version's time from the two traces (Nsight's reader, once David has closed its window); then a
+second batch to find the fewest trims that reach 128 and whether 102 (20 groups) is in reach: the hand-over and the
+code's blend out together, then the floor, the rings and the third row added one at a time.
