@@ -61,13 +61,17 @@ const LONG_STEPS: u32 = 128;
 /// (64 x 64, the join's threads: `far_all.wgsl`'s `join_pass`. The most long rays at once over build 181's flight:
 /// 2,419, on the run.)
 const LONG_LIST: u32 = 4096;
-/// The words a listed ray's lengths' stacks take in the cut's store (17 lengths of 11: `far_all.wgsl`'s `STACK`).
-const STACK: u32 = 11;
-const STACK_WORDS: u32 = 17 * STACK;
-/// The cut's store, words (`far_all.wgsl`'s `cut`): the two lists; for each place in each, how its ray stood where
-/// each of its 17 lengths begins; and each place's lengths' stacks, which start at `STACKS_AT`.
-const STACKS_AT: u32 = (2 + 2 * 17) * LONG_LIST;
-const CUT_WORDS: u32 = STACKS_AT + LONG_LIST * STACK_WORDS;
+/// The cut's store, words (`far_all.wgsl`'s `cut`, which has the same layout): the two lists of long rays, three
+/// words a place; how each listed ray stood at each of the sixteen places it may be cut at (17 numbers a place in
+/// each list); the two lists of lengths (`PIECES` places each: the strip's threads); a stack of `STACK` words for
+/// each place in a list of rays (its ray's first length), then for each place in a list of lengths.
+const PIECES: u32 = 16384;
+const STACK: u32 = 13;
+const BEFORES_AT: u32 = 2 * 3 * LONG_LIST;
+const PIECES_AT: u32 = BEFORES_AT + 2 * 17 * LONG_LIST;
+const OWN_STACKS_AT: u32 = PIECES_AT + 2 * PIECES;
+const PIECE_STACKS_AT: u32 = OWN_STACKS_AT + LONG_LIST * STACK;
+const CUT_WORDS: u32 = PIECE_STACKS_AT + PIECES * STACK;
 /// How many numbers the count of a layer's rays holds (`far_tally.wgsl`).
 pub const TALLY: usize = 12;
 /// The most of a frame the ring's sending takes (ms): its maker works off the frame, the frame only hands its bricks on.
@@ -506,8 +510,8 @@ impl FarEye {
         let (reach, begin) = (blocks("INCUS_TEST_REACH").unwrap_or(REACH), blocks("INCUS_TEST_BEGIN").unwrap_or(0.0));
         let most_steps = std::env::var("INCUS_TEST_STEPS").ok().and_then(|n| n.parse::<f32>().ok()).filter(|n| *n >= 1.0).unwrap_or(768.0);
         log::info!("The far rays: {}, {most_steps:.0} steps at most", if edge { "ended at the map's edge" } else { "marched on past the map's edge (INCUS_FAR_EDGE=0)" });
-        // The cut, off unless asked (`INCUS_FAR_CUT`: where a cut ray's first cut is, blocks out; the cuts after it
-        // each half a doubling of distance on, `far.wgsl`'s `cut_span`). [Build 183's flight, with the first cut
+        // The cut, off unless asked (`INCUS_FAR_CUT`: where the first place a ray may be cut at is, blocks out; the
+        // places after it each half a doubling of distance on, `far.wgsl`'s `cut_place`). [Build 183's flight, with the first cut
         // at 1,024: the march half as long where the card waits, a sixth to a third longer where it works, and the
         // dearest mark up from 1.08 to 1.37 ms. David, 2026-11-15: "lets try your idea to make the cut work
         // smarter, if it doesn't work it doesn't work".]
@@ -803,7 +807,7 @@ impl FarEye {
         let storage = wgpu::BufferUsages::STORAGE;
         let tiles = (screen.0.div_ceil(TILE), screen.1.div_ceil(TILE));
         let starts = buffer("the far starts", (tiles.0 * tiles.1) as u64 * 4, storage);
-        let long_rays = buffer("the long rays' counts", 8, storage | wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::COPY_SRC);
+        let long_rays = buffer("the long rays' counts", 16, storage | wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::COPY_SRC);
         let cut_bytes = CUT_WORDS as u64 * 4;
         let cut = buffer("the cut's lists and lengths", cut_bytes, storage | wgpu::BufferUsages::COPY_SRC);
         let nothing_above = buffer("the far layers' nothing above", 16, storage);
@@ -813,9 +817,9 @@ impl FarEye {
         let sizes = self.layers.map(|factor| ((screen.0 as f32 / factor).ceil().max(1.0) as u32, (screen.1 as f32 / factor).ceil().max(1.0) as u32));
         // By the one dispatch: all the layers' distances in one texture, side by side from its left, kept twice.
         let one_way = self.one.is_some();
-        // The strip of the dispatch's grid for the cut rays' lengths: sixteen threads a place in the list, row after
-        // row down the grid's rows, in whole groups of 8 across.
-        let strip = (LONG_LIST * 16).div_ceil(sizes.iter().map(|s| s.1.div_ceil(8)).max().unwrap_or(1) * 8).div_ceil(8) * 8;
+        // The strip of the dispatch's grid for the cut rays' lengths: a thread a place in the list of lengths, row
+        // after row down the grid's rows, in whole groups of 8 across.
+        let strip = PIECES.div_ceil(sizes.iter().map(|s| s.1.div_ceil(8)).max().unwrap_or(1) * 8).div_ceil(8) * 8;
         let packed = one_way.then(|| {
             let size = (sizes.iter().map(|s| s.0).sum(), sizes.iter().map(|s| s.1).max().unwrap_or(1));
             [0, 1].map(|_| texture("the far layers' distances", size, wgpu::TextureFormat::Rgba32Float))
@@ -971,7 +975,7 @@ impl FarEye {
             .zip(&tally_parts)
             .map(|((layer, counts), part)| [0usize, 1].map(|p| device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("the longest ray"), layout: &self.tally.get_bind_group_layout(0), entries: &[entry(0, wgpu::BindingResource::TextureView(&layer.far[p])), entry(1, counts.as_entire_binding()), entry(2, part.as_entire_binding())] })))
             .collect();
-        let waiting_numbers = buffer("threads kept waiting, its numbers", 80, wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST);
+        let waiting_numbers = buffer("threads kept waiting, its numbers", 96, wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST);
         let waiting_groups = one_way.then(|| {
             [0usize, 1].map(|p| {
                 device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -999,8 +1003,9 @@ impl FarEye {
             self.parity ^= 1;
         }
         let Some(targets) = &self.targets else { return };
-        // This frame's list of long rays begins empty.
+        // This frame's list of long rays begins empty, and its list of lengths.
         queue.write_buffer(&targets.long_rays, self.parity as u64 * 4, &0u32.to_le_bytes());
+        queue.write_buffer(&targets.long_rays, (2 + self.parity as u64) * 4, &0u32.to_le_bytes());
         let cutting = self.cutting();
         let (facing, pitch) = (camera.facing.to_radians(), camera.pitch.to_radians());
         let forward = [pitch.cos() * facing.cos(), pitch.cos() * facing.sin(), pitch.sin()];
@@ -1064,11 +1069,11 @@ impl FarEye {
                 ring_boxes[1],
                 ring_boxes[2],
                 ring_boxes[3],
-                // The long rays' lists: which is this frame's; none listed in a frame the layers were remade (its
-                // dispatch runs three times over); and the cut, none in that frame either (nothing was listed
-                // before it).
-                [self.parity as f32, if self.fresh { 1e9 } else { self.long as f32 }, LONG_LIST as f32, targets.strip as f32],
-                [if cutting { self.cut_at } else { 0.0 }, 0.0, 0.0, 0.0],
+                // The long rays' lists: which is this frame's; none listed while no ray is cut (the cut off, or a
+                // frame the layers were remade: its dispatch runs three times over); and the cut: where the first
+                // place a ray may be cut at is, and how many lengths a list of lengths holds.
+                [self.parity as f32, if cutting { self.long as f32 } else { 1e9 }, LONG_LIST as f32, targets.strip as f32],
+                [if cutting { self.cut_at } else { 0.0 }, PIECES as f32, 0.0, 0.0],
             ];
             let bytes = numbers.iter().flatten().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>();
             queue.write_buffer(&layer.camera, 0, &bytes);
@@ -1181,8 +1186,10 @@ impl FarEye {
                 numbers.extend([layer.size.0, layer.size.1, layer.far_at, starts]);
                 starts += across;
             }
-            numbers.extend([starts, strip, LONG_LIST, STACKS_AT]);
-            numbers.extend([self.parity as u32, STACK, (starts + strip) / 8, down]);
+            let before = 1 - self.parity as u32;
+            numbers.extend([starts, strip, LONG_LIST, PIECES]);
+            numbers.extend([STACK, 0, (starts + strip) / 8, down]);
+            numbers.extend([before * LONG_LIST * 3, PIECES_AT + before * PIECES, OWN_STACKS_AT, PIECE_STACKS_AT]);
             queue.write_buffer(&targets.waiting_numbers, 0, &numbers.iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
             let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("threads kept waiting"), timestamp_writes: None });
             pass.set_pipeline(&self.waiting);
@@ -1201,42 +1208,44 @@ impl FarEye {
         self.tally_back.slice(..).map_async(wgpu::MapMode::Read, move |result| state.store(if result.is_ok() { 2 } else { 0 }, Ordering::Release));
     }
 
-    /// This frame's list of long rays read back from the card, for a test: its count, then its pixels.
+    /// The cut's store and its counts read back from the card, for a test.
     #[cfg(test)]
-    fn long_list(&self, device: &wgpu::Device, queue: &wgpu::Queue) -> Vec<u32> {
-        let targets = self.targets.as_ref().expect("the far eye's targets");
-        let size = (1 + LONG_LIST) as u64 * 4;
-        let back = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the long rays' list read back"), size, usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
-        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("the long rays' list read back") });
-        encoder.copy_buffer_to_buffer(&targets.long_rays, self.parity as u64 * 4, &back, 0, 4);
-        encoder.copy_buffer_to_buffer(&targets.cut, (self.parity as u32 * LONG_LIST) as u64 * 4, &back, 4, LONG_LIST as u64 * 4);
-        queue.submit([encoder.finish()]);
-        back.slice(..).map_async(wgpu::MapMode::Read, |_| {});
-        device.poll(wgpu::PollType::wait_indefinitely()).expect("the card finished");
-        back.slice(..).get_mapped_range().unwrap().as_chunks::<4>().0.iter().map(|b| u32::from_le_bytes(*b)).collect()
-    }
-
-    /// The rays cut this frame read back from the card, for a test's look: each one's layer, its pixel, and the steps
-    /// each of its 17 lengths took.
-    #[cfg(test)]
-    fn cut_lengths(&self, device: &wgpu::Device, queue: &wgpu::Queue) -> Vec<(u32, (u32, u32), Vec<u32>, Vec<[f32; 9]>)> {
+    fn cut_words(&self, device: &wgpu::Device, queue: &wgpu::Queue) -> (Vec<u32>, [u32; 4]) {
         let targets = self.targets.as_ref().expect("the far eye's targets");
         let size = CUT_WORDS as u64 * 4;
-        let back = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the cut read back"), size: size + 8, usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
+        let back = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the cut read back"), size: size + 16, usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("the cut read back") });
         encoder.copy_buffer_to_buffer(&targets.cut, 0, &back, 0, size);
-        encoder.copy_buffer_to_buffer(&targets.long_rays, 0, &back, size, 8);
+        encoder.copy_buffer_to_buffer(&targets.long_rays, 0, &back, size, 16);
         queue.submit([encoder.finish()]);
         back.slice(..).map_async(wgpu::MapMode::Read, |_| {});
         device.poll(wgpu::PollType::wait_indefinitely()).expect("the card finished");
-        let words: Vec<u32> = back.slice(..).get_mapped_range().unwrap().as_chunks::<4>().0.iter().map(|b| u32::from_le_bytes(*b)).collect();
+        let mut words: Vec<u32> = back.slice(..).get_mapped_range().unwrap().as_chunks::<4>().0.iter().map(|b| u32::from_le_bytes(*b)).collect();
+        let counts = words.split_off(CUT_WORDS as usize);
+        (words, [counts[0], counts[1], counts[2], counts[3]])
+    }
+
+    /// This frame's list of long rays read back, for a test: its count, then its pixels.
+    #[cfg(test)]
+    fn long_list(&self, device: &wgpu::Device, queue: &wgpu::Queue) -> Vec<u32> {
+        let (words, counts) = self.cut_words(device, queue);
+        let now = self.parity as u32;
+        std::iter::once(counts[now as usize]).chain((0..LONG_LIST).map(|slot| words[((now * LONG_LIST + slot) * 3) as usize])).collect()
+    }
+
+    /// The rays marched as lengths this frame read back, for a test's look: each one's layer, its pixel, the steps
+    /// each of its lengths took (its own thread's first), and each length's stack as numbers.
+    #[cfg(test)]
+    fn cut_lengths(&self, device: &wgpu::Device, queue: &wgpu::Queue) -> Vec<(u32, (u32, u32), Vec<u32>, Vec<[f32; STACK as usize]>)> {
+        let (words, counts) = self.cut_words(device, queue);
         let before = 1 - self.parity as u32;
-        let listed = words[(size / 4) as usize + before as usize].min(LONG_LIST);
-        (0..listed)
+        let stack = |at: u32| -> (u32, [f32; STACK as usize]) { ((words[at as usize + 9] >> 5) & 0x3FF_FFFF, std::array::from_fn(|n| f32::from_bits(words[at as usize + n]))) };
+        (0..counts[before as usize].min(LONG_LIST))
             .map(|slot| {
-                let entry = words[(before * LONG_LIST + slot) as usize];
-                let stacks = (STACKS_AT + slot * STACK_WORDS) as usize;
-                (entry >> 30, (entry & 0x7FFF, (entry >> 15) & 0x7FFF), (0..17).map(|k| (words[stacks + k * 11 + 9] >> 5) & 0x3FF_FFFF).collect(), (0..17).map(|k| std::array::from_fn(|n| f32::from_bits(words[stacks + k * 11 + if n == 8 { 10 } else { n }]))).collect())
+                let at = ((before * LONG_LIST + slot) * 3) as usize;
+                let (entry, cuts, first) = (words[at], words[at + 1], words[at + 2]);
+                let stacks: Vec<_> = std::iter::once(stack(OWN_STACKS_AT + slot * STACK)).chain((0..cuts.count_ones()).map(|i| stack(PIECE_STACKS_AT + (first + i) * STACK))).collect();
+                (entry >> 30, (entry & 0x7FFF, (entry >> 15) & 0x7FFF), stacks.iter().map(|s| s.0).collect(), stacks.iter().map(|s| s.1).collect())
             })
             .collect()
     }
@@ -1409,10 +1418,10 @@ fn kinds_source(source: &str) -> String {
         let show: Vec<usize> = asked.split(',').filter_map(|n| n.trim().parse().ok()).collect();
         assert_eq!(show.len(), 3, "FAR_TEST_LEVELS wants three levels");
         let changes: [(&str, String); 5] = [
-            ("    ended_in_air: bool,\n}", "    ended_in_air: bool,\n    kinds: array<f32, 17>,\n}".into()),
+            ("    ended_at: f32,\n}", "    ended_at: f32,\n    kinds: array<f32, 17>,\n}".into()),
             ("    var steps = 0;\n", "    var steps = 0;\n    var kinds: array<f32, 17>;\n".into()),
             ("        var skipped = false;\n", "        kinds[level] += 1.0;\n        var skipped = false;\n".into()),
-            ("reached, reached_level, in_air);", "reached, reached_level, in_air, kinds);".into()),
+            ("reached_level, in_air, t);", "reached_level, in_air, t, kinds);".into()),
             ("    put_picture(vec2<i32>(id.xy), vec4<f32>(to_srgb(clamp(colour,", format!("    colour = vec3<f32>(seen.kinds[{}], seen.kinds[{}], seen.kinds[{}]) / 1024.0;\n    put_picture(vec2<i32>(id.xy), vec4<f32>(to_srgb(clamp(colour,", show[0], show[1], show[2])),
         ];
         let mut made = source.replace("\r\n", "\n");
@@ -1427,7 +1436,7 @@ fn kinds_source(source: &str) -> String {
     assert_eq!(show.len(), 3, "FAR_TEST_KINDS wants three kinds");
     let kind = |k: usize| if k == 12 { "seen.steps".to_string() } else { format!("seen.kinds[{k}]") };
     let changes: [(&str, String); 14] = [
-        ("    ended_in_air: bool,\n}", "    ended_in_air: bool,\n    kinds: array<f32, 12>,\n}".into()),
+        ("    ended_at: f32,\n}", "    ended_at: f32,\n    kinds: array<f32, 12>,\n}".into()),
         ("    var steps = 0;\n", "    var steps = 0;\n    var kinds: array<f32, 12>;\n".into()),
         ("                t = max(leave2(o.xy, d.xy, vec2<f32>(place.region), f32(1 << u32(REGION))), t) + 0.01;\n", "                t = max(leave2(o.xy, d.xy, vec2<f32>(place.region), f32(1 << u32(REGION))), t) + 0.01;\n                kinds[0] += 1.0;\n".into()),
         ("                skipped = true;\n", "                skipped = true;\n                kinds[1 + k / 2] += 1.0;\n".into()),
@@ -1439,7 +1448,7 @@ fn kinds_source(source: &str) -> String {
         ("        if (thick > 0.0) {\n            in_air = false;\n            walking = true;\n", "        if (thick > 0.0) {\n            in_air = false;\n            walking = true;\n            if (thick > 0.02) { kinds[7] += 1.0; } else { kinds[6] += 1.0; }\n".into()),
         ("        } else if (walking && t < walk_to) {\n            in_air = false;\n", "        } else if (walking && t < walk_to) {\n            in_air = false;\n            kinds[5] += 1.0;\n".into()),
         ("        } else {\n            last_air = t;\n            walking = false;\n", "        } else {\n            last_air = t;\n            walking = false;\n            kinds[4] += 1.0;\n".into()),
-        ("reached, reached_level, in_air);", "reached, reached_level, in_air, kinds);".into()),
+        ("reached_level, in_air, t);", "reached_level, in_air, t, kinds);".into()),
         ("    put_picture(vec2<i32>(id.xy), vec4<f32>(to_srgb(clamp(colour,", format!("    colour = vec3<f32>({}, {}, {}) / 1024.0;\n    put_picture(vec2<i32>(id.xy), vec4<f32>(to_srgb(clamp(colour,", kind(show[0]), kind(show[1]), kind(show[2]))),
     ];
     let mut made = source.replace("\r\n", "\n");
@@ -1524,7 +1533,7 @@ mod tests {
         // The cut is off in the game unless asked; here it's on unless told (`INCUS_FAR_CUT`), so the lengths and
         // the join are always tested.
         if std::env::var_os("INCUS_FAR_CUT").is_none() {
-            eye.cut_at = 1024.0;
+            eye.cut_at = 384.0;
         }
         // The whole world: put on the card as it's summed, till every region and the window round the eye are in, the
         // writes handed to the card each time round as a frame would (held, their copies pile up till it runs out).
@@ -1662,6 +1671,8 @@ mod tests {
             eprintln!("Threads kept waiting: the layers' {} steps taken, {} held by 32s, {} by 64s, {} threads marched; the strip's {} steps taken, {} held by 32s, {} by 64s, {} threads marched", waiting[0], waiting[1], waiting[2], waiting[3], waiting[4], waiting[5], waiting[6], waiting[7]);
             assert_eq!(waiting[0] + waiting[4], counts[..LAYERS.len()].iter().map(|c| c[7]).sum::<u32>(), "the threads' steps are the rays' steps");
             assert!(waiting[1] >= waiting[0] && waiting[2] >= waiting[1] && waiting[5] >= waiting[4] && waiting[6] >= waiting[5], "a group is held at least as long as its threads are busy");
+        }
+        if eye.one.is_some() && eye.cut_at > 0.0 {
             let list = eye.long_list(&device, &queue);
             let layers = &counts[..LAYERS.len()];
             let (long, listed, cut, in_list): (u32, u32, u32, u32) = (layers.iter().map(|c| c[4]).sum(), layers.iter().map(|c| c[5]).sum(), layers.iter().map(|c| c[9]).sum(), layers.iter().map(|c| c[10]).sum());
@@ -1677,8 +1688,12 @@ mod tests {
                 // the lengths' steps of the rays with the longest chains, and how the chains are spread.
                 if std::env::var_os("FAR_TEST_LENGTHS").is_some() {
                     let lengths = eye.cut_lengths(&device, &queue);
-                    let most: Vec<u32> = (0..17).map(|k| lengths.iter().map(|ray| ray.2[k]).max().unwrap_or(0)).collect();
-                    eprintln!("The cut: {} rays; the most steps in each length: {most:?}", lengths.len());
+                    let pieces: usize = lengths.iter().map(|ray| ray.2.len() - 1).sum();
+                    let mut how_many = [0usize; 17];
+                    for ray in &lengths {
+                        how_many[(ray.2.len() - 1).min(16)] += 1;
+                    }
+                    eprintln!("The cut: {} rays listed, {pieces} lengths in the strip; rays by how many lengths beyond their first: {how_many:?}", lengths.len());
                     let mut by_chain: Vec<_> = lengths.iter().collect();
                     by_chain.sort_by_key(|ray| std::cmp::Reverse(*ray.2.iter().max().unwrap_or(&0)));
                     for ray in by_chain.iter().take(8) {
@@ -1692,7 +1707,7 @@ mod tests {
                             Some(ray) => {
                                 eprintln!("  layer {} pixel ({}, {}):", asked[0], asked[1], asked[2]);
                                 for (k, (steps, s)) in ray.2.iter().zip(&ray.3).enumerate().filter(|(_, (steps, _))| **steps > 0) {
-                                    eprintln!("  length {k}: {steps} steps, gathered {:.3} {:.3} {:.3}, the sun's {:.3} {:.3} {:.3}, ended letting through {:.4}, reached {:.1}, began letting through {:.4}", s[0], s[1], s[2], s[3], s[4], s[5], s[6], s[7], s[8]);
+                                    eprintln!("  length {k}: {steps} steps, gathered {:.3} {:.3} {:.3}, the sun's {:.3} {:.3} {:.3}, ended letting through {:.4}, reached {:.1}, began letting through {:.4}, from {:.0} to {:.0}", s[0], s[1], s[2], s[3], s[4], s[5], s[6], s[7], s[10], s[11], s[12]);
                                 }
                             }
                             None => eprintln!("  layer {} pixel ({}, {}) wasn't cut", asked[0], asked[1], asked[2]),

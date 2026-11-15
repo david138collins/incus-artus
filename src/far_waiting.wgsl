@@ -8,8 +8,8 @@
 // 32 (its first four rows, its last four), and as one of 64. And how many threads marched at all (each pays its work
 // before a first step, which no count here holds).
 //
-// A thread's steps: a whole ray's, kept beside its distance; a cut ray's own thread, its near length's; a thread of
-// the strip, its length's (both from the lengths' stacks). [Build 183's flight: the same steps cut and uncut, and the
+// A thread's steps: a whole ray's, kept beside its distance; a listed ray's own thread, its first length's; a thread
+// of the strip, its length's (both from the lengths' stacks). [Build 183's flight: the same steps cut and uncut, and the
 // march a third longer where the card works. The reading this counts for: threads kept waiting.]
 
 // This frame's distances (beside each: its ray's steps, a cut ray's longest length, its place in this frame's list)
@@ -25,44 +25,64 @@ struct Numbers {
     // march's grid (w).
     layers: array<vec4<u32>, 3>,
     // The strip: x where its threads start in the grid, y its threads across (0: no ray is cut this frame), z how
-    // many rays a list holds, w where the stacks start in `cut`.
+    // many rays a list holds, w how many lengths a list of lengths holds.
     strip: vec4<u32>,
-    // x which list is this frame's, y a stack's words, zw the grid's groups across and down.
+    // x a stack's words, zw the grid's groups across and down.
     more: vec4<u32>,
+    // Where things are in `cut` (`far_all.wgsl`): x the frame before's list of rays, y the frame before's list of
+    // lengths, z the rays' own stacks, w the lengths' stacks.
+    at: vec4<u32>,
 }
 @group(0) @binding(3) var<uniform> numbers: Numbers;
 // The layers': steps taken, held by 32s, held by 64s, threads that marched; then the strip's, the same four.
 @group(0) @binding(4) var<storage, read_write> counts: array<atomic<u32>, 12>;
 
-// The steps the length `length` of the ray at `slot` of the frame before's list took this frame.
-fn stack_steps(slot: u32, length: u32) -> u32 {
-    return (cut[numbers.strip.w + (slot * 17u + length) * numbers.more.y + 9u] >> 5u) & 0x3FFFFFFu;
+// The steps the length whose stack is at `stack` took this frame.
+fn stack_steps(stack: u32) -> u32 {
+    return (cut[stack + 9u] >> 5u) & 0x3FFFFFFu;
+}
+
+// Where the ray at `slot` of the frame before's list is in the distances' texture, if it was listed there and was
+// joined from its lengths this frame (x under nothing: it wasn't).
+fn listed_at(slot: u32) -> vec2<i32> {
+    if (slot >= numbers.strip.z) {
+        return vec2<i32>(-1);
+    }
+    let entry = cut[numbers.at.x + slot * 3u];
+    let layer = entry >> 30u;
+    let pixel = vec2<u32>(entry & 0x7FFFu, (entry >> 15u) & 0x7FFFu);
+    if (layer == 3u || any(pixel >= numbers.layers[layer].xy)) {
+        return vec2<i32>(-1);
+    }
+    let at = vec2<i32>(i32(pixel.x + numbers.layers[layer].z), i32(pixel.y));
+    if (u32(textureLoad(far_before, at, 0).w) != slot + 1u || textureLoad(far_now, at, 0).z < 0.5) {
+        return vec2<i32>(-1);
+    }
+    return at;
 }
 
 // The steps the march's thread at `id` of its grid took.
 fn thread_steps(id: vec2<u32>) -> u32 {
     if (id.x >= numbers.strip.x) {
-        // The strip: sixteen threads a place in the frame before's list, row after row. A place counts if its ray was
-        // listed there and was joined from its lengths this frame.
+        // The strip: a thread a place in the frame before's list of lengths, row after row. A place counts if its
+        // ray's cuts say it's one of its lengths'.
         if (numbers.strip.y == 0u || id.x >= numbers.strip.x + numbers.strip.y) {
             return 0u;
         }
-        let n = id.y * numbers.strip.y + (id.x - numbers.strip.x);
-        let slot = n >> 4u;
-        if (slot >= numbers.strip.z) {
+        let piece = id.y * numbers.strip.y + (id.x - numbers.strip.x);
+        if (piece >= numbers.strip.w) {
             return 0u;
         }
-        let entry = cut[(1u - numbers.more.x) * numbers.strip.z + slot];
-        let layer = entry >> 30u;
-        let pixel = vec2<u32>(entry & 0x7FFFu, (entry >> 15u) & 0x7FFFu);
-        if (layer == 3u || any(pixel >= numbers.layers[layer].xy)) {
+        let slot = cut[numbers.at.y + piece];
+        if (listed_at(slot).x < 0) {
             return 0u;
         }
-        let at = vec2<i32>(i32(pixel.x + numbers.layers[layer].z), i32(pixel.y));
-        if (u32(textureLoad(far_before, at, 0).w) != slot + 1u || textureLoad(far_now, at, 0).z < 0.5) {
+        let cuts = cut[numbers.at.x + slot * 3u + 1u];
+        let first = cut[numbers.at.x + slot * 3u + 2u];
+        if (piece < first || piece - first >= countOneBits(cuts)) {
             return 0u;
         }
-        return stack_steps(slot, 1u + (n & 15u));
+        return stack_steps(numbers.at.w + piece * numbers.more.x);
     }
     var layer = 0u;
     if (id.x >= numbers.layers[2].w) {
@@ -77,12 +97,12 @@ fn thread_steps(id: vec2<u32>) -> u32 {
     let at = vec2<i32>(i32(pixel.x + numbers.layers[layer].z), i32(pixel.y));
     let kept = textureLoad(far_now, at, 0);
     if (kept.z > 0.5) {
-        // A cut ray: its own thread marched its near length.
+        // A listed ray: its own thread marched its first length.
         let listed = textureLoad(far_before, at, 0).w;
         if (listed < 0.5) {
             return 0u;
         }
-        return stack_steps(u32(listed) - 1u, 0u);
+        return stack_steps(numbers.at.z + (u32(listed) - 1u) * numbers.more.x);
     }
     return u32(kept.y);
 }

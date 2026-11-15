@@ -149,17 +149,28 @@ fn cut_slot(id: vec2<u32>) -> u32 {
     return NOT_CUT;
 }
 
-fn put_stack(slot: u32, length: u32, seen: Seen, began: f32) {
+fn cut_first(slot: u32) -> u32 {
+    return 17u;
 }
 
-fn cut_before(slot: u32, length: u32) -> f32 {
+fn own_stack(slot: u32) -> u32 {
+    return 0u;
+}
+
+fn put_stack(at: u32, seen: Seen, began: f32, starts: f32) {
+}
+
+fn cut_before(slot: u32, place: u32) -> f32 {
     return 1.0;
+}
+
+fn cut_begin(id: vec2<u32>, starts: f32, seen: Seen) {
 }
 
 // One layer of the pyramid: a ray a pixel, where the layer above said it's worth it.
 @compute @workgroup_size(8, 8)
 fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
-    march_pixel(id.xy, 0u, NOT_CUT);
+    march_pixel(id.xy, NOT_CUT, 0u, 17u, 0u);
 }
 // ── One layer's outputs: end ──
 // The far bricks as textures (change 1, `atlas.rs`): each brick place's slot in the atlas, the filter, how solid and
@@ -832,6 +843,8 @@ struct Seen {
     reached_level: i32,
     // Whether its last step found only air (the next length of a cut ray begins as this one ended).
     ended_in_air: bool,
+    // Where its march stopped (a cut ray's join places a new cut by where a length began and stopped).
+    ended_at: f32,
 }
 
 // A ray from `o` along `d`, from `begin` to `end` (past `end` nothing can be met: the map's edge). `phase`: a
@@ -1123,7 +1136,7 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32, end: f32, stop: f32
     // The shadow ray as wide as the cells the surface was read from (or the eye's pixel there, if wider). None: nothing
     // met.
     let wide = shadow_wide(first, first_level);
-    return Seen(colour, first, f32(steps), first_level, sunny, o + d * first, wide, gathered - sunny, touched, through, reached, reached_level, in_air);
+    return Seen(colour, first, f32(steps), first_level, sunny, o + d * first, wide, gathered - sunny, touched, through, reached, reached_level, in_air, t);
 }
 
 // How wide a ray's shadow ray starts, its first surface `first` off and read from cells of `first_level`.
@@ -1312,15 +1325,19 @@ fn map_end(o: vec3<f32>, d: vec3<f32>) -> f32 {
 // A ray that isn't cut into lengths (it has no place in the frame before's list).
 const NOT_CUT: u32 = 0xFFFFFFFFu;
 
-// Where a cut ray's length begins and ends along it (x, y): the near length (0), the ray's own thread's, from the eye
-// to the first cut; then sixteen more, each to the next cut, half a doubling of distance on (a ray's steps fall
-// evenly by the doubling: its cells grow with its distance); the last to the ray's end. `shift`, a number of the
-// pixel's own from 0 to 1, moves all its cuts by up to half a doubling, so neighbouring rays' cuts never line up
-// into a ring.
-fn cut_span(length: u32, shift: f32) -> vec2<f32> {
-    let near = camera.cut.x * exp2((f32(length) - 1.0 + shift) * 0.5);
-    let to = camera.cut.x * exp2((f32(length) + shift) * 0.5);
-    return vec2<f32>(select(near, 0.0, length == 0u), select(to, 1e30, length >= 16u));
+// The sixteen places a ray may be cut at, along it: the first `cut.x` blocks out, each after it half a doubling of
+// distance on (a ray's steps fall evenly by the doubling: its cells grow with its distance). `shift`, a number of
+// the pixel's own from 0 to 1, moves all its places by up to half a doubling, so neighbouring rays' cuts never line
+// up into a ring. A ray is cut only at the places it needs (`far_all.wgsl`): each length runs from one of its cuts
+// to the next. Place 0 is the eye; place 17, past every ray's end.
+fn cut_place(place: u32, shift: f32) -> f32 {
+    if (place == 0u) {
+        return 0.0;
+    }
+    if (place > 16u) {
+        return 1e30;
+    }
+    return camera.cut.x * exp2((f32(place) - 1.0 + shift) * 0.5);
 }
 
 // The pixel of the layer above that a pixel lies in.
@@ -1337,11 +1354,12 @@ fn ray_through(id: vec2<u32>) -> vec3<f32> {
 // A pixel of a layer of the pyramid: its ray, if the layer above said it's worth it. By the one dispatch a ray that
 // was long the frame before is cut into lengths marched side by side, so the frame waits for its longest length and
 // not for the whole of it [where the card waits, the far eye's time is its longest ray's chain: rays stopped at 160
-// steps made the sea's march 45% shorter, build 176]. `length` 0 is the pixel's own thread: it marches the whole ray,
-// or the near length if the ray is cut. `length` 1 and up are the lengths beyond, each a thread of its own in the
-// grid's strip (`far_all.wgsl`), with `listed` the ray's place in the frame before's list. A cut ray's threads each
-// put by what they gathered, and the join makes the pixel of them (`join_pass`).
-fn march_pixel(id: vec2<u32>, length: u32, listed: u32) {
+// steps made the sea's march 45% shorter, build 176]. The pixel's own thread (`from_cut` 0) marches the whole ray,
+// or its first length, to its first cut, if the ray is listed. The lengths beyond are each a thread of its own in
+// the grid's strip (`far_all.wgsl`), given the ray's place in the frame before's list (`given`), the cut the
+// length begins at and the cut it stops at (17: the ray's end), and where its stack goes. A listed ray's threads
+// each put by what they gathered, and the join makes the pixel of them (`join_pass`).
+fn march_pixel(id: vec2<u32>, given: u32, from_cut: u32, to_cut: u32, stack: u32) {
     let size = vec2<u32>(camera.view.xy);
     if (id.x >= size.x || id.y >= size.y) {
         return;
@@ -1353,7 +1371,7 @@ fn march_pixel(id: vec2<u32>, length: u32, listed: u32) {
         shown = f32(worth) / 255.0;
         if (worth == 0u) {
             // (A length's thread writes nothing: the pixel's own thread has, and the join leaves the pixel be.)
-            if (length == 0u) {
+            if (from_cut == 0u) {
                 put_picture(vec2<i32>(id.xy), vec4<f32>(0.0));
                 put_far(vec2<i32>(id.xy), vec4<f32>(camera.reach.x, 0.0, 0.0, 0.0));
                 if (camera.layer.y > 0.5) {
@@ -1391,33 +1409,45 @@ fn march_pixel(id: vec2<u32>, length: u32, listed: u32) {
     // The cut: this thread's length of the ray, if the ray is in the frame before's list. Each length begins its
     // steps where the one before stops gathering.
     let phase = ray_start(id.xy);
-    var slot = listed;
-    if (length == 0u) {
+    var slot = given;
+    var stops_at = to_cut;
+    var put = stack;
+    if (from_cut == 0u) {
         slot = cut_slot(id);
+        if (slot != NOT_CUT) {
+            stops_at = cut_first(slot);
+            put = own_stack(slot);
+        }
     }
     var starts = begin;
     var stop = 1e30;
     var through0 = 1.0;
     var look_first = false;
     if (slot != NOT_CUT) {
-        let span = cut_span(length, scatter(id * 2u + vec2<u32>(1u, 1u)));
-        starts = max(begin, span.x);
-        stop = span.y + phase;
+        let shift = scatter(id * 2u + vec2<u32>(1u, 1u));
+        let near = cut_place(from_cut, shift);
+        starts = max(begin, near);
+        if (stops_at <= 16u) {
+            stop = cut_place(stops_at, shift) + phase;
+        }
         // A length that takes up at a cut begins as the ray was there the frame before (`cut_before`: how much it
-        // still let through; under nothing, it was in haze). Never from under a twentieth: a length the ray reached
-        // with nothing left to cover still marches, so the join has it if what hid it is gone this frame.
-        if (span.x > begin) {
-            let before = cut_before(slot, length);
+        // still let through; under nothing, it was in haze or it isn't known). Never from under a twentieth: a
+        // length the ray reached with little left to cover still gathers, so the join has it if what covered the
+        // ray is thinner this frame.
+        if (near > begin) {
+            let before = cut_before(slot, from_cut);
             through0 = clamp(abs(before), 0.05, 1.0);
             look_first = before < 0.0;
         }
     }
     let seen = march(camera.position.xyz, d, phase, starts, end, stop, through0, look_first);
     if (slot != NOT_CUT) {
-        put_stack(slot, length, seen, through0);
+        put_stack(put, seen, through0, starts);
         return;
     }
     finish(id, d, shown, seen, false, 0.0);
+    // If that listed it as long: its first cuts, for the frame after.
+    cut_begin(id, starts, seen);
 }
 
 // A ray finished into its pixel: lit, the sky behind it and the fog before it, what the layer below is worth there,

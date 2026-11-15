@@ -5134,3 +5134,47 @@ card waits.
 - **Kept or dropped** (Builder's word to David): kept only if the first two flown lines are met. Else the cut is
   dropped, its code taken out, and the far eye stays as build 182 marches it. The other lines missed alone: said,
   and David's call.
+
+### Build 185 built (unflown), the cut packed: what was built and what was checked off the screen
+
+**Built as the mark says.** A listed ray carries its own cuts (sixteen bits, one for each place it may be cut at);
+a ray first listed is given as many as its steps over 80 say, spread over the stretch it marched; its join re-cuts
+it each frame (a length over 120 steps: a cut put back near the middle of its stretch; two neighbours under 80
+together: the cut between them out; where the ray is covered: the cuts beyond out). A list of lengths beside the
+list of rays gives each length beyond a ray's first a place, a ray's lengths side by side, and the strip's threads
+are those places (16,384 of them; the strip is 24 threads across at 2,560 x 1,600, where it was 88). The first
+place a ray may be cut at is 384 blocks out. A cut ray stays listed down to 64 steps. No ray is listed while the
+cut is off.
+
+**One mistake of mine on the way, caught before it was committed:** the rewrite called the march from two places
+(a pixel's thread, a length's thread), which put the whole march in the program twice: the far eye's test took 82
+seconds for 27, and the game's start would have been as much slower. Called from one place again (build 183's
+rule: the one march in the program once): 29 seconds.
+
+**Off the screen, 2,560 x 1,600, the tenth frame:**
+
+| mark | rays listed | lengths in the strip (build 183: sixteen a ray) | the strip waiting (it was 80%) | held, cut over uncut (it was) | the longest chain | the picture cut against uncut, the most of 255 |
+|---|---|---|---|---|---|---|
+| the spawn | 279 | 279 (4,464) | 24% | 0.1% more (3% more) | 127 | 6 |
+| the mountain top | 1,583 | 2,259 (25,328) | 30% | 0.1% more (13% more) | 127 | 8 |
+| the bare plain | 890 | 1,238 (14,240) | 36% | level (34% more) | 127 | 7 |
+| low over the sea | 756 | 1,496 (12,096) | 42% | 4% less | 127 | 6 |
+| high over the spawn | 1,896 | 2,737 (30,336) | 36% | 0.8% more (15% more) | 127 | 7 |
+
+- **The picture:** within 8 of 255 at every mark, no ray over, no ring, no seam: met. (The map's-edge rays that
+  were 70 and 17 at build 183 are within 8 here: fewer lengths begin in the stretch a whole ray's last stride goes
+  past. The flaw itself is as it was.)
+- **The count:** sound (busy is the rays' steps, to the step, checked by the test). The strip's waiting share at
+  the mountain top 30% and high over the spawn 36% (the line: 40% or under): met. Held thread-steps, cut over
+  uncut, 0.1% and 0.8% more (the line: within 3%): met.
+- **The longest chain** 127 at all five (the line: 140 or under): met. It's the rays just under the line of 128
+  steps, marched whole; a listed ray's longest length is 120.
+- **A ray needs few lengths:** most one or two beyond its first, none more than five (the sea).
+- **The uncut picture is build 182's** (640 x 400: no pixel at three marks, 1 of 255 at two). All 31 tests pass.
+
+**Known and left:** a length can only be cut at one of its ray's sixteen places, so a stretch nearer than 384
+blocks, or one that lies inside a single place's span, can't be cut shorter; and a ray whose cover goes away runs
+its last length to the ray's end for a frame or two before its join has cut it again (the frame's notice for
+newly long rays, the cut's third stage, is the same matter).
+
+**The flights asked for, one session, hands off:** the game as launched (the cut off), then `INCUS_FAR_CUT=384`.
