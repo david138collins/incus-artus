@@ -2356,6 +2356,15 @@ Reference: `Art/quartile minecraft illustration.png`
     the coarser the stronger, which costs the frame nothing; the march, full at the marks that work, would carry
     nothing new. Pulling far things up is a chosen exaggeration, owned as style ("every element has to own its
     compromise artistically"), on a slider of his.
+- *Builds 188 and 189 flown* (on "you can go"; 17:11 to 17:27, `logs/flight-1794784679` as launched and
+  `-1794785233` with the scatter stage on, checked by Counsel; both "the code committed"). As launched, against build
+  186's cut flight: seven of nine marks within 2% (the mark's line), the working marks to the hair (the mountain top's
+  march 0.913 for 0.914 ms, high over the spawn 0.963 for 0.958). **Two miss:** the plain 0.502 for 0.450 (+11.6%),
+  its longest chain 205 where it was 127 (a ray marching a length of 205 steps that the join isn't cutting; Builder
+  finding it), and the sea nodding +3.9%. With the stage on, for information: the far eye's whole over the nine
+  views 6.995 ms for 6.663; high over the spawn **1.210** (+11%, woods under it: 6.87 million steps for 6.04), the
+  run +32%; the stage's own six marks 0.27 to 1.04 ms. So detail raises the dearest view, a world with woods
+  standing about a tenth over a bare one, still well under 2 ms.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
