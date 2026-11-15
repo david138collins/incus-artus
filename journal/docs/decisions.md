@@ -2232,6 +2232,24 @@ Reference: `Art/quartile minecraft illustration.png`
       neighbours being long too; a perfectly packed strip would spend about 3 to 4%); where it waits the gain stays.
       So build 185's honest case: the working marks level, the sea and the plain much faster, the dearest mark 1.08 →
       about 1.06 ms. Next, build 185's pass mark before its code.
+    - *Build 185, the cut packed* (6cbabaf, flown on "go"; 14:38 to 14:51, `logs/flight-1794775526` as launched, the
+      cut off, and `-1794775912` the cut on at 384 blocks, checked by Counsel). A ray given only the lengths it
+      needs (one or two beyond its first, none over five), packed; nothing marched behind a ray's cover. Off the
+      screen every line met (the strip waiting 24 to 42%, from 80; held thread-steps within 1% of uncut where the card
+      works; the longest chain 127 at all five marks; the picture within 8 of 255, no ray over). Flown, cut against
+      uncut in one session, the march: where the card works **level** (the mountain top −1.7%, high over the spawn
+      +1.1%, the spawn +2.8%; the line 3%: met); where it waits **much faster** (the plain −41%, the sea −46%, the run
+      −30%, the nodding marks −34% and −39%; fast across −3.6%). **The second keep-or-drop line missed, narrowly:** by
+      the card's whole the dearest mark cut is high over the spawn at 1.117 ms, against the line's 1.08 and this
+      session's uncut dearest, 1.096 (the same mark).
+      - **Unexpected:** the build's uncut flight is about 4.5% dearer at the two working marks than build 184's uncut
+        (the march: the mountain top 0.958 for 0.916, high over the spawn 0.975 for 0.934; fast across, which also
+        works, 2.7%), the waiting marks within 0.5%. Across sessions, which can differ by up to 5%, but only the
+        working marks moved: Builder reads it as the march's program needing more registers for the cut's new code,
+        on or off (the team kit's "code added costs every pixel even switched off"). Not yet seen in a trace (Nsight
+        would show it). Builder recommends one more round: the cut's new code out of the march's program, re-flown,
+        since that 4.5% sits on the game as launched too. Counsel agrees: 4.5% off the working marks' 0.99 ms march
+        would bring the cut's dearest to about 1.07, under the line.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
