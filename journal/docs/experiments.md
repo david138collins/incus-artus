@@ -5460,3 +5460,27 @@ houses with the great tower behind. Thin things nearly vanish against the sky at
 the arch's piers (4 blocks square in cells of 8) are a faint ring, the posts a pale band on the ground, and a cave
 mouth mostly doesn't read from the front, lit inside as outside (the far light is a height a column, so nothing
 is dark under a roof): the things this detail is here to judge.
+
+### Build 188, David's look at the scatter stage (2026-11-15), and the "square light seams" found to be shallow sea over a flat shelf
+
+Launched on his word with the stage on, at the castle; 72 s, closed cleanly, no error in its log. He flew over the
+plain's town, tower and castle and sent a picture from high over them. **His words:** "very nice builder. it looks
+like it should, i think. but can we do anything about these square light seams?" (in the picture: a broad
+grey-olive region of the plain beyond the tower, its edges long straight lines, faint lines nested inside it).
+
+**What the launch says of the pass mark's costs:** the whole world summed in 42.0 s with the stage on (36.6 s off,
+his look at build 187): under twice, met. The far cells on the card 36,524 bricks and 165 MB (36,254 and 163 MB
+off): within 15%, met. The 16s' ring's first making 2.5 s for 1.35 (its tiles hold woods).
+
+**The seams, looked into before answering:** not light, and not the stage's.
+- The same view drawn off the screen three ways (the stage on; on with the sun's shadows off; the stage off) shows
+  the same grey region with the same straight edges each time.
+- The export's own columns there: sand (profile 1) with its ground at 126, two blocks under the sea's level of
+  128, no river or lake; the yellow plain beside it is the same sand at 128, dry. So the grey is two blocks of sea
+  over sand, dimmed as the far eye dims what's seen through water.
+- Why straight lines: the shelf is nearly a plane, and heights are whole blocks, so the shore (where the ground
+  drops under 128) and each block of depth after it run as long straight contours; the faint nested lines are the
+  next blocks of depth.
+- So it's the test world's own shape and the far eye's water, there before the stage and before the cut. What
+  could be done is a look of water's (a shallow edge that fades in, not a step at the first block) and belongs
+  with water's own design step; put to David as his call.
