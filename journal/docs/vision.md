@@ -1098,6 +1098,56 @@ what novel ways i could create the fire that the ray sees so that it looks organ
 
   This fits the hard per-block light and the crunchy 2 × 2. Faceted pieces (helmets, weapons, a beast's
   skull) on block-built bodies would carry it without leaving the blocky family.
+- **[2026-11-15] A reference figure, and how to move it.** David made an image by "asking for an
+  interpolation between minecraft figures and quake figures and reducing the polygonality to squares and
+  triangles" (the image isn't in the repo). It's a dozen boxes with their corners cut into a few flat faces:
+  head, neck, chest, two shoulder caps, upper arms, forearms, shorts, thighs, shins and feet; no hands. He
+  asked for a workflow for many characters and animals in that style, the software for it, and "what needs to
+  flex and pivot where or how triangles stretch when you do action-figure stuff with models like this". He
+  asked for this to be kept here ("Yes, add it").
+
+  *Counsel:*
+  - **Rigid pieces, not a bending skin.** Each piece follows one bone, whole, and turns about its own pivot:
+    no triangle changes shape, so nothing stretches, and there's no weight painting (the slow part of
+    rigging). A bending skin ties a joint's corners half to each bone, so with this few faces the joint thins
+    like a bent straw and a twisted wrist pinches like a sweet wrapper. Rigid pieces are Minecraft's way, the
+    action-figure look, and suit the Quake note's held poses. (The voxel proposal had figurines as rigid parts
+    too, for the march.)
+  - **The action figure's tricks:**
+    - a pivot at the centre of each joint's imaginary ball (the shoulder's in the middle of its cap, the hip's
+      inside the shorts at the top of the thigh, the neck's at the top of the neck block);
+    - each piece runs on past its pivot, hidden in its neighbour, so bending opens no gap;
+    - cut corners on every joint end, so no corner pokes out of the far side of a bend;
+    - elbows and knees as one-way hinges;
+    - seams hidden under bands: the waist turns under the shorts' waistband, and the shorts split into a band
+      with the hips and two short legs riding the thighs, so a raised knee doesn't poke through;
+    - the shoulder cap turning half as far as the arm, so it neither lifts off the shoulder nor lets the arm
+      poke out of it;
+    - faces painted, not modelled: an expression is a swap of the head's painted face.
+  - **Animals the same way:** a two-piece spine (chest and hips), neck, head, jaw, a tail as a chain of short
+    pieces, three pieces a leg; the back leg's "knee" bends the wrong way because it's the ankle.
+  - **Software:** Blockbench, as already decided ("Blockbench now, a real 3D modeller later"): a pivot per
+    group placed by hand, a timeline that turns groups, pixels painted on the model, glTF out with the
+    motions in it, and a mesh mode for the cut corners. Blender later, for the webcam motion capture, long
+    bendy things and copying motions across many creatures; or sooner, for the modelling, if the cut corners
+    are fiddly in Blockbench.
+  - **A workflow for many creatures:**
+    1. A person's height in blocks first, at Blockbench's 16 pixels to a block.
+    2. One master per body plan (two legs, four legs, wings, fish or snake, many legs), its groups named
+       (`head`, `arm_l`, `forearm_l`…) and pivots placed, with a standard set of motions: stand, walk, run,
+       work, strike, get hit, die.
+    3. A new creature is a copy of its master, reshaped; the group names kept, the pivots near their places.
+    4. Motions carry over, being turns of named groups, which don't care how long a leg is: a deer, a wolf
+       and a boar can share a walk, each touched up. Very different proportions may slide a foot; fixed by
+       hand.
+    5. Tails, necks and snakes as chains of short rigid pieces, each turning a little further than the last; a
+       bending skin only where a chain won't do (a cape).
+    6. Painted, exported as glTF into the game's folder; Builder teaches the new engine to read it when
+       figures come in.
+  - **The card:** rigid pieces are the cheapest moving figures to draw (each piece moved whole), which suits
+    battles of up to 800 figures; past about 60 to 100 blocks they're sprites already.
+  - **A first try:** this figure built from rigid pieces, posed in a deep lunge and with an arm over its head,
+    to see where it breaks.
 
 ## Notes for later: the gods, volcanoes, darkness and crime  [IDEA, 2026-10-23]
 

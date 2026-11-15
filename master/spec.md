@@ -462,8 +462,9 @@ Where the sources disagree. Each version is given with its ref; nothing here is 
 ### Figures, objects and effects
 - Objects are models (the brazier, with an animated flame sprite): "it looks really good... they look sick though". [decided] (objects.md:3-7, 337; regroup.md:1189)
 - Food's look matters for coziness: "so wording and appearance matters". [wanted] (vision.md:398-399)
-- Figures: Minecraft-style figurines, slightly more detailed, with elbows (and presumably knees): "vintage story invented elbows ... so im leaving them elbows". [idea] (vision.md:944-945; conv:113, 119)
-- Quake-flavoured modelling: "i liked how quake looked, quick and crispy". [idea] (vision.md:946-947)
+- Figures: Minecraft-style figurines, slightly more detailed, with elbows (and presumably knees): "vintage story invented elbows ... so im leaving them elbows". [idea] (vision.md:1090-1091; conv:113, 119)
+- Quake-flavoured modelling: "i liked how quake looked, quick and crispy". [idea] (vision.md:1092-1097)
+- A reference figure, "an interpolation between minecraft figures and quake figures", in boxes with cut corners; Counsel's suggestion: rigid action-figure pieces (no bending skin), one master per body plan, motions shared across creatures, Blockbench then Blender. [idea] (vision.md:1101-1150)
 - No gore beyond blood particles: a carcass pops apart. [idea] (vision.md:382-390)
 - Spells and effects throw or cause bouncing sprite particles. [idea] (decisions.md:689-692)
 - Dwarves in an 80s-metal and D&D poster art style. [early] (conv:127)
