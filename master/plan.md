@@ -53,17 +53,20 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** his go for one flight that changes no code, the step limit at 160
-  (`INCUS_TEST_STEPS`), to see whether a mark's time is its longest ray's chain. Behind it: Nsight (his question:
-  "are you using Nsight to check on what the plains time is actually spent on?"), build 175: on the plain the far
-  march takes 0.9 ms with the card 95% empty, where the spawn keeps two thirds more rays' time in flight and is done
-  in under half the time; the plain's time isn't work. Build 176, the skip's three numbers read at once (the same
-  picture), is flown and kept: 4 to 8% cheaper than build 174 at eight marks of nine, and its pass mark missed (the
-  plain 0.934 ms for under 0.90; the three marks near the ground still 3 to 9% over build 172). Builder's reading
-  was wrong in size: the looks' waits are a small part of a step. With the height table as it now stands, against
-  build 172: the sea, the run and the sea nodding 21 to 23% cheaper, the plain 4%, the spawn, the mountain top and
-  high over the spawn 3 to 9% dearer; the dearest mark the sea at 1.112 ms (it was 1.401). Steps, hops and looks,
-  counted over all the rays, never said where the time went (`journal/docs/experiments.md`).
+- **Waiting on David:** what's next, now the far eye's time is read (his question: "are you using Nsight to check
+  on what the plains time is actually spent on?"). Nsight, build 175: on the plain the far march takes 0.9 ms with
+  the card 95% empty. A flight with rays stopped at 160 steps (no code changed) then showed two kinds of mark.
+  *Waiting marks* (the plain, the sea, the run, both nodding): their time is their longest ray's chain; stopped at
+  160 the march is 29 to 45% shorter. *Working marks* (the mountain top, high over the spawn, fast across the
+  world): cutting their longest rays moves them 2 to 9%; the card runs hottest there, and what their time is spent
+  on isn't looked at yet. The height table shortens long chains and adds work to every step: with its numbers read
+  at once (build 176, flown and kept, the same picture; its pass mark missed, Builder's sum too big) it stands,
+  against build 172, at the sea, the run and the sea nodding 21 to 23% cheaper, the plain 4%, and the spawn, the
+  mountain top and high over the spawn 3 to 9% dearer; the dearest mark the sea at 1.112 ms (it was 1.401). What a
+  step budget a frame is worth, measured (the most lazy rays could give at 160 steps): the sea 1.112 to 0.666 ms,
+  the run 1.007 to 0.752, the plain 0.934 to 0.604 (`journal/docs/experiments.md`). Builder's proposals to him:
+  Nsight at a working mark (the mountain top, high over the spawn), and the lazy rays' talk with their prize now
+  measured.
   The 4s and 2s are held; the Oracle's reply and the plan's updates are with him
   and Counsel. Behind us today: his look at the
   rings met ("i can't see any rings"; a longer hand-over saved for his polish list); the blocks "go away mostly with

@@ -3824,3 +3824,52 @@ David: "go". No code changes: `INCUS_TEST_STEPS=160` (the most steps a far ray t
 - **What could muddy it:** a ray cut short ends without an answer, and the finer layers follow the coarser one's
   frame before; if cutting rays changes what the finer layers are asked for, their work changes too. The report's
   longest rays and the 4 x 4's and 2 x 2's lines will show it.
+
+### The step limit at 160, flown (2026-11-14, 20:41, hands off): two kinds of mark
+
+Told before take-off; one screen, on mains, the card idle before (5%); no hitch. Report `logs/flight-1794710853`
+(build 176, `INCUS_TEST_STEPS=160`), beside build 176's own of 20:29 (`-1794710172`). The march alone ("the far
+8 x 8"), median ms:
+
+| mark | its longest rays' steps (the 8 x 8, the 4 x 4) | the march, build 176 | rays stopped at 160 | change | the card's watts, typically |
+|---|---|---|---|---|---|
+| the spawn | 153, 139 | 0.357 | 0.357 | the same | 92 |
+| the bare plain | 324 | 0.825 | 0.494 | 40% less | 73 |
+| low over the sea | 302, 409 | 0.999 | 0.554 | 45% less | 79 |
+| the sea, nodding | 309, 442 | 0.938 | 0.572 | 39% less | 82 |
+| the plain, nodding | 343 | 0.797 | 0.500 | 37% less | 74 |
+| a player's run | 274, 337 | 0.890 | 0.634 | 29% less | 93 |
+| the mountain top | 294, 302 | 0.950 | 0.869 | 9% less | 114 |
+| high over the spawn | 257, 261 | 0.961 | 0.921 | 4% less | 113 |
+| fast across the world | 176, 235 | 0.641 | 0.626 | 2% less | 89 |
+
+**Against the pass mark: partly, as its third line allowed.**
+- The spawn, with no ray over 160: the same to the last digit. Met.
+- The plain: 0.494 for "0.55 or under". Met. Not "over 0.74": its time does follow its longest ray.
+- The sea: 0.554 for "0.55 or under": missed by 0.004.
+- "Every mark whose longest ray is over 160 falls": **no.** The mountain top, high over the spawn and fast across
+  the world had rays of 235 to 302 steps cut to 160 and moved 2 to 9%.
+
+**So there are two kinds of mark:**
+- **Waiting marks** (the plain, the sea, the run, both nodding): their time is their longest ray's chain. Shown
+  now, not summed: stop the chain at 160 steps and the march is 29 to 45% shorter. The card runs at 73 to 93 W.
+- **Working marks** (the mountain top, high over the spawn, fast across the world): their time isn't their longest
+  ray's; cutting it changes little. The card runs at 113 to 114 W at the first two: the old sign of work (the watts,
+  2026-11-12). What their time is spent on isn't looked at yet; the spawn's kind isn't settled by this flight
+  (nothing of it was cut), though Nsight found it three and a half times as full as the plain.
+- **A part that isn't the chain:** the plain's 160 steps take 0.494 ms, 3.1 microseconds a step where the whole
+  324 took 2.5. About 0.1 ms of the march doesn't shorten with the chain. Not known what it is.
+
+**What it explains of the day:**
+- The height table shortens long chains and adds work to every step. So it paid at the waiting marks (the sea and
+  the run 21 to 23% under build 172) and cost at the others (the spawn, the mountain top, high over the spawn 3 to
+  9% over).
+- Counts over all the rays (steps, hops, looks) can't say where a waiting mark's time goes: only its longest
+  chain counts there. At a working mark they should; that isn't tested.
+
+**What a step budget a frame is worth, measured:** this flight is the far eye with no ray taking more than 160
+steps in a frame. The card's whole: the sea 1.112 to 0.666 ms, the run 1.007 to 0.752, the plain 0.934 to 0.604, the
+sea nodding 1.052 to 0.685 (its 99th 1.359 to 0.751); the dearest mark would be high over the spawn at 1.040. That
+is the most lazy rays could give at that budget, not what they would: a ray's steps left over still have to be
+taken in later frames. David, this morning: "it would seem we have to reduce the longest rays, one by one in order
+of length, in order to actually free up warps more rapidly, consistently." The flight agrees with him.
