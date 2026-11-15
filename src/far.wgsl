@@ -814,26 +814,35 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32, end: f32) -> Seen {
         // coarser, then two, then its own. [The plain's long rays, build 173: skimming a little over flat ground they
         // were under the top a coarse column's band gave, rounded up to its cell, and hopped their own level's columns
         // one at a time, 422 hops of the longest ray's 533 steps.]
+        // The three columns' numbers are asked for together, before the first is used: the card waits for three
+        // reads sent at once about as long as for one, and a ray's time is its reads one after another. [Nsight,
+        // build 175: on the plain the march lasts 0.9 ms with the card 95% empty, as long as its longest ray's chain;
+        // read one after another, the three numbers made a hop three waits long.]
         var skipped = false;
         let fine = f32(1 << u32(level));
+        var high_far = 0u;
+        var high_up = 0u;
+        var high_own = 0u;
+        if (in_air && !walking) {
+            let far_level = min(level + 4, TOP);
+            let up_level = min(level + 2, TOP);
+            keep_row(&row_far, far_level);
+            keep_row(&row_up, up_level);
+            keep_row(&row_own, level);
+            let cc_far = floor(p.xy / f32(1 << u32(far_level)));
+            let cc_up = floor(p.xy / f32(1 << u32(up_level)));
+            let cc_own = floor(p.xy / fine);
+            high_far = top_in(row_far, i32(cc_far.x), i32(cc_far.y));
+            high_up = top_in(row_up, i32(cc_up.x), i32(cc_up.y));
+            high_own = top_in(row_own, i32(cc_own.x), i32(cc_own.y));
+        }
         for (var k = 0; k < 3 && in_air && !walking; k++) {
             let up = min(level + 4 - 2 * k, TOP);
             let up_size = f32(1 << u32(up));
             let cc = floor(p.xy / up_size);
-            var row: Row;
-            if (k == 0) {
-                keep_row(&row_far, up);
-                row = row_far;
-            } else if (k == 1) {
-                keep_row(&row_up, up);
-                row = row_up;
-            } else {
-                keep_row(&row_own, up);
-                row = row_own;
-            }
             // The blend reaches a cell and a half over the foot of the cell that holds the highest block; half a cell
             // more than that, as the skip always left.
-            let high = top_in(row, i32(cc.x), i32(cc.y));
+            let high = select(select(high_own, high_up, k == 1), high_far, k == 0);
             let top = (floor((f32(high) - 1.0) / fine) + 2.0) * fine;
             if (p.z <= top) {
                 continue;

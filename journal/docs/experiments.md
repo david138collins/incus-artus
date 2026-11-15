@@ -3740,3 +3740,14 @@ skips and the steps are the same, and so is the picture. No switch: a switch in 
 **If it misses:** the plain within 5% of build 174's means the long chain isn't the looks. Then the tail itself,
 seen: one frame's rays in flight over time in Nsight's window (a screenshot from David), before anything else is
 built on the reading.
+
+### Build 176 built (unflown): the skip's three numbers read at once
+
+The three numbers are read before the skip's loop, each by its own row, and the loop chooses among them as build
+174's did (the reads lifted out of it, nothing else moved). Off the screen:
+- **The steps by kind on the plain are build 174's to the last count** (1,173,357 steps; 600,940 skips over a
+  coarser column, 115,874 over its own; 16 rays over 256, the longest 326).
+- **The pictures are build 174's** at the spawn, the mountain top, the plain, high over the spawn and the sea: no
+  pixel differs on the plain or the mountain top, and at the other three the most is 1 of 255 (two rings repeat to a
+  last digit).
+- All 30 tests pass. Waiting on David's go for one flight against build 174's.
