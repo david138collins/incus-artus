@@ -2285,6 +2285,13 @@ Reference: `Art/quartile minecraft illustration.png`
       - By build 186's mark the cut goes on as the game is launched (`INCUS_FAR_CUT=0` turns it off), as build 187,
         and on to what's next in the plan. Still owed: his look at the horizon while turning his head, when he next
         plays.
+    - *Build 187, played* (1196569, the cut on as launched; about two minutes, launched on "go ahead and launch and
+      i'll look while you think about architecutre as we move into the near field", closed cleanly): "Builder, all
+      of us are doing something wonderful together. it is alarmingly fast and looks really nice. i think we're going
+      to have room for people with stronger systems to bump up the resolution of the march and stuff. lets keep
+      going. whats next?" He named no flicker or speckle at the horizon; Builder takes the look owed for the cut as
+      given, and has told him so he can correct her. His thought on stronger systems is placed in the spec as an idea
+      (The targets). Next by the plan: the scatter stage.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
