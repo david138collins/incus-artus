@@ -2250,6 +2250,22 @@ Reference: `Art/quartile minecraft illustration.png`
         would show it). Builder recommends one more round: the cut's new code out of the march's program, re-flown,
         since that 4.5% sits on the game as launched too. Counsel agrees: 4.5% off the working marks' 0.99 ms march
         would bring the cut's dearest to about 1.07, under the line.
+  - **[DECIDED 2026-11-15] The cut kept; one round of trimming, then on** (David, to Builder, after build 185's
+    flight): "it looks like the new cut does bring the overall average down, and doesn't add much to the high over
+    spawn. half as many figures over 1. why don't you look over everything in the shader that can be trimmed and see
+    how that works. and then we can move on, if it gets a little better overall than it is now. but if the thing
+    ever gets too big this would be something to look at. not sure exactly where we are with that, but i'd like to
+    get a move on."
+    - His reading checked by Counsel from the two reports (the card's whole): the average over the nine views 0.915
+      ms uncut, 0.743 cut (19% down); views over 1 ms, four uncut, two cut; high over the spawn 1.096 → 1.117 (+1.9%).
+    - How Builder reads it (hers, not his): the cut is kept; one round trimming the march's program (build 186),
+      flown in one session; if it's a little better overall than build 185, on to what's next in the plan. His bar
+      replaces the keep-or-drop rule's second line. "If the thing ever gets too big" she takes as the march's program
+      size, to look at later if it grows (last measured at build 178: 167 registers, 12 groups of rays fit; not
+      measured since the cut went in).
+    - *Counsel's note:* this time he weighs the average and the count over 1 ms, the high spot allowed a little
+      dearer, where his rule of 2026-11-14 was "the goal should always be to bring down the high spot". His newer
+      word decides; written so the change is seen.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its

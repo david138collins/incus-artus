@@ -37,12 +37,13 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   height table took the sea and the run about a fifth faster. The Oracle, called again (her first reply in
   `journal/vision/oracle-prompt-2026-11-14.md`), waits on his five answers for her fourth part. Now, in his order, for
   headroom to make it prettier ("the goal should always be to bring down the high spot"): the march's smaller passes
-  and leaning went as far as they paid (builds 177 to 180, 2 to 7% off); the long rays cut into lengths is being
-  built. Flown as build 183 it halves the march where the card waits but makes it a sixth to a third dearer where the
-  card works, the dearest mark 1.08 → 1.37 ms. His word: "yes, lets try your idea to make the cut work smarter, if it
-  doesn't work it doesn't work. its pretty fast in general now." So the cut goes off by default; build 184 counts the
-  threads it keeps waiting, and the mend (build 185) is kept only if it brings the slowest view to uncut or under.
-  Then the scatter stage, the skyline talk and lazy rays proper. Both near drawers are flown before the fork ("Yes, fly both").
+  and leaning went as far as they paid (builds 177 to 180, 2 to 7% off); then the long rays cut into lengths. Its
+  first form (build 183) was dearer where the card works; packed (build 185), a ray given only the lengths it needs,
+  it's level where the card works and 30 to 46% faster where it waits (the average over nine views 0.92 → 0.74 ms;
+  high over the spawn 1.10 → 1.12, now the dearest). His word: "it looks like the new cut does bring the overall
+  average down ... why don't you look over everything in the shader that can be trimmed and see how that works. and
+  then we can move on ... i'd like to get a move on." So the cut is kept, one round of trimming the march's program
+  is flown (build 186), and then on: the scatter stage, the skyline talk and lazy rays proper. Both near drawers are flown before the fork ("Yes, fly both").
 - **Just closed:** 2.1, done enough to go on (David: "yes, close 2.1. let us proceed."). Old is packed into `old\`
   and still runs; the journal is in `journal/`. The new project runs from the top of the folder (build 120; the
   numbers carry on from old's): a flying camera on old's keys, the panel (F3), the clocks a pass at a time, and the

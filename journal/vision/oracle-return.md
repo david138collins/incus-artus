@@ -487,8 +487,14 @@ the answers.
   thread): the strip's threads wait 79 to 88% of their time, and held thread-steps rise with the march where the card
   works (the mountain top +17% held, +16% march; high over the spawn +27%, +39%), so the reading stands. The mend's
   ceiling there is about level with uncut, not under (a long ray's neighbours are long too). Also found: a cut ray's
-  lengths behind what covers it march on, where a whole ray stops. Does the cut by a list still beat yours (every ray
-  cut) on a card that's full at the marks that work?
+  lengths behind what covers it march on, where a whole ray stops. Build 185 packed it: a ray given only the lengths
+  it needs (one or two beyond its first, none over five), nothing marched behind its cover; the strip waiting 24 to
+  42%. Flown, cut against uncut: level where the card works (within 3%), 30 to 46% faster where it waits; the
+  average over nine views 0.92 → 0.74 ms, high over the spawn 1.10 → 1.12 (the dearest). The cut's code made the
+  uncut march about 4.5% dearer at the working marks (likely registers; not yet traced). David kept it ("it looks
+  like the new cut does bring the overall average down"), with one round of trimming the march's program, then on.
+  Does the cut by a list still beat yours (every ray cut) on a card that's full at the marks that work, and is it the
+  footing for lazy rays (a far length kept, not re-marched every frame)?
 
 ## 6. The message to send at the fork
 
