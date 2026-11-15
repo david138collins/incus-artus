@@ -5561,3 +5561,117 @@ scatter stage with it (his look at build 188: "very nice builder. it looks like 
 
 **Still owed for builds 188 and 189:** one flight session: the game as launched (the mark's line: each mark's
 march within 2% of build 186's cut flight), and once with the stage on, for what detail costs the far eye.
+
+### Builds 188 and 189 flown (2026-11-15, 17:11 to 17:27, hands off): seven marks of nine hold the line; the plain misses by 11.6% and the sea nodding by 3.9%, and the cause found
+
+Two flights in one session, on David's word ("you can go"): the game as launched (`logs/flight-1794784679.txt`: the
+cut on, the stage off) and once with the scatter stage on (`logs/flight-1794785233.txt`). Both reports read "the
+code committed" (60bcd7e). No hitch.
+
+**The mark's line: each mark's march within 2% of build 186's cut flight** (`logs/flight-1794778772.txt`). The
+march (the far 8 x 8 on the card, ms, the median):
+
+| mark | build 186 | build 189 | | the longest chain, 186 to 189 |
+|---|---|---|---|---|
+| on the ground at the spawn | 0.363 | 0.363 | the same | 127, 127 |
+| the mountain top | 0.914 | 0.913 | the same | 127, 127 |
+| the bare plain | 0.450 | 0.502 | **11.6% more: a miss** | 127, **205** |
+| high over the spawn | 0.958 | 0.963 | 0.5% more | 127, 127 |
+| low over the sea | 0.528 | 0.537 | 1.7% more | 127, 153 |
+| a player's run over the plain | 0.591 | 0.583 | 1.4% less | 165, 183 |
+| fast across the world | 0.616 | 0.622 | 1.0% more | 165, 181 |
+| the plain, nodding | 0.473 | 0.478 | 1.1% more | 247, 280 |
+| the sea, nodding | 0.561 | 0.583 | **3.9% more: a miss** | 238, 309 |
+
+The card's whole over the nine views: 6.663 ms for 6.582. Two views over 1 ms, as before; the dearest still high
+over the spawn, 1.091 ms (1.086). The two marks where the card works hold to the hair, so the hand-over's mend put
+no weight on the march's program. Seven of nine within the line; two over it, said here.
+
+**The plain's miss, found off the screen** (the plain's view, 2,560 x 1,600, frames 12, 13 and 14): one ray, the
+8 x 8's pixel (250, 99). Its lengths are [56, 205] steps one frame, [56, 103, and a third of 105 marched behind
+its cover] the next, and back again, for ever. What its numbers say:
+
+- Where its first length ends (601 blocks out) the ray is nearly covered: 1.3% still let through. Then it skims
+  on over the plain, meeting almost nothing, about a hundred steps more before the last of it is covered (at
+  about 3,260 blocks). So the whole ray is long in truth: some 160 steps.
+- A length that takes up at a cut never begins from under a twentieth (build 183's guard: so that a length the
+  ray reached nearly covered still gathers, if the ray stands more open this frame than the last). So the second
+  length begins as if 5% were let through, and marches until *that* is under a hundredth: 205 steps, out to 24,000
+  blocks, seven times as far as the ray goes in truth.
+- The join cuts the 205 in two. The frame after, it finds the ray covered at the new cut (which is true), takes
+  the cut away, and the length is 205 again.
+
+The plain is a mark where the card waits on its longest thread: one thread of 205 steps where the longest was 127
+holds the frame, 0.502 for 0.450. The steps summed are the same (1,183,054 for 1,180,651).
+
+**Why build 189 and not 186:** the hand-over's mend lets a little more through at every hand-over, so more rays
+come to a cut nearly covered and not quite. The longest chains at the sea and at the moving marks are up the
+same way (153 for 127; 309 for 238 at the sea nodding, the other miss). The flaw was in the cut from build 183,
+waiting for such a ray. Mended next (build 190, its mark below).
+
+**The picture test's own count was wrong for such a frame:** it held that the threads' steps and the rays' steps
+are the same number. A length marched behind the ray's cover is a thread's steps and not the ray's (build 184's
+mend to the join); the test now holds that the rays' steps are all some thread's.
+
+**With the scatter stage on** (for what detail costs the far eye; no line was set). The march and the card's
+whole, ms, against the same session's flight with it off:
+
+| mark | the march, off | on | the card's whole, on | |
+|---|---|---|---|---|
+| on the ground at the spawn | 0.363 | 0.307 | 0.422 | 15% less: the town and the woods stand before the long view |
+| the mountain top | 0.913 | 0.948 | 1.080 | 3.8% more |
+| the bare plain | 0.502 | 0.444 | 0.562 | (the flipping ray's view is changed by what's built there) |
+| high over the spawn | 0.963 | 1.080 | 1.210 | 12% more: woods under it, 6.87 million steps for 6.04 |
+| low over the sea | 0.537 | 0.564 | 0.688 | 5% more |
+| a player's run over the plain | 0.583 | 0.812 | 0.943 | **39% more; the 99th 1.370** |
+| fast across the world | 0.622 | 0.640 | 0.774 | 3% more |
+| the plain, nodding | 0.478 | 0.472 | 0.590 | |
+| the sea, nodding | 0.583 | 0.600 | 0.726 | 3% more |
+
+The card's whole over the nine views: 6.995 ms for 6.663 (5% more). The dearest view is high over the spawn at
+1.210 ms (99th 1.244).
+
+- **The run is the one that suffers,** and by the list, not the steps alone: 4,686 rays there are long and
+  4,317 are listed (the list holds 4,096 places), so some go uncut: the longest chain is 368 steps for 183.
+  The run goes through the town on the plain and its woods at walking height, where rays skim roofs and tree
+  tops. Written down, not mended: a bigger list is a number (`LONG_LIST`), to try when the world has real detail
+  in it.
+- **The stage's own marks** (the march; the card's whole): the castle 0.729 (0.863), the town on the plain 0.740
+  (0.874), the town by the spawn 0.671 (0.795), the hall in the mountain 0.909 (1.038), over a wood 0.398
+  (0.513), a cave mouth 0.158 (0.269). None is dearer than high over the spawn.
+- **At launch** (from the first launch with it on): the world summed in 42.0 s for 36.6; the far cells 165 MB on
+  the card for 163.
+
+### Build 190, a length begins as the ray stood there: the pass mark (written before the code)
+
+**What's to change** (two places; neither is in the march's loop, so the program's weight is as it was):
+
+1. **A length that takes up at a cut begins letting through what the ray did there the frame before, down to a
+   hundredth** (under that the ray is covered and the join takes the cut away anyway). The twentieth goes. A still
+   ray's lengths then stop where the whole ray would, and no length marches on behind the ray's true cover.
+2. **The guard the twentieth was moves to the join.** Where a length stopped as covered, and the ray stands more
+   open this frame than the length took it to (the view moved), the join gives what the ray still lets through
+   to the length's own colour, as if the surface that stopped it went on, and counts the ray covered there. [As it
+   is, up to a fifth of the sky shows through such a ray for a frame.] In a still view this never happens: the
+   join's numbers are then the lengths' own.
+
+**The pass mark.** Off the screen:
+
+- **The plain's ray holds still:** pixel (250, 99) has the same lengths at frames 12, 13 and 14, none over 127
+  steps; the plain's longest chain is the same at the three frames and no more than 127; its steps summed no
+  more than build 189's (1,182,905).
+- **Still pictures:** at the five marks the cut's picture is no farther from the uncut picture than build 189's
+  (pixels differing by 8 of 255 or more, and the most), and the uncut picture is build 189's to the pixel but for
+  the test's own noise (nothing in the uncut march changes).
+- **A moving view** (a new knob for the picture test, `FAR_TEST_TURN`: the last frame drawn with the eye turned
+  so far): the first frame after a turn of 2 degrees, cut against uncut, at the plain, low over the sea and high
+  over the spawn: no more pixels differ by 8 of 255 or more than build 189's measured the same way, and the most
+  is no greater. Build 189's numbers are taken first.
+- All the tests pass.
+
+By a flight (on David's word):
+
+- the bare plain's march within 2% of build 186's 0.450 ms; the sea nodding's within 2% of its 0.561;
+- no other mark's march over build 189's by more than 2%.
+
+A miss is said, with what the counts show.
