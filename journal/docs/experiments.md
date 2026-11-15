@@ -4661,3 +4661,53 @@ Off the screen:
   little over a quarter of the 4 x 4's pixels are wanted there, and each marches twice as long as a base ray though
   it starts just short of where the base ray touched. Why they take so many steps isn't looked at yet.
 - All 31 tests pass. Waiting on David's go for one flight, against build 180's as it is.
+
+### Build 181 flown (2026-11-15, 09:32, hands off): the list's bookkeeping costs 4 to 11%. A miss
+
+David: "go". Told before take-off; one screen, on mains, the card idle before; no hitch. Report
+`logs/flight-1794757116`, beside build 180's as it is (`-1794754181`, 08:43). The march, median ms:
+
+| mark | build 180 | build 181 | change |
+|---|---|---|---|
+| the spawn | 0.357 | 0.388 | 8.7% more |
+| the mountain top | 0.934 | 0.990 | 6.0% more |
+| the bare plain | 0.776 | 0.826 | 6.4% more |
+| high over the spawn | 0.975 | 1.087 | 11.5% more |
+| low over the sea | 0.980 | 1.041 | 6.2% more |
+| a player's run | 0.861 | 0.915 | 6.3% more |
+| fast across the world | 0.642 | 0.665 | 3.6% more |
+| the plain, nodding | 0.751 | 0.797 | 6.1% more |
+| the sea, nodding | 0.920 | 1.000 | 8.7% more |
+
+**Against the pass mark:** "every mark within 1%; over 2% at any mark is a miss". **Missed at every mark.** The
+picture, the list and the counts were met off the screen; the cost wasn't looked for there, and can't be.
+
+**What costs, found in the translator's source and not yet shown by a flight:** to hold the list, the buffer of the
+tiles' starts became words that many rays write at once, and every ray reads its tile's start from it. The
+translator (naga, to the card's language) writes such a read as an atomic "or with nothing", a read and a write
+locked together, where it wrote a plain read: every ray of every layer, every frame, on a word its 63 neighbours
+are locking too. The marks with the most rays marching lost most (high over the spawn, 253,000 rays: 11.5%).
+*Builder's mark said "a compare and, for a few hundred rays, a write"; the read was overlooked.*
+
+**The mend, build 182:** the tiles' starts leave that buffer. By the one dispatch the start pass writes them into a
+corner of the frame before's distances (a picture the march already reads, under the base layer's part, which is
+empty there), and the march reads them from it as any picture; the buffer then holds only the lists, which a few
+hundred rays touch. One layer after another (`INCUS_FAR_SIDE=0`) is as it was.
+
+**What the flight did give: each layer's rays and steps at every mark** (the most over the measured frames):
+
+| mark | the 8 x 8: steps, long rays | the 4 x 4: rays, steps, long rays |
+|---|---|---|
+| the spawn | 1,579,000; 261 | 13,500; 793,000; 18 |
+| the mountain top | 2,039,000; 983 | 69,700; 4,556,000; 600 |
+| the bare plain | 1,178,000; 890 | none |
+| high over the spawn | 2,263,000; 914 | 188,900; 3,764,000; 977 |
+| low over the sea | 1,355,000; 268 | 10,000; 490,000; 485 |
+| a player's run | 1,592,000; 780 | 22,800; 940,000; 1,639 |
+| fast across the world | 1,654,000; 256 (35,800 rays) | 140,100; 3,182,000; 399 |
+| the plain, nodding | 1,191,000; 964 | none |
+| the sea, nodding | 1,357,000; 312 | 10,000; 498,000; 511 |
+
+The 2 x 2 marches nothing at any mark. Every long ray was listed at every mark (the most at once 2,419, on the run:
+well inside the list's 8,192). **At the three dearest marks that aren't the sea, the 4 x 4 marches most of the
+steps:** the mountain top 4.56 million of 6.6, high over the spawn 3.76 of 6.0, fast across the world 3.18 of 4.8.
