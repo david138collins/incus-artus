@@ -4519,3 +4519,37 @@ are each version's pass over the base layer, from the traces' own tables. "Put b
   has to be flown: one of these versions marched as the far eye's own program, its picture wrong on purpose,
   against the march as it is. `lean5` (16 groups, nothing put by) is the ceiling of what room is worth; the
   hand-over out at 12 groups says how much of that is the shorter step and not the room.
+
+### Build 180, what 16 groups are worth where the card is full: the pass mark (written before the flights)
+
+No change to the march. A switch for measuring, `INCUS_FAR_AS`: one of the audit's second batch marched as the far
+eye's own program once the textures are in, its picture wrong on purpose (as the step-limit flight's was), so a
+flight prices it with every layer marching. Four flights in one session:
+
+| flight | the far eye's program | groups that fit | put by |
+|---|---|---|---|
+| as it is | build 178's march | 12 | 0 |
+| the hand-over out | `audit2_no_handover` | 12 | 0 |
+| and the floor | `audit2_hand_floor` | 16 | 15 words a ray |
+| and the third row | `audit2_hand_floor_rows` | 16 | 7 |
+
+The last three differ from one another only in things that don't change the picture at the marks (the floor's
+cells; the third row), so between them the difference is room against words put by. The first against the second
+is the hand-over's second read, as a ceiling.
+
+**The question:** where the card is full (the mountain top, high over the spawn), is the far eye shorter with 16
+groups than with 12?
+
+**The marks:**
+- **If room pays there:** the two 16-group flights are under the hand-over-out flight at the mountain top and high
+  over the spawn by a tenth or more (a quarter would be all of it: 12 groups' work in 16's room).
+- **If it doesn't:** they're within 5% of it, or over it (the words put by cost more than the room gives).
+- **Where the card waits** (the plain, the sea, the run): the 16-group flights no better than the hand-over out at
+  12, and a little worse if the audit's base-layer times hold (0.97 to 0.99 against 0.84 to 0.90).
+- **The hand-over out against the march as it is:** under at every mark; by the audit's base-layer times up to 16%
+  on the plain and 10% at the mountain top, less with the finer layers in.
+- *My guess, low:* room pays in part where the card is full, 5 to 15%.
+
+**What it decides:** a tenth or more for room where the card is full, and the hand-over made lighter and one other
+piece are next, each with something standing in that keeps the picture. Under 5%, and the registers aren't chased
+further: the hand-over is still worth its shorter step, and the long rays cut into lengths comes next.

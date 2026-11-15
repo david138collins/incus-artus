@@ -400,7 +400,15 @@ impl FarEye {
             // are in, which keeps the name the far eye's march has always had.
             const WHICH: &str = "const LOADED: bool = false;";
             assert_eq!(source.matches(WHICH).count(), 1, "far.wgsl says which program it is in one place");
-            let loaded_source = source.replace(WHICH, "const LOADED: bool = true;");
+            let mut loaded_source = source.replace(WHICH, "const LOADED: bool = true;");
+            // For measuring (`INCUS_FAR_AS`, the name of one of the audit's second batch): that version marched as
+            // the far eye's own program once the textures are in, its picture wrong on purpose, so a flight says what
+            // its room and its shorter step are worth with every layer marching (the audit marches the base alone).
+            if let Ok(asked) = std::env::var("INCUS_FAR_AS") {
+                let text = audit_variants(far_source.as_str(), 2).into_iter().find(|(name, _)| *name == asked).unwrap_or_else(|| panic!("INCUS_FAR_AS={asked} is none of the audit's second batch")).1;
+                loaded_source = one_source(&text);
+                log::warn!("The far eye: once the textures are in, marched by the audit's {asked} (for measuring: the picture is wrong on purpose)");
+            }
             let source = source.replace("fn march_all(", "fn march_loading(");
             let module = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some("the far eye, one dispatch"), source: wgpu::ShaderSource::Wgsl(source.into()) });
             let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
