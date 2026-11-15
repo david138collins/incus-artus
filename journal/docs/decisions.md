@@ -2107,6 +2107,23 @@ Reference: `Art/quartile minecraft illustration.png`
       by). Pass mark: a tenth or more for 16 groups at the mountain top and high over the spawn means the hand-over and
       one other piece are next; under 5% means the registers aren't chased further and the cut of the long rays comes
       next (the hand-over still worth its shorter step). About 26 minutes hands off asked.
+    - *Flown on "go ahead"* (ended 09:09; `logs/flight-1794754181` to `-1794755350`, checked by Counsel). **Fitting
+      more groups is worth little.** Where the card is full, 16 groups against 12 with the same hand-over out: the
+      mountain top 2 and 4% less, high over the spawn 2 and 5.5% less by the card's whole (Builder's 2 and 7%, likely
+      the march's own); three of four under 5%; her guess 5 to 15% was high. Where the card waits, 16 groups bought by
+      spilling cost 3 to 4% (the plain, the plain nodding). The hand-over's second read out, as a ceiling: 13 to 14% on
+      the plain, 4 to 6% at the mountain top, high over the spawn and fast across, next to nothing over the sea, the run
+      and the spawn. So by the mark's own rule **the registers aren't chased further as a goal.** Kept from the stretch:
+      build 178 (the picture kept, 2 to 7% off, the march's need 186 → 167). The far eye's whole now: high over the
+      spawn 1.096 ms, the sea 1.092, the mountain top 1.056, the run 0.977, the plain 0.886, the spawn 0.466. **Not
+      answered:** what the mountain top's and high over the spawn's time is (not their longest rays, not room, not the
+      hand-over); the 4 × 4 layer is its largest known part (the mountain top's base layer alone 0.71 ms of its 0.95).
+      Builder puts to him the long rays' cut next (rays stopped at 160: the sea's march 45% shorter, the run's 29%),
+      the third item of his order, with the hand-over as a smaller follow-up.
+      - *Counsel's note:* the cut goes at the sea and the run, which wait; the high spot is now high over the spawn
+        (1.096), a working mark the cut doesn't touch, a hair over the sea. By his rule the worst only falls once the
+        working marks' time is placed, and its largest known part is the 4 × 4 layer: how much of it is earned, and
+        where (a look rule), not how big the march is.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
