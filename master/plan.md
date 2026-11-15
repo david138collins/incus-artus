@@ -41,8 +41,13 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (builds 181 to 186). The cut is on as the game is launched (build 187; `INCUS_FAR_CUT=0` turns it off): 25 to 39%
   faster where the card waits, within 4% where it works; summed over nine views 6.58 ms against 8.06 uncut; the
   dearest view high over the spawn at 1.086 ms (uncut's the sea at 1.071); the worst 99th 1.25. His word on keeping
-  it: "it looks like the new cut does bring the overall average down ... i'd like to get a move on." Owed: his look
-  at the horizon while turning his head. Next: the scatter stage, then the skyline talk and lazy rays proper. Both near drawers are flown before the fork ("Yes, fly both").
+  it: "it looks like the new cut does bring the overall average down ... i'd like to get a move on." His look on
+  it: "it is alarmingly fast and looks really nice." The scatter stage is in (build 188, Builder's to place: woods,
+  towers, castles, towns, arches, a hall entrance, cave mouths; on with `INCUS_SCATTER_STAGE=1`), and with it the far
+  cells summed from any column, so overhangs, arches, caves and David's build now reach the far eye. It showed bright
+  bands at the rings' edges over shallow sea, mended (build 189: "basically invisible ... well done. let us
+  proceed."). Owed: one flight session for builds 188 and 189. Next: the skyline talk, which the stage's pictures
+  feed (thin things nearly vanish against the sky at the far cells' size), then lazy rays proper. Both near drawers are flown before the fork ("Yes, fly both").
 - **Just closed:** 2.1, done enough to go on (David: "yes, close 2.1. let us proceed."). Old is packed into `old\`
   and still runs; the journal is in `journal/`. The new project runs from the top of the folder (build 120; the
   numbers carry on from old's): a flying camera on old's keys, the panel (F3), the clocks a pass at a time, and the

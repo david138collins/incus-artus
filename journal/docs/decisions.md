@@ -2334,6 +2334,16 @@ Reference: `Art/quartile minecraft illustration.png`
       over the sea bed is crossed, and the bed shows brighter (over dry ground it's there and can't be seen; the same
       at the hand-overs by distance). A flaw of the march, mended now as build 189 (pass mark 894306c, her wrong first
       answer written there). Only the shallow sea's own square contours stay for water's look in 2.4.
+  - *Build 189, the rings' edges mended* (050f902; launched on "launch" by the plain's town with the stage on, 88 s,
+    closed cleanly): through a hand-over, a look read from the coarser level has its solid share turned into the
+    finer cell's before the two are mixed. Off the screen the square outline over the shallow shelf gone; the look
+    changed a little wherever a level hands over (the five marks against build 182's: 0.4 to 3.7% of pixels by 4 of
+    255 or more; a little more sky where a hand-over crosses a skyline). **His look:** "after everything loaded in, it
+    is basically invisible, and i don't think anyone will ever have the chance to pick it out amongst a finished world
+    even if he got high up on a mountain. well done. let us proceed." The mend kept, and the scatter stage with it;
+    nothing said against the look on land. Owed for builds 188 and 189: one flight session (as launched, for the
+    mark's 2% line; and with the stage on, for what detail costs). Then by the plan the skyline talk, which the
+    stage's pictures now feed.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
