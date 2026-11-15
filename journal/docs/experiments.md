@@ -3548,3 +3548,6 @@ two, then its own. `INCUS_FAR_TOPS=0` leaves the true numbers unmade, for flying
   "let me see the change before discarding it. for all we know it might be nice." Nothing is discarded; his look
   comes first.
 - All 30 tests pass. Not flown.
+
+**David's look at the height table's pictures** (2026-11-14, the pair at his first spot, before and after): "from
+those pics i cant see anything wrong". Its flights (the table against `INCUS_FAR_TOPS=0`) wait on his go.
