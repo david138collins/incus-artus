@@ -239,7 +239,7 @@ flowchart TB
 - **Switch** `INCUS_FAR_BASE`: the far eye's first layer in screen pixels: 8 (unset, old's) or 4, the layers under it each half the one above (step 2's probe).
 - **Switch** `INCUS_FAR_SIDE`: 0: the far eye's layers marched one after another (the baseline flights are read against, and the picture's reference); unset, by one dispatch, a finer layer led by the coarser layer of the frame before (step 2).
 - **Switch** `INCUS_FAR_LOADED`: 0: the far eye marched by the whole march even once the textures are in (for measuring the march once the textures are in against it, and the reference its picture is checked against); unset, by the second program, without the code's blend or the views, when the textures are in, the hardware's blend is chosen and no view is on.
-- **Switch** `INCUS_FAR_CUT`: for measuring: 0, no ray is cut into lengths (every ray marched whole, as before build 183); or where a cut ray's first cut is, blocks (unset: 1024). By the one dispatch a ray that was long the frame before is marched as lengths side by side and joined.
+- **Switch** `INCUS_FAR_CUT`: the cut, off unless asked: where a cut ray's first cut is, blocks out (64 or more; build 183 flew with 1024). By the one dispatch a ray that was long the frame before is then marched as lengths side by side and joined. Unset or 0: every ray marched whole.
 - **Switch** `INCUS_FAR_LONG`: for measuring: how many steps make a ray long, so it's listed and cut into lengths the frame after (unset: 128; a cut ray stays listed down to a quarter of it).
 - **Switch** `INCUS_FAR_AS`: for measuring: the name of one of the audit's second batch, marched as the far eye's own program once the textures are in (its picture wrong on purpose), so a flight says what that version's room and shorter step are worth with every layer marching.
 - **Switch** `INCUS_FAR_AUDIT`: for measuring, 1 or 2 (which batch): cut-down versions of the march (1: of the whole march, the hops alone, the samples alone, one part taken out at a time; 2: of the march once the textures are in, the parts it keeps in hand taken out alone and together) compiled beside it and marched over the base layer into scratch after the far eye, so one Nsight trace names each one's registers, the groups of rays that fit and its time; the picture untouched, the frame that much longer.
@@ -312,7 +312,7 @@ flowchart TB
 - **What it is:** The frame's length, and the card's times read back from frames it has finished; on a flight, kept for its report, with where the eye is and how far the window's usable regions reach round it. On a flight, once a second, the far layers' longest rays counted by a small pass of its own (the most steps any ray took, and how many took over 256, 384 and 512: the Oracle's step 0). The memory: the game's main memory (Windows' count for its process: in use, the most, and the machine's) once a second on a flight, for each standing's most and the report; the main memory and the card's in the session's log every half minute [David: "begin tracking ram use"].
 - **Reads:** the window round the eye and the temperatures. **Writes:** the clocks and the flight's report.
 - **Cost, last measured** (`kept logs/flight-1794589790.txt`): on the processor median 0.009, 95th 0.026, 99th 0.046, worst 0.734.
-- **Files:** src/runner.rs, src/clocks.rs, src/flight.rs, src/memory.rs and src/far_tally.wgsl.
+- **Files:** src/runner.rs, src/clocks.rs, src/flight.rs, src/memory.rs, src/far_tally.wgsl and src/far_waiting.wgsl.
 
 ### the doorway
 

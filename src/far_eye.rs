@@ -61,11 +61,9 @@ const LONG_STEPS: u32 = 128;
 /// (64 x 64, the join's threads: `far_all.wgsl`'s `join_pass`. The most long rays at once over build 181's flight:
 /// 2,419, on the run.)
 const LONG_LIST: u32 = 4096;
-/// Where a cut ray's first cut is, blocks out (the cuts after it each half a doubling of distance on: `far.wgsl`'s
-/// `cut_span`), and the words a listed ray's lengths' stacks take in the cut's store (17 lengths of 11:
-/// `far_all.wgsl`'s `STACK`).
-const FIRST_CUT: f32 = 1024.0;
-const STACK_WORDS: u32 = 17 * 11;
+/// The words a listed ray's lengths' stacks take in the cut's store (17 lengths of 11: `far_all.wgsl`'s `STACK`).
+const STACK: u32 = 11;
+const STACK_WORDS: u32 = 17 * STACK;
 /// The cut's store, words (`far_all.wgsl`'s `cut`): the two lists; for each place in each, how its ray stood where
 /// each of its 17 lengths begins; and each place's lengths' stacks, which start at `STACKS_AT`.
 const STACKS_AT: u32 = (2 + 2 * 17) * LONG_LIST;
@@ -186,6 +184,10 @@ struct Targets {
     tally_groups: Vec<[wgpu::BindGroup; 2]>,
     /// Each layer's part of its distances' texture, for the counting.
     tally_parts: Vec<wgpu::Buffer>,
+    /// The count of threads kept waiting, by the one dispatch: its numbers, and its bind group for each of the two
+    /// copies of the distances (this frame's, with the frame before's beside it).
+    waiting_numbers: wgpu::Buffer,
+    waiting_groups: Option<[wgpu::BindGroup; 2]>,
     layers: Vec<Layer>,
     up_numbers: wgpu::Buffer,
     up_group: [wgpu::BindGroup; 2],
@@ -294,6 +296,10 @@ pub struct FarEye {
     tally_counts: Vec<wgpu::Buffer>,
     tally_back: wgpu::Buffer,
     tally_state: std::sync::Arc<std::sync::atomic::AtomicU8>,
+    /// Threads kept waiting (`far_waiting.wgsl`; build 184): the march's grid counted group by group with the rays'
+    /// count, by the one dispatch; its counts are read back after the layers'.
+    waiting: wgpu::ComputePipeline,
+    waiting_counts: wgpu::Buffer,
 }
 
 impl FarEye {
@@ -500,26 +506,32 @@ impl FarEye {
         let (reach, begin) = (blocks("INCUS_TEST_REACH").unwrap_or(REACH), blocks("INCUS_TEST_BEGIN").unwrap_or(0.0));
         let most_steps = std::env::var("INCUS_TEST_STEPS").ok().and_then(|n| n.parse::<f32>().ok()).filter(|n| *n >= 1.0).unwrap_or(768.0);
         log::info!("The far rays: {}, {most_steps:.0} steps at most", if edge { "ended at the map's edge" } else { "marched on past the map's edge (INCUS_FAR_EDGE=0)" });
-        // The cut (`INCUS_FAR_CUT`, for measuring): 0 none, or where the first cut is, blocks.
+        // The cut, off unless asked (`INCUS_FAR_CUT`: where a cut ray's first cut is, blocks out; the cuts after it
+        // each half a doubling of distance on, `far.wgsl`'s `cut_span`). [Build 183's flight, with the first cut
+        // at 1,024: the march half as long where the card waits, a sixth to a third longer where it works, and the
+        // dearest mark up from 1.08 to 1.37 ms. David, 2026-11-15: "lets try your idea to make the cut work
+        // smarter, if it doesn't work it doesn't work".]
         let cut_at = match std::env::var("INCUS_FAR_CUT").ok().and_then(|n| n.parse::<f32>().ok()) {
-            Some(asked) if asked <= 0.0 => 0.0,
-            Some(asked) => asked.clamp(64.0, 65536.0),
-            None => FIRST_CUT,
+            Some(asked) if asked > 0.0 => asked.clamp(64.0, 65536.0),
+            _ => 0.0,
         };
         // How many steps make a ray long (`INCUS_FAR_LONG`, for measuring).
         let long = std::env::var("INCUS_FAR_LONG").ok().and_then(|n| n.parse::<u32>().ok()).map_or(LONG_STEPS, |n| n.clamp(16, 768));
         if one.is_some() && long != LONG_STEPS {
             log::info!("The cut: a ray is long at {long} steps or more (INCUS_FAR_LONG)");
         }
-        if one.is_some() && cut_at != FIRST_CUT {
-            log::info!("The cut: {}", if cut_at > 0.0 { format!("the first cut {cut_at:.0} blocks out (INCUS_FAR_CUT)") } else { "none, every ray marched whole (INCUS_FAR_CUT=0)".to_string() });
+        if one.is_some() && cut_at > 0.0 {
+            log::info!("The cut: rays long the frame before are marched as lengths, the first cut {cut_at:.0} blocks out (INCUS_FAR_CUT)");
         }
         let tally_module = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some("the longest ray"), source: wgpu::ShaderSource::Wgsl(include_str!("far_tally.wgsl").into()) });
         let tally = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("the longest ray"), layout: None, module: &tally_module, entry_point: Some("tally_pass"), compilation_options: Default::default(), cache: None });
+        let waiting_module = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some("threads kept waiting"), source: wgpu::ShaderSource::Wgsl(include_str!("far_waiting.wgsl").into()) });
+        let waiting = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("threads kept waiting"), layout: None, module: &waiting_module, entry_point: Some("waiting_pass"), compilation_options: Default::default(), cache: None });
+        let waiting_counts = device.create_buffer(&wgpu::BufferDescriptor { label: Some("threads kept waiting"), size: 4 * TALLY as u64, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let tally_counts = LAYERS.iter().map(|_| device.create_buffer(&wgpu::BufferDescriptor { label: Some("a far layer's longest ray"), size: 4 * TALLY as u64, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false })).collect();
-        let tally_back = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the longest rays read back"), size: 4 * (TALLY * LAYERS.len()) as u64, usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
+        let tally_back = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the longest rays read back"), size: 4 * (TALLY * (LAYERS.len() + 1)) as u64, usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let tally_state = std::sync::Arc::new(std::sync::atomic::AtomicU8::new(0));
-        Self { store, lane, rings, eye: [0.0; 2], start, march, up, layout, up_layout, sampler, targets: None, look, textures, atlas: None, building: None, stand_ins, light: None, lighting: None, sweeping: None, sun_asked, light_stand_ins, blue, blue_bytes, edge, layers, one, one_loaded, one_start, one_join, cut_at, long, loaded_off: std::env::var("INCUS_FAR_LOADED").as_deref() == Ok("0"), loaded_said: std::sync::atomic::AtomicBool::new(false), audit, parity: 0, fresh: false, haze_step, most_steps, tops_making: None, tops_made: None, tops_off: false, reach, begin, tally, tally_counts, tally_back, tally_state }
+        Self { store, lane, rings, eye: [0.0; 2], start, march, up, layout, up_layout, sampler, targets: None, look, textures, atlas: None, building: None, stand_ins, light: None, lighting: None, sweeping: None, sun_asked, light_stand_ins, blue, blue_bytes, edge, layers, one, one_loaded, one_start, one_join, cut_at, long, loaded_off: std::env::var("INCUS_FAR_LOADED").as_deref() == Ok("0"), loaded_said: std::sync::atomic::AtomicBool::new(false), audit, parity: 0, fresh: false, haze_step, most_steps, tops_making: None, tops_made: None, tops_off: false, reach, begin, tally, tally_counts, tally_back, tally_state, waiting, waiting_counts }
     }
 
     /// Whether every region is on the card, the window's regions round the eye too, and the far textures if they're made.
@@ -959,7 +971,23 @@ impl FarEye {
             .zip(&tally_parts)
             .map(|((layer, counts), part)| [0usize, 1].map(|p| device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("the longest ray"), layout: &self.tally.get_bind_group_layout(0), entries: &[entry(0, wgpu::BindingResource::TextureView(&layer.far[p])), entry(1, counts.as_entire_binding()), entry(2, part.as_entire_binding())] })))
             .collect();
-        self.targets = Some(Targets { screen, generation: self.store.generation, atlas_in: self.atlas.is_some(), atlas_generation, light: light_now, tiles, tally_groups, tally_parts, layers, up_numbers, up_group, one, one_starts, long_rays, cut, strip, audit });
+        let waiting_numbers = buffer("threads kept waiting, its numbers", 80, wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST);
+        let waiting_groups = one_way.then(|| {
+            [0usize, 1].map(|p| {
+                device.create_bind_group(&wgpu::BindGroupDescriptor {
+                    label: Some("threads kept waiting"),
+                    layout: &self.waiting.get_bind_group_layout(0),
+                    entries: &[
+                        entry(0, wgpu::BindingResource::TextureView(&layers[0].far[p])),
+                        entry(1, wgpu::BindingResource::TextureView(&layers[0].far[1 - p])),
+                        entry(2, cut.as_entire_binding()),
+                        entry(3, waiting_numbers.as_entire_binding()),
+                        entry(4, self.waiting_counts.as_entire_binding()),
+                    ],
+                })
+            })
+        });
+        self.targets = Some(Targets { screen, generation: self.store.generation, atlas_in: self.atlas.is_some(), atlas_generation, light: light_now, tiles, tally_groups, tally_parts, waiting_numbers, waiting_groups, layers, up_numbers, up_group, one, one_starts, long_rays, cut, strip, audit });
         true
     }
 
@@ -1141,6 +1169,27 @@ impl FarEye {
             }
             encoder.copy_buffer_to_buffer(&self.tally_counts[k], 0, &self.tally_back, (4 * TALLY * k) as u64, 4 * TALLY as u64);
         }
+        // Threads kept waiting, by the one dispatch: the march's grid as `layer` dispatched it, group by group.
+        queue.write_buffer(&self.waiting_counts, 0, &[0u8; 4 * TALLY]);
+        if let Some(groups) = &targets.waiting_groups {
+            let across: Vec<u32> = targets.layers.iter().map(|layer| layer.size.0.div_ceil(8) * 8).collect();
+            let down = targets.layers.iter().map(|layer| layer.size.1.div_ceil(8)).max().unwrap_or(1);
+            let strip = if self.cutting() { targets.strip } else { 0 };
+            let mut numbers: Vec<u32> = Vec::new();
+            let mut starts = 0;
+            for (layer, across) in targets.layers.iter().zip(&across) {
+                numbers.extend([layer.size.0, layer.size.1, layer.far_at, starts]);
+                starts += across;
+            }
+            numbers.extend([starts, strip, LONG_LIST, STACKS_AT]);
+            numbers.extend([self.parity as u32, STACK, (starts + strip) / 8, down]);
+            queue.write_buffer(&targets.waiting_numbers, 0, &numbers.iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
+            let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("threads kept waiting"), timestamp_writes: None });
+            pass.set_pipeline(&self.waiting);
+            pass.set_bind_group(0, &groups[self.parity], &[]);
+            pass.dispatch_workgroups(((starts + strip) / 8).div_ceil(8), down.div_ceil(8), 1);
+        }
+        encoder.copy_buffer_to_buffer(&self.waiting_counts, 0, &self.tally_back, (4 * TALLY * targets.layers.len()) as u64, 4 * TALLY as u64);
         true
     }
 
@@ -1196,7 +1245,9 @@ impl FarEye {
     /// took over 256, 384 and 512; then how many took `LONG_STEPS` or more, how many of those are in the long rays'
     /// list, how many rays marched at all and their steps summed; then the longest chain (the most steps any one
     /// thread took: a cut ray's longest length), how many rays were cut, how many are in the list at all, and last
-    /// how many steps made a ray long when they were counted.
+    /// how many steps made a ray long when they were counted. After the layers', a row for the threads kept waiting
+    /// (`far_waiting.wgsl`): the layers' threads' steps taken, held by 32s, held by 64s and how many marched; then
+    /// the strip's, the same four.
     pub fn tally_read(&self) -> Option<Vec<[u32; TALLY]>> {
         use std::sync::atomic::Ordering;
         if self.tally_state.load(Ordering::Acquire) != 2 {
@@ -1470,6 +1521,11 @@ mod tests {
         // The rings, as the game starts them (as many as `INCUS_FAR_RING` says: 0 none).
         let rings = crate::far_ring::rings_asked().into_iter().map(|level| crate::far_ring::Ring::start(crate::doorway::test_world(), store.levels[crate::bricks::row(level)], store.kept.side()).unwrap()).collect();
         let mut eye = FarEye::new(&device, format, store, lane, rings);
+        // The cut is off in the game unless asked; here it's on unless told (`INCUS_FAR_CUT`), so the lengths and
+        // the join are always tested.
+        if std::env::var_os("INCUS_FAR_CUT").is_none() {
+            eye.cut_at = 1024.0;
+        }
         // The whole world: put on the card as it's summed, till every region and the window round the eye are in, the
         // writes handed to the card each time round as a frame would (held, their copies pile up till it runs out).
         while eye.lane.is_some() || eye.store.behind > 0 {
@@ -1601,8 +1657,14 @@ mod tests {
         let counts = eye.tally_read().expect("the rays' counts came back");
         eprintln!("The rays: {}", counts.iter().zip(["8 x 8", "4 x 4", "2 x 2"]).map(|(c, name)| format!("the {name} {} marched, {} steps, the longest {} (the longest chain {}), {} of {} steps or more ({} listed), {} cut, {} in the list", c[6], c[7], c[0], c[8], c[4], c[11], c[5], c[9], c[10])).collect::<Vec<_>>().join("; "));
         if eye.one.is_some() {
+            // Threads kept waiting: every step a ray took is some thread's, the layers' or the strip's.
+            let waiting = counts[LAYERS.len()];
+            eprintln!("Threads kept waiting: the layers' {} steps taken, {} held by 32s, {} by 64s, {} threads marched; the strip's {} steps taken, {} held by 32s, {} by 64s, {} threads marched", waiting[0], waiting[1], waiting[2], waiting[3], waiting[4], waiting[5], waiting[6], waiting[7]);
+            assert_eq!(waiting[0] + waiting[4], counts[..LAYERS.len()].iter().map(|c| c[7]).sum::<u32>(), "the threads' steps are the rays' steps");
+            assert!(waiting[1] >= waiting[0] && waiting[2] >= waiting[1] && waiting[5] >= waiting[4] && waiting[6] >= waiting[5], "a group is held at least as long as its threads are busy");
             let list = eye.long_list(&device, &queue);
-            let (long, listed, cut, in_list): (u32, u32, u32, u32) = (counts.iter().map(|c| c[4]).sum(), counts.iter().map(|c| c[5]).sum(), counts.iter().map(|c| c[9]).sum(), counts.iter().map(|c| c[10]).sum());
+            let layers = &counts[..LAYERS.len()];
+            let (long, listed, cut, in_list): (u32, u32, u32, u32) = (layers.iter().map(|c| c[4]).sum(), layers.iter().map(|c| c[5]).sum(), layers.iter().map(|c| c[9]).sum(), layers.iter().map(|c| c[10]).sum());
             assert!(list[0] >= long, "the list counts the long rays (and the cut rays it keeps under that)");
             if list[0] <= LONG_LIST {
                 assert_eq!(listed, long, "every long ray carries its place in the list");

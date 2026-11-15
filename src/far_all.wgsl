@@ -238,10 +238,15 @@ fn join_pass(@builtin(global_invocation_id) id: vec3<u32>) {
     let stacks = stacks_at(listed);
     for (var k = 0u; k <= 16u; k++) {
         befores[k] = select(-through, through, in_air);
+        let s = stacks + k * STACK;
+        // Every length's steps are counted, the ones behind what covers the ray too: their threads marched.
+        let word = cut[s + 9u];
+        let took = f32((word >> 5u) & 0x3FFFFFFu);
+        steps += took;
+        chain = max(chain, took);
         if (through < 0.01) {
             continue;
         }
-        let s = stacks + k * STACK;
         // What the length began letting through, and so how its numbers stand to the ray's as it is this frame:
         // scaled by `now`.
         let began = clamp(bitcast<f32>(cut[s + 10u]), 0.05, 1.0);
@@ -249,10 +254,6 @@ fn join_pass(@builtin(global_invocation_id) id: vec3<u32>) {
         let ended = bitcast<f32>(cut[s + 6u]);
         let reached = bitcast<f32>(cut[s + 7u]);
         let touch = bitcast<f32>(cut[s + 8u]);
-        let word = cut[s + 9u];
-        let took = f32((word >> 5u) & 0x3FFFFFFu);
-        steps += took;
-        chain = max(chain, took);
         touched = min(touched, touch);
         gathered += now * vec3<f32>(bitcast<f32>(cut[s]), bitcast<f32>(cut[s + 1u]), bitcast<f32>(cut[s + 2u]));
         sunny += now * vec3<f32>(bitcast<f32>(cut[s + 3u]), bitcast<f32>(cut[s + 4u]), bitcast<f32>(cut[s + 5u]));

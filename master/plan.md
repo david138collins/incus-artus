@@ -61,8 +61,13 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** his word on the mend to the cut (build 184), and his look at the horizon band on build
-  183, standing and nodding. **Build 183, the cut's second stage, is flown: a miss** (2026-11-15,
+- **Waiting on David:** his go for build 184's two flights (the cut off unless asked, and a count of threads
+  kept waiting, flown uncut and with the cut on to test Builder's reading; the mend itself is build 185). His word
+  on the mend (2026-11-15): "yes, lets try your idea to make the cut work smarter, if it doesn't work it doesn't
+  work. its pretty fast in general now." Off the screen the count already says: four fifths of the cut's extra
+  threads' time is waiting (the reading stands in the main), and the mend's ceiling where the card works is about
+  level with uncut, not under: taking the long rays out of the layers frees only 4% there. The game as launched
+  now marches uncut. **Build 183, the cut's second stage, is flown: a miss** (2026-11-15,
   `journal/docs/experiments.md`). A ray long the frame before is marched as up to 17 lengths side by side and
   joined: the march is 49% shorter on the plain (0.769 to 0.396 ms) and 37% over the sea, where the card waits;
   and 18% longer at the mountain top, 32% high over the spawn, 17% on the run, where the card works. The dearest

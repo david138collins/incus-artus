@@ -290,6 +290,14 @@ impl Flight {
                 // What each layer marches (each number the most over the measured frames), and its long rays for the cut.
                 let layers: Vec<String> = standing.longest.iter().zip(["8 x 8", "4 x 4", "2 x 2"]).map(|(c, name)| format!("the {name} {} rays marched, {} steps, {} of {} steps or more ({} listed), {} cut, the longest chain {}", c[6], c[7], c[4], c[11], c[5], c[9], c[8])).collect();
                 text += &format!("  the rays: {}\n", layers.join("; "));
+                // Threads kept waiting (build 184): a group of the march's threads runs as long as its longest.
+                if let Some(w) = standing.longest.get(3) {
+                    let idle = |busy: u32, held: u32| if held > 0 { 100.0 * (held - busy.min(held)) as f32 / held as f32 } else { 0.0 };
+                    text += &format!(
+                        "  threads kept waiting (thread-steps; a group held as long as its longest thread, taken as groups of 32, and of 64 in brackets): the layers' {} taken, {} held, {:.0}% of it waiting ({} held, {:.0}%), {} threads marched; the strip's {} taken, {} held, {:.0}% of it waiting ({} held, {:.0}%), {} threads marched; in all {} taken, {} held ({})\n",
+                        w[0], w[1], idle(w[0], w[1]), w[2], idle(w[0], w[2]), w[3], w[4], w[5], idle(w[4], w[5]), w[6], idle(w[4], w[6]), w[7], w[0] + w[4], w[1] + w[5], w[2] + w[6]
+                    );
+                }
             }
             if let Some(most) = standing.most_main_memory {
                 text += &format!("  the main memory: at most {:.0} MB in use\n", most as f64 / 1e6);
