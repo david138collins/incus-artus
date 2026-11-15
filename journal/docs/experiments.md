@@ -3618,3 +3618,32 @@ hop is one build 174 could have taken, so nothing new is skipped.
 **If it misses:** near the ground still over 5% dearer than build 172 means the price is the code's size, not the
 order of the looks (to try: two columns, its own and one coarser). The sea over 5% dearer than build 174 means the
 looks a hop cost (to try: begin at the column that gave the last hop).
+
+### Build 175's first mark, counted: the mend's reason was wrong, and it isn't flown (2026-11-14)
+
+The own-column-first skip, off the screen at the flight's size, with the looks counted (`FAR_TEST_KINDS`, kinds 13 to
+15 new: a look that found the ray clear of the column two levels coarser, four coarser, and a look that found it
+not clear). Build 174's looks follow from the same counts (it took one look where the biggest column was clear, two
+where only the middle one was, three otherwise).
+
+| mark | steps, 174 and 175 | steps in air where even its own column isn't clear | looks, build 174's order | looks, its own column first |
+|---|---|---|---|---|
+| the bare plain | 1,173,000, the same to 3 | 102,000 | 1,390,000 | 2,137,000 (54% more) |
+| on the ground at the spawn | 1,578,000 | 114,000 | 2,448,000 | 2,603,000 (6% more) |
+| the mountain top | 2,051,000 | 150,000 | 3,238,000 | 3,505,000 (8% more) |
+| low over the sea | 1,309,000 | 117,000 | 1,495,000 | 2,152,000 (44% more) |
+
+- **The steps passed** (the same as build 174's on the plain, 16 rays over 256, the longest 326), as the mark said.
+- **The reason for the mend didn't.** "A ray near the ground fails all three before it samples" is true of only
+  100,000 to 150,000 steps a mark. Nearly all the looks are at steps that do hop: at the spawn 941,000 steps are
+  clear of their own column and only 113,000 of the biggest. Looking at its own column first takes more looks at
+  every mark, not fewer.
+- **And looks may not be the price either.** On the plain, build 172 took about 3.3 million looks (two orders,
+  2.84 million steps) and build 174 takes 1.39 million, and build 174 is 4% dearer. Steps, hops and now looks have
+  each been counted and each failed to say where the time goes. *Builder's explanation of the dearer marks in the
+  write-up above ("a ray near the ground fails all three") is withdrawn: not shown, and against the count.*
+- **So build 175 isn't flown.** The reordered skip and its counter are put by in Builder's scratchpad
+  (`far.wgsl.175-own-first`, `far_eye.rs.175-own-first`); the code is build 174's again. No flight was spent on it.
+- **Next, David's question:** Nsight on build 174 as it's built: the plain with the table and without its true
+  numbers, the spawn, the sea (20 frames each from 100 s in). What's read: how full the card is while the far eye
+  marches, what its groups of rays wait on, and the lines the samples fall on.
