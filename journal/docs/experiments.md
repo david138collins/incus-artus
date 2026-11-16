@@ -7094,3 +7094,43 @@ any distance), so faces that meet along an edge overlap by that much.
 
 **Still as it was:** what lies behind a block when looking down is the far eye's sky. Nothing shows it now; build
 201 (far rays skipped under blocks) decides what a skipped pixel holds.
+
+### Build 201's pass mark (2026-11-16): far rays skipped under blocks
+
+The second half of the step David gave the go for ("go ahead with the next step"; put to him as "lets far rays be
+skipped under blocks ... the skipping with flights"), and the mend for build 197's miss (the far eye 16 to 21%
+dearer with the near eye on).
+
+**What's built** (written before the code):
+
+1. **The frame's order:** the far start, then the near faces and the near water into the near eye's picture,
+   then a new pass, **"the near cover"**, then the march, bringing it up, the x-fader. (The near eye drew after
+   the far eye till now.)
+2. **The near cover** (a small program of its own): for every pixel of each of the far eye's three layers, a
+   word saying whether every screen pixel under it is wholly a block's in the near picture (its share all of
+   it: nearer than the x-fader's band, and no gap).
+3. **The march** (`march_all`, both its programs, and the join): a pixel is not marched when it and the eight
+   round it are covered, so nothing of it shows and nothing is blended in from it. It writes what a pixel "not
+   wanted" already writes: nothing for its picture, no call for the finer layer, and for the frame after "first
+   touched where a far ray may begin", so the next frame's rays start no farther out than they would have. The
+   test stands before the march's loop: nothing new is carried round it.
+4. **A switch that compiles it out:** `INCUS_FAR_COVER=0`, the march's program build 200's to the letter.
+
+**The mark:**
+
+- **The picture doesn't change:** with the rule on and off, the same to the pixel at the spawn at 4, 16 and 64
+  chunks and looking down from above (a far pixel is skipped only where it can't show). If any pixel differs,
+  counted and looked at.
+- **The far eye marches less, counted off the screen** (said as it is): its rays and steps at those views, on
+  and off; and on the bare plain at 4 chunks the finer layer marches no ray under blocks (off: 3,824 in build
+  197's flight).
+- **A turned view:** after a turn between frames (the turn test), no pixel of sky or black where ground should
+  be that the rule off doesn't have too.
+- **The march's size on the card is no more:** 168 registers, Smem 0, 12 groups, by an off and an on trace for
+  David to read. On his word.
+- **Flights, on his word, after a cool-down** (a bracket: the rule off, on at 4, 16 and 64 chunks, off): the far
+  eye no dearer with the near eye on than with it off at any standing mark (build 197's miss mended); what the
+  near cover's pass costs, and how much the far eye saves, said as they are.
+
+**Not in this build:** a switch on the Render page for it (its place and name are David's to give); faces
+turned away left out; the listing of chunks each frame.
