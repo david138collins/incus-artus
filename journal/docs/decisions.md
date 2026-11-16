@@ -647,6 +647,19 @@ Reference: `Art/quartile minecraft illustration.png`
       - **Dropped pieces could settle onto an octant as small objects**, so a pile is a real pile.
         Minecraft's floating, spinning drop is the fallback. Whether drops fade away after a while is
         David's call, later.
+    - **[IDEA, David 2026-11-16] The falling side's branches stack to the heavier side:** "i think the
+      branches on the side of the tree it falls on can simply stack off to whatever side it's heavier
+      towards, onto its side. the question is how to precedurally animate their reverse-bounce to their
+      resting locations when they snap." (Newer than his 2026-11-01 "the branch folds before the tree hits
+      90 degrees"; old words weigh less.)
+      - *Counsel:* the end decided first, as above (each branch's resting place on the heavier side, on its
+        side, on the octant grid, worked out at the last cut), then a path toward it with no physics engine:
+        a hop as a parabola from where it snaps to where it rests, then one or two bounces each a fraction
+        of the last (a bounciness number); its turn onto its side eased by a damped spring, which overshoots
+        and swings back once, the "reverse bounce" (a stiffness and a damping number), rocking about the edge
+        it lands on. Snaps staggered a few frames apart, trunk outward, for a crackle. With his Quake note, the
+        same path could also be shown as a few held poses, snapping. It belongs to the shared kinematics layer
+        (spec), and the branches are rigid pieces, as the figures are.
   - **[IDEA, David 2026-10-29] The asset factory world and entity assets.**
     - **Where:** a little lab, a world set up as a nice platform. There you build Minecraft-style with
       the library's blocks, insert data (hook) blocks over the build, and register it as an **entity
