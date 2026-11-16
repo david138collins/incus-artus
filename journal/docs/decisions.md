@@ -2404,6 +2404,18 @@ Reference: `Art/quartile minecraft illustration.png`
     bodies).
   - For the shader's weight: nothing new carried through the march's loop, and a switch that gives build 190's exact
     program, so on and off fly in one session. His concern is kept in the plan's "What every step keeps".
+  - He added: "by weight of the shader i mean its size on the card". Builder: that's the registers the march needs
+    (167 at build 178, 12 groups fitting, about 170 the line; not read since the cut), shown only in Nsight's window;
+    two traces (the rule off and on), a row read from each.
+  - *Build 191, cover by faces* (mark bdc4451, code 891b2ad; unflown). Off the screen: off (`INCUS_FAR_FACES=0`)
+    build 190 to the pixel. On: a castle's walls solid from above where they were faint lines, roofs their own
+    colour, the arch and a far tower's spire read against the sky; woods solid dark masses (true to a wood, the
+    largest change on the screen, hiding more behind them: his eye); bare land's steep edges a pixel or so fuller,
+    level skylines and shallow water as they were; the steps level. One line of the mark missed as written: the
+    plain's horizon with the whole world loaded has far mountains whose tips firm up (7,168 pixels by 8 of 255 or
+    more), the level skyline itself unmoved. Owed: one hands-off window of about 30 minutes (two Nsight traces at
+    the mountain top; three flights, off, on, off again, so the session's drift is known); then his two rows, and
+    his look on the stage.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its

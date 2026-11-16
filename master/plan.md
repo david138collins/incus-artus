@@ -570,8 +570,9 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
   2026-11-12: "establish an architectural goal that supports the microkernalization of it"). The far march's
   program is full where the card works, so nothing new is carried through its loop; work goes before it, after it,
   or into the sums, each addition flown against a switch back to the program before: "pay careful attention to the
-  weight of the shader. i hope it doesn't become too much and start squeezing no matter what we do" (David,
-  2026-11-15).
+  weight of the shader. i hope it doesn't become too much and start squeezing no matter what we do"; "by weight of
+  the shader i mean its size on the card" (David, 2026-11-15): the registers the march needs, read in Nsight (167
+  at build 178, about 170 the line where fewer groups fit).
 - **Room for modders, later:** David's recipe ships first; nothing is built for modders now, but each system is
   assembled so its parts can be opened to them later (content as data, his own content through the same door a
   pack would use, world gen as stages): "i just want to architecture that later on can be set up for modders at a
