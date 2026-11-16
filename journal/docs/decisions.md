@@ -2898,6 +2898,36 @@ Reference: `Art/quartile minecraft illustration.png`
     a size wider, the march's rule as it is, the hole only a saving of memory. Her estimate, to be measured: four
     times the bricks in each ring by area (about 1,800 to 1,950 each for the day's 445 and 487). Still his idea,
     open; corrected to him by her.
+- **[DECIDED 2026-11-16] His checklist for finishing graphics** (David, to Builder; in `master/plan.md` under 2.4,
+  be2328b): "we need placed things, near light, glows and far light, textures, an assessement of a fine ring after
+  the triangles to transition more smoothly, listing chunks, faces turned away, a chunk with pieces taking too long,
+  chunk optimizing if theres a visible way, dont worry about very fast flight." On what's set aside: "the lazy rays,
+  cover by height, weights by kind, and i dont know what toom in the march is, and tbh idk how to make tays prettier
+  personally. ive been learning about shaders but am not sure how to pretty it up rn."
+  - As written in the plan, in his order, each its own build with its pass mark first:
+    1. Placed things in the far view (he called it necessary before graphics are done enough to move on).
+    2. Near light: per-face blocky light, placed lights in 16 steps, coloured, flickering, stopped by walls; moving
+       lights; caves and interiors dark unless lit.
+    3. Glows and far lights, fading into fog, never snapping off.
+    4. Textures: bars' own side and end pictures, the grass edge, pictures for the stage's seven blocks
+       (placeholders or his art).
+    5. An assessment of a fine ring past the triangles: the 16s' and 8s' rings a size wider behind a switch, A/B at
+       the same radius, cost measured; his eye decides.
+    6. Listing chunks (about 1 ms a frame at 64 chunks).
+    7. Faces turned away left out.
+    8. A chunk with pieces meshing nine times slower.
+    9. Chunk optimizing where the gain would show (filling time; the corners' program).
+    Not now: very fast flight.
+  - Not in his list, left in 2.4 as they were: water's look, objects, glass, the doorway's pieces and lights, the
+    Intel flight and his walk-through gate.
+  - The set-aside list stays set aside (lazy rays, cover by height, weights by kind, room in the march, the
+    prettier-rays passes). Builder explains "room in the march" to him plainly (the march holds 167 or 168 registers
+    of about 170, so anything new carried through its loop needs something taken out first; the candidates are in
+    `journal/docs/march-by-parts.md`), and that the prettier-rays passes are hers to propose and his to judge by eye,
+    no shader knowledge needed of him.
+  - *Counsel:* on water's look, no question put to him (his "drop any homework or questions"): his new order has
+    water designed afresh after topography in world generation (3.2), which will change the shores this look was
+    about; it can wait there unless he sees something he dislikes sooner.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its

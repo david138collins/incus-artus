@@ -24,8 +24,12 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   dots mended and far rays skipped under blocks (builds 196 to 203), and quarter and eighth blocks, scattered at
   random to test them, his old build drawn whole for the first time in the new game (build 204). 240 a second holds
   at 64 chunks; as the game starts (32 chunks) the card's whole is under his 2 ms at every mark (the dearest high
-  over the spawn, 1.80), pieces costing about what whole blocks do. What comes next in 2.3, or on to 2.4 (textures
-  and the rest of the eye), is his to say; his looks at the build and the pieces when he wants them.
+  over the spawn, 1.80), pieces costing about what whole blocks do. Textures are on the near faces (build 205, old's
+  placeholder pictures; with the scatter stage on, "its looking really good"; they cost nothing that can be shown,
+  build 206). **Now, 2.4 by his checklist of 2026-11-16** (the list is under 2.4): placed things in the far view
+  first, then near light, glows and far lights, more textures, an assessment of a fine ring past the triangles,
+  and the near eye's own costs (listing chunks, faces turned away, chunks with pieces, chunk optimizing where it
+  would show); "dont worry about very fast flight".
 - **His word on the road** (2026-11-16): "i'm pretty happy and confident with our graphics engine now"; hanging
   homework and questions are dropped (the kept Oracle's five questions among them; an outside look is his to call,
   no longer a gate); "Builder can proceed with the tests and basic fixes, i'll bring it up if i see undesirable
