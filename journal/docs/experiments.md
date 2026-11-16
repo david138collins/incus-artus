@@ -7729,3 +7729,48 @@ off (`flight-1794868466`), on (`-1794869099`), off again (`-1794869687`). No err
   work reads 0.29 ms at a standing where the processor's area is 84 degrees and 0.48 to 0.54 where it is 103 to
   104, in one program. A flight's processor times mean something only beside another's at a like heat, mark by
   mark.
+
+### David's near-term checklist (2026-11-16); build 207's pass mark: placed things in the far view
+
+**His words:** "we need placed things, near light, glows and far light, textures, an assessement of a fine ring
+after the triangles to transition more smoothly, listing chunks, faces turned away, a chunk with pieces taking too
+long, chunk optimizing if theres a visible way, dont worry about very fast flight." Written into the plan under 2.4
+(be2328b). And for the march's trimming: "the blue noise and weave section can come out. it really does almost
+nothing." (5f192f6.) The first item, his: "if we don't have placed objects in the far view yet that'd be necessary
+before the graphics are finished enough to move on from."
+
+**What's wrong now:** the far eye sums the world as world generation made it (the scatter stage included, which
+is part of the map). Anything made through the doorway afterwards (a mark's build, a scatter, later a player's
+work) is drawn by the near eye only, and stops at the render radius.
+
+**What's built** (written before the code):
+
+1. **The far cells' rule for what's placed:** a whole block placed counts in its far cell as any block does (old's
+   rule: solid, its faces where it meets air or water, its colours). **A cell holding pieces counts as their main
+   material** (the one with the most octants in it; the first placed if they tie), never as air: old's sight did
+   the same ("in coarser cells a cell of pieces counts as its main material"). A piece fills only empty space, as
+   the near eye has it. Water stays where nothing solid now stands.
+2. **Every far store takes it:** the regions' levels (the 32s to the 1,024s) and every level above, the 16s' and
+   8s' rings round the eye, the far textures, the height table and the far light.
+3. **When:** as the changes are made (a mark's, when the camera goes to it), the far regions they touch are summed
+   again on a thread of their own; once every region is in, what's summed again replaces what's on the card (the
+   window's 32s and 64s in place, the levels above by new bricks), the textures of those bricks made again, the
+   height table and the light worked out again on their threads. The rings make again the squares the changes
+   touch. Taken back (the next mark), the same way.
+4. **A flight's standing mark** waits for the far eye to have them, as it waits for the near eye's chunks.
+
+**The mark:**
+
+- **Tests:** a block placed in the air: the far cells it touches are exactly those summed by hand with the block
+  in, and taken back exactly what they were; a cell of pieces is solid as its main material; a piece where ground
+  is changes nothing.
+- **Pictures, off the screen,** the near eye at 1 chunk so the far eye draws everything past 32 blocks: at the
+  plain with David's build, the build stands in the far picture where the bare plain has grass; at the scatter of
+  10,000, the scattered blocks show as far cells; with the changes taken back, the bare plain's picture to the
+  pixel.
+- **Said as it is:** how long from a mark's changes to the far eye having them; the pool's growth (old bricks of
+  the levels above are left in place, a few at most a change). No frame should be slower for it (the far eye
+  marches the same cells); a flight as the game starts says so, beside build 206's.
+
+**Not in this build:** a player placing and breaking live (no way to yet; the path is the same, and its speed is
+measured then); detail finer than the far cells (a fence is one block: at the 8s it is an eighth of a cell).
