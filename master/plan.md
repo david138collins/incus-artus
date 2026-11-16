@@ -46,8 +46,12 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   towers, castles, towns, arches, a hall entrance, cave mouths; on with `INCUS_SCATTER_STAGE=1`), and with it the far
   cells summed from any column, so overhangs, arches, caves and David's build now reach the far eye. It showed bright
   bands at the rings' edges over shallow sea, mended (build 189: "basically invisible ... well done. let us
-  proceed."). Owed: one flight session for builds 188 and 189. Next: the skyline talk, which the stage's pictures
-  feed (thin things nearly vanish against the sky at the far cells' size), then lazy rays proper. Both near drawers are flown before the fork ("Yes, fly both").
+  proceed."); a long ray it showed on the plain mended too (build 190: the nine views' sum 6.55 ms). The skyline
+  talk (haze or cover; his lean "i like the way cover works", with "pay careful attention to the weight of the
+  shader"): its first step, cover by faces, makes walls, towers, spires and woods hold at a distance, about 1% dearer
+  and one register more with nothing put by (build 192); a "Cover by faces" tick box on the Render page for his A/B
+  (build 193). His look: "looks good", taken as kept and on. Next: build 194, the rule's cost at the sea and the run
+  trimmed; then lazy rays proper. His weights by kind and the land's own edge by a height table wait their turn. Both near drawers are flown before the fork ("Yes, fly both").
 - **Just closed:** 2.1, done enough to go on (David: "yes, close 2.1. let us proceed."). Old is packed into `old\`
   and still runs; the journal is in `journal/`. The new project runs from the top of the folder (build 120; the
   numbers carry on from old's): a flying camera on old's keys, the panel (F3), the clocks a pass at a time, and the

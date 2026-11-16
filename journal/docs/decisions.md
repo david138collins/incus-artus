@@ -2452,6 +2452,14 @@ Reference: `Art/quartile minecraft illustration.png`
     picture but for what a ray keeps from the frame before. The cost: the game starts about 6 s later (two copies of
     the march compiled), until the rule is decided and one copy goes. No flight: the programs are build 192's. Owed:
     his look, on "launch".
+  - **His look, build 193** (on "launch", the stage on at the castle, the tick box in his hand; 103 s, closed by him,
+    no error): "looks good". Asked whether the box worked once loaded and how walls and woods looked ticked against
+    unticked, he said no more. Builder's reading (hers): the look is wanted, woods as solid masses included; cover by
+    faces kept and on as launched; step 1 of the skyline talk done enough to go on. Not confirmed by him: the box's
+    greying while loading. His weights by kind (step 2) not asked for. Next: build 194, one power where a step
+    gathers (for the 1.6 to 2.8% build 192's form costs at the sea marks and the run), a trace and three flights in a
+    window of his; then lazy rays by the plan. The tick box and its two copies of the march (about 6 s at the
+    start) stay until he says otherwise.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
