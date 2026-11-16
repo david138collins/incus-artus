@@ -7627,3 +7627,39 @@ placeholder, as it was in old); whether it shimmers in motion and how soon flat 
 are his to say.
 
 **Owed:** the flight.
+
+### Build 205 flown (2026-11-16) as the game starts, beside build 204's: the pictures cost the card little; the processor's side of the near faces is dearer and Builder doesn't yet know why
+
+**The flight** (NVIDIA only, mains, one screen, hands off, 15:55 to 16:04; the processor's area 54 degrees after
+the cool-down, 65 at take-off): `flight-1794866685`, build 205, the code committed, no error; 32 chunks, as
+build 204's (`flight-1794865272`) half an hour before.
+
+**On the card, the near faces, ms** (build 204 flat, build 205 with the pictures):
+
+| standing | 204 | 205 |
+|---|---|---|
+| the spawn | 0.853 | 0.859 |
+| the mountain top | 0.501 | 0.531 |
+| the bare plain | 0.072 | 0.079 |
+| high over the spawn | 0.904 | 0.913 |
+| the scatter at 10,000 | 0.238 | 0.263 |
+| the scatter at 100,000 | 0.710 | 0.799 |
+| the scatter of pieces at 100,000 | 0.642 | 0.687 |
+
+- **The pictures cost the card 0.01 to 0.03 ms on land, and up to 0.09 where blocks fill the screen.** The card's
+  whole frame stays under David's 2 ms bar at every mark (the dearest high over the spawn, 1.82).
+- **The far eye, the cover and the x-fader are as they were** (they don't know of the pictures).
+
+**On the processor, a miss nobody set a mark for:** recording the near faces (which is the listing of the chunks
+in view and the handing of their draws to the card's library) is **0.04 to 0.09 ms a frame dearer**: 0.177 to
+0.221 at the spawn, 0.195 to 0.280 on the plain, 0.209 to 0.291 high over the spawn; and handing the card its work
+0.06 dearer on the plain (0.504 to 0.562). Nothing where no chunk is drawn (fast across the world: 0.086, 0.081).
+The other passes on the processor are the same in both flights (the far start 0.073 and 0.074), so it isn't the
+session. So the frame where the processor bounds it is about 0.1 ms longer (the plain 1.16 to 1.26 ms; still 796
+a second). **Its cause isn't found:** the listing's own code didn't change; what changed is that the faces' pass
+is given one more picture (32 layers, six sizes each) and a way of reading it. Read through, not measured: the
+card's library keeps account of every picture a pass uses, and that account may be what grew. To be found by
+measuring (the listing timed apart from the handing over; the same flight with the switch off), before anything
+is changed.
+
+**Standing marks' frames, build 205:** 1.09 to 1.86 ms (537 to 917 a second).
