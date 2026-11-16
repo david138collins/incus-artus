@@ -125,8 +125,10 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   card's whole frame cheaper at the working marks (the mountain top 0.35 ms, built-up views up to 0.54) and 0.05
   to 0.08 ms dearer on open flat ground (the cover's pass); left there, done enough to go on. And the plain is dearer with the near eye on whatever the rule: the
   far eye now draws a crisper horizon there with its finer layer (its near haze no longer hides it), which the
-  Crossovers' sliders govern. **Waiting on David:** nothing; the trace's row is his to read when he likes. After the window, 2.3's next step by his word: quarter and eighth
-  blocks, scattered at random to test them. Before the flights (his "go
+  Crossovers' sliders govern. **Waiting on David:** nothing; the trace's row is his to read when he likes. **Quarter and eighth blocks are in the near eye** (build 204, flown as the game starts, 32 chunks;
+  `journal/docs/experiments.md`): his build drawn whole (146 bars, 23 blocks); pieces cost the card what whole
+  blocks do, count for count; the card's whole frame under his 2 ms bar at every mark (the dearest 1.80), every
+  standing mark at 544 a second or more. What comes next in 2.3, or on to 2.4 (textures), is his to say. Before the flights (his "go
   ahead with the tests", 2026-11-16) he looked at build 195: "holds 240fps at 64 chunks, once its loaded in"; flying very fast,
   90 to 120 a second while chunks are made ("i don't think a player could experience a hiccup. off to a good
   start"); "there is a seam, but, its not very bad, and i think a x-fader with curves could hide it almost

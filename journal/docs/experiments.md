@@ -7491,3 +7491,39 @@ isn't drawn); textures; the rule that only blocks marked in the Registrar can be
 - **Faces:** 10,000 pieces 78,600 faces kept at 8 chunks (the bare plain 18,400); 100,000 pieces 592,000.
 
 **Owed:** the flight at 32 chunks.
+
+### Build 204 flown (2026-11-16) as the game starts, 32 chunks: pieces cost what whole blocks do; the card's whole under 2 ms at every mark
+
+**The flight** (NVIDIA only, mains, one screen, hands off, 15:32 to 15:41; the processor's area 58 degrees after
+the cool-down, 75 at take-off; the card 5 to 6% busy at rest): `flight-1794865272`, build 204, the code committed,
+no error; no switch but the flight's own, so the game as it starts: 32 chunks, the x-fader 128 wide and curve 1,
+far rays skipped under blocks. Sixteen standings now, the three of pieces last.
+
+| standing | frame, ms (a second) | the card's whole | far eye | near eye | triangles |
+|---|---|---|---|---|---|
+| the spawn | 1.33 (750) | 1.30 | 0.32 | 0.95 | 3.18 million |
+| the mountain top | 1.46 (686) | 1.42 | 0.80 | 0.59 | 1.97 million |
+| the bare plain | 1.16 (865) | 0.89 | 0.69 | 0.17 | 0.13 million |
+| the plain with David's build | 1.15 (870) | 0.89 | 0.69 | 0.18 | 0.13 million |
+| the scatter: 1,000 whole blocks | 1.15 | 0.91 | 0.68 | 0.21 | 0.14 million |
+| 10,000 | 1.18 | 1.02 | 0.64 | 0.35 | 0.19 million |
+| 100,000 | 1.21 | 1.07 | 0.21 | 0.83 | 0.48 million |
+| high over the spawn | 1.84 (544) | 1.80 | 0.76 | 1.01 | 3.61 million |
+| low over the sea | 1.18 (848) | 0.89 | 0.66 | 0.20 | 0.25 million |
+| the scatter of pieces: 1,000 | 0.98 | 0.93 | 0.71 | 0.19 | 0.14 million |
+| 10,000 | 1.07 | 1.02 | 0.72 | 0.28 | 0.20 million |
+| 100,000 | 1.09 | 1.03 | 0.23 | 0.77 | 0.75 million |
+
+- **Pieces cost the card about what whole blocks do, count for count:** the near eye 0.19, 0.28 and 0.77 ms at
+  1,000, 10,000 and 100,000 pieces (519 bars and 481 eighths; 5,087 and 4,913; 50,069 and 49,931; none refused),
+  beside 0.21, 0.35 and 0.83 for whole blocks. His word of 2026-11-16 holds here: "i don't believe quarter/oct
+  blocks will present any difficulty in terms of triangle count".
+- **His build:** 0.006 ms over the bare plain.
+- **As the game starts, the card's whole frame is under his 2 ms bar at every mark** (the dearest high over the
+  spawn, 1.80), and every standing mark's frame is 0.96 to 1.84 ms (544 to 1,041 a second).
+- **Where blocks or pieces fill the view the far eye is nearly silent:** 0.21 and 0.23 ms at 100,000 (no ray, or
+  510 rays, marched).
+- **The filling at 32 chunks:** 3.6 to 4.6 s to have every chunk in after arriving at a new place (6 threads).
+- **Moving:** a player's run (200 blocks a second) frame 1.25 ms, 99th 3.8, worst 8.7; fast across the world
+  (2,000 a second) 99th 8.7, worst 22.4: chunks coming in, as before.
+- **On the processor,** listing the chunks in view: 0.17 to 0.21 ms a frame at 32 chunks (1 ms at 64).
