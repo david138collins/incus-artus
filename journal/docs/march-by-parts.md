@@ -151,12 +151,12 @@ hand-over's second read changes 3 to 11% of pixels.
 ## 5. What could later come out, or be made lighter
 
 Each is a candidate, not a recommendation. "Measured" means a trace or a flight said it; "unmeasured" is
-Builder's reading of the program as compiled. Ranked by what Builder would try first: cheapest and surest at the
-top.
+Builder's reading of the program as compiled. Ranked by what's cheapest to try, at the top; cheap to try isn't
+sure to pay (see the note on the first, under the table).
 
 | # | what | what it would free | what it would cost | how sure |
 |---|---|---|---|---|
-| 1 | **naga's loop guard.** A counter added to all 12 loops of the program so none can run for ever. wgpu lets a shader the game trusts be made without it (`create_shader_module_trusted`, `ShaderRuntimeChecks`, with the division and bounds checks as two more switches) | 2 of the 98 held values, and a few instructions a step in every loop | nothing in the picture; the game must then promise its loops end (the march's stops at its step limit) | unmeasured; small and nearly free to try |
+| 1 | **naga's loop guard.** A counter added to all 12 loops of the program so none can run for ever. wgpu lets a shader the game trusts be made without it (`create_shader_module_trusted`, `ShaderRuntimeChecks`, with the division and bounds checks as two more switches) | 2 of the 98 held values, and a few instructions a step in every loop | nothing in the picture; the game must then promise its loops end (the march's stops at its step limit). **It may well make the march slower: see the note below** | unmeasured for this march; in old, the same kind of change went badly |
 | 2 | **Fog compiled in only when it's on.** It's off as the game is launched and in the finish all the same | 84 instructions; perhaps some of the finish's 6 registers | a second copy of the program for fog on, as cover by faces has | unmeasured |
 | 3 | **One ray-start pattern, not four.** The Render page's "Ray start" keeps all four in the program | up to 92 instructions | the three patterns David doesn't pick; his to say which stays | unmeasured |
 | 4 | **The numbers of two levels kept in hand** | up to 30 of the 98 held values | the levels' table read at each step again; it was kept in hand for the marks where the card waits, and the table has since become cheap to read (a uniform) | unmeasured; the biggest single holding, and the one most worth an audit copy |
@@ -167,6 +167,16 @@ top.
 | 9 | **The finish in a pass of its own** | 6 registers, 475 instructions | every ray's answer written to memory and read back by the new pass (the cut's join already finishes its rays this way); alone it read slower in the audit | measured for room; time not understood |
 | 10 | **The floor's cells** | 6 registers (9 held values) | nothing at the five marks' pictures; alone it read 5 to 12% slower in the audit, not understood | measured; needs flying again before it's trusted |
 | 11 | **The sky behind the ray worked out at the finish, not inside the march** | 84 instructions | none known | unmeasured |
+
+**On the first candidate** *(corrected the same day at Counsel's reminder; it was first written here as "small
+and nearly free to try")*: taking the library's checks off has been flown once, in old (experiment 3, build 111,
+`journal/docs/experiments.md`): all of them off together made the light views faster and the heavy views of old's
+march 31 to 49% **slower**, the picture the same. Why wasn't found; the guess then was that the compiler laid the
+long loops out differently and needed more registers. So this candidate wants its own trace (the row, off and on)
+and its own bracket of flights, taken alone, and each of the three checks priced by itself (the loop guard, the
+bounds checks, the division checks: experiment 3 took them all off at once, so it doesn't say which did the harm).
+The plan's standing rule for phase 2 is that each program is priced checked and unchecked the first time it
+flies; as far as the journal shows, that hasn't yet been done for the new march, and this would be it.
 
 Not candidates: the skip (a third of the time, none of the room); the third row (the sea needs it); the cut
 (no room, and it took a quarter to two fifths off the waiting marks); cover by faces (one register, David's
