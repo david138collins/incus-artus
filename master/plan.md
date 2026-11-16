@@ -10,14 +10,21 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
 
 ## Where we are
 
-- **Working on:** Phase 2, *Restart*, step 2.2, the far eye (experiment 5), each change tried, measured and looked at
-  by David's word ("try all these things and gather data"). In so far: the far cells summed from the doorway (old's
-  bake, byte for byte, the whole world in 17 s); old's far march on bricks with old's light; the texture hardware's
-  spread blend (14 to 29% off); bricks of 8; a window round the eye (the game's card memory 916 MB, against 2.7 GB for
-  the whole world); the sky's feather at skylines; the Render and Camera pages; temperatures always on; main memory
-  tracked (2.8 GB held, 1.0 GB in use). Change 2, the drawn boxes, didn't pay and is out. The far eye stands at 1.1 to
-  2.9 ms at the far marks against the gate's 1 typical and 2 worst.
-- **Now:** the Oracle, called midway, read the far eye as *waiting, not working* (a few hundred rays skimming the
+- **Working on:** Phase 2, *Restart*, step 2.3, the near eye (experiment 6), from 2026-11-16. Builder is reading
+  old's near walk, the Oracle's near eye and near light (third part, sections 3 and 6; second part 4.2) and the
+  doorway's answers, to bring David its first step and its pass mark before any code. Both near drawers, rays and
+  triangles, are flown before the fork ("Yes, fly both"). Two of the Oracle's questions to him
+  (`journal/vision/oracle-prompt-2026-11-14.md`) bear on it now: what the far eye should show between the blocks'
+  edge (about 340 blocks) and a kilometre, and whether the near eye still draws blocks out to about 336; the 4s' and
+  2s' rings are decided on those.
+- **Just left:** 2.2, the far eye, left as it stands on his word (2026-11-16): "we can do that later. as long as
+  we're set up to look back into the graphics engine at a later date, we can proceed." Not closed as 2.1 was: its
+  gate's last line is owed (the Intel card's numbers, with the new march priced checked and unchecked, Phase 2's own
+  rule, which slipped). Where it stands: everything under his 2 ms bar, the card's whole 0.48 to 1.12 ms over the
+  nine views, two views over 1 ms; the march 168 registers, nothing put by, 12 groups. Everything set aside is in
+  the list "For the later look back at the far eye", below the open questions, each packed to resume from. How it
+  got there:
+- **The far eye's road:** the Oracle, called midway, read the far eye as *waiting, not working* (a few hundred rays skimming the
   horizon set each layer's time while the card sits nearly idle), and the tests, the watts and Nsight agreed. David
   took its order (`journal/vision/oracle-review.md`, third part). Done enough to go on: step 0 (instruments; the Intel
   card works where the NVIDIA waits, and per David informs while the NVIDIA decides); step 1, the lean step (1a, 1b, 1d
@@ -56,9 +63,7 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/cover-by-height.md`), with the march mapped by its parts for a later pass to free room
   (`journal/docs/march-by-parts.md`): "if i become dissatissfied with some views in a fuller game i'll come back to
   cover by height and lazy rays and there may be a final check pass against the engine later anyways." His weights by
-  kind wait. Next: the Intel card's flight (Optimus and a restart); then the far eye's gate and the near eye. Owed
-  by Phase 2's own rule and slipped (found 2026-11-16): the new march priced checked and unchecked, each of the
-  library's three checks alone; it could ride with the Intel flight, on both cards. Both near drawers are flown before the fork ("Yes, fly both").
+  kind wait.
 - **Just closed:** 2.1, done enough to go on (David: "yes, close 2.1. let us proceed."). Old is packed into `old\`
   and still runs; the journal is in `journal/`. The new project runs from the top of the folder (build 120; the
   numbers carry on from old's): a flying camera on old's keys, the panel (F3), the clocks a pass at a time, and the

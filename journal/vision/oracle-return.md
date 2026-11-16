@@ -536,7 +536,13 @@ the answers.
   section 3 (a world-fixed picture beyond a lazy line, refreshed a share a frame, light and fog fresh). David shelved
   it: "we can keep that in our back pocket if we ever get a performance squeeze limited by long rays"
   (`journal/docs/lazy-rays.md`). Is that the right call at this card's numbers, and does anything in your design
-  lean on lazy rays being in before the fork?
+  lean on lazy rays being in before the fork? Your cover of the land's own edge was shelved beside it, and the march
+  mapped by its parts for a later pass (`journal/docs/cover-by-height.md`, `march-by-parts.md`: 4,548 instructions,
+  98 values held round its loop, eleven candidates for room). Then the far eye was left as it stands, its gate's
+  Intel numbers owed (with the march priced checked and unchecked, a rule of ours that slipped): "as long as we're
+  set up to look back into the graphics engine at a later date, we can proceed." The near eye (2.3) begins
+  2026-11-16; your questions 1 and 5 to David (what shows from the blocks' edge to a kilometre; blocks drawn to about
+  336) bear on it first.
   Does the cut by a list still beat yours (every ray cut) on a card that's full at the marks that work, and is it the
   footing for lazy rays (a far length kept, not re-marched every frame)?
 

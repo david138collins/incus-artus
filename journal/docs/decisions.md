@@ -2526,6 +2526,16 @@ Reference: `Art/quartile minecraft illustration.png`
       a standing rule that slipped: Phase 2's "each program is priced checked and unchecked the first time it flies"
       hasn't been done for the new march, as far as the journal shows. Written in the plan as owed, to ride with the
       Intel card's flight if he agrees.
+- **[DECIDED 2026-11-16] The far eye left as it stands; on to the near eye** (David, to Builder, asked when the Intel
+  card's flight is flown): "we can do that later. as long as we're set up to look back into the graphics engine at a
+  later date, we can proceed." No restart now. 2.2 isn't closed by a word of his as 2.1 was; "we can proceed" is what
+  he said. Its gate's last line stays owed (the Intel card's numbers, with the new march priced checked and
+  unchecked). Where the far eye stands as left: the card's whole 0.48 to 1.12 ms over the nine views, everything
+  under his 2 ms, two views over 1; the march 168 registers, nothing put by, 12 groups. Everything set aside is
+  listed in the plan, "For the later look back at the far eye", each with where it's packed (lazy rays, cover by
+  height and the sheet, room in the march, the Intel flight with the checked and unchecked pricing, his weights by
+  kind, the long rays' list, the small flaws). Next: 2.3, the near eye, its first step and pass mark brought to him
+  before any code.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
