@@ -2655,6 +2655,17 @@ Reference: `Art/quartile minecraft illustration.png`
     Build 198 (the panel folded) launched for his look.
     - *Counsel's note:* with the corners the cost, the lever at 64 chunks is fewer faces sent far out, which is his
       second slider's road ("a slider that seperates built things from the land render"), plain ground stepping down.
+  - *Builds 198 and 199, launched for his look on that go* (Builder and Counsel both read "go ahead with the next step
+    and launch" as covering the step built and launched). Build 198, the panel folded: looked at 134 s, closed with
+    no word on it yet. Build 199, the x-fader (46b8606): the near eye draws into a picture and depth of its own (the
+    nearest face winning a pixel), and a new pass, "the x-fader", lays it over the far picture; "x-fader width
+    (blocks)" (64 to start) and "x-fader curve" (2 to start) in "The near eye" with a Default beside the heading. Off
+    the screen: the near picture the same from run to run to the pixel (build 197's wasn't, the fading faces' draw
+    order); no gap at 1, 4, 16 or 64 chunks; a hard edge at no width, half and half at the band's middle on every
+    curve. Looked at 195 s (`logs/session-1794854665.log`, no error or warning), no word yet on it or the names. Its
+    cost owed a bracket on his word. Next, under his go: build 200, far rays skipped under blocks (the near eye drawn
+    before the far march, a small pass saying which far pixels are wholly covered, the march not marching those);
+    it touches the march, so an off and an on trace for him to read and a bracket of flights, on his word.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
