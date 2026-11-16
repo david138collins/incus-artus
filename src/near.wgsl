@@ -10,12 +10,17 @@
 // Each block's colour from far, as light: its top's, then its sides' (the far colours' table).
 @group(0) @binding(5) var<storage, read> colours: array<vec4<f32>>;
 @group(0) @binding(6) var<uniform> near: Near;
+// The blocks' pictures (build 205): a layer a picture, a block's top's then its sides', each with its shrunk sizes;
+// read with its own pixels crisp up close, its shrunk sizes blended as it gets small.
+@group(0) @binding(7) var t_blocks: texture_2d_array<f32>;
+@group(0) @binding(8) var crisp: sampler;
 // The faces' depth, for the water (its pass alone).
 @group(1) @binding(0) var t_depth: texture_depth_2d;
 
 struct Near {
     // The eye's block (north, east, up), and how far into it the eye is: a face's place is taken from the eye in whole
-    // blocks first, so far from the map's middle nothing wobbles.
+    // blocks first, so far from the map's middle nothing wobbles. (w: 1 if the faces wear their blocks' pictures; 0,
+    // flat in their far colours.)
     cell: vec4<i32>,
     // (w: the x-fader's curve, 1 a straight fade.)
     part: vec4<f32>,
@@ -39,6 +44,8 @@ struct Corner {
     @location(1) @interpolate(flat) what: vec2<u32>,
     // How far along the eye's own way.
     @location(2) ahead: f32,
+    // Where on its block's picture, in blocks (the picture repeats a block at a time).
+    @location(3) on_picture: vec2<f32>,
 }
 
 // A face's corner. The face is three words (`near.rs`, `packed`): its place in its chunk, its facing and its width;
@@ -93,6 +100,11 @@ fn near_corner(@builtin(vertex_index) corner: u32, @location(0) face: vec3<u32>)
     corner_out.clip = vec4<f32>(x, y, near.reach.z, ahead);
     corner_out.from_eye = from_eye;
     corner_out.what = vec2<u32>(facing, (face.y >> 10u) & 0xFFFFu);
+    // Where the corner is on its block's picture: its place in its chunk along the two ways the face spreads, in
+    // blocks. So a merged face wears the picture once a block, in step with every face beside it; a side's picture
+    // stands upright (the picture's first row is its top).
+    let place = in_chunk + spread_a * u * wide + spread_b * v * high;
+    corner_out.on_picture = vec2<f32>(dot(place, spread_a), dot(place, spread_b) * select(1.0, -1.0, facing < 4u));
     corner_out.ahead = ahead;
     return corner_out;
 }
@@ -142,17 +154,23 @@ fn near_shows(from_eye: vec3<f32>) -> f32 {
 
 @fragment
 fn near_face(corner: Corner) -> @location(0) vec4<f32> {
+    let facing = corner.what.x;
+    // The block's picture here (its top's looking up, its sides' otherwise), read first of all: the card finds how
+    // small the picture is here from this pixel's neighbours' readings, before any pixel is left out.
+    let which = corner.what.y * 2u + select(1u, 0u, facing == 4u);
+    let pictures = textureNumLayers(t_blocks);
+    let picture = textureSample(t_blocks, crisp, corner.on_picture, min(which, pictures - 1u));
     let shows = near_shows(corner.from_eye);
     if (shows <= 0.0) {
         discard;
     }
-    let facing = corner.what.x;
     let way = looks(facing);
-    // (A block the colours' table hasn't got, one first named after the table was made: mid grey, as the far cells
-    // have a block with no colour.)
-    let which = corner.what.y * 2u + select(1u, 0u, facing == 4u);
+    // Its picture's colour there; or flat, its far colour (`INCUS_NEAR_TEXTURES=0`). (A block the tables haven't got,
+    // one first named after they were made: mid grey, as the far cells have a block with no colour.)
     var colour = vec3<f32>(0.5);
-    if (which < arrayLength(&colours)) {
+    if (near.cell.w > 0 && which < pictures) {
+        colour = picture.rgb;
+    } else if (which < arrayLength(&colours)) {
         colour = colours[which].rgb;
     }
     let light = max(dot(way, camera.sun.xyz), 0.0);

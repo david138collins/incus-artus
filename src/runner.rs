@@ -195,7 +195,8 @@ impl Runner {
             .then(|| {
                 let mut doorway = Doorway::open(&crate::doorway::test_world()).map_err(|error| log::error!("The near eye's colours couldn't be read: {error}")).ok()?;
                 let colours = crate::far::FarColours::load(&mut doorway).map_err(|error| log::error!("The near eye's colours couldn't be read: {error}")).ok()?;
-                crate::near_eye::NearEye::new(&card.device, &card.queue, card.config.format, crate::doorway::test_world(), &colours.as_light()).map_err(|error| log::error!("The near eye couldn't start: {error}")).ok()
+                let textures = crate::textures::load(&doorway, &colours);
+                crate::near_eye::NearEye::new(&card.device, &card.queue, card.config.format, crate::doorway::test_world(), &colours.as_light(), &textures).map_err(|error| log::error!("The near eye couldn't start: {error}")).ok()
             })
             .flatten();
         self.running = Some(Running { window, card, card_clock, egui_ctx, egui_state, egui_renderer, to_free: Vec::new(), refresh, far, near, memory: None, memory_at: None });

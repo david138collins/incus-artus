@@ -25,6 +25,8 @@ glam = "=0.33.12"
 log = "=0.4.34"
 # Reading the export behind the doorway (src/doorway.rs): its tiles are raw deflate, its world.toml is TOML.
 miniz_oxide = "=0.8.9"
+# Reading the blocks' pictures (src/textures.rs): PNG files. Old's version, already on the laptop.
+png = "=0.18.1"
 serde = { version = "=1.0.229", features = ["derive"] }
 toml = "=1.1.8"
 

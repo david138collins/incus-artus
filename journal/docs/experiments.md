@@ -7592,3 +7592,38 @@ master palette isn't chosen yet; textures are placeholders").
 
 **Not in this build:** bars' own side and end pictures laid along each bar (a bar wears its block's picture by
 the grid, like any piece); the grass's shared edge; any new art; the far eye, which keeps its colours.
+
+### Build 205 built (unlaunched, unflown): textures on the near faces; checked off the screen
+
+**Built as the mark says:**
+
+- **The pictures** (`data/textures/`, carried from old's `assets/textures`): stone, gabbro, grass top and side,
+  gravel, sand, snowy ground, dry grass; stone brick's bar side and end. `textures.rs` (new) finds each block's
+  by its name (`blocks/<name>_top.png` and `_side.png`, or `<name>.png`; else a bar's side, laid side by side to
+  fill a block; else its far colour, flat) and shrinks each by old's rule to one pixel. Fifteen of the 32
+  pictures are files (the scatter stage's seven blocks and stone brick's top have none of their own). The PNG
+  reader is old's library, already on the laptop.
+- **On the card** (`near_eye.rs`): one texture, a layer a picture, six sizes each; read with its own pixels crisp
+  up close and its shrunk sizes blended as it gets small.
+- **The faces** (`near.wgsl`): a corner knows where it is on its block's picture, by its place in its chunk in
+  blocks, so a merged face wears the picture once a block in step with its neighbours; a side's picture upright.
+- **The switch:** `INCUS_NEAR_TEXTURES=0`, flat far colours.
+
+**Against the mark, off the screen:**
+
+- **The test: met.** Every picture's one pixel is its block's far colour (`a_picture_shrinks_to_its_far_colour`);
+  all 42 tests pass.
+- **Up close: met.** At David's build the stone-brick bars, the gabbro and the grass show their own pixels, 32
+  to a block, unblurred; the grass's sides stand upright (green at the top); the ground at the spawn is gabbro's
+  speckle.
+- **Far off: met.** The spawn's far hill at 16 chunks, a patch's mean colour of 255: flat 50.0, 49.4, 44.0;
+  textured 49.9, 49.3, 43.8. (The near ground a little lighter textured: 78.7, 76.1, 63.7 for 77.3, 74.8, 62.8.)
+- **The switch off: met.** Against build 203's picture of the same view, 14 pixels differ (the near picture's
+  own).
+- **No gap** in any of the four pictures.
+
+**For David's eye:** gabbro's picture is strong speckle, and the ground near the eye is busy with it (it's old's
+placeholder, as it was in old); whether it shimmers in motion and how soon flat ground softens at a low angle
+are his to say.
+
+**Owed:** the flight.

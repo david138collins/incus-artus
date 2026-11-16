@@ -303,8 +303,8 @@ pub const PASSES: [Pass; 27] = [
         what: "The chunks in view inside the near faces' reach, their merged faces drawn as triangles into the near eye's own picture, with depth, every face whole and the nearest winning a pixel: each face its block's colour from far, lit as the far eye lights (the sun on the way it looks, the far light's shadow and sky at its place), and multiplied by how much of it shows by the x-fader (all of it before the band, none at the faces' reach, along the curve between).",
         reads: &[StoreId::NearFaces, StoreId::FarLight, StoreId::Camera],
         writes: &[StoreId::NearPicture],
-        switches: &[],
-        files: &["src/near_eye.rs", "src/near.wgsl"],
+        switches: &[("INCUS_NEAR_TEXTURES", "0: the near faces flat in their blocks' far colours, as to build 204 (for measuring against); unset, each wears its block's picture from data/textures, crisp up close and shrunk to its far colour far off")],
+        files: &["src/near_eye.rs", "src/near.wgsl", "src/textures.rs"],
     },
     Pass {
         id: PassId::TheNearWater,

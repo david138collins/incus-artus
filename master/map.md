@@ -298,8 +298,9 @@ flowchart TB
 - **A pass** in the frame, on the card.
 - **What it is:** The chunks in view inside the near faces' reach, their merged faces drawn as triangles into the near eye's own picture, with depth, every face whole and the nearest winning a pixel: each face its block's colour from far, lit as the far eye lights (the sun on the way it looks, the far light's shadow and sky at its place), and multiplied by how much of it shows by the x-fader (all of it before the band, none at the faces' reach, along the curve between).
 - **Reads:** the near faces, the far light and the camera. **Writes:** the near picture.
+- **Switch** `INCUS_NEAR_TEXTURES`: 0: the near faces flat in their blocks' far colours, as to build 204 (for measuring against); unset, each wears its block's picture from data/textures, crisp up close and shrunk to its far colour far off.
 - **Cost, last measured** (`kept logs/flight-1794589790.txt`): not measured.
-- **Files:** src/near_eye.rs and src/near.wgsl.
+- **Files:** src/near_eye.rs, src/near.wgsl and src/textures.rs.
 
 ### the near water
 

@@ -1741,7 +1741,7 @@ mod tests {
         // The near eye over the far picture, if asked (`FAR_TEST_NEAR`: its render radius, chunks): every chunk of the
         // radius in before a frame is drawn.
         let mut near = std::env::var("FAR_TEST_NEAR").ok().and_then(|radius| radius.parse::<f32>().ok()).map(|radius| {
-            let mut near = crate::near_eye::NearEye::new(&device, &queue, format, crate::doorway::test_world(), &colours.as_light()).unwrap();
+            let mut near = crate::near_eye::NearEye::new(&device, &queue, format, crate::doorway::test_world(), &colours.as_light(), &crate::textures::load(&doorway, &colours)).unwrap();
             near.look.radius = radius;
             // The x-fader, if asked (`FAR_TEST_FADER`: its width in blocks, then its curve).
             let fader: Vec<f32> = std::env::var("FAR_TEST_FADER").ok().map(|v| v.split(',').filter_map(|n| n.trim().parse().ok()).collect()).unwrap_or_default();

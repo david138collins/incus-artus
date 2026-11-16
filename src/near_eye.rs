@@ -125,6 +125,10 @@ pub struct NearEye {
     group: Option<(wgpu::BindGroup, u64)>,
     numbers: wgpu::Buffer,
     colours: wgpu::Buffer,
+    /// The blocks' pictures on the card (a layer a picture), how they're read, and whether the faces wear them.
+    blocks_view: wgpu::TextureView,
+    crisp: wgpu::Sampler,
+    textured: bool,
     /// The x-fader's pass, and what its group is made by; the picture's format; the near eye's own pictures.
     join: wgpu::RenderPipeline,
     join_layout: wgpu::BindGroupLayout,
@@ -168,7 +172,7 @@ pub fn source() -> String {
 impl NearEye {
     /// The near eye, its lane started on the map behind the doorway in `folder`. `colours`: each block's top's and
     /// sides' colour as light (`FarColours::as_light`). `format`: the picture's.
-    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, format: wgpu::TextureFormat, folder: std::path::PathBuf, colours: &[[f32; 4]]) -> Result<Self, String> {
+    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, format: wgpu::TextureFormat, folder: std::path::PathBuf, colours: &[[f32; 4]], textures: &crate::textures::Textures) -> Result<Self, String> {
         // The lane's threads: a quarter of the processor's, 2 at least and 6 at most, unless told (`INCUS_NEAR_THREADS`).
         // [Build 195 took 12 of 24: the whole of 64 chunks in 5 s, and the processor's area at 102 degrees in David's
         // first look. Six fill it in about twice the time and leave the frame and the far eye's lanes their room.]
@@ -189,6 +193,8 @@ impl NearEye {
                 wgpu::BindGroupLayoutEntry { binding: 4, visibility: fragment, ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering), count: None },
                 wgpu::BindGroupLayoutEntry { binding: 5, visibility: fragment, ty: wgpu::BindingType::Buffer { ty: wgpu::BufferBindingType::Storage { read_only: true }, has_dynamic_offset: false, min_binding_size: None }, count: None },
                 uniform(6, both),
+                wgpu::BindGroupLayoutEntry { binding: 7, visibility: fragment, ty: wgpu::BindingType::Texture { sample_type: wgpu::TextureSampleType::Float { filterable: true }, view_dimension: wgpu::TextureViewDimension::D2Array, multisampled: false }, count: None },
+                wgpu::BindGroupLayoutEntry { binding: 8, visibility: fragment, ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering), count: None },
             ],
         });
         let depth_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -266,9 +272,45 @@ impl NearEye {
         let colours = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the blocks' colours from far"), size: colour_bytes.len().max(32) as u64, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         queue.write_buffer(&colours, 0, &colour_bytes);
         let draws = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the near eye's draws"), size: MOST_DRAWN * 2 * 16, usage: wgpu::BufferUsages::INDIRECT | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
+        // The blocks' pictures (build 205): one texture, a layer a picture (a block's top, then its sides), each size
+        // of it as `textures.rs` shrank it; read with its own pixels crisp up close and its shrunk sizes blended as
+        // it gets small, a block at a time across a merged face. Kept as stored, so the card reads them as light.
+        let layers = textures.pictures.max(1);
+        let blocks_texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("the blocks' pictures"),
+            size: wgpu::Extent3d { width: crate::textures::SIDE, height: crate::textures::SIDE, depth_or_array_layers: layers },
+            mip_level_count: textures.sizes.len().max(1) as u32,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            view_formats: &[],
+        });
+        for (level, pixels) in textures.sizes.iter().enumerate() {
+            let side = crate::textures::SIDE >> level;
+            queue.write_texture(
+                wgpu::TexelCopyTextureInfo { texture: &blocks_texture, mip_level: level as u32, origin: wgpu::Origin3d::ZERO, aspect: wgpu::TextureAspect::All },
+                pixels,
+                wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(side * 4), rows_per_image: Some(side) },
+                wgpu::Extent3d { width: side, height: side, depth_or_array_layers: layers },
+            );
+        }
+        let blocks_view = blocks_texture.create_view(&wgpu::TextureViewDescriptor { dimension: Some(wgpu::TextureViewDimension::D2Array), ..Default::default() });
+        let crisp = device.create_sampler(&wgpu::SamplerDescriptor {
+            label: Some("the blocks' pictures: crisp near, shrunk far"),
+            address_mode_u: wgpu::AddressMode::Repeat,
+            address_mode_v: wgpu::AddressMode::Repeat,
+            mag_filter: wgpu::FilterMode::Nearest,
+            min_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: wgpu::MipmapFilterMode::Linear,
+            ..Default::default()
+        });
+        // (`INCUS_NEAR_TEXTURES=0`: the faces flat in their far colours, as to build 204, to measure against.)
+        let textured = std::env::var("INCUS_NEAR_TEXTURES").as_deref() != Ok("0");
+        log::info!("The near eye's faces: {}", if textured { "wearing their blocks' pictures" } else { "flat in their far colours (INCUS_NEAR_TEXTURES=0)" });
         let radius = std::env::var("INCUS_NEAR_RADIUS").ok().and_then(|r| r.parse::<f32>().ok()).map_or(RADIUS, |r| r.clamp(1.0, MOST_RADIUS));
         log::info!("The near eye: faces as triangles within a render radius of {radius} chunks ({} blocks), its lane on {threads} threads", radius * CHUNK as f32);
-        Ok(Self { lane, look: NearLook { radius, ..NearLook::DEFAULT }, chunks: HashMap::new(), pages: Vec::new(), asked: None, want: Vec::new(), first_to_come: 0, touched: HashSet::new(), need: HashMap::new(), remake: HashSet::new(), waiting: Default::default(), recent_ms: Default::default(), faces, water, layout, depth_layout, group: None, numbers, colours, join, join_layout, format, pictures: None, cover_pass, cover_layout, cover_sizes, cover_sampler, cover_group: None, draws, drawn: Vec::new(), drawn_water: Vec::new(), counts: Counts { threads, ..Default::default() } })
+        Ok(Self { lane, look: NearLook { radius, ..NearLook::DEFAULT }, chunks: HashMap::new(), pages: Vec::new(), asked: None, want: Vec::new(), first_to_come: 0, touched: HashSet::new(), need: HashMap::new(), remake: HashSet::new(), waiting: Default::default(), recent_ms: Default::default(), faces, water, layout, depth_layout, group: None, numbers, colours, blocks_view, crisp, textured, join, join_layout, format, pictures: None, cover_pass, cover_layout, cover_sizes, cover_sampler, cover_group: None, draws, drawn: Vec::new(), drawn_water: Vec::new(), counts: Counts { threads, ..Default::default() } })
     }
 
     /// Room for `count` faces: a page and where in it (a free stretch that holds them, the first found; a new page
@@ -453,6 +495,8 @@ impl NearEye {
                     wgpu::BindGroupEntry { binding: 4, resource: wgpu::BindingResource::Sampler(sampler) },
                     wgpu::BindGroupEntry { binding: 5, resource: self.colours.as_entire_binding() },
                     wgpu::BindGroupEntry { binding: 6, resource: self.numbers.as_entire_binding() },
+                    wgpu::BindGroupEntry { binding: 7, resource: wgpu::BindingResource::TextureView(&self.blocks_view) },
+                    wgpu::BindGroupEntry { binding: 8, resource: wgpu::BindingResource::Sampler(&self.crisp) },
                 ],
             });
             self.group = Some((group, made_from));
@@ -482,7 +526,7 @@ impl NearEye {
         let eye = [camera.position.x, camera.position.y, camera.position.z];
         let cell = eye.map(|v| v.floor());
         let mut bytes: Vec<u8> = Vec::with_capacity(48);
-        bytes.extend(cell.iter().map(|v| *v as i32).chain([0]).flat_map(|v| v.to_le_bytes()));
+        bytes.extend(cell.iter().map(|v| *v as i32).chain([self.textured as i32]).flat_map(|v| v.to_le_bytes()));
         bytes.extend((0..3).map(|k| eye[k] - cell[k]).chain([self.look.fader_curve.clamp(1.0, MOST_FADER_CURVE)]).flat_map(|v| v.to_le_bytes()));
         bytes.extend([self.counts.reach, band_of(self.look.fader_width, self.counts.reach), DEPTHS[0], DEPTHS[1]].iter().flat_map(|v| v.to_le_bytes()));
         queue.write_buffer(&self.numbers, 0, &bytes);

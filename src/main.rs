@@ -44,6 +44,7 @@ mod near_eye;
 mod scatter_stage;
 mod session;
 mod temperatures;
+mod textures;
 mod wiring;
 
 fn main() {

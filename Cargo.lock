@@ -1021,6 +1021,7 @@ dependencies = [
  "glam",
  "log",
  "miniz_oxide 0.8.9",
+ "png",
  "pollster",
  "serde",
  "toml",
