@@ -6050,3 +6050,44 @@ any mark) is met by each mark's sum; by layer the spawn's 4 x 4 is 2.4% more, sa
 
 **Owed:** its size on the card (a trace with it on, and one off again to see the off program is the one David
 read: its hash was 0x63fca007acf1f0c6); the flights, off, on, off; David's look on the stage.
+
+### Build 192 traced and flown (2026-11-16, 07:03 to 07:27, hands off): under 1% at five marks, both working marks among them; 1.6 to 2.8% where rays gather at every step; the run a miss
+
+On David's word ("go"). The card idle before take-off this time (4%), mains, one screen, Nsight's window closed.
+Two traces at the mountain top (`logs/nsight/b192/b192-off/incus_artus_2026_11_16_07_05_44.ngfx-gputrace`,
+`logs/nsight/b192/b192-on/incus_artus_2026_11_16_07_07_41.ngfx-gputrace`; each session's log says where it stood
+and which program it ran), then three flights: off (`logs/flight-1794834872.txt`), on (`-1794835265`), off again
+(`-1794835657`), all "the code committed". No hitch.
+
+The march (the far 8 x 8 on the card, ms, the median):
+
+| mark | off | on | off again | on against the two offs' mean | build 191's |
+|---|---|---|---|---|---|
+| on the ground at the spawn | 0.364 | 0.367 | 0.364 | 0.8% more | 2.8% |
+| the mountain top | 0.932 | 0.932 | 0.931 | the same | 1.6% |
+| the bare plain | 0.448 | 0.452 | 0.451 | 0.6% more | 1.8% |
+| high over the spawn | 0.971 | 0.981 | 0.977 | 0.7% more | 1.9% |
+| low over the sea | 0.532 | 0.541 | 0.533 | 1.6% more | 1.7% |
+| a player's run over the plain | 0.583 | 0.600 | 0.584 | **2.8% more** | 2.5% |
+| fast across the world | 0.610 | 0.631 | 0.620 | 2.6% more | (unreadable) |
+| the plain, nodding | 0.450 | 0.455 | 0.453 | 0.8% more | 1.2% |
+| the sea, nodding | 0.517 | 0.526 | 0.518 | 1.6% more | 2.0% |
+
+The card's whole over the nine views: 6.522, 6.610, 6.551 ms: on 1.1% over the offs' mean (build 191: 1.6%). The
+dearest view, high over the spawn: 1.110 ms on, for 1.099 and 1.105. The two offs agree to 0.6% or better at every
+mark but fast across (1.6%).
+
+**Against the mark** (every mark within 1% of the offs' mean, or at least under build 191's cost): within 1% at
+five marks, the two where the card works among them; under build 191's at the sea (barely) and the sea nodding;
+**not under it at the run (2.8% for 2.5%): a miss, said.**
+
+**What the counts say.** With the rule on the card's counted work is the same or less at every mark (thread-steps
+held, on against the offs: the mountain top 0.4% fewer, high over the spawn 0.7% fewer, the sea the same, the run
+0.2% more, the spawn 0.8% more). So what the rule costs is per step, and it's left where rays gather at nearly
+every step: through water (the sea marks), and skimming grass at walking height (the run). Builder's reading: at
+each step that gathers, build 192 works out a second power (the bulk's cover first, as build 190, to know whether
+the step gathers at all; then the cover again with the faces in). Where most steps are air or end in solid ground,
+that's few steps; over water and along grass it's most of them. Not proven: the form with one power, flown, says.
+
+**Owed:** David's reading of the on trace's row (does this form fit with nothing put by); his look on the stage,
+which decides whether the rule is wanted at all.

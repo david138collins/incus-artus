@@ -66,8 +66,12 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** his go for one more hands-off window (two short Nsight traces and three flights, off,
-  on, off: about 30 minutes), then one row to read, and his look on the stage. Where it stands (2026-11-16,
+- **Waiting on David:** one row to read in Nsight's window (`march_all` in build 192's on trace), and his look
+  on the stage (launched on his word), which decides whether the rule is wanted. Build 192 is traced and flown
+  (off, on, off): under 1% dearer at five marks, both working marks among them (the mountain top the same, high
+  over the spawn 0.7%); 1.6% at the sea marks and 2.8% on the run, where rays gather at nearly every step (a miss
+  on the run against its mark); the card's whole over the nine views 1.1% more. Next if he wants the rule: one
+  power where build 192 works out two. Where it stands (2026-11-16,
   `journal/docs/experiments.md`): the skyline talk's first step is cover by faces (a far cell stops a ray by the
   face it shows it as well as by its bulk): walls solid, roofs their own colour, the arch and far spires read;
   woods become solid masses (the largest change); steep land's edge a little fuller; level skylines and shallow
