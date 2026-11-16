@@ -2781,6 +2781,25 @@ Reference: `Art/quartile minecraft illustration.png`
   the near eye's depth is too coarse far out (at 2,000 blocks it can't tell faces a block apart), so a few hundred
   single pixels differ run to run there, and moving would show far faces flickering between a top and a side; the
   standard mend is small.
+- *Build 202's window* (12b3737: build 201 with the near depth's mend, the depth kept turned round, the same view
+  drawn twice differing at 16 pixels for 422; flown on his "Builder can proceed with the tests and basic fixes";
+  down at 14:50; a cool-down before each flight, each begun at 66 to 77 °C; two traces at the mountain top at 64
+  chunks; seven flights, `logs/flight-1794859356` near off, then at 4, 16 and 64 chunks the skipping rule off and on,
+  to `-1794862234`; checked by Counsel). **Mixed.** The session compares (near off, the far eye within 1.5 to 2% of
+  builds 194 and 197). Skipping far rays under blocks saves the far march a quarter to two thirds where blocks fill
+  the view: the mountain top 1.180 → 0.836 ms at 4 chunks and 1.148 → 0.756 at 16, the spawn 0.411 → 0.149 at 64,
+  the densest scatter 0.570 → 0.154. But its own pass, the near cover, costs 0.142 to 0.146 ms a frame (three times
+  Builder's estimate), so at most open standing marks the card's whole is dearer with the rule on (0.06 to 0.19 ms:
+  the spawn 0.584 → 0.775 at 4 chunks, the plain 0.756 → 0.929). 240 a second still holds at 64 chunks everywhere
+  (the slowest high over the spawn, 3.52 ms a frame, 284 a second). **Missed:** "the far eye no dearer with the near
+  eye on than off" on the plain (the march 0.457 ms near off; 0.573 to 0.616 on, 25 to 35% by Counsel's reading of
+  the march, Builder's 22 to 30%) and the sea: not waste under blocks; with its rays begun beyond the near blocks
+  the far eye no longer draws its own near haze over the horizon, and its finer layer is called in along it. A
+  crisper horizon at a cost, governed by the Crossovers' sliders, his business if he wants it. Two faults of
+  Builder's in build 201's code, found by reading: the march asks the cover before asking whether a pixel is wanted
+  (eleven million needless reads a frame in the finer layers), and the cover's pass reads the near picture a pixel at
+  a time where it could read four. Build 203 mends both under his "basic fixes", then a short flight and the on
+  trace again.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
