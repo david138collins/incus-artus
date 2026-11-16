@@ -2889,6 +2889,15 @@ Reference: `Art/quartile minecraft illustration.png`
     is the 16s out to 1,024); and the step may be only a ring a size wider, not a ring with a hole. The Oracle's
     first reply said the same of the rings ("the rings as sized sit mostly inside the near eye's ground"; "ring
     width, not ring count, sets how big the star facets look").
+  - **Confirmed by Builder, her first figures withdrawn in the open** (read in the code: `bricks.rs` has RING = 128
+    cells; `far_ring.rs`'s reach spans RING × the cell's size): the 16s reach about 1,024 blocks from the eye and the
+    8s about 512, each fading into the next level over its outermost 8 cells (128 and 64 blocks). She'd taken the
+    flight header's "a ring of 128 round the eye" for blocks. So: at his 32 chunks the 16s' ring ends about where the
+    triangles do, which is why the nearest far view is 32s there; the free look is a radius of 16 chunks against 32
+    (at 16 the far view past the triangles is 16s out to about 1,024), not a radius of 4; and the step is the rings
+    a size wider, the march's rule as it is, the hole only a saving of memory. Her estimate, to be measured: four
+    times the bricks in each ring by area (about 1,800 to 1,950 each for the day's 445 and 487). Still his idea,
+    open; corrected to him by her.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
