@@ -174,7 +174,7 @@ fn render(ui: &mut egui::Ui, readings: &Readings, look: Option<&mut FarLook>, ne
     // 2026-11-16: "i think a x-fader with curves could hide it almost completely so blocks smoothly fade into rays";
     // its two sliders' place and names were put to him with the step, and his answer was "go ahead with the next
     // step"]. Greyed where there's no near eye. The section's Default puts all three back, like the far eye's.
-    let near_ms: f32 = [PassId::TheNearFaces, PassId::TheNearWater, PassId::TheXFader].iter().map(|id| card(*id).median).sum();
+    let near_ms: f32 = [PassId::TheNearFaces, PassId::TheNearWater, PassId::TheNearCover, PassId::TheXFader].iter().map(|id| card(*id).median).sum();
     let near_title = if readings.near.is_some() { format!("The near eye on the card: {near_ms:.2} ms") } else { "The near eye".to_string() };
     let mut none = NearLook::DEFAULT;
     let there = near_look.is_some();

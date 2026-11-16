@@ -18,6 +18,7 @@
 struct Camera {
     // The eye (game axes: x north, y east, z up); w: a ray's step through thin haze, in cells (the lean step, 1d).
     position: vec4<f32>,
+    // (w, the base layer's row by the one dispatch: 1 when the near eye's cover is this frame's.)
     forward: vec4<f32>,
     // Scaled so a pixel's direction is forward + x·right + y·up for x, y from −1 to 1.
     right: vec4<f32>,
@@ -167,6 +168,12 @@ fn cut_before(slot: u32, place: u32) -> f32 {
     return 1.0;
 }
 
+// Whether the near eye's blocks wholly cover a pixel and the eight round it (the one dispatch's own, `far_all.wgsl`:
+// marched a layer after another, never).
+fn covered(at: vec2<u32>) -> bool {
+    return false;
+}
+
 // One layer of the pyramid: a ray a pixel, where the layer above said it's worth it.
 @compute @workgroup_size(8, 8)
 fn march_pass(@builtin(global_invocation_id) id: vec3<u32>) {
@@ -214,6 +221,9 @@ const LOADED: bool = false;
 // Whether a cell stops a ray by the face it shows it as well as by its bulk (`shown_share`), fixed when the program is
 // built (`far_eye.rs` changes this one line, `INCUS_FAR_FACES=0`: build 190's program, for measuring against).
 const FACES: bool = true;
+// Whether the far eye skips the pixels the near eye's blocks wholly cover (build 201: `covered`, the one dispatch's;
+// `far_eye.rs` makes the programs without it for `INCUS_FAR_COVER=0`, build 200's march, to measure against).
+const COVER: bool = true;
 
 // ── The cells ──
 
@@ -1433,6 +1443,22 @@ fn ray_through(id: vec2<u32>) -> vec3<f32> {
 fn march_pixel(id: vec2<u32>, given: u32, from_cut: u32, to_cut: u32, stack: u32) {
     let size = vec2<u32>(camera.view.xy);
     if (id.x >= size.x || id.y >= size.y) {
+        return;
+    }
+    // Under the near eye's blocks (build 201): this pixel and the eight round it are wholly covered by blocks nearer
+    // than the x-fader's band, so nothing of the far picture shows here, nor is blended in from here: no ray is
+    // marched. [Till now a far ray under a block began where far rays may begin, inside the ground, and its finer
+    // layer was called in after it: the far eye 16 to 21% dearer with the near eye on, build 197's flights.] It
+    // writes what a pixel not wanted writes, and for the frame after says it first touched where a far ray may
+    // begin, so the rays that start by it start no farther out than they would have.
+    if (COVER && covered(id)) {
+        if (from_cut == 0u) {
+            put_picture(vec2<i32>(id), vec4<f32>(0.0));
+            put_far(vec2<i32>(id), vec4<f32>(camera.sky.w, 0.0, 0.0, 0.0));
+            if (camera.layer.y > 0.5) {
+                put_worth(id.y * size.x + id.x, 0u);
+            }
+        }
         return;
     }
     var shown = 1.0;

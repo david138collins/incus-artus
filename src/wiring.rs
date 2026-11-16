@@ -63,12 +63,13 @@ pub enum PassId {
     LayingOutThePanel,
     GettingThePicture,
     TheFarStart,
+    TheNearFaces,
+    TheNearWater,
+    TheNearCover,
     TheFar8,
     TheFar4,
     TheFar2,
     BringingItUp,
-    TheNearFaces,
-    TheNearWater,
     TheXFader,
     ThePanel,
     HandingTheCardItsWork,
@@ -112,6 +113,7 @@ pub enum StoreId {
     FarCells,
     NearFaces,
     NearPicture,
+    NearCover,
     FarBricks,
     FarLayers,
     FarLook,
@@ -174,7 +176,7 @@ pub const LANES: [Lane; 4] = [
     },
 ];
 
-pub const PASSES: [Pass; 26] = [
+pub const PASSES: [Pass; 27] = [
     Pass {
         id: PassId::HearingTheWindow,
         name: "hearing the window",
@@ -233,7 +235,7 @@ pub const PASSES: [Pass; 26] = [
         writes: &[StoreId::NearFaces, StoreId::FarLook],
         switches: &[
             ("INCUS_NEAR", "0: no near eye at all (the game as build 194, for measuring against); unset, the blocks inside the render radius drawn as triangles (plan 2.3)"),
-            ("INCUS_NEAR_RADIUS", "the render radius the game starts with, in chunks of 32 blocks, 1 to 64 (unset: 4); the Render page's slider moves it"),
+            ("INCUS_NEAR_RADIUS", "the render radius the game starts with, in chunks of 32 blocks, 1 to 64 (unset: 32); the Render page's slider moves it"),
             ("INCUS_NEAR_THREADS", "how many threads the near lane meshes chunks on (unset: a quarter of the processor's, 2 to 6)"),
         ],
         files: &["src/near_eye.rs", "src/near.rs"],
@@ -291,12 +293,45 @@ pub const PASSES: [Pass; 26] = [
         files: &["src/far_eye.rs", "src/far.wgsl"],
     },
     Pass {
+        id: PassId::TheNearFaces,
+        name: "the near faces",
+        lane: LaneId::Frame,
+        on: Where::Card,
+        what: "The chunks in view inside the near faces' reach, their merged faces drawn as triangles into the near eye's own picture, with depth, every face whole and the nearest winning a pixel: each face its block's colour from far, lit as the far eye lights (the sun on the way it looks, the far light's shadow and sky at its place), and multiplied by how much of it shows by the x-fader (all of it before the band, none at the faces' reach, along the curve between).",
+        reads: &[StoreId::NearFaces, StoreId::FarLight, StoreId::Camera],
+        writes: &[StoreId::NearPicture],
+        switches: &[],
+        files: &["src/near_eye.rs", "src/near.wgsl"],
+    },
+    Pass {
+        id: PassId::TheNearWater,
+        name: "the near water",
+        lane: LaneId::Frame,
+        on: Where::Card,
+        what: "The water's top inside the near faces' reach, drawn over them: the far eye's water (its colour, and how fast it dims what's seen through it) by how much water the eye looks through to the face behind, read from the near faces' depth; laid over them in the near eye's picture.",
+        reads: &[StoreId::NearFaces, StoreId::NearPicture, StoreId::FarLight, StoreId::Camera],
+        writes: &[StoreId::NearPicture],
+        switches: &[],
+        files: &["src/near_eye.rs", "src/near.wgsl"],
+    },
+    Pass {
+        id: PassId::TheNearCover,
+        name: "the near cover",
+        lane: LaneId::Frame,
+        on: Where::Card,
+        what: "Which of the far eye's pixels the near eye's blocks wholly cover: for every pixel of each far layer, whether every screen pixel under it is wholly a block's in the near picture (nearer than the x-fader's band, and no gap). The march, recorded after it, marches no ray for a pixel that is covered with the eight round it.",
+        reads: &[StoreId::NearPicture],
+        writes: &[StoreId::NearCover],
+        switches: &[("INCUS_FAR_COVER", "0: the far eye marches under the near eye's blocks too (the rule compiled out of the march: build 200's program, for measuring against); unset, it skips what they wholly cover")],
+        files: &["src/near_eye.rs", "src/near_cover.wgsl"],
+    },
+    Pass {
         id: PassId::TheFar8,
         name: "the far 8 x 8",
         lane: LaneId::Frame,
         on: Where::Card,
         what: "The pyramid's base: a ray each 8 x 8 screen pixels through the far cells (old's far march: the level by distance, skipping empty space, the eight cells round each step blended, gathered front to back, faces lit by the sun, fog), its shadow and sky light read from the cell where it lands (the far light), and where the 4 x 4 is worth it.",
-        reads: &[StoreId::FarBricks, StoreId::FarTextures, StoreId::FarLight, StoreId::BlueNoise, StoreId::FarWindow, StoreId::FarLayers],
+        reads: &[StoreId::FarBricks, StoreId::FarTextures, StoreId::FarLight, StoreId::BlueNoise, StoreId::FarWindow, StoreId::FarLayers, StoreId::NearCover],
         writes: &[StoreId::FarLayers],
         switches: &[],
         files: &["src/far_eye.rs", "src/far.wgsl"],
@@ -333,28 +368,6 @@ pub const PASSES: [Pass; 26] = [
         writes: &[StoreId::ScreenPicture],
         switches: &[],
         files: &["src/far_eye.rs", "src/far_up.wgsl"],
-    },
-    Pass {
-        id: PassId::TheNearFaces,
-        name: "the near faces",
-        lane: LaneId::Frame,
-        on: Where::Card,
-        what: "The chunks in view inside the near faces' reach, their merged faces drawn as triangles into the near eye's own picture, with depth, every face whole and the nearest winning a pixel: each face its block's colour from far, lit as the far eye lights (the sun on the way it looks, the far light's shadow and sky at its place), and multiplied by how much of it shows by the x-fader (all of it before the band, none at the faces' reach, along the curve between).",
-        reads: &[StoreId::NearFaces, StoreId::FarLight, StoreId::Camera],
-        writes: &[StoreId::NearPicture],
-        switches: &[],
-        files: &["src/near_eye.rs", "src/near.wgsl"],
-    },
-    Pass {
-        id: PassId::TheNearWater,
-        name: "the near water",
-        lane: LaneId::Frame,
-        on: Where::Card,
-        what: "The water's top inside the near faces' reach, drawn over them: the far eye's water (its colour, and how fast it dims what's seen through it) by how much water the eye looks through to the face behind, read from the near faces' depth; laid over them in the near eye's picture.",
-        reads: &[StoreId::NearFaces, StoreId::NearPicture, StoreId::FarLight, StoreId::Camera],
-        writes: &[StoreId::NearPicture],
-        switches: &[],
-        files: &["src/near_eye.rs", "src/near.wgsl"],
     },
     Pass {
         id: PassId::TheXFader,
@@ -492,7 +505,7 @@ pub const PASSES: [Pass; 26] = [
     },
 ];
 
-pub const STORES: [Store; 23] = [
+pub const STORES: [Store; 24] = [
     Store {
         id: StoreId::KeysHeld,
         name: "the keys held",
@@ -612,6 +625,14 @@ pub const STORES: [Store; 23] = [
         what: "The near eye's own picture and depth, the screen's size: every face whole, the nearest winning a pixel, the water over them; each pixel multiplied by how much of it shows, for the x-fader to lay over the far picture.",
         limits: &[("blocks the x-fader's band goes to", crate::near_eye::MOST_FADER_WIDTH as u64)],
         files: &["src/near_eye.rs"],
+    },
+    Store {
+        id: StoreId::NearCover,
+        name: "the near cover",
+        on: Where::Card,
+        what: "A pixel for every pixel of each of the far eye's three layers, the layers side by side: 1 where the near eye's blocks wholly cover it this frame. Kept with the far eye's layers (made again when they are).",
+        limits: &[],
+        files: &["src/far_eye.rs", "src/near_eye.rs"],
     },
     Store {
         id: StoreId::FarBricks,

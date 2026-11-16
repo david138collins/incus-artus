@@ -213,6 +213,9 @@ struct Targets {
     #[cfg_attr(not(test), allow(dead_code))]
     cut: wgpu::Buffer,
     strip: u32,
+    /// The near eye's cover: a pixel a pixel of each layer, the layers side by side as their distances are (written
+    /// by the near eye's cover pass, read by the march: `far_all.wgsl`'s `cover`).
+    cover: wgpu::TextureView,
     /// The audit's own bind group (`FarEye::audit`): the far eye's, with scratch in place of everything it writes.
     audit: Option<wgpu::BindGroup>,
 }
@@ -223,6 +226,8 @@ pub struct FarEye {
     pub near_from: f32,
     /// How many times the targets have been made (the near eye's bind group is made again when they are).
     targets_made: u64,
+    /// Whether the march skips what the near eye's blocks cover (build 201; `INCUS_FAR_COVER=0`: compiled out).
+    cover_on: bool,
     pub store: Store,
     lane: Option<Lane>,
     /// The rings round the eye (`far_ring.rs`), the 16s' first, then the 8s' (as many as `INCUS_FAR_RING` says: 0
@@ -346,6 +351,18 @@ impl FarEye {
         } else {
             log::info!("Cover by faces: off, a far cell stops a ray by its bulk alone (INCUS_FAR_FACES=0)");
             (far_source.replace(FACES, NO_FACES), far_source)
+        };
+        // Far rays skipped under the near eye's blocks (build 201), compiled out if asked (`INCUS_FAR_COVER=0`): build
+        // 200's march, to measure against.
+        const COVER: &str = "const COVER: bool = true;";
+        assert_eq!(far_source.matches(COVER).count(), 1, "far.wgsl says whether the near eye's cover skips rays in one place");
+        const NO_COVER: &str = "const COVER: bool = false;";
+        let cover_on = std::env::var("INCUS_FAR_COVER").as_deref() != Ok("0");
+        let (far_source, far_source_other) = if cover_on {
+            (far_source, far_source_other)
+        } else {
+            log::info!("The near eye's cover: off, the far eye marches under blocks too (INCUS_FAR_COVER=0)");
+            (far_source.replace(COVER, NO_COVER), far_source_other.replace(COVER, NO_COVER))
         };
         let module = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some("the far eye"), source: wgpu::ShaderSource::Wgsl(far_source.as_str().into()) });
         let compute = wgpu::ShaderStages::COMPUTE;
@@ -524,6 +541,7 @@ impl FarEye {
                     written(17, wgpu::TextureFormat::Rgba8Unorm),
                     written(19, wgpu::TextureFormat::Rgba8Unorm),
                     storage(25, false),
+                    read(26, compute, false),
                 ],
             });
             let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor { label: Some("the far eye, one dispatch"), bind_group_layouts: &[Some(&layout)], immediate_size: 0 });
@@ -584,7 +602,7 @@ impl FarEye {
         let tally_counts = LAYERS.iter().map(|_| device.create_buffer(&wgpu::BufferDescriptor { label: Some("a far layer's longest ray"), size: 4 * TALLY as u64, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false })).collect();
         let tally_back = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the longest rays read back"), size: 4 * (TALLY * (LAYERS.len() + 1)) as u64, usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let tally_state = std::sync::Arc::new(std::sync::atomic::AtomicU8::new(0));
-        Self { near_from: 0.0, targets_made: 0, store, lane, rings, eye: [0.0; 2], start, march, up, layout, up_layout, sampler, targets: None, look, textures, atlas: None, building: None, stand_ins, light: None, lighting: None, sweeping: None, sun_asked, light_stand_ins, blue, blue_bytes, edge, layers, one, one_loaded, one_loaded_other, faces_asked, one_start, one_join, cut_at, long, loaded_off: std::env::var("INCUS_FAR_LOADED").as_deref() == Ok("0"), loaded_said: std::sync::atomic::AtomicBool::new(false), audit, parity: 0, fresh: false, haze_step, most_steps, tops_making: None, tops_made: None, tops_off: false, reach, begin, tally, tally_counts, tally_back, tally_state, waiting, waiting_counts }
+        Self { near_from: 0.0, targets_made: 0, cover_on, store, lane, rings, eye: [0.0; 2], start, march, up, layout, up_layout, sampler, targets: None, look, textures, atlas: None, building: None, stand_ins, light: None, lighting: None, sweeping: None, sun_asked, light_stand_ins, blue, blue_bytes, edge, layers, one, one_loaded, one_loaded_other, faces_asked, one_start, one_join, cut_at, long, loaded_off: std::env::var("INCUS_FAR_LOADED").as_deref() == Ok("0"), loaded_said: std::sync::atomic::AtomicBool::new(false), audit, parity: 0, fresh: false, haze_step, most_steps, tops_making: None, tops_made: None, tops_off: false, reach, begin, tally, tally_counts, tally_back, tally_state, waiting, waiting_counts }
     }
 
     /// Whether every region is on the card, the window's regions round the eye too, and the far textures if they're made.
@@ -880,6 +898,9 @@ impl FarEye {
         let mut layers: Vec<Layer> = Vec::new();
         let mut worth_above: Option<wgpu::Buffer> = None;
         let sizes = self.layers.map(|factor| ((screen.0 as f32 / factor).ceil().max(1.0) as u32, (screen.1 as f32 / factor).ceil().max(1.0) as u32));
+        // The near eye's cover: a pixel a pixel of each layer, side by side (nothing covered till the near eye's pass
+        // writes it).
+        let cover = texture("the near eye's cover", (sizes.iter().map(|size| size.0).sum(), sizes.iter().map(|size| size.1).max().unwrap_or(1)), wgpu::TextureFormat::Rgba8Unorm);
         // By the one dispatch: all the layers' distances in one texture, side by side from its left, kept twice.
         let one_way = self.one.is_some();
         // The strip of the dispatch's grid for the cut rays' lengths: a thread a place in the list of lengths, row
@@ -969,6 +990,7 @@ impl FarEye {
                         entry(17, wgpu::BindingResource::TextureView(&layers[1].picture)),
                         entry(19, wgpu::BindingResource::TextureView(&layers[2].picture)),
                         entry(25, cut.as_entire_binding()),
+                        entry(26, wgpu::BindingResource::TextureView(&cover)),
                     ],
                 })
             };
@@ -1016,6 +1038,7 @@ impl FarEye {
                     entry(17, wgpu::BindingResource::TextureView(&pictures[1])),
                     entry(19, wgpu::BindingResource::TextureView(&pictures[2])),
                     entry(25, lengths.as_entire_binding()),
+                    entry(26, wgpu::BindingResource::TextureView(&cover)),
                 ],
             })
         });
@@ -1057,7 +1080,7 @@ impl FarEye {
             })
         });
         self.targets_made += 1;
-        self.targets = Some(Targets { screen, generation: self.store.generation, atlas_in: self.atlas.is_some(), atlas_generation, light: light_now, tiles, tally_groups, tally_parts, waiting_numbers, waiting_groups, layers, up_numbers, up_group, one, one_starts, long_rays, cut, strip, audit });
+        self.targets = Some(Targets { screen, generation: self.store.generation, atlas_in: self.atlas.is_some(), atlas_generation, light: light_now, tiles, tally_groups, tally_parts, waiting_numbers, waiting_groups, layers, up_numbers, up_group, one, one_starts, long_rays, cut, strip, cover, audit });
         true
     }
 
@@ -1156,6 +1179,28 @@ impl FarEye {
     /// layers were remade).
     fn cutting(&self) -> bool {
         self.one_join.is_some() && self.cut_at > 0.0 && !self.fresh
+    }
+
+    /// What the near eye's cover pass writes (`near_eye.rs`): the cover's picture, each layer's size in its pixels, the
+    /// base's pixel's side in screen pixels, and a number that changes when they're made again. None where the
+    /// layers aren't marched by the one dispatch, each half the one above down to whole screen pixels, or the rule
+    /// is compiled out (`INCUS_FAR_COVER=0`).
+    pub fn cover_writes(&self) -> Option<(&wgpu::TextureView, [(u32, u32); 3], u32, u64)> {
+        let targets = self.targets.as_ref()?;
+        targets.one.as_ref()?;
+        let [a, b, c] = targets.layers.as_slice() else { return None };
+        let side = a.factor as u32;
+        let halved = side >= 4 && side % 4 == 0 && a.factor == side as f32 && b.factor * 2.0 == a.factor && c.factor * 4.0 == a.factor;
+        (self.cover_on && halved).then(|| (&targets.cover, [a.size, b.size, c.size], side, self.targets_made))
+    }
+
+    /// The near eye's cover is this frame's: said once its pass is recorded, each frame it is, and the march skips
+    /// what it covers. (`prepare` writes "not this frame's" with the frame's numbers, before.)
+    pub fn covered(&self, queue: &wgpu::Queue) {
+        if let Some((cameras, _)) = self.targets.as_ref().and_then(|targets| targets.one.as_ref()) {
+            // (The base layer's row of "forward", its fourth number: `far.wgsl`'s `Camera`.)
+            queue.write_buffer(cameras, 16 + 12, &1.0f32.to_le_bytes());
+        }
     }
 
     /// The start pass: a cone a tile, where its rays can start.
@@ -1765,6 +1810,16 @@ mod tests {
         // A frame, or as many as asked (`FAR_TEST_FRAMES`; by the one dispatch a finer layer's lead is the frame
         // before's, and the first frame makes its own); the last one's picture read back.
         let frames = std::env::var("FAR_TEST_FRAMES").ok().and_then(|n| n.parse::<u32>().ok()).unwrap_or(1).max(1);
+        // The near eye before the march, as the game's frame goes: its faces and its water into its own picture, then
+        // its cover for the far eye.
+        let near_first = |near: &mut crate::near_eye::NearEye, eye: &FarEye, encoder: &mut wgpu::CommandEncoder, camera: &Camera| {
+            assert!(near.prepare(&device, &queue, screen, eye, camera), "the near eye has what it reads of the far eye's");
+            near.draw_faces(encoder, None);
+            near.draw_water(encoder, None);
+            if near.cover(&device, &queue, encoder, eye, None) {
+                eye.covered(&queue);
+            }
+        };
         for _ in 1..frames {
             if let Some(near) = &mut near {
                 near.put(&device, &queue, at, &mut eye).unwrap();
@@ -1772,6 +1827,9 @@ mod tests {
             eye.prepare(&device, &queue, screen, &camera, doorway.sea_level as f32);
             let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("the far eye's test") });
             eye.start(&mut encoder, None);
+            if let Some(near) = &mut near {
+                near_first(near, &eye, &mut encoder, &camera);
+            }
             for k in 0..LAYERS.len() {
                 eye.layer(k, &mut encoder, None);
             }
@@ -1792,14 +1850,14 @@ mod tests {
         eye.prepare(&device, &queue, screen, &camera, doorway.sea_level as f32);
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("the far eye's test") });
         eye.start(&mut encoder, None);
+        if let Some(near) = &mut near {
+            near_first(near, &eye, &mut encoder, &camera);
+        }
         for k in 0..LAYERS.len() {
             eye.layer(k, &mut encoder, None);
         }
         eye.bring_up(&mut encoder, &view, None);
         if let Some(near) = &mut near {
-            assert!(near.prepare(&device, &queue, screen, &eye, &camera), "the near eye has what it reads of the far eye's");
-            near.draw_faces(&mut encoder, None);
-            near.draw_water(&mut encoder, None);
             near.join(&mut encoder, &view, None);
             eprintln!("The near eye drew: {:?}", near.counts);
         }
@@ -1822,6 +1880,9 @@ mod tests {
             eye.prepare(&device, &queue, screen, &camera, doorway.sea_level as f32);
             let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("the far eye's test") });
             eye.start(&mut encoder, None);
+            if let Some(near) = &mut near {
+                near_first(near, &eye, &mut encoder, &camera);
+            }
             for k in 0..LAYERS.len() {
                 eye.layer(k, &mut encoder, None);
             }

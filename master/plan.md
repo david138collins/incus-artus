@@ -99,10 +99,15 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   word on the next step:** "go ahead with the next step and launch". **His looks at builds 198 and 199** (2026-11-16): "the fade looks good, and the panel folding
   is good.  i notice speckling white dots of sky when looking down and moving." Build 199 is the near eye drawn
   into a picture and depth of its own and laid over the far picture by his x-fader ("x-fader width (blocks)",
-  "x-fader curve", in "The near eye" section). **Builder is on build 200, its mark written:** the white dots
-  (holes between merged faces, found off the screen: 38 to 117 lone pixels of sky looking down), mended by
-  drawing each face a hair wider. **After it, build 201:** far rays skipped under blocks, with a trace and
-  flights on his word. **Waiting on David:** nothing now. Before the flights (his "go
+  "x-fader curve", in "The near eye" section). **Build 200 (built, unlaunched):** the white dots mended (holes
+  between merged faces: 38 to 117 lone pixels of sky looking down, none now), each face drawn a hair wider.
+  **Build 201 (built, unlaunched, unflown):** far rays skipped under blocks (the near eye drawn before the
+  march; "the near cover" says which far pixels blocks wholly cover; the march marches none of those), and his
+  starting numbers, said to Counsel ("yes, and 32 chunk radius": 32 chunks, the x-fader 128 wide, curve 1). Off
+  the screen the far eye's groups are held 7 to 87% fewer thread-steps and the far picture is unchanged.
+  **Waiting on David:** his word to launch build 201 (the dots gone, his starting numbers); his word for the
+  window (an off and an on trace for the march's row, then a bracket of flights, after a cool-down); and whether
+  to mend the near eye's depth, found too coarse at a distance (written down, not built). Before the flights (his "go
   ahead with the tests", 2026-11-16) he looked at build 195: "holds 240fps at 64 chunks, once its loaded in"; flying very fast,
   90 to 120 a second while chunks are made ("i don't think a player could experience a hiccup. off to a good
   start"); "there is a seam, but, its not very bad, and i think a x-fader with curves could hide it almost

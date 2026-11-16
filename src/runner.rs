@@ -122,6 +122,10 @@ struct FrameWork {
     card_frames: Vec<Vec<f32>>,
     /// Whether the far eye drew the picture (the panels then go over it; else over the sky's colour).
     far_drew: bool,
+    /// Whether the far eye's numbers are this frame's (its start pass recorded), and whether the near eye drew its
+    /// picture this frame (its cover and the x-fader go only after it).
+    far_ready: bool,
+    near_drew: bool,
     /// Whether this frame counted the far layers' longest rays (step 0).
     tallied: bool,
 }
@@ -279,7 +283,7 @@ impl Runner {
                 PassId::TheFar4 => self.the_far_layer(&mut work, 1, PassId::TheFar4),
                 PassId::TheFar2 => self.the_far_layer(&mut work, 2, PassId::TheFar2),
                 PassId::BringingItUp => self.bringing_it_up(&mut work),
-                PassId::TheNearFaces | PassId::TheNearWater | PassId::TheXFader => self.the_near(&mut work, pass.id),
+                PassId::TheNearFaces | PassId::TheNearWater | PassId::TheNearCover | PassId::TheXFader => self.the_near(&mut work, pass.id),
                 PassId::ThePanel => self.the_panel(&mut work),
                 PassId::HandingTheCardItsWork => self.handing_the_card_its_work(&mut work),
                 PassId::ShowingIt => self.showing_it(&mut work),
@@ -414,22 +418,34 @@ impl Runner {
         true
     }
 
-    /// The near eye's faces into its own picture, then (its second pass) its water over them, then (its third, the
-    /// x-fader) that picture laid over the far picture.
+    /// The near eye's faces into its own picture, then (its second pass) its water over them, then (its third) its
+    /// cover for the far eye, all before the march; and after the far picture is brought up (its fourth, the
+    /// x-fader) its picture laid over it.
     fn the_near(&mut self, work: &mut FrameWork, id: PassId) -> bool {
         let Some(running) = &mut self.running else { return false };
         let (Some(near), Some(far), Some(texture), Some(encoder)) = (&mut running.near, &running.far, &work.texture, &mut work.encoder) else { return true };
-        if !work.far_drew {
+        // (Its own picture once the far eye's numbers are the frame's; the x-fader once the far picture is brought up.)
+        if !(if id == PassId::TheXFader { work.far_drew } else { work.far_ready }) {
             return true;
         }
-        if id == PassId::TheNearFaces && !near.prepare(&running.card.device, &running.card.queue, (running.card.config.width, running.card.config.height), far, &self.camera) {
+        if id == PassId::TheNearFaces {
+            work.near_drew = near.prepare(&running.card.device, &running.card.queue, (running.card.config.width, running.card.config.height), far, &self.camera);
+        }
+        if !work.near_drew {
             return true;
         }
-        let timestamps = wiring::card_slot(id).and_then(|slot| running.card_clock.as_ref().and_then(|clock| clock.render_pass(slot)));
+        let slot = wiring::card_slot(id);
+        let clock = running.card_clock.as_ref();
         match id {
-            PassId::TheNearFaces => near.draw_faces(encoder, timestamps),
-            PassId::TheNearWater => near.draw_water(encoder, timestamps),
-            _ => near.join(encoder, &texture.texture.create_view(&wgpu::TextureViewDescriptor::default()), timestamps),
+            PassId::TheNearFaces => near.draw_faces(encoder, slot.and_then(|slot| clock.and_then(|clock| clock.render_pass(slot)))),
+            PassId::TheNearWater => near.draw_water(encoder, slot.and_then(|slot| clock.and_then(|clock| clock.render_pass(slot)))),
+            PassId::TheNearCover => {
+                // The cover, and the far eye told it's this frame's: the march, recorded after, skips what it covers.
+                if near.cover(&running.card.device, &running.card.queue, encoder, far, slot.and_then(|slot| clock.and_then(|clock| clock.compute_pass(slot)))) {
+                    far.covered(&running.card.queue);
+                }
+            }
+            _ => near.join(encoder, &texture.texture.create_view(&wgpu::TextureViewDescriptor::default()), slot.and_then(|slot| clock.and_then(|clock| clock.render_pass(slot)))),
         }
         true
     }
@@ -443,6 +459,7 @@ impl Runner {
         let Some(encoder) = &mut work.encoder else { return false };
         let timestamps = wiring::card_slot(PassId::TheFarStart).and_then(|slot| running.card_clock.as_ref().and_then(|clock| clock.compute_pass(slot)));
         far.start(encoder, timestamps);
+        work.far_ready = true;
         true
     }
 

@@ -23,12 +23,13 @@ flowchart TB
     pass_laying_out_the_panel["laying out the panel"]
     pass_getting_the_picture["getting the picture"]
     pass_the_far_start["the far start"]
+    pass_the_near_faces["the near faces"]
+    pass_the_near_water["the near water"]
+    pass_the_near_cover["the near cover"]
     pass_the_far_8_x_8["the far 8 x 8"]
     pass_the_far_4_x_4["the far 4 x 4"]
     pass_the_far_2_x_2["the far 2 x 2"]
     pass_bringing_it_up["bringing it up"]
-    pass_the_near_faces["the near faces"]
-    pass_the_near_water["the near water"]
     pass_the_x_fader["the x-fader"]
     pass_the_panel["the panel"]
     pass_handing_the_card_its_work["handing the card its work"]
@@ -63,6 +64,7 @@ flowchart TB
   store_the_far_cells[("the far cells")]
   store_the_near_faces[("the near faces")]
   store_the_near_picture[("the near picture")]
+  store_the_near_cover[("the near cover")]
   store_the_far_bricks[("the far bricks")]
   store_the_far_layers[("the far layers")]
   store_the_far_eye_s_look[("the far eye's look")]
@@ -99,12 +101,24 @@ flowchart TB
   store_the_far_bricks --> pass_the_far_start
   store_the_far_eye_s_look --> pass_the_far_start
   pass_the_far_start --> store_the_far_layers
+  store_the_near_faces --> pass_the_near_faces
+  store_the_far_light --> pass_the_near_faces
+  store_the_camera --> pass_the_near_faces
+  pass_the_near_faces --> store_the_near_picture
+  store_the_near_faces --> pass_the_near_water
+  store_the_near_picture --> pass_the_near_water
+  store_the_far_light --> pass_the_near_water
+  store_the_camera --> pass_the_near_water
+  pass_the_near_water --> store_the_near_picture
+  store_the_near_picture --> pass_the_near_cover
+  pass_the_near_cover --> store_the_near_cover
   store_the_far_bricks --> pass_the_far_8_x_8
   store_the_far_textures --> pass_the_far_8_x_8
   store_the_far_light --> pass_the_far_8_x_8
   store_the_blue_noise --> pass_the_far_8_x_8
   store_the_window_round_the_eye --> pass_the_far_8_x_8
   store_the_far_layers --> pass_the_far_8_x_8
+  store_the_near_cover --> pass_the_far_8_x_8
   pass_the_far_8_x_8 --> store_the_far_layers
   store_the_far_bricks --> pass_the_far_4_x_4
   store_the_far_textures --> pass_the_far_4_x_4
@@ -122,15 +136,6 @@ flowchart TB
   pass_the_far_2_x_2 --> store_the_far_layers
   store_the_far_layers --> pass_bringing_it_up
   pass_bringing_it_up --> store_the_screen_s_picture
-  store_the_near_faces --> pass_the_near_faces
-  store_the_far_light --> pass_the_near_faces
-  store_the_camera --> pass_the_near_faces
-  pass_the_near_faces --> store_the_near_picture
-  store_the_near_faces --> pass_the_near_water
-  store_the_near_picture --> pass_the_near_water
-  store_the_far_light --> pass_the_near_water
-  store_the_camera --> pass_the_near_water
-  pass_the_near_water --> store_the_near_picture
   store_the_near_picture --> pass_the_x_fader
   pass_the_x_fader --> store_the_screen_s_picture
   store_the_panel_s_shapes --> pass_the_panel
@@ -171,7 +176,7 @@ flowchart TB
 
 - **Runs:** once a frame.
 - **What it is:** Each frame, its passes in order: the camera goes to a mark if it's time, flies, the panels are laid out, the card draws the picture, and it's handed to the screen.
-- **Its passes, in order:** going to a mark, flying, putting the far cells on the card, putting the near chunks on the card, laying out the panel, getting the picture, the far start, the far 8 x 8, the far 4 x 4, the far 2 x 2, bringing it up, the near faces, the near water, the x-fader, the panel, handing the card its work, showing it and measuring.
+- **Its passes, in order:** going to a mark, flying, putting the far cells on the card, putting the near chunks on the card, laying out the panel, getting the picture, the far start, the near faces, the near water, the near cover, the far 8 x 8, the far 4 x 4, the far 2 x 2, bringing it up, the x-fader, the panel, handing the card its work, showing it and measuring.
 - **Switch** `INCUS_FLIGHT`: a measured flight: every mark in data/marks.toml in turn, 5 s settling and 20 s measured at each, uncapped with the panel hidden; a report, then quits.
 - **Switch** `WGPU_ADAPTER_NAME`: the card, by part of its name (intel: the laptop's Intel card).
 - **Switch** `WGPU_POWER_PREF`: the card, by power (low or high).
@@ -240,7 +245,7 @@ flowchart TB
 - **What it is:** The near lane asked for the chunks inside the render radius when the eye's chunk or the radius changes; the chunks it has made put on the card, nearest first, as many faces as a frame may; those outside the radius given back. Then how far the near faces reach (to the nearest chunk still to come, or the whole radius), and the far eye told to begin its rays a little inside that.
 - **Reads:** the camera. **Writes:** the near faces and the far eye's look.
 - **Switch** `INCUS_NEAR`: 0: no near eye at all (the game as build 194, for measuring against); unset, the blocks inside the render radius drawn as triangles (plan 2.3).
-- **Switch** `INCUS_NEAR_RADIUS`: the render radius the game starts with, in chunks of 32 blocks, 1 to 64 (unset: 4); the Render page's slider moves it.
+- **Switch** `INCUS_NEAR_RADIUS`: the render radius the game starts with, in chunks of 32 blocks, 1 to 64 (unset: 32); the Render page's slider moves it.
 - **Switch** `INCUS_NEAR_THREADS`: how many threads the near lane meshes chunks on (unset: a quarter of the processor's, 2 to 6).
 - **Cost, last measured** (`kept logs/flight-1794589790.txt`): not measured.
 - **Files:** src/near_eye.rs and src/near.rs.
@@ -287,11 +292,36 @@ flowchart TB
 - **Cost, last measured** (`kept logs/flight-1794589790.txt`): recording it on the processor median 0.049, 95th 0.090, 99th 0.171, worst 0.353; on the card median 0.004, 95th 0.005, 99th 0.005, worst 0.027.
 - **Files:** src/far_eye.rs and src/far.wgsl.
 
+### the near faces
+
+- **A pass** in the frame, on the card.
+- **What it is:** The chunks in view inside the near faces' reach, their merged faces drawn as triangles into the near eye's own picture, with depth, every face whole and the nearest winning a pixel: each face its block's colour from far, lit as the far eye lights (the sun on the way it looks, the far light's shadow and sky at its place), and multiplied by how much of it shows by the x-fader (all of it before the band, none at the faces' reach, along the curve between).
+- **Reads:** the near faces, the far light and the camera. **Writes:** the near picture.
+- **Cost, last measured** (`kept logs/flight-1794589790.txt`): not measured.
+- **Files:** src/near_eye.rs and src/near.wgsl.
+
+### the near water
+
+- **A pass** in the frame, on the card.
+- **What it is:** The water's top inside the near faces' reach, drawn over them: the far eye's water (its colour, and how fast it dims what's seen through it) by how much water the eye looks through to the face behind, read from the near faces' depth; laid over them in the near eye's picture.
+- **Reads:** the near faces, the near picture, the far light and the camera. **Writes:** the near picture.
+- **Cost, last measured** (`kept logs/flight-1794589790.txt`): not measured.
+- **Files:** src/near_eye.rs and src/near.wgsl.
+
+### the near cover
+
+- **A pass** in the frame, on the card.
+- **What it is:** Which of the far eye's pixels the near eye's blocks wholly cover: for every pixel of each far layer, whether every screen pixel under it is wholly a block's in the near picture (nearer than the x-fader's band, and no gap). The march, recorded after it, marches no ray for a pixel that is covered with the eight round it.
+- **Reads:** the near picture. **Writes:** the near cover.
+- **Switch** `INCUS_FAR_COVER`: 0: the far eye marches under the near eye's blocks too (the rule compiled out of the march: build 200's program, for measuring against); unset, it skips what they wholly cover.
+- **Cost, last measured** (`kept logs/flight-1794589790.txt`): not measured.
+- **Files:** src/near_eye.rs and src/near_cover.wgsl.
+
 ### the far 8 x 8
 
 - **A pass** in the frame, on the card.
 - **What it is:** The pyramid's base: a ray each 8 x 8 screen pixels through the far cells (old's far march: the level by distance, skipping empty space, the eight cells round each step blended, gathered front to back, faces lit by the sun, fog), its shadow and sky light read from the cell where it lands (the far light), and where the 4 x 4 is worth it.
-- **Reads:** the far bricks, the far textures, the far light, the blue noise, the window round the eye and the far layers. **Writes:** the far layers.
+- **Reads:** the far bricks, the far textures, the far light, the blue noise, the window round the eye, the far layers and the near cover. **Writes:** the far layers.
 - **Cost, last measured** (`kept logs/flight-1794589790.txt`): recording it on the processor median 0.001, 95th 0.001, 99th 0.001, worst 0.149; on the card median 0.536, 95th 0.550, 99th 0.564, worst 1.294.
 - **Files:** src/far_eye.rs and src/far.wgsl.
 
@@ -318,22 +348,6 @@ flowchart TB
 - **Reads:** the far layers. **Writes:** the screen's picture.
 - **Cost, last measured** (`kept logs/flight-1794589790.txt`): recording it on the processor median 0.004, 95th 0.008, 99th 0.010, worst 0.188; on the card median 0.101, 95th 0.103, 99th 0.105, worst 0.328.
 - **Files:** src/far_eye.rs and src/far_up.wgsl.
-
-### the near faces
-
-- **A pass** in the frame, on the card.
-- **What it is:** The chunks in view inside the near faces' reach, their merged faces drawn as triangles into the near eye's own picture, with depth, every face whole and the nearest winning a pixel: each face its block's colour from far, lit as the far eye lights (the sun on the way it looks, the far light's shadow and sky at its place), and multiplied by how much of it shows by the x-fader (all of it before the band, none at the faces' reach, along the curve between).
-- **Reads:** the near faces, the far light and the camera. **Writes:** the near picture.
-- **Cost, last measured** (`kept logs/flight-1794589790.txt`): not measured.
-- **Files:** src/near_eye.rs and src/near.wgsl.
-
-### the near water
-
-- **A pass** in the frame, on the card.
-- **What it is:** The water's top inside the near faces' reach, drawn over them: the far eye's water (its colour, and how fast it dims what's seen through it) by how much water the eye looks through to the face behind, read from the near faces' depth; laid over them in the near eye's picture.
-- **Reads:** the near faces, the near picture, the far light and the camera. **Writes:** the near picture.
-- **Cost, last measured** (`kept logs/flight-1794589790.txt`): not measured.
-- **Files:** src/near_eye.rs and src/near.wgsl.
 
 ### the x-fader
 
@@ -543,9 +557,16 @@ flowchart TB
 
 - **A store** on the card.
 - **What it is:** The near eye's own picture and depth, the screen's size: every face whole, the nearest winning a pixel, the water over them; each pixel multiplied by how much of it shows, for the x-fader to lay over the far picture.
-- **Written by:** the near faces and the near water. **Read by:** the near water and the x-fader.
+- **Written by:** the near faces and the near water. **Read by:** the near water, the near cover and the x-fader.
 - **Limit:** blocks the x-fader's band goes to, 512.
 - **Files:** src/near_eye.rs.
+
+### the near cover
+
+- **A store** on the card.
+- **What it is:** A pixel for every pixel of each of the far eye's three layers, the layers side by side: 1 where the near eye's blocks wholly cover it this frame. Kept with the far eye's layers (made again when they are).
+- **Written by:** the near cover. **Read by:** the far 8 x 8.
+- **Files:** src/far_eye.rs and src/near_eye.rs.
 
 ### the far bricks
 
@@ -584,7 +605,7 @@ flowchart TB
 
 - **A store** on the card.
 - **What it is:** The far eye's light, read from the cell: two pictures of the whole world, every level's columns side by side in each (the first level at the left, the others down a column to its right; each level's place is the last of its numbers in the levels' table): the height the sun's shadow reaches at each column (16-bit floats, kept twice so a new sweep is swapped in whole) and how much sky its top sees (8-bit). The tops they're made from are kept on the processor.
-- **Written by:** making the far light. **Read by:** the far 8 x 8, the far 4 x 4, the far 2 x 2, the near faces and the near water.
+- **Written by:** making the far light. **Read by:** the near faces, the near water, the far 8 x 8, the far 4 x 4 and the far 2 x 2.
 - **Limit:** columns out the sky's horizon is looked for, 16.
 - **Files:** src/far_light.rs.
 

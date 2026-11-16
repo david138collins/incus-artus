@@ -43,6 +43,28 @@
 @group(0) @binding(25) var<storage, read_write> cut: array<u32>;
 const STACK: u32 = 13u;
 
+// The near eye's cover (`near_cover.wgsl`, each frame the near eye draws): a pixel for each pixel of each layer, the
+// layers side by side as their distances are kept (`far_left`): 1 where every screen pixel under it is wholly a
+// block's in the near picture. (A picture, not words: the march has as many storage buffers as a card is promised.)
+@group(0) @binding(26) var cover: texture_2d<f32>;
+
+// Whether a pixel of this invocation's layer and the eight round it are all covered: nothing of the far picture
+// shows there, nor is blended in from there (bringing it up blends a layer's pixel with those beside it). Never,
+// when the cover isn't this frame's (the base layer's row says).
+fn covered(at: vec2<u32>) -> bool {
+    if (cameras[0].forward.w < 0.5) {
+        return false;
+    }
+    let size = vec2<i32>(cameras[layer_now].view.xy);
+    let left = vec2<i32>(far_left(layer_now), 0);
+    var all = 1.0;
+    for (var k = 0; k < 9; k++) {
+        let p = clamp(vec2<i32>(at) + vec2<i32>(k % 3 - 1, k / 3 - 1), vec2<i32>(0), size - 1);
+        all = min(all, textureLoad(cover, p + left, 0).r);
+    }
+    return all > 0.5;
+}
+
 // Where each tile's rays start, by the one dispatch: under the base layer's part of the frame before's distances
 // (nothing else is there: the base's rows are fewer than the finest's). The start pass is given that picture to
 // write; the march reads it as it reads the rest.
@@ -277,6 +299,10 @@ fn join_pass(@builtin(global_invocation_id) id: vec3<u32>) {
     }
     layer_now = pixel.z;
     let at = pixel.xy;
+    // Under the near eye's blocks: its threads marched nothing and put nothing by (`march_pixel`).
+    if (COVER && covered(at)) {
+        return;
+    }
     // Shown as much as the layer above says, as its own thread found; not at all, and its threads put nothing by.
     var shown = 1.0;
     if (camera.layer.x > 0.0) {

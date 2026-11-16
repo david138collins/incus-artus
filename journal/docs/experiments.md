@@ -7134,3 +7134,66 @@ dearer with the near eye on).
 
 **Not in this build:** a switch on the Render page for it (its place and name are David's to give); faces
 turned away left out; the listing of chunks each frame.
+
+### Build 201 built (unlaunched, unflown): far rays skipped under blocks; David's starting numbers; checked off the screen
+
+**David's starting numbers,** his words to Counsel (2026-11-16), who asked "Make your crossfade settings, 128
+wide and curve 1, the defaults?": **"yes, and 32 chunk radius."** In this build: the game starts at a render
+radius of 32 chunks, the x-fader 128 blocks wide, curve 1; the section's Default goes back to those.
+
+**Built as the mark says,** with one change of plan said:
+
+- **The frame's order** (`wiring.rs`, `runner.rs`): the far start, the near faces, the near water, **the near
+  cover** (new), the far eye's march, bringing it up, the x-fader.
+- **The near cover** (`near_cover.wgsl`, new; `near_eye.rs`): a thread a pixel of the far eye's base layer reads
+  the 64 screen pixels of the near picture under it and writes whether they're all wholly blocks, for the base's
+  pixel, the middle layer's four and the finest's sixteen.
+- **The change of plan:** the cover was to be words in a buffer; the march already has as many storage buffers
+  as a card is promised (eight), and the card's library refused a ninth. It's a small picture instead (the three
+  layers side by side, as the far eye's distances are kept), which the march reads as it reads its others.
+- **The march** (`far.wgsl`, `far_all.wgsl`): at the start of a pixel's thread, before anything else, `covered`:
+  the pixel and the eight round it all covered, nine reads; then it writes nothing for its picture, no call for
+  the finer layer, and "first touched where a far ray may begin", and returns. The join does the same for a
+  listed ray. Told each frame by one number whether the cover is that frame's.
+- **The switch:** `INCUS_FAR_COVER=0`, the rule compiled out of every one of the march's programs.
+
+**Off the screen, the rule on against off** (2,560 x 1,600; the far eye's threads marched, and the thread-steps
+its groups were held for):
+
+| view | base rays, off to on | finer rays, off to on | thread-steps held, off to on |
+|---|---|---|---|
+| the spawn, 4 chunks | 64,000 to 31,354 | 19,744 to 19,676 | 2.31 to 2.15 million (-7%) |
+| the bare plain, 4 chunks | 64,000 to 33,866 | 228 to 228 | 0.81 to 0.71 million (-12%) |
+| the spawn, 16 chunks | 64,000 to 26,235 | 165,680 to 19,970 | 2.74 to 1.46 million (-47%) |
+| the spawn, 64 chunks | 64,000 to 20,756 | 26,200 to 0 | 0.63 to 0.08 million (-87%) |
+| looking down, 32 chunks | 64,000 to 1,051 | 168,952 to 3,963 | 0.68 to 0.09 million (-87%) |
+| the spawn turned in one frame, 16 chunks | 64,000 to 26,305 | 180,032 to 35,797 | 2.70 to 1.83 million (-32%) |
+
+**Against the mark:**
+
+- **The far eye marches less: met,** as the table has it. (The mark's own guess, "on the bare plain at 4 chunks
+  the finer layer marches no ray under blocks", isn't shown by this still picture: 228 finer rays either way.
+  The flight's 3,824 were at its own mark; the flights will say.)
+- **The picture doesn't change: met as far as the far picture goes; "to the pixel" can't be read.** On the bare
+  plain no pixel differs. Elsewhere 37 to 161 single pixels differ between on and off (at 4 chunks 144, by 1),
+  and looked at they are the near picture's own: a block's top against its side at a far hill. **The same
+  program drawn twice differs more than on does from off** (looking down, the rule on, one run against another:
+  422 pixels, 103 of them by 32 or more). So build 200's "16 pixels by 1 from run to run" was true at 4 chunks
+  and said too little: at a distance the near picture is not the same from run to run.
+- **A turned view: met.** After a turn of 25 degrees in one frame the on and off pictures differ at 0.37% of
+  pixels, by 16 of 255 at the most (the rays that start by a skipped pixel's word start where far rays may
+  begin, a little earlier than they did, and a pixel uncovered that frame has no finer layer till the next): no
+  pixel of sky or black.
+- **No white dots:** looking down, no lone pixel of the sky's colour, on or off.
+- All 40 tests pass (the map redrawn).
+
+**Found on the way, written down, David's call (not built): the near eye's depth is too coarse at a distance.**
+It's kept the common way (most of its fineness spent within a few blocks of the eye): at 2,000 blocks it can't
+tell two faces a block apart. Where it can't, the face drawn first wins, and chunks' order differs each run:
+that's the run-to-run difference above, and with the eye moving it would show as far faces flickering between a
+top and a side. The standard mend is to keep the depth turned round (fine everywhere): small, in the near eye's
+own programs. He hasn't spoken of it; the speckle on far hills at 64 chunks (written down at build 195) may be
+partly this.
+
+**Owed, on his word:** the off and on traces for the march's row (the mark: 168 registers, Smem 0, 12 groups, no
+more), and the bracket of flights after a cool-down.
