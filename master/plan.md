@@ -66,7 +66,14 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** the skyline talk with Builder (below). Builds 188, 189 and 190 are flown (2026-11-15,
+- **Waiting on David:** nothing yet: Builder is building the skyline talk's first step (build 191, cover by
+  faces: a far cell stops a ray by the face it shows it as well as by its bulk, so walls, towers and posts hold;
+  its mark is written, `journal/docs/experiments.md`). His words (2026-11-15): "i do like the crisper line of the
+  'cover' ... against the skyline, and other things against other things, hopefully; but pay careful attention to
+  the weight of the shader", by which he means "its size on the card". Owed to him when it's built: two Nsight rows
+  to read (the rule off and on), his look on the stage, his word for one flight session. After it: his weights by
+  kind on top, if he still wants things pulled up (the list of what could take a weight is sent); the land's own
+  edge by a height table weighed after lazy rays. Builds 188, 189 and 190 are flown (2026-11-15,
   `journal/docs/experiments.md`). Build 189 missed at the bare plain (11.6% over) and the sea nodding (3.9%): a
   ray nearly covered at a cut had its next length begin as if a twentieth were let through, so the length marched
   far past the ray's true end and the join cut it and uncut it every other frame. Build 190 mends it (a length

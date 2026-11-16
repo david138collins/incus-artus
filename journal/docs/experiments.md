@@ -5776,3 +5776,62 @@ not only at one ray.
 **Kept; the cut is done enough to go on, again.** David's eye on a moving view when he next plays (the guard
 changed: on a turn, where sky showed through a cut ray for a frame, the ground's own colour fills now); nothing
 is asked of him for it.
+
+### Build 191, the skyline talk's first step, cover by faces: David's words, why thin things vanish, and the pass mark (written before the code)
+
+**The talk (2026-11-15).** Builder's proposal to David, in three steps: (1) cover by faces, below; (2) his weights
+by kind on top, if he still wants things pulled up after seeing step 1; (3) the land's own edge by a height table
+(the Oracle's cover), the bigger build, weighed after lazy rays. **His answer:** "first send a list of any class
+of items on screen that could conceivably recieve weights, and begin. i do like the crisper line of the 'cover' as
+it was shown to me, against the skyline, and other things against other things, hopefully; but pay careful
+attention to the weight of the shader. i hope it doesn't become too much and start squeezing no matter what we
+do." And, a little after: "by weight of the shader i mean its size on the card". The list was sent (26 classes:
+by what a thing is made of and by its shape, both known where the far cells are summed and so free in the frame;
+by where it sits in the picture, each priced by a flight; by light; and what isn't in the far cells yet).
+
+**Why thin things vanish** (read from the march, `far.wgsl`): a step through a cell is covered by the cell's
+solid share, `1 - (1 - share) ^ (length / size)`: crossing a whole cell stops a ray by as much of the cell as is
+full. A wall one block thick, face-on in a cell of 8, is an eighth full and stops an eighth of the ray; in truth
+it hides everything behind it. A post one block square is a 64th full and stops a 64th; in truth it covers an
+eighth of the rays that cross its cell. The bulk rule is right only for a thing as deep along the ray as its cell.
+
+**What the far cells already hold:** each cell's faces over its floor area (`surface`) and their shares by the six
+ways they look (`plus`, `minus`), fetched at every step and used for light alone. Their product with the ray's own
+way is the share of the cell's cross-section its faces show the ray: the true share of rays the cell stops, on
+average, however thin the thing.
+
+**What's to change:** a look's solid share becomes the greater of its bulk and the face it shows the ray (not over
+1), where the look is made, each level's own before the hand-over turns it into the finer cell's and mixes it. Not
+where the cell holds water (by its water share): a bed under water lies at one height in its cell, and counting
+its face through the whole cell would bring it up through the water over it [the bright bands of build 188 came of
+ground counted too high through water]. Nothing new is stored, fetched or carried through the march's loop.
+A switch, `INCUS_FAR_FACES=0`: the rule compiled out, build 190's program.
+
+**The pass mark.** Off the screen:
+
+- **Off, it's build 190:** the five marks' pictures with `INCUS_FAR_FACES=0` are build 190's but for the test's
+  own noise.
+- **Thin things hold** (the stage on, 2,560 x 1,600, on against off): a castle wall seen face-on isn't seen
+  through (the ground's colour behind its foot gone from it); the arch's piers and the posts stronger than they
+  were; a house's roof from above is its own colour. Shown as pictures side by side, with what was measured.
+- **The land's own skyline is left alone:** at the plain and low over the sea (level views of gentle ground), the
+  skyline band's pixels change by no more than 8 of 255, but for a handful.
+- **No bands over shallow water:** from 300 over the shallow shelf looking down (build 189's view), on against
+  off: no outline, no bands.
+- **The five marks' pictures on against off** given as numbers, and looked at: what changes and where, said.
+- **The steps:** each mark's steps summed, on against off, given (more cover should end rays sooner).
+- All the tests pass.
+
+**Its size on the card** (David's worry, and the wall of build 185): nothing new carried through the loop, by the
+code; and read where it shows, in Nsight's window: one trace at the mountain top with the rule off and one with it
+on, David reading `march_all`'s row from each (the groups that fit, the registers, what's put by). The mark: 12
+groups still fit, and nothing more is put by than with it off. [Last read at build 178: 167 registers, none put
+by, 12 groups; about 170 is where 12 groups stop fitting. Not read since the cut went in, so the off row is news
+too.] If it grows past that: said, and the cheaper form tried (the same rule folded into the cells' solid share
+where they're summed, by the level ways only: nothing in the program, less exact).
+
+By flights (on David's word, one session, off then on): the two marks where the card works within 2% of off; no
+other mark over off by more than 2%. A miss is said, with what the counts show.
+
+**Then David's look** on the stage, which decides it: the crisper line he liked, "against the skyline, and other
+things against other things".
