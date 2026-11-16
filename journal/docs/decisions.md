@@ -2733,6 +2733,12 @@ Reference: `Art/quartile minecraft illustration.png`
     players, items, and animals, ideally through the editor gui entirely." The tablet (the world on disk), the
     Graphics Kit and making a world as the player meets it aren't in his order; kept in the phase, fitted in where the
     work first needs them.
+  - **The palette in the Graphics Kit too** (David, to Counsel, on the Registrar's master palette, the same day):
+    "yes, i will want the palette to be able to be copied to the graphics kit for the image processor and do most of
+    the same things". *Counsel:* so the master palette is built once as a shared piece (its data and its tools) that
+    the Registrar and the Graphics Kit both show, not two palettes kept in step by hand (the rebuild's "shared pieces
+    once"; the spec already has reshading "as shared code"). Whether a copy in the Kit stays linked to the Registrar's
+    or goes its own way once copied is his to say when its page is laid out.
   - Graphics still ahead by the plan: 2.3's quarter and eighth blocks (scattered at random for testing, his idea),
     then 2.4 (textures, the light lane, water and glass, objects, glows, far lights), his eye raising anything
     undesirable.

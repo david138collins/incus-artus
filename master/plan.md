@@ -616,7 +616,9 @@ way, because it gets pretty crowded, so we'll use space a little better" (2026-1
         summed levels: those are the eye's. World generation's last line writes it
     - [ ] The doorway's named fields over the land, as the tablet first holds them (carried from 2.1)
     - *Gate:* the same blocks as old's; dig, place, save, load; under 4 GB a world
-  - [ ] **The Graphics Kit** (it was 3.3), built on the Registrar's colour system
+  - [ ] **The Graphics Kit** (it was 3.3), built on the Registrar's colour system; the master palette can be
+        copied into it for the image processor "and do most of the same things" (David, 2026-11-16), so the palette
+        is made once, as a piece both pages show
   - [ ] **Making a world as the player meets it** (it was 3.5): the whole bake before play, the show while it's
         made, the rejector if wanted
     - *Gate:* a new world in the time David sets; no frame drops after entering

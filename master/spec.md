@@ -1156,6 +1156,7 @@ Where the sources disagree. Each version is given with its ref; nothing here is 
 
 ### Graphics Kit and FX Lab
 - The Graphics Kit stays as the art pipeline, with oscillators and a loop recorder (record N frames, check the loop is seamless). [decided] (WG:12-15; toy-factory.md:131)
+- The Registrar's master palette can be copied into the Graphics Kit for its image processor, and does most of the same things there: "i will want the palette to be able to be copied to the graphics kit for the image processor and do most of the same things". So the palette is one shared piece, shown in both places. [decided] (decisions.md, the rebuild, 2026-11-16)
 - Retrofit the Graphics Kit rather than build a second container: a modular synth of three devices (Graphics Kit, Sequencer, FX Lab), each its own page in one window. [decided] (toy-factory.md:10-18, 32)
 - The name FX Lab: "toy factory is whimsical but we'll probably go with FX Lab". [decided] (toy-factory.md:71-73)
 - Palette grading and pixelizing with real control, which David found nowhere else. [wanted] (toy-factory.md:103-105)
