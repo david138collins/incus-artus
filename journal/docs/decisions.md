@@ -2928,6 +2928,13 @@ Reference: `Art/quartile minecraft illustration.png`
   - *Counsel:* on water's look, no question put to him (his "drop any homework or questions"): his new order has
     water designed afresh after topography in world generation (3.2), which will change the shores this look was
     about; it can wait there unless he sees something he dislikes sooner.
+- **[DECIDED 2026-11-16] For the march's trimming: the weave and the blue noise can come out** (David, to Builder; a
+  note for the later trimming, not a build now): "ok, note for the trimming the march, the blue noise and weave
+  section can come out. it really does almost nothing." (His look of 2026-11-13 on them: "very subtle".) When the
+  trimming comes: the Render page's Ray start keeps "scattered" (the default) and its "spread" slider; "woven",
+  "blue noise" and "woven + blue noise" go with their controls, and the blue-noise picture if nothing else reads it;
+  up to 92 instructions out of the march. In `journal/docs/march-by-parts.md` (candidate 3) and the plan's later
+  look back.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
