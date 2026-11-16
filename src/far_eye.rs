@@ -316,6 +316,15 @@ impl FarEye {
         let far_source = include_str!("far.wgsl").to_string();
         #[cfg(test)]
         let far_source = kinds_source(include_str!("far.wgsl"));
+        // Cover by faces compiled out, if asked (`INCUS_FAR_FACES=0`): build 190's program, to measure against.
+        const FACES: &str = "const FACES: bool = true;";
+        assert_eq!(far_source.matches(FACES).count(), 1, "far.wgsl says whether faces stop a ray in one place");
+        let far_source = if std::env::var("INCUS_FAR_FACES").as_deref() == Ok("0") {
+            log::info!("Cover by faces: off, a far cell stops a ray by its bulk alone (INCUS_FAR_FACES=0)");
+            far_source.replace(FACES, "const FACES: bool = false;")
+        } else {
+            far_source
+        };
         let module = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some("the far eye"), source: wgpu::ShaderSource::Wgsl(far_source.as_str().into()) });
         let compute = wgpu::ShaderStages::COMPUTE;
         let storage = |binding: u32, read_only: bool| wgpu::BindGroupLayoutEntry { binding, visibility: compute, ty: wgpu::BindingType::Buffer { ty: wgpu::BufferBindingType::Storage { read_only }, has_dynamic_offset: false, min_binding_size: None }, count: None };

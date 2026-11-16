@@ -211,6 +211,10 @@ const SKY_TINT: vec3<f32> = vec3<f32>(0.84, 1.01, 1.40);
 // takes it; rays march 32 to a group in step, and a slow path one of them takes, the other 31 wait for.]
 const LOADED: bool = false;
 
+// Whether a cell stops a ray by the face it shows it as well as by its bulk (`by_faces`), fixed when the program is
+// built (`far_eye.rs` changes this one line, `INCUS_FAR_FACES=0`: build 190's program, for measuring against).
+const FACES: bool = true;
+
 // ── The cells ──
 
 // A cell as the march reads it.
@@ -677,6 +681,29 @@ fn by_finer_cell(look: Look, up: i32) -> Look {
     return out;
 }
 
+// A look's solid share made the greater of its bulk and the face it shows a ray going `d`. A step is covered by the
+// cell's solid share (`1 - (1 - share) ^ (length / size)`), and by bulk alone that's right only for a thing as deep
+// along the ray as its cell: a wall one block thick, face-on in a cell of 8, is an eighth full and stopped an eighth
+// of a ray it hides everything behind; a post one block square stopped a 64th of the rays it covers an eighth of
+// [the scatter stage, build 188: a castle's walls seen through at their foot, an arch's piers a faint ring, posts a
+// pale band]. The cell's faces over its floor area (`surface`), by the ways they look (`plus`, `minus`), times the
+// ray's own way, is the share of the cell's cross-section its faces show the ray: the true share of the rays crossing
+// the cell that it stops. Gentle ground shows a skimming ray next to no face, so a skyline of land is as it was. Not
+// where the cell holds water, any to speak of (a 64th of it; two blocks of sea are only an eighth of a cell of 16):
+// a bed lies at one height in its cell, and its face counted through the whole cell would bring it up through the
+// water over it [ground counted too high through water was build 188's bright bands; kept out here by reasoning,
+// no band was seen with the rule on]. Each level's own look, before a hand-over turns it into
+// the finer cell's (`by_finer_cell`) and mixes it. From what the look already holds: nothing more is fetched, and
+// nothing is carried on through the march.
+fn by_faces(look: Look, d: vec3<f32>) -> Look {
+    var out = look;
+    if (FACES) {
+        let shown = look.surface * dot(look.plus * max(-d, vec3<f32>(0.0)) + look.minus * max(d, vec3<f32>(0.0)), vec3<f32>(1.0));
+        out.solid = max(look.solid, min(shown * (1.0 - min(look.water * 64.0, 1.0)), 1.0));
+    }
+    return out;
+}
+
 // Two looks mixed: `w` of the second.
 fn mix_looks(a: Look, b: Look, w: f32) -> Look {
     let k = clamp(w, 0.0, 1.0);
@@ -1041,19 +1068,21 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32, end: f32, stop: f32
             if (here.kind == 2 && there.kind == 2) {
                 let got = fetch_together(here.at);
                 let got_next = fetch_together(there.at);
-                look = look_of(got);
-                look = mix_looks(look, by_finer_cell(look_of(got_next), there.level - here.level), mixed);
+                look = by_faces(look_of(got), d);
+                look = mix_looks(look, by_finer_cell(by_faces(look_of(got_next), d), there.level - here.level), mixed);
             } else {
                 look = look_at(here, p);
+                look = by_faces(look, d);
                 if (look.known) {
                     let next = look_at(there, p);
                     if (next.known) {
-                        look = mix_looks(look, by_finer_cell(next, there.level - here.level), mixed);
+                        look = mix_looks(look, by_finer_cell(by_faces(next, d), there.level - here.level), mixed);
                     }
                 }
             }
         } else {
             look = far_blend_kept(&kept, place, level, p);
+            look = by_faces(look, d);
         }
         let size = f32(1 << u32(level));
         let thick = select(0.0, max(look.solid, look.water), look.known);

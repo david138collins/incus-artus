@@ -66,9 +66,12 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** nothing yet: Builder is building the skyline talk's first step (build 191, cover by
-  faces: a far cell stops a ray by the face it shows it as well as by its bulk, so walls, towers and posts hold;
-  its mark is written, `journal/docs/experiments.md`). His words (2026-11-15): "i do like the crisper line of the
+- **Waiting on David:** his go for one hands-off window (two Nsight traces and two flights, the rule off and
+  on, about 25 minutes), then two rows to read in Nsight's window, and his look on the stage. Build 191 is built
+  (unflown, unlooked): the skyline talk's first step, cover by faces (a far cell stops a ray by the face it shows
+  it as well as by its bulk; `journal/docs/experiments.md`). Off the screen: walls solid, roofs their own colour,
+  the arch and far spires read; woods become solid masses (the largest change); steep land's edge a little fuller;
+  level skylines and shallow water as they were; the steps level; `INCUS_FAR_FACES=0` is build 190 to the pixel. His words (2026-11-15): "i do like the crisper line of the
   'cover' ... against the skyline, and other things against other things, hopefully; but pay careful attention to
   the weight of the shader", by which he means "its size on the card". Owed to him when it's built: two Nsight rows
   to read (the rule off and on), his look on the stage, his word for one flight session. After it: his weights by

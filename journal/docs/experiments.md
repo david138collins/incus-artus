@@ -5835,3 +5835,76 @@ other mark over off by more than 2%. A miss is said, with what the counts show.
 
 **Then David's look** on the stage, which decides it: the crisper line he liked, "against the skyline, and other
 things against other things".
+
+### Build 191 built (unflown, unlooked): cover by faces; what was built and what was checked off the screen
+
+**Built as the mark says** (`far.wgsl`, `by_faces`): a look's solid share is the greater of its bulk and the face
+it shows the ray (its faces over its floor area, by the ways they look, times the ray's way; not over 1), each
+level's own look before a hand-over turns it into the finer cell's and mixes it. Kept out where the cell holds
+water, any to speak of (a 64th of it; the mark said "by its water share", and two blocks of sea are only an eighth
+of a cell of 16, so the share alone would have left the rule nearly whole over a shallow bed: tightened by
+reasoning, no band was seen either way). From what the look already holds: nothing more is stored, fetched or
+carried through the march's loop. `INCUS_FAR_FACES=0` compiles it out (one line of the program's text changed,
+as `LOADED` is).
+
+**Off, it's build 190:** the five marks' pictures (2,560 x 1,600, the whole world loaded, the tenth frame)
+against build 190's: the plain's the same to the pixel; the others 64 to 640 pixels differing, the most 6 (the
+test's own noise).
+
+**Thin things hold** (the stage on; pictures on against off kept in the session's scratch, the pairs shown to
+David):
+- *The castle from above* (330 up, looking 40 degrees down): its walls are solid pale bands round the court where
+  they were faint lines the court's ground showed through; the corner towers and the keep firmer.
+- *The plain's group from the plain's mark:* the arch reads, both piers and its round top, where it was a hint;
+  the slab in the air stronger; the great tower's spire, 1,500 blocks off, shows against the sky where there was
+  nothing.
+- *The town from above:* the houses' roofs are their own red where they were mostly their walls' pale colour
+  (a roof is a thin shell over a hollow house).
+- **And the woods become solid masses,** dark, where the ground showed between and through the trees. True to a
+  wood, by the same rule; but it is the largest change on the screen, and it hides more of what stands behind a
+  wood (from the east at 300 blocks, the wood in front now covers the castle's foot). David's eye.
+- Close to (30 blocks from the castle's wall) everything is soft, on or off: near things are the near eye's, and
+  the far eye marches few of its finer rays there.
+
+**No bands over shallow water:** from 430 over the shallow shelf looking down, on against off, the sea's part of
+the picture is the same but for a few pixels (the most 5 of 255); its mean colour by rows the same to 0.1.
+
+**The land's own skyline.** The mark's line (the plain and the sea: the skyline's pixels change by no more than 8
+of 255, but for a handful) **is missed at the plain as written, and said:** 7,168 pixels (0.17%) change by 8 or
+more, the most 32. They're the far mountains that stand on the left of the plain's horizon with the whole world
+loaded: steep land, whose edge the rule firms up (their tips a little fuller and darker). The level skyline
+itself, the right nine sixteenths of the width, has 128 such pixels; with only the regions round the mark loaded
+(no far mountains) nothing changes by more than 2. The line was written for gentle ground and the plain's horizon
+isn't all gentle. Low over the sea: 39,200 pixels (1%) by 8 or more, the most 109: the land in the foreground,
+where the line between grass and sand and between sand and shallows moves a fraction of a cell (a ray is stopped
+a little sooner in its surface cell), and wooded land at the right of the horizon; the sea itself and the level
+horizon don't change.
+
+**The five marks, on against off** (pixels of 4,096,000):
+
+| mark | differ at all | by 4 of 255 or more | by 8 or more | by 16 or more | the most |
+|---|---|---|---|---|---|
+| on the ground at the spawn | 29% | 203,168 | 70,144 | 45,520 | 78 |
+| the mountain top | 33% | 132,960 | 44,000 | 9,280 | 58 |
+| the bare plain | 5% | 21,184 | 7,168 | 384 | 32 |
+| low over the sea | 30% | 408,144 | 39,200 | 1,536 | 109 |
+| high over the spawn | 61% | 419,376 | 64,928 | 12,576 | 116 |
+
+Where, on bare land: a rim along steep land's edge against the sky or against land behind it (the edge a pixel or
+so fuller), thin lines along ridges and terraces, and a faint speckle; side by side at twice the size the two
+pictures are hard to tell apart. So bare land changes everywhere a little, and at its steep edges by more: David's
+eye on it as well as on the stage.
+
+**The steps** (the 8 x 8's and the 4 x 4's, on against off): the spawn 0.2% fewer and 3.2% more; the mountain top
+0.2% fewer and the same; the plain 0.1% fewer; the sea 0.4% more and 0.4% more; high over the spawn 0.2% more and
+0.8% more. Level, not fewer as the mark guessed (with the stage on, where there's more to stop a ray, 2 to 10%
+fewer and a fifth fewer long rays).
+
+**All 34 tests pass** (the map redrawn for the new switch).
+
+**A mistake of mine on the way:** low over the sea the first pictures showed a coloured band in the foreground,
+on against off; I took it for the sea bed showing through shallow water and wrote that into the program's notes
+as seen. It was the land in front (grass, sand), and the notes are put right: the water rule rests on reasoning.
+
+**Owed:** its size on the card (two Nsight rows, off and on, David's to read); the flights, off then on in one
+session; David's look on the stage.
