@@ -34,6 +34,7 @@ Until 2026-11-11 this was the record of what's decided and built; since then `ma
 | `oracle-prompt.md` | The first message that called the Oracle, drafted for David to edit. |
 | `map-plan.md` | Counsel's plan for `master/map.md`, the map of what exists and how it's wired. |
 | `experiments.md` | The experiments flown in old (plan phase 1) and the pack's check flight: each pass mark written before it flew, then the results and the logs that hold them. |
+| `lazy-rays.md` | Lazy rays, shelved by David on 2026-11-16 ("keep that in our back pocket"): the Oracle's rules, what's been measured, the design Builder proposed, the decisions left with him, and how to pick it up. |
 
 **The engine, in old**
 

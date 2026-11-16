@@ -6327,3 +6327,17 @@ finds no surface, so the finer layer isn't marched for it at all and its near st
 and a lazy scheme still marches the far part some frames, re-marches it as the eye travels, and keeps books.
 [Build 172's flight of the same switch read the mountain top's near kilometre at 32% of its march and high over
 the spawn's at 57%: the same shape.]
+
+### Lazy rays shelved by David (2026-11-16), and packed into a document to resume from
+
+The talk was opened with the measurement above and a proposal (the near part of every ray each frame up to a lazy
+line; everything beyond kept as a picture all round the eye, fixed to the world, refreshed a share a frame, put
+behind the near picture with light and fog fresh; the march's program not grown; the line at about 4 km first,
+then brought in a step a build) and two questions for him (far squares fixed to the world or the screen; refreshed
+all at once or piece by piece). **His answer:** "lets hold off on lazy rays for now. we can keep that in our back
+pocket if we ever get a performance squeeze limited by long rays. i think we can move on. just pack the
+instructions and your output there into a lazy rays doc to resume with if we ever need it."
+
+Done: `journal/docs/lazy-rays.md` (the Oracle's rules and tests; the three measurements, with how to take the
+last again; the proposal and what it would stand on in the code; his two questions, unanswered; what isn't known;
+how to resume). Nothing of it is built. The plan's item is marked shelved, not dropped.
