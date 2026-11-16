@@ -19,10 +19,15 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   with the far march like we have it now" (2,048 blocks; old drew real blocks to 256). His way there: "lets just make
   a radius slider and get started", the radius where triangles start and rays fade; a second slider, built things
   apart from the land, only "if that becomes intensive"; faces merged (greedy meshing) from the first build. First
-  step: build 195, whole blocks a chunk at a time. Two of the Oracle's questions to him
-  (`journal/vision/oracle-prompt-2026-11-14.md`) bear on it now: what the far eye should show between the blocks'
-  edge (about 340 blocks) and a kilometre, and whether the near eye still draws blocks out to about 336; the 4s' and
-  2s' rings are decided on those.
+  step: build 195, whole blocks a chunk at a time; in since: his radius slider (32 chunks to start), the x-fader
+  where blocks fade into rays (128 blocks, curve 1: "the fade looks good"), the panel folded into sections, the sky
+  dots mended and far rays skipped under blocks (builds 196 to 201). 240 a second holds at 64 chunks. Next in it:
+  quarter and eighth blocks, scattered at random for testing (his idea); then 2.4 (textures and the rest of the eye).
+- **His word on the road** (2026-11-16): "i'm pretty happy and confident with our graphics engine now"; hanging
+  homework and questions are dropped (the kept Oracle's five questions among them; an outside look is his to call,
+  no longer a gate); "Builder can proceed with the tests and basic fixes, i'll bring it up if i see undesirable
+  graphics behaviors." After graphics, Phase 3 in his order: tectonics, world generation (topography, then water),
+  the Registrar and the placer, ecology.
 - **Just left:** 2.2, the far eye, left as it stands on his word (2026-11-16): "we can do that later. as long as
   we're set up to look back into the graphics engine at a later date, we can proceed." Not closed as 2.1 was: its
   gate's last line is owed (the Intel card's numbers, with the new march priced checked and unchecked, Phase 2's own
@@ -48,7 +53,8 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   near eye. The 8s found a wall on the plain, and a day of measuring placed it: the marks that wait wait on their
   longest rays, and the marks that work are full, the march holding 168 registers (12 groups of rays of 48). The
   height table took the sea and the run about a fifth faster. The Oracle, called again (her first reply in
-  `journal/vision/oracle-prompt-2026-11-14.md`), waits on his five answers for her fourth part. The far eye's speed
+  `journal/vision/oracle-prompt-2026-11-14.md`), waited on his five answers for her fourth part (dropped by his word,
+  2026-11-16). The far eye's speed
   work is done enough to go on, in his order: the march's smaller passes and leaning went as far as they paid
   (builds 177 to 180, 2 to 7% off); then the long rays cut into lengths, packed, a ray given only the lengths it needs
   (builds 181 to 186). The cut is on as the game is launched (build 187; `INCUS_FAR_CUT=0` turns it off): 25 to 39%
@@ -76,7 +82,7 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   empty frame at 0.34 ms and 0.012 ms on the card once warmed up. The wiring draws `master/map.md`; the new editor
   (F2) has the software map. The doorway answers all 5,047 reference columns to the block, and the marks are data,
   every one flown at 0.338 to 0.344 ms. What's left of it is carried: both cards by one command to 2.2, the
-  doorway's pieces and lights to 2.4, its named fields to 3.1. As the editor fills, every window, setting and
+  doorway's pieces and lights to 2.4, its named fields to the tablet. As the editor fills, every window, setting and
   control is placed with David (`journal/docs/decisions.md`, 2026-11-12).
 - **Behind us:** experiments 1, 2, 3, 4a and 4b (`journal/docs/experiments.md`) gave soft bricks (the blend stays)
   and light kept a cell at a time, which David can't tell from rays ("in a blind test"), though at eye level
@@ -214,7 +220,7 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
 flowchart LR
   P0["0 · Decide the direction"]:::ticked --> P1["1 · Learn, in old"]:::ticked
   P1 --> P2["2 · Restart: the eye on old's world"]:::now
-  P2 --> F{"The fork<br/>(the Oracle back)"}
+  P2 --> F{"An outside look,<br/>if David calls one"}
   F --> P2b["2.4 · The eye, whole"]
   P2b --> P3["3 · The world"]
   P3 --> P4["4 · The game"]
@@ -549,7 +555,9 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
   - *Gate:* the rule above; David's eye for pops and seams; the scatter's curve (cost should follow the screen)
 - [ ] **The fork. An outside look** (the Oracle: any outside advisor, a fresh agent each time, on a prompt David
       puts together; David, 2026-11-16)**:** flight logs from both cards and David's look; it reads `master/`
-      fresh, then Counsel's brief, `journal/vision/oracle-return.md`. The design is fixed here, or changed
+      fresh, then Counsel's brief, `journal/vision/oracle-return.md`. The design is fixed here, or changed.
+      *No longer a gate* (his word, 2026-11-16: "i'm pretty happy and confident with our graphics engine now ... if i
+      want an outside look, i'll construct a prompt"): called when he wants one; 2.4 follows 2.3 without it
 - [ ] **2.4 The eye, whole:** the light lane, water and glass, quarter blocks, textures, objects, glows, far lights
   - [ ] The doorway's pieces, objects and lights, as the eye first draws them (carried from 2.1)
   - [ ] Water's look, far: shallow sea over a nearly flat shelf shows as long square contours (the shore and each
@@ -567,33 +575,54 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
 
 ## Phase 3 · The world
 
-- [ ] **3.1 The tablet** (experiment 8 sizes it first): the made world on disk, put behind the doorway built at 2.1;
-      walking, digging, placing, saving. Filled first from the exported test world. It holds no summed levels:
-      those are the eye's
-  - [ ] The doorway's named fields over the land, as the tablet first holds them (carried from 2.1)
-  - *Gate:* the same blocks as old's; dig, place, save, load; under 4 GB a world
-- [ ] **3.2 The Registrar,** with its Color Lab and the way we work with HSL
-  - *Throughout the editor, from its first page:* every window, setting and control placed with David first; a
-    line in a shared top bar only if every window under it needs it; a control goes when what it controls goes
-    (David, 2026-11-12: "organizing the UI is super important to me")
-- [ ] **3.3 The Graphics Kit,** built on the Registrar's colour system
-- [ ] **3.4 World generation, stage by stage, with the new editor** (experiment 7 opens it), on its World Gen
-      page, the stack laid out afresh with David: "we can definitely organize the world gen stack better this time"
-      (old's compiler and interpreter inside the page, "if it even needs an explicit window")
-  - [ ] Plans: tectonics, climate, rivers and lakes, peaks, cave plans
-  - [ ] Broad ground, then fine ground, on the card
-  - [ ] Water: sea level, cliffs and beaches, rivers. A design step of its own with David
+*Reordered on David's word, 2026-11-16* (`journal/docs/decisions.md`, "the road after it"): tectonics, world
+generation, the Registrar and the placer, ecology. It was: the tablet, the Registrar, the Graphics Kit, world
+generation, making a world. The steps he didn't place are kept at the end of the phase, to be fitted in where the
+work first needs them.
+
+*Throughout the editor, from its first page:* every window, setting and control placed with David first; a line
+in a shared top bar only if every window under it needs it; a control goes when what it controls goes (David,
+2026-11-12: "organizing the UI is super important to me"). The pages put back together "in a more streamlined
+way, because it gets pretty crowded, so we'll use space a little better" (2026-11-16).
+
+- [ ] **3.1 Tectonics, put back together:** David goes through old's tectonics and names the important
+      parameters, "and try to make it a little more flexible"; its page laid out with him
+- [ ] **3.2 World generation, a modular stack, built deliberately** ("since we know the road now ... a modular
+      stack that works much like it did before, but we can do a better job with topography and water layers"), with
+      the new editor (experiment 7 opens it), on its World Gen page, the stack laid out afresh with David: "we can
+      definitely organize the world gen stack better this time" (old's compiler and interpreter inside the page, "if
+      it even needs an explicit window")
+  - [ ] What a topography layer must be for new ones to be invented later: "we should consider the prerequisites
+        for making it extensible so that you could invent new topographies for it"
+  - [ ] Plans: climate, peaks, cave plans (tectonics is 3.1's; rivers and lakes come with water)
+  - [ ] Topography: broad ground, then fine ground, on the card
+  - [ ] Water, after topography, a design step of its own with David: "a much more deliberate way water is added,
+        after topography, so that we can get flush beaches and cliffs that make more sense"; sea level, cliffs and
+        beaches, lakes, rivers (his idea of 2026-11-14 in the spec: hollows filled, an easing stage, then rivers)
   - [ ] Surface, then blocks (caves; later ores and strata)
   - [ ] Sums and light; the tablet written
   - *Gate, each stage:* David's eye, old beside new, on his default preset; the same result on both of the
     laptop's cards
-- [ ] **3.5 Making a world as the player meets it:** the whole bake before play, the show while it's made, the
-      rejector if wanted
-  - *Gate:* a new world in the time David sets; no frame drops after entering
+- [ ] **3.3 The Registrar and the placer:** the Registrar with its Color Lab and the way we work with HSL, and "a
+      more deliberately gui'd master palette than last time, it got a bit confusing to navigate. i'll give more
+      explicit input on shape and boxes in it"; the placer, which ecology needs
+- [ ] **3.4 Ecology,** on the placer and the Registrar, "once the terrain and waterways are dialed in again"
+- [ ] **Not placed in his order, fitted in where the work first needs them:**
+  - [ ] **The tablet** (it was 3.1; experiment 8 sizes it first): the made world on disk, put behind the doorway
+        built at 2.1; walking, digging, placing, saving. Filled first from the exported test world. It holds no
+        summed levels: those are the eye's. World generation's last line writes it
+    - [ ] The doorway's named fields over the land, as the tablet first holds them (carried from 2.1)
+    - *Gate:* the same blocks as old's; dig, place, save, load; under 4 GB a world
+  - [ ] **The Graphics Kit** (it was 3.3), built on the Registrar's colour system
+  - [ ] **Making a world as the player meets it** (it was 3.5): the whole bake before play, the show while it's
+        made, the rejector if wanted
+    - *Gate:* a new world in the time David sets; no frame drops after entering
 
 ## Phase 4 · The game
 
-- [ ] **4.1 The game's systems,** in the order `master/spec.md` gives, once David has cut it
+- [ ] **4.1 The game's systems,** in the order `master/spec.md` gives, once David has cut it. First, by his word
+      (2026-11-16): "players, items, and animals, ideally through the editor gui entirely"; he needn't be a player in
+      the game "until we get up to the point of cutting down a tree"
 
 ---
 
@@ -603,24 +632,24 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
 |---|---|
 | `Art/`'s new files and `For Claude/` online? "Not yet" for now | David, any time |
 | ~~Far cells crisp or soft (one cell read, or eight blended)?~~ | Answered at 1.4: soft |
-| The world's new format, cut so generation can grow: "that lets me expand and refine the generation process" (David, `journal/docs/decisions.md`). Where the engine meets it is decided: the doorway (2.1), with the exported test world behind it first. Left open: the tablet's own layout | 3.1 |
+| The world's new format, cut so generation can grow: "that lets me expand and refine the generation process" (David, `journal/docs/decisions.md`). Where the engine meets it is decided: the doorway (2.1), with the exported test world behind it first. Left open: the tablet's own layout | The tablet |
 | Seasons: a re-texture (a named field the look reads), a re-block (changes through the doorway), or both. Both are kept possible | Later; nothing to decide now |
 | Digging and placing before the fork? Decided no: read-only until then | Answered 2026-11-11 |
 | ~~The control room as a page in the game's own panel?~~ | Answered 2026-11-11: yes |
 | ~~The control room: a page in the editor ("the control panel will be a page in" it, David 2026-11-12), or in the game's panel as answered the day before?~~ | Answered 2026-11-12: the editor's, as the software map |
 | ~~Old's new place: `old\` inside this folder (the default), or elsewhere?~~ | Answered 2026-11-11: `old\` |
-| Temporal reuse (TAA, his rules of 2026-11-08): after the eye is whole, in the speed pass, or earlier as a lever if the far or near eye misses its gate? Its narrow form, the horizon band refreshed over a few frames, is to be tried in 2.2 | The fork |
+| ~~Temporal reuse (TAA, his rules of 2026-11-08): after the eye is whole, in the speed pass, or earlier as a lever if the far or near eye misses its gate? Its narrow form, the horizon band refreshed over a few frames, is to be tried in 2.2~~ | Dropped as a question 2026-11-16 (its narrow form, lazy rays, is shelved); the later look back at the engine, if wanted |
 | ~~The cells of 2 to 16 blocks: in the far eye's march before the fork, or in 2.3?~~ | Answered by the Oracle, as David left it: before the fork, after the lean step and the layers side by side |
 | ~~The Oracle's third part's changes to 2.2's order (its section 11)?~~ | Answered 2026-11-12: "Yes, its order" |
-| One budget at the fork (the Oracle's split: far 1.2 typical and 2 worst, near 1.5, finishing 0.4, 0.9 left), read moving at the 99th? | The fork |
+| ~~One budget at the fork (the Oracle's split: far 1.2 typical and 2 worst, near 1.5, finishing 0.4, 0.9 left), read moving at the 99th?~~ | Dropped as a question 2026-11-16; the later look back at the engine, if wanted |
 | ~~At the skyline's look: haze, as now, or cover (with the column-height table, and the sheet flown as rival if cover)?~~ | Answered 2026-11-16: cover by faces for what stands, in ("looks good"); the land's own edge by a height table, and the sheet with it, shelved (`journal/docs/cover-by-height.md`) |
 | Lazy rays' far squares fixed to the world or to the screen? And refreshed all at once or piece by piece? | If lazy rays are taken up (shelved 2026-11-16, `journal/docs/lazy-rays.md`) |
 | The moons: does the brighter one cast shadows? | 2.4 |
 | People far off: sharper than the squares behind them, or drawn into them? | 2.4 |
 | Leaves far off: a little see-through, as the averages make them, or solid? | 2.4 |
-| "1 always equals 1" as one stored answer everything reads, in David's words | 3.1 |
-| Rivers and the shore: carried over first, or rearranged on the way? | 3.4 |
-| The rejector: what makes one world better than another? | 3.5 |
+| "1 always equals 1" as one stored answer everything reads, in David's words | The tablet |
+| Rivers and the shore: carried over first, or rearranged on the way? | Answered 2026-11-16: water added deliberately, after topography (3.2) |
+| The rejector: what makes one world better than another? | Making a world |
 
 **For the later look back at the far eye** (David, 2026-11-16: "as long as we're set up to look back into the
 graphics engine at a later date, we can proceed"; "there may be a final check pass against the engine later

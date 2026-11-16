@@ -2705,6 +2705,37 @@ Reference: `Art/quartile minecraft illustration.png`
   - Counsel to Fable, Builder back to Opus, at his switch. Everything each role needs is in the files.
   - CLAUDE.md's line for the Oracle ("it's called at the big forks") is his to change; asked. His answer: "Yes,
     change it" (changed in 8f9b248).
+- **[DECIDED 2026-11-16] The graphics trusted; hanging questions dropped; the road after it** (David, to Counsel,
+  having switched Counsel to Fable: "you just click on the tab and switch models and keep going"; Builder stays on
+  Fable until graphics are finished: "i'll wait until we're done on graphics"):
+  - "we can drop any homework or questions that are hanging on, and kind of reorganize a little going forward, since
+    i'm pretty happy and confident with our graphics engine now. i think it'll be able to handle anything we throw at
+    it at this point and i've had builder set up documents for when it gets reviewed again in the polishing pass, so it
+    should be easy to work on when we need to."
+  - "the next stages of programming incus artus, after we finish up on graphics, will be getting the tectonics, world
+    gen, registrar, put back together in a more streamlined way, because it gets pretty crowded, so we'll use space a
+    little better. i'll go through old incus tectonics and identify the important parameters and try to make it a
+    little more flexible."
+  - "then, we'll construct the world gen more deliberately, since we know the road now. i would like a modular stack
+    that works much like it did before, but we can do a better job with topography and water layers i think this time.
+    and, we should consider the prerequisites for making it extensible so that you could invent new topographies for
+    it. one thing i want this time is a much more deliberate way water is added, after topography, so that we can get
+    flush beaches and cliffs that make more sense."
+  - "once the terrain and waterways are dialed in again, ecology will require the placer and registrar. the registrar
+    will require a more deliberately gui'd master palette than last time, it got a bit confusing to navigate. i'll
+    give more explicit input on shape and boxes in it."
+  - "Builder can proceed with the tests and basic fixes, i'll bring it up if i see undesirable graphics behaviors."
+  - **What's dropped** (Counsel's reading, said to him): the kept Oracle's five questions and her fourth part; the
+    fork as a gate (an outside look is his to call, on his prompt); Counsel's open question on Phase 3's order, which
+    this answers; the one budget and temporal reuse "at the fork", which go to the later look back.
+  - **Phase 3 reordered on it** (the plan): tectonics; world generation as a modular stack, topography then water;
+    the Registrar with its master palette, and the placer; ecology. Earlier the same day: "then i think we can add
+    players, items, and animals, ideally through the editor gui entirely." The tablet (the world on disk), the
+    Graphics Kit and making a world as the player meets it aren't in his order; kept in the phase, fitted in where the
+    work first needs them.
+  - Graphics still ahead by the plan: 2.3's quarter and eighth blocks (scattered at random for testing, his idea),
+    then 2.4 (textures, the light lane, water and glass, objects, glows, far lights), his eye raising anything
+    undesirable.
 - *Builds 200 and 201* (unlaunched, unflown; 201 at db29d24, with his starting numbers: 32 chunks, x-fader 128 wide,
   curve 1, Default returning to them). Build 200 (1affa62), the white dots: looking down from three places, 38, 117
   and 107 lone sky pixels, now none (each face drawn a hair wider, so merged faces overlap). Build 201, far rays

@@ -276,6 +276,9 @@ Where the sources disagree. Each version is given with its ref; nothing here is 
 - Swamps pocked with many small ponds, placed deliberately: "we definitely need to place swamps". [wanted] (WG:1375-1376)
 - Pick lakes and ponds before the water moves, to control how many there are. [idea] (WS:536-538)
 - For the rebuild: water after the land's shape altogether; natural hollows filled into lakes and ponds that know their spill points; an easing stage that gently deepens the paths water would take; then rivers from springs and from lakes' overflows along them: "a topography layer between water and rivers that eases/erodes for logical waterways to follow". [idea] (decisions.md, World Creation, 2026-11-14)
+- Water is added deliberately, after topography, so beaches are flush and cliffs make sense: "a much more deliberate way water is added, after topography, so that we can get flush beaches and cliffs that make more sense". [decided] (decisions.md, the rebuild, 2026-11-16)
+- World generation is a modular stack much as before, with better topography and water layers, and built so new topographies can be invented for it later: "we should consider the prerequisites for making it extensible so that you could invent new topographies for it". [decided] (decisions.md, the rebuild, 2026-11-16)
+- Tectonics rebuilt from old's important parameters, named by David, and made more flexible. [decided] (decisions.md, the rebuild, 2026-11-16)
 - (How many ponds: see To settle.)
 
 ### Water in play
@@ -1139,6 +1142,8 @@ Where the sources disagree. Each version is given with its ref; nothing here is 
 
 ### The Registrar and colour tools
 - The Registrar: David registers and changes blocks himself; laid out as library by tag, dock, master palette; the first goal is to see the blocks and their unsorted colours: "sneak up on the final configuration." [decided] (WG:29-32, 113-122; mem/editor-suite-naming:15)
+- The Registrar's master palette gets a more deliberate layout than old's, which "got a bit confusing to navigate"; David gives the shapes and boxes: "i'll give more explicit input on shape and boxes in it". The editor's pages are put back together to use space better: "it gets pretty crowded". [decided] (decisions.md, the rebuild, 2026-11-16)
+- Ecology comes once terrain and waterways are dialled in, on the placer and the Registrar; players, items and animals are then added "ideally through the editor gui entirely". [decided] (decisions.md, the rebuild, 2026-11-16)
 - Blocks grouped by tags (nested with "/"), not folders. [decided] (WG:116-118)
 - New materials by moving a block onto another colour spline (limonite to hematite); a block can draw on several splines; a duplicate is simply a new block. [decided] (WG:100-105)
 - Registrar tabs: Blocks, Objects, Blueprints; size settings per object in the Objects tab; flame strips marked by magenta dots, timing in ms per frame, an anchor dropdown, ½ and 2× size buttons. [decided] (decisions.md:660-669; objects.md:192-193, 276-295)

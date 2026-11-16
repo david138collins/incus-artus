@@ -22,21 +22,25 @@ or went away, a decision David made in one session the other needs, a question f
 
 ---
 
-## 2026-11-16 · Counsel → the next Counsel (David switching Counsel to Fable, Builder to Opus)
+## 2026-11-16 · Counsel → the next Counsel (Counsel on Fable from today; Builder to Opus once graphics are finished)
 
 Everything of Counsel's is committed and pushed. Where things stand (the plan's "Where we are" has the rest):
-- **2.3, the near eye, in triangles** (his word today). Builds 195 to 199 in: blocks a chunk at a time, greedy
-  meshing, his radius slider (default 32 chunks), the x-fader (default 128 blocks, curve 1). 240 a second holds at
-  64 chunks. Next from Builder: build 200 (the sky dots: faces a hair wider), build 201 (far rays skipped under
-  blocks), then quarter and eighth blocks, scattered at random for testing (his idea).
+- **2.3, the near eye, in triangles** (his word today). Builds 195 to 201 in: blocks a chunk at a time, greedy
+  meshing, his radius slider (default 32 chunks), the x-fader (default 128 blocks, curve 1), the sky dots mended,
+  far rays skipped under blocks. 240 a second holds at 64 chunks. Owed for 201: a trace's row and flights. Next:
+  quarter and eighth blocks, scattered at random for testing (his idea); then 2.4, textures and the rest.
 - **The far eye is left as it stands**, its gate's Intel numbers owed (with the march priced checked and unchecked,
   a slipped rule); everything set aside is listed in the plan, "For the later look back at the far eye".
 - **The Oracle is now any fresh outside agent** on a prompt David writes; the brief (`oracle-return.md`) is for
-  any such reader. Asked of David, unanswered: whether CLAUDE.md's Oracle line changes to match.
-- **Open with David:** Phase 3's order (his: tectonics, world gen, registrar/placer, ecology, then players, items,
-  animals through the editor; the plan has the tablet and the Registrar first: Counsel recommended keeping those
-  first and adding ecology as its own step; unanswered). Textures come after the fork by the plan (2.4); he asked
-  "textures and quarter/octs next, right?". The felling idea of today is in the decisions beside 2026-11-01's.
+  any such reader; CLAUDE.md says so (his "Yes, change it").
+- **Nothing is open with David** (his word: "we can drop any homework or questions that are hanging on"). The kept
+  Oracle's five questions are dropped; the fork is no longer a gate. "Builder can proceed with the tests and basic
+  fixes, i'll bring it up if i see undesirable graphics behaviors."
+- **Phase 3 is reordered on his word:** tectonics (he names old's important parameters), world generation as a
+  modular stack (topography, then water, deliberately; room for new topographies), the Registrar (a more deliberate
+  master palette, his shapes and boxes) and the placer, ecology; then players, items and animals through the
+  editor. The tablet, the Graphics Kit and making a world aren't in his order: kept at the phase's end, to be fitted
+  in where the work first needs them (not asked of him).
 - The 2026-11-15 note below is out of date: the Nsight restart happened; near triangles are decided.
 
 ## 2026-11-15 · Counsel → the next Counsel (and Builder): before the restart for Nsight's counters

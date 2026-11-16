@@ -553,6 +553,15 @@ the answers.
   right; one light and one set of colours for both at first. Is anything in your design for the near field (light
   kept in the air cell before each face, pieces walked by their octants) lost by drawing it, and what should the
   fork read now in place of the comparison?
+- **For whoever reads this next** (2026-11-16). The Oracle is now any outside advisor, a fresh agent each time, on
+  a prompt David writes; "you" and "yours" above are the first Oracle's reviews (`journal/vision/oracle-review.md`).
+  Her five questions to David were dropped unanswered, with all hanging homework: "i'm pretty happy and confident
+  with our graphics engine now. i think it'll be able to handle anything we throw at it at this point." The fork is
+  no longer a gate; an outside look is his to call. The near eye in triangles stands at: blocks a chunk at a time,
+  merged faces, a radius slider (32 chunks to start; 240 a second holds at 64), an x-fader where blocks fade into
+  rays, far rays skipped under blocks. What was set aside is listed in the plan, "For the later look back at the far
+  eye", each with its document. After graphics the road is tectonics, world generation (topography, then water,
+  deliberately), the Registrar and the placer, ecology.
   Does the cut by a list still beat yours (every ray cut) on a card that's full at the marks that work, and is it the
   footing for lazy rays (a far length kept, not re-marched every frame)?
 
