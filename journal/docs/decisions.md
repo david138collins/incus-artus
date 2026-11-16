@@ -2431,6 +2431,16 @@ Reference: `Art/quartile minecraft illustration.png`
     for light (five places gone). Off the screen: off build 190 to the pixel; on, build 191's look (a few thousand
     pixels by 8 of 255 at most); the shallow shelf's sea the same on and off; the steps within 1% of off's. Owed: one
     window (two traces, off and on; three flights, off, on, off), his row, and his look on the stage.
+  - *Build 192's window* (on "go", 07:03 to 07:27, the card idle at 4%; `logs/nsight/b192/`, flights
+    `logs/flight-1794834872` off, `-1794835265` on, `-1794835657` off again; checked by Counsel). The march, on
+    against the two offs' mean: **under 1% at five marks, both working marks among them** (the mountain top the same,
+    0.932 ms; high over the spawn +0.7%; the spawn +0.8%, the plain +0.6%, the plain nodding +0.8%); the sea and the
+    sea nodding +1.6%, the run +2.8% (its mark's line, under build 191's, missed there), fast across +2.6%. The card's
+    whole over the nine views 6.610 ms on, 6.522 and 6.551 off: **+1.1%** (build 191: about 2%). Builder's reading:
+    the work counted is the same or less with the rule on at every mark, so what's left is per step, where rays
+    gather at nearly every step (through water; skimming grass at walking height), which work a second power out at
+    each such step; one power instead of two is the next form, if David wants the rule after his look. Owed: his row
+    (the march in the on trace) and his look on the stage.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
