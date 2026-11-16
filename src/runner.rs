@@ -450,6 +450,7 @@ impl Runner {
             captured: self.captured,
             memory: running.memory,
             blends: running.far.as_ref().map_or([true, false], FarEye::blends),
+            faces_switch: running.far.as_ref().is_some_and(FarEye::faces_switch),
             far: running.far.as_ref().map_or("none".to_string(), FarEye::state),
         };
         self.panel.show(&ctx, &readings, running.far.as_mut().map(|far| &mut far.look), &mut self.camera.pace);

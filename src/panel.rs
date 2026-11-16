@@ -34,6 +34,8 @@ pub struct Readings<'a> {
     pub memory: Option<(f64, f64)>,
     /// Which far blends can be chosen now (the code's, the hardware's), and how the far cells are coming in.
     pub blends: [bool; 2],
+    /// Whether the cover-by-faces switch can do anything now (`FarEye::faces_switch`).
+    pub faces_switch: bool,
     pub far: String,
 }
 
@@ -145,8 +147,8 @@ fn render(ui: &mut egui::Ui, readings: &Readings, look: Option<&mut FarLook>) {
     egui::ScrollArea::vertical().max_height(560.0).show(ui, |ui| {
         ui.horizontal(|ui| {
             ui.strong("The picture");
-            let differs = (look.blend, look.detail, look.bring_up, look.view, look.sky_weight) != (d.blend, d.detail, d.bring_up, d.view, d.sky_weight);
-            section_default(ui, look, differs, |l| (l.blend, l.detail, l.bring_up, l.view, l.sky_weight) = (d.blend, d.detail, d.bring_up, d.view, d.sky_weight));
+            let differs = (look.blend, look.detail, look.bring_up, look.view, look.sky_weight, look.faces) != (d.blend, d.detail, d.bring_up, d.view, d.sky_weight, d.faces);
+            section_default(ui, look, differs, |l| (l.blend, l.detail, l.bring_up, l.view, l.sky_weight, l.faces) = (d.blend, d.detail, d.bring_up, d.view, d.sky_weight, d.faces));
         });
         // Change 1: the far cells blended by the code (old's: the "initial blend", David's name for it, 2026-11-14, as
         // it's what draws till the textures are in and wherever a brick isn't in them) or the texture hardware (greyed
@@ -173,6 +175,10 @@ fn render(ui: &mut egui::Ui, readings: &Readings, look: Option<&mut FarLook>) {
             ui.selectable_value(&mut look.view, 2, "levels");
         });
         ui.add(egui::Slider::new(&mut look.sky_weight, 0.0..=8.0).text("sky weight"));
+        // Cover by faces [David, 2026-11-16: "do i have an a/b switch?"; its place and name: "yes, that place is fine
+        // for the switch"]: greyed till the world is loaded (the march's other program takes over only then), and
+        // where there's no other program.
+        ui.add_enabled(readings.faces_switch, egui::Checkbox::new(&mut look.faces, "Cover by faces"));
         ui.separator();
         // Where each ray's steps begin within a step [David, 2026-11-14: "you could put them under a ray start section
         // or something"; "if they have parameters worth exposing i'd like to play with those"].

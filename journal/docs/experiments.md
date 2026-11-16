@@ -6148,3 +6148,33 @@ with the rule off everywhere, and then the tick box starts unticked. Nothing in 
 - All the tests pass.
 
 **Then David's look**, the switch in his hand.
+
+### Build 193 built (unlooked): the live switch for cover by faces; what was built and what was checked off the screen
+
+**Built as the mark says.** `far_eye.rs` compiles the loaded march a second time from the same text with
+`far.wgsl`'s `FACES` the other way (`one_loaded_other`); the look gains `faces`; the dispatch marches the launch's
+loaded program or the other by it. The Render page, the picture's section, under the sky weight: a tick box
+"Cover by faces", ticked by default, the section's Default returning it; greyed (by the code: `faces_switch`)
+while the world loads and where there's no second program. `INCUS_FAR_FACES=0` starts the game with the rule off
+in every program and the box unticked. Nothing in `far.wgsl` changed. A knob for the picture test,
+`FAR_TEST_FACES` (0, 1, or 2: on till the last frame, which is drawn off).
+
+**Each side of the switch is build 192's program** (2,560 x 1,600, the whole world loaded, the tenth frame):
+ticked, against build 192's on pictures: none to 3,408 pixels differing, the most 6; unticked (by the switch, the
+other program), against build 192's off pictures: none to 720, the most 6. The test's own noise; the sea's and the
+plain's the same to the pixel. By the code each text is the launch's text with the one line changed, as the
+launch's own choice changes it: so the rows David read and the flights flown stand, and none is asked for this
+build.
+
+**Flipped while it runs** (ticked nine frames, the tenth drawn unticked): at the plain the flipped frame is the
+unticked picture (1,280 pixels differing, the most 6); high over the spawn it's the unticked picture but for 2,432
+pixels by 8 of 255 or more (the most 97): what a ray keeps from the frame before (a finer layer is led by the
+coarser layer of the frame before, and a cut ray's lengths begin as it stood), gone in the frames after. No error
+from the card.
+
+**The start:** the other program takes 5.4 to 6.9 s to make (twelve runs), so the game starts about 6 s later.
+
+**All 34 tests pass** (the map redrawn for the switch's words).
+
+**Not checked off the screen:** the tick box itself (its greying, its Default), which needs the panel: David's
+eye at his look, and said to him.

@@ -127,6 +127,10 @@ pub struct FarLook {
     pub fog_reach: f32,
     pub fog_height: f32,
     pub fog_warmth: f32,
+    /// Cover by faces (the Render page's tick box; David, 2026-11-16: "do i have an a/b switch?"): a far cell stops
+    /// a ray by the face it shows it as well as by its bulk. It picks which of the march's two programs marches once
+    /// the world is loaded (`FarEye::one_loaded` and `one_loaded_other`): nothing is switched inside either.
+    pub faces: bool,
 }
 
 impl FarLook {
@@ -158,6 +162,7 @@ impl FarLook {
         fog_reach: FOG_REACH,
         fog_height: FOG_HEIGHT,
         fog_warmth: FOG_WARMTH,
+        faces: true,
     };
 }
 
@@ -261,6 +266,14 @@ pub struct FarEye {
     /// march (`march_loading`). `INCUS_FAR_LOADED=0` keeps the whole march on (for measuring one against the other).
     /// And whether the log has said the second has taken over.
     one_loaded: Option<wgpu::ComputePipeline>,
+    /// The march once the textures are in with cover by faces the other way from the launch's (`faces_asked`), for
+    /// the Render page's switch: the same text but for `far.wgsl`'s `FACES`, so each of the two is the program the
+    /// launch's choice alone would compile. None where there's no one dispatch, or an audit's version marches in
+    /// the loaded march's place.
+    one_loaded_other: Option<wgpu::ComputePipeline>,
+    /// Whether the launch asked for cover by faces (`INCUS_FAR_FACES`, on unless 0): what every program but
+    /// `one_loaded_other` is compiled with.
+    faces_asked: bool,
     /// The start pass by the one dispatch: its program from the one dispatch's text, which writes the tiles' starts
     /// into the frame before's distances (`far_all.wgsl`'s `put_start`).
     one_start: Option<wgpu::ComputePipeline>,
@@ -319,11 +332,15 @@ impl FarEye {
         // Cover by faces compiled out, if asked (`INCUS_FAR_FACES=0`): build 190's program, to measure against.
         const FACES: &str = "const FACES: bool = true;";
         assert_eq!(far_source.matches(FACES).count(), 1, "far.wgsl says whether faces stop a ray in one place");
-        let far_source = if std::env::var("INCUS_FAR_FACES").as_deref() == Ok("0") {
-            log::info!("Cover by faces: off, a far cell stops a ray by its bulk alone (INCUS_FAR_FACES=0)");
-            far_source.replace(FACES, "const FACES: bool = false;")
+        const NO_FACES: &str = "const FACES: bool = false;";
+        let faces_asked = std::env::var("INCUS_FAR_FACES").as_deref() != Ok("0");
+        // The text with the rule the other way, for the Render page's switch.
+        let (far_source, far_source_other) = if faces_asked {
+            let other = far_source.replace(FACES, NO_FACES);
+            (far_source, other)
         } else {
-            far_source
+            log::info!("Cover by faces: off, a far cell stops a ray by its bulk alone (INCUS_FAR_FACES=0)");
+            (far_source.replace(FACES, NO_FACES), far_source)
         };
         let module = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some("the far eye"), source: wgpu::ShaderSource::Wgsl(far_source.as_str().into()) });
         let compute = wgpu::ShaderStages::COMPUTE;
@@ -392,6 +409,7 @@ impl FarEye {
         // The look starts at its defaults, with old's switches for measuring set at launch: the views
         // (`INCUS_SIGHT_STEPS`, `INCUS_SIGHT_LEVELS`) and the light left out (`INCUS_SIGHT_NO_SHADOWS`, `INCUS_SIGHT_NO_SKY`).
         let mut look = FarLook::DEFAULT;
+        look.faces = std::env::var("INCUS_FAR_FACES").as_deref() != Ok("0");
         let set = |name: &str| std::env::var_os(name).is_some();
         look.view = if set("INCUS_SIGHT_LEVELS") {
             2
@@ -451,6 +469,7 @@ impl FarEye {
         // camera read in place from its layer's row.
         let mut audit = Vec::new();
         let mut one_loaded = None;
+        let mut one_loaded_other = None;
         let mut one_start = None;
         let mut one_join = None;
         let one = (std::env::var("INCUS_FAR_SIDE").as_deref() != Ok("0")).then(|| {
@@ -460,12 +479,16 @@ impl FarEye {
             const WHICH: &str = "const LOADED: bool = false;";
             assert_eq!(source.matches(WHICH).count(), 1, "far.wgsl says which program it is in one place");
             let mut loaded_source = source.replace(WHICH, "const LOADED: bool = true;");
+            // The same program with cover by faces the other way (the Render page's switch), unless an audit's
+            // version is to march in its place.
+            let mut loaded_source_other = Some(one_source(far_source_other.as_str()).replace(WHICH, "const LOADED: bool = true;"));
             // For measuring (`INCUS_FAR_AS`, the name of one of the audit's second batch): that version marched as
             // the far eye's own program once the textures are in, its picture wrong on purpose, so a flight says what
             // its room and its shorter step are worth with every layer marching (the audit marches the base alone).
             if let Ok(asked) = std::env::var("INCUS_FAR_AS") {
                 let text = audit_variants(far_source.as_str(), 2).into_iter().find(|(name, _)| *name == asked).unwrap_or_else(|| panic!("INCUS_FAR_AS={asked} is none of the audit's second batch")).1;
                 loaded_source = one_source(&text);
+                loaded_source_other = None;
                 log::warn!("The far eye: once the textures are in, marched by the audit's {asked} (for measuring: the picture is wrong on purpose)");
             }
             let source = source.replace("fn march_all(", "fn march_loading(");
@@ -503,6 +526,14 @@ impl FarEye {
             one_start = Some(device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("start_pass"), layout: Some(&pipeline_layout), module: &module, entry_point: Some("start_pass"), compilation_options: Default::default(), cache: None }));
             let loaded_module = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some("the far eye, once the textures are in"), source: wgpu::ShaderSource::Wgsl(loaded_source.into()) });
             one_loaded = Some(device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("march_all"), layout: Some(&pipeline_layout), module: &loaded_module, entry_point: Some("march_all"), compilation_options: Default::default(), cache: None }));
+            if let Some(other) = loaded_source_other {
+                let began = std::time::Instant::now();
+                let other_module = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some("the far eye, once the textures are in, cover by faces the other way"), source: wgpu::ShaderSource::Wgsl(other.into()) });
+                one_loaded_other = Some(device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("march_all"), layout: Some(&pipeline_layout), module: &other_module, entry_point: Some("march_all"), compilation_options: Default::default(), cache: None }));
+                log::info!("Cover by faces: the march's other program ({}) made in {:.1} s, for the Render page's switch", if faces_asked { "without it" } else { "with it" }, began.elapsed().as_secs_f32());
+                #[cfg(test)]
+                eprintln!("Cover by faces: the march's other program made in {:.1} s", began.elapsed().as_secs_f32());
+            }
             // The join (the cut), from each of the two programs' text: a cut ray is finished as its program finishes
             // any ray.
             one_join = Some([&module, &loaded_module].map(|module| device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("join_pass"), layout: Some(&pipeline_layout), module, entry_point: Some("join_pass"), compilation_options: Default::default(), cache: None })));
@@ -548,7 +579,7 @@ impl FarEye {
         let tally_counts = LAYERS.iter().map(|_| device.create_buffer(&wgpu::BufferDescriptor { label: Some("a far layer's longest ray"), size: 4 * TALLY as u64, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false })).collect();
         let tally_back = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the longest rays read back"), size: 4 * (TALLY * (LAYERS.len() + 1)) as u64, usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let tally_state = std::sync::Arc::new(std::sync::atomic::AtomicU8::new(0));
-        Self { store, lane, rings, eye: [0.0; 2], start, march, up, layout, up_layout, sampler, targets: None, look, textures, atlas: None, building: None, stand_ins, light: None, lighting: None, sweeping: None, sun_asked, light_stand_ins, blue, blue_bytes, edge, layers, one, one_loaded, one_start, one_join, cut_at, long, loaded_off: std::env::var("INCUS_FAR_LOADED").as_deref() == Ok("0"), loaded_said: std::sync::atomic::AtomicBool::new(false), audit, parity: 0, fresh: false, haze_step, most_steps, tops_making: None, tops_made: None, tops_off: false, reach, begin, tally, tally_counts, tally_back, tally_state, waiting, waiting_counts }
+        Self { store, lane, rings, eye: [0.0; 2], start, march, up, layout, up_layout, sampler, targets: None, look, textures, atlas: None, building: None, stand_ins, light: None, lighting: None, sweeping: None, sun_asked, light_stand_ins, blue, blue_bytes, edge, layers, one, one_loaded, one_loaded_other, faces_asked, one_start, one_join, cut_at, long, loaded_off: std::env::var("INCUS_FAR_LOADED").as_deref() == Ok("0"), loaded_said: std::sync::atomic::AtomicBool::new(false), audit, parity: 0, fresh: false, haze_step, most_steps, tops_making: None, tops_made: None, tops_off: false, reach, begin, tally, tally_counts, tally_back, tally_state, waiting, waiting_counts }
     }
 
     /// Whether every region is on the card, the window's regions round the eye too, and the far textures if they're made.
@@ -571,6 +602,12 @@ impl FarEye {
     /// Which blends can be chosen now: the code's, the hardware's (once the far textures are in).
     pub fn blends(&self) -> [bool; 2] {
         [true, self.atlas.is_some()]
+    }
+
+    /// Whether the Render page's cover-by-faces switch can do anything now: there's a second program, and the march
+    /// once the textures are in is what's marching (the whole march draws by the launch's choice).
+    pub fn faces_switch(&self) -> bool {
+        self.one_loaded_other.is_some() && !self.loaded_off && self.atlas.is_some() && self.look.blend >= 1 && self.look.view == 0 && self.rings.iter().all(|ring| ring.textured())
     }
 
     /// Whether the far eye marches by its second program, the march once the textures are in: the hardware's blend
@@ -1137,7 +1174,10 @@ impl FarEye {
             if k == 0 {
                 let groups_of = |layer: &Layer| (layer.size.0.div_ceil(8), layer.size.1.div_ceil(8));
                 let (base, middle, fine) = (groups_of(&targets.layers[0]), groups_of(&targets.layers[1]), groups_of(&targets.layers[2]));
-                pass.set_pipeline(if self.loaded() { self.one_loaded.as_ref().unwrap_or(pipeline) } else { pipeline });
+                // Once the textures are in: the loaded march, the one with cover by faces as the look asks (the
+                // launch's, or the other).
+                let loaded_march = if self.look.faces == self.faces_asked { self.one_loaded.as_ref() } else { self.one_loaded_other.as_ref().or(self.one_loaded.as_ref()) };
+                pass.set_pipeline(if self.loaded() { loaded_march.unwrap_or(pipeline) } else { pipeline });
                 let runs = if self.fresh { 3 } else { 1 };
                 for run in 0..runs {
                     let copy = if (runs - 1 - run) % 2 == 0 { self.parity } else { 1 - self.parity };
@@ -1586,6 +1626,14 @@ mod tests {
                 }
             }
         }
+        // Cover by faces by the look's switch, if asked (`FAR_TEST_FACES`: 0 off, 1 on; 2 on till the last frame,
+        // which is drawn off: the switch flipped while it runs): the march's other program where it differs from the
+        // launch's.
+        let faces_test = std::env::var("FAR_TEST_FACES").ok().and_then(|f| f.parse::<u32>().ok());
+        if let Some(asked) = faces_test {
+            assert!(eye.one_loaded_other.is_some(), "the march's other program is made");
+            eye.look.faces = asked != 0;
+        }
         // The sky's weight to draw with, if asked (`FAR_TEST_SKY_WEIGHT`, for a look at the skyline).
         if let Some(weight) = std::env::var("FAR_TEST_SKY_WEIGHT").ok().and_then(|w| w.parse().ok()) {
             eye.look.sky_weight = weight;
@@ -1639,6 +1687,9 @@ mod tests {
         let turned: Vec<f32> = std::env::var("FAR_TEST_TURN").ok().map(|v| v.split(',').filter_map(|n| n.trim().parse().ok()).collect()).unwrap_or_default();
         camera.facing += turned.first().copied().unwrap_or(0.0);
         camera.pitch += turned.get(1).copied().unwrap_or(0.0);
+        if faces_test == Some(2) {
+            eye.look.faces = false;
+        }
         eye.prepare(&device, &queue, screen, &camera, doorway.sea_level as f32);
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("the far eye's test") });
         eye.start(&mut encoder, None);

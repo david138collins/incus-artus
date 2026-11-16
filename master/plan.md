@@ -66,8 +66,10 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** his look at cover by faces on the stage (build 192, launched on his word), which
-  decides whether the rule is wanted. Its size on the card, by his reading of build 192's row: 168 registers for
+- **Waiting on David:** his look at cover by faces on the stage (build 193, launched on his word), which
+  decides whether the rule is wanted. He has a live switch for it now (his "do i have an a/b switch?"): the Render
+  page's "Cover by faces" tick box swaps the march's two compiled programs once the world is loaded, nothing
+  switched inside either; the game starts about 6 s later for the second program. Its size on the card, by his reading of build 192's row: 168 registers for
   167, nothing put by, 12 groups still: it fits, for one register (two of room left under the line, where there
   were three). Build 192 is traced and flown
   (off, on, off): under 1% dearer at five marks, both working marks among them (the mountain top the same, high
