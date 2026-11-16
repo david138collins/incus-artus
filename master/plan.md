@@ -86,16 +86,19 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** when the Intel card's flight is flown (the last thing in the far eye's part of the
-  plan before its gate is read: it needs the laptop switched to "Optimus" and restarted, which ends the sessions);
-  then the near eye (2.3). **Shelved by his word, 2026-11-16, both packed to resume from:** lazy rays ("lets hold
-  off on lazy rays for now. we can keep that in our back pocket if we ever get a performance squeeze limited by
-  long rays. i think we can move on"; `journal/docs/lazy-rays.md`) and the land's own edge by a height table
-  ("pack it up next to lazy rays ... if i become dissatissfied with some views in a fuller game i'll come back to
-  cover by height and lazy rays and there may be a final check pass against the engine later anyways";
-  `journal/docs/cover-by-height.md`). At his word the march is scanned by its parts for that later review
-  (`journal/docs/march-by-parts.md`: its program as a tree by size, the 98 values it holds in hand, eleven
-  candidates for making room). Cover by faces is in and done enough to go on (`journal/docs/experiments.md`): his look at
+- **Waiting on David:** where the near eye's slider goes and what it's called (asked: the Render page,
+  "Render radius (chunks)", 1 to 64); nothing else yet. **The near eye (2.3) is begun, by triangles, his word**
+  (2026-11-16, `journal/docs/experiments.md`): "I believe we should try to accomplish the rest of the graphics
+  engine with triangles. rays may come in later for different cases"; "lets just make a radius slider and get
+  started. the render radius set there will determine where the triangles start and rays fade"; his goal, "64
+  chunk render radius running smoothly along with the far march like we have it now" (2,048 blocks). Builder is
+  on its first step, build 195, its pass mark written: whole blocks as merged faces (greedy meshing) a chunk of
+  32 at a time on a lane, drawn after the far picture with depth, lit from the far eye's light, fading onto the
+  far picture at the radius; the far march's program untouched. After it: the near faces' cover cancelling far
+  rays; the hand-over tuned by his look; pieces and his build as changes; then light of its own and textures.
+  **The far eye is left as it stands** (his word: "we can do that later. as long as we're set up to look back
+  into the graphics engine at a later date, we can proceed"); what was set aside is listed under the open
+  questions below ("For the later look back at the far eye"), the Intel card's flight among it. Cover by faces is in and done enough to go on (`journal/docs/experiments.md`): his look at
   build 193, the live switch in his hand (the Render page's "Cover by faces" tick box swaps the march's two
   compiled programs, nothing switched inside either): **"looks good"**. As flown in build 194 (one power where a
   step gathers; off, on, off) it costs the march about half a percent, the card's whole over the nine views 0.4%

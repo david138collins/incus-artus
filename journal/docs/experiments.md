@@ -6490,3 +6490,59 @@ B isn't made now (a second slider, built things apart from the land, only if the
 not built); faces are merged from the first build (greedy meshing: his name for it is the usual one; it's the
 mesher's work, not automatic, and it's built in from the start). Asked of him, by his own rule for controls:
 the Render page, "Render radius (chunks)", 1 to 64, unless he wants another place or name.
+
+### Build 195, the near eye's first step, whole blocks as triangles inside a render radius: the pass mark (written before the code)
+
+**What it's for** (plan 2.3, by David's words of 2026-11-16: the near eye by triangles; "lets just make a radius
+slider and get started. the render radius set there will determine where the triangles start and rays fade"; his
+goal, "64 chunk render radius running smoothly along with the far march like we have it now").
+
+**What's to be built.** Nothing in the far march's program changes.
+
+- **The near blocks, a chunk at a time** (`near.rs`, new): a chunk is 32 x 32 columns, the world's whole height
+  (old's chunk, so his 64 is 2,048 blocks). Its blocks are the doorway's answers (each column's runs; the scatter
+  stage's columns and changed cells as the doorway gives them).
+- **The mesher** (the same file): a chunk's faces are every side of a solid block that looks into air or water,
+  merged: faces of one block that look the same way, lie in one plane and make a rectangle become one face
+  (greedy meshing). Water's top is a face of its own kind (drawn plain for now: its look is the plan's 2.4).
+  Pieces (bars and quarter blocks) aren't meshed in this step (step 4): a cell that holds only pieces draws
+  nothing yet, said here so it isn't taken for a fault.
+- **A lane** that meshes the chunks inside the radius on background threads, nearest the eye first, hands each to
+  the card as it's done, drops those that fall outside, and makes a chunk again when a change touches it.
+- **The near pass** (`near.wgsl`, new, a program of its own): the chunks' faces drawn as triangles after the far
+  picture is brought up, with depth; each face its block's colour (the far colours' table, top or side) lit as the
+  far eye lights (the sun on the face's own way, the far eye's shadow and sky from its light store). Over the last
+  stretch before the radius the faces fade out onto the far picture behind them.
+- **The far rays begin a little inside the radius** while the near eye is on (the overlap), so there's no gap
+  between the two. (The far eye isn't yet told which of its squares the near faces cover: step 2.)
+- **The Render page: "Render radius (chunks)"**, 1 to 64, asked of David for its place and name. It starts at 4
+  (128 blocks). `INCUS_NEAR=0`: no near eye at all, the game as build 194.
+- **Its instruments, from this first build:** the lane's and the near pass's clocks in the panel and the flights'
+  reports; chunks kept, faces and triangles drawn, the meshes' memory on the card, a chunk's meshing time.
+
+**The pass mark.** Off the screen:
+
+- **The mesher is exact.** Over squares of bare ground, the stage's built things (a tower, the castle's gate, a
+  house, the hall, a cave, a wood) and a square at the map's edge: the merged faces cover every open side of
+  every solid block once and nothing else, counted block by block from the doorway's own answers (areas by
+  facing and block equal; no two faces overlap). A change in one cell makes again only the chunks it touches, and
+  the result is the mesh made from scratch.
+- **Off, it's build 194:** with `INCUS_NEAR=0` the five marks' pictures are build 194's but for the test's noise.
+- **On, the picture:** at the near marks and the stage's, the near faces' colours and light agree with the far
+  eye's picture of the same ground (the same view drawn with the radius at 1 and at 8: mean colour of the ground
+  between 64 and 256 blocks within 8 of 255); no pixel of sky or of the clear colour where ground should be, at
+  the radius' edge or anywhere (the overlap leaves no gap), at radius 1, 4, 16 and 64.
+- **The numbers, given not promised,** at radius 1, 4, 16, 32 and 64 from the spawn and from the plain: chunks,
+  faces, triangles, the meshes' memory, how long the lane takes to fill the radius, and how many faces merging
+  saves against one face a side.
+- All the tests pass; the map redrawn.
+
+Its size on the card: the near pass's own row in a trace, David's to read (asked with the flights).
+
+By flights (on David's word, a bracket: near off, on at radius 4, 16 and 64, off again), at the near marks and
+the far ones: off is build 194's to within the bracket's own spread; the near pass's time and the far eye's beside
+it at each radius, as they are. No line is set for the time yet: this build is the first measurement, and the
+plan's line (1.5 ms or under at every ground mark) is what later steps are held to.
+
+**Then David's look:** the radius' edge standing and walking; chunks coming in as he moves; the slider.
+A miss is said, with what was seen.
