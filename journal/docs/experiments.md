@@ -7527,3 +7527,33 @@ far rays skipped under blocks. Sixteen standings now, the three of pieces last.
 - **Moving:** a player's run (200 blocks a second) frame 1.25 ms, 99th 3.8, worst 8.7; fast across the world
   (2,000 a second) 99th 8.7, worst 22.4: chunks coming in, as before.
 - **On the processor,** listing the chunks in view: 0.17 to 0.21 ms a frame at 32 chunks (1 ms at 64).
+
+### The march's row with far rays skipped under blocks, read by David (2026-11-16): 167 registers for 168: it fits, with nothing given up
+
+**His words,** with six pictures of the Shader Pipelines tab (the mountain top at 64 chunks): "here are the off
+traces, followed by the on traces." Off is build 202 with the rule compiled out (`b202-cover-off`); on is build
+203 (`b203-cover-on`).
+
+| program | | samples | groups | registers | Smem | live | instructions | top stalls |
+|---|---|---|---|---|---|---|---|---|
+| `march_all` | off | 28% | 12 | 168 | 0 | 165 | 4.06 K | WAIT 31%, LGSB 26%, SELECT 14% |
+| | on | 23% | 12 | **167** | 0 | 164 | 4.18 K | WAIT 31%, LGSB 28%, SELECT 14% |
+| `near_corner` | off | 49% | ~32 | 20 | ~272 to 1,280 | 16 | 336 | WAIT 41%, SELECT 30%, SHRTSB 10% |
+| | on | 51% | ~32 | 20 | | 16 | 336 | the same |
+| `near_face` | off | 15% | ~24 | 22 | ~84 to 672 | 17 | 264 | WAIT 27%, SHRTSB 18%, SELECT 16% |
+| | on | 16% | | 22 | | 17 | 264 | the same |
+| `brought_up` | both | 5% | ~48 | 21 | | 18 | 264 | LGSB 55 to 57% |
+| `near_cover` (new) | on | 3% | 48 | 26 | 0 | 23 | 384 | LGSB 93% |
+| `near_over` (the x-fader) | both | under 1% | ~48 | 16 | | 3 | 56 | |
+| `join_pass` | off, on | under 1% | 28 | 72 | 1,024 | 70 | 1.36 K, 1.42 K | |
+
+- **The mark, "no more than 168 registers, Smem 0, 12 groups": met.** The march with the rule is 167 registers
+  (one fewer than without: the card's own compiler laid it out a register tighter), nothing put by, 12 groups.
+  The rule's nine reads are 120 instructions more, before the loop; nothing new is carried round it, as meant.
+- **The march's share of the card at this view fell from 28% to 23%** (the flights: 0.762 to 0.700 ms there).
+- **The near cover's pass is all waiting on its reads** (93% of its stalls): what's left of its 0.07 ms is reading
+  the near picture, not working on it.
+- **The corners' program is 336 instructions where build 197's trace had 160** (the hair of build 200 is in it,
+  and the half-block reading isn't yet: these traces are builds 202 and 203). The flights show no cost from it
+  (the near faces 1.655 ms at this view, 1.658 in build 197); the corners are still half the card's samples at 64
+  chunks, as they were.
