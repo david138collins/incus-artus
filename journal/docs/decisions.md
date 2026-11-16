@@ -2460,6 +2460,19 @@ Reference: `Art/quartile minecraft illustration.png`
     gathers (for the 1.6 to 2.8% build 192's form costs at the sea marks and the run), a trace and three flights in a
     window of his; then lazy rays by the plan. The tick box and its two copies of the march (about 6 s at the
     start) stay until he says otherwise.
+  - *Build 194, one power where a step gathers* (182104f; on "we can do the trim and checks now"; 08:19 to 08:42,
+    `logs/nsight/b194/`, flights `logs/flight-1794839365` off, `-1794839756` on, `-1794840152` off again; checked by
+    Counsel). The march, on against the two offs' mean: the spawn −0.9%, the mountain top the same, the plain +0.6%,
+    **the sea +0.7% (192: 1.6%), the sea nodding +0.5% (1.6%)**, the plain nodding +0.6%, high over the spawn +1.0%
+    (the card's clock dipped there in the on flight, its median leaning high), fast across +1.7%. The run unreadable
+    this session: its two offs 5% apart (0.586 and 0.617 ms), the processor's area at 103 °C by then. The card's
+    whole over the nine views 6.616 ms on, 6.564 and 6.614 off: +0.4% over their mean, the offs themselves 0.8%
+    apart. So cover by faces now costs about half a percent, at the edge of what a bracket can tell; the trim did its
+    work at the sea marks. Against the mark's 1% line high over the spawn sits on it and fast across is over (said).
+    Owed: his row (the march in the on trace). He asked "what do we move on to next?"; Builder, by the plan: lazy
+    rays (a talk first, his choice of far squares fixed to the world or the screen, with a measurement of how much
+    of the two working marks' work is far enough to be lazy), the land's edge by a height table weighed, the Intel
+    card's flight, then the far eye's gate and the near eye.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
