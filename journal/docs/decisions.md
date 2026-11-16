@@ -2441,6 +2441,17 @@ Reference: `Art/quartile minecraft illustration.png`
     gather at nearly every step (through water; skimming grass at walking height), which work a second power out at
     each such step; one power instead of two is the next form, if David wants the rule after his look. Owed: his row
     (the march in the on trace) and his look on the stage.
+  - **His row, build 192 on** (the mountain top): 12 groups, 168 registers (167 off), 165 live, **nothing put by**
+    (191's form: 512), 4.06K in the instruction mix. Its mark for size met, at one register: two of room left under
+    the line of about 170 where there were three (affordable, not free, said to him).
+  - **[DECIDED 2026-11-16] An A/B switch: "Cover by faces" on the Render page** (David, to Builder, asked before his
+    look "do i have an a/b switch?"; there was none, the rule chosen at launch). Builder proposed a tick box named
+    "Cover by faces" on the Render page, ticked by default, swapping between two compiled copies of the march, each
+    the program whose row he read. His word: "yes, that place is fine for the switch." Build 193 (mark 5dd6f0c):
+    ticked and unticked match build 192's on and off to the test's noise; flipped mid-run, the next frame is the other
+    picture but for what a ray keeps from the frame before. The cost: the game starts about 6 s later (two copies of
+    the march compiled), until the rule is decided and one copy goes. No flight: the programs are build 192's. Owed:
+    his look, on "launch".
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
