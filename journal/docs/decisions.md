@@ -2557,6 +2557,24 @@ Reference: `Art/quartile minecraft illustration.png`
     near field's edge the place to get right; one light and one set of colours for both drawers at first; a step a
     build. *Counsel:* this matches Counsel's lean when he asked (triangles for everything near, rays far), and
     David's "it seems wasteful to hit a single triangle a hundred times".
+- **[DECIDED 2026-11-16] The near eye's goal: a 64-chunk radius, smooth beside the far march** (David, to Builder,
+  answering her proposal to start the near field at about 128 blocks): "in old incus artus, i was playing with a 64
+  chunk render radius, which i believe would be 2000 blocks. the overlap can be pretty deep. that may be excessive
+  render radius but i don't think so for a whole town, so my goal would be 64 chunk render radius running smoothly
+  along with the far march like we have it now, which is super quick."
+  - Checked by Builder: old's chunks were 32 blocks, so 64 is 2,048, his figure; the record (`journal/docs/far-view.md`,
+    builds 27 and 42) has his old preset as render distance 64 with "the march starts at" 8, so old kept real blocks
+    to 2,048 and drew them to 256 (told him as the record's, with its date, not as a correction of his goal).
+  - Sized by arithmetic only: 13.2 million columns, about 16,600 chunks, 26 million triangles unmerged, a block under
+    a pixel past about a kilometre; so it wants merged faces, drawing only what's in view, and coarser cells for
+    plain ground far out; the far march begun at the radius' edge loses most of its work. Put to him: every block
+    true out to 2,048, or built things true all the way with plain ground stepping down in detail as the far eye
+    draws it now.
+  - *Counsel's note:* the plan's "What every step keeps" already says "hard textured blocks near; past a pixel,
+    cells that are the exact sums of their blocks". Past about a kilometre a block is under a pixel, so blocks
+    "true" there would be an exception to that rule (his to make), and triangles smaller than a pixel shimmer as the
+    eye moves and cost the card more per pixel than larger ones. The second choice keeps the rule for ground; for
+    built things past a pixel, the far eye's cover by faces already holds walls and towers.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its

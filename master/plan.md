@@ -15,7 +15,9 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   doorway's answers, to bring David its first step and its pass mark before any code. The near eye is triangles, the
   pieces too, drawn first so their depth spares the far rays they cover (his word, 2026-11-16: "I believe we should
   try to accomplish the rest of the graphics engine with triangles. rays may come in later for different cases";
-  his "Yes, fly both" gives way, near rays not now). Two of the Oracle's questions to him
+  his "Yes, fly both" gives way, near rays not now). His goal for it: "64 chunk render radius running smoothly along
+  with the far march like we have it now" (2,048 blocks; old drew real blocks to 256); put to him: every block true
+  out to 2,048, or built things true all the way with plain ground stepping down. Two of the Oracle's questions to him
   (`journal/vision/oracle-prompt-2026-11-14.md`) bear on it now: what the far eye should show between the blocks'
   edge (about 340 blocks) and a kilometre, and whether the near eye still draws blocks out to about 336; the 4s' and
   2s' rings are decided on those.
