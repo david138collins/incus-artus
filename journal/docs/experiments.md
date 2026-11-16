@@ -6804,3 +6804,92 @@ enters a chunk; as the eye walks on inside that chunk, the far side's circle mov
 wanted yet, so the edge of the near picture isn't an even circle until the next chunk is crossed.
 
 All 40 tests pass (the map redrawn).
+
+### Build 197 flown (2026-11-16): the near eye's window. 240 a second holds at 64 chunks at every standing mark; the far eye is dearer with the near eye on (a miss, its cause found)
+
+**The window** (NVIDIA only, mains, one screen, hands off, 11:27 to 12:05; before it the card read 6 to 17% busy
+at rest, the desktop's own): two traces at the mountain top (`logs/nsight/b197/b197-near-off/` and
+`b197-near-64/`), then five flights, `INCUS_FAR_SIDE=1` with: the near eye off (`flight-1794850683`), on at 4
+chunks (`-1794851080`), 16 (`-1794851486`), 64 (`-1794851956`), off again (`-1794852349`). No error in any log.
+The flights' new fittings ran for the first time and worked: each standing mark waited for the near eye's
+chunks (0.0 to 36.7 s; none reached the three minutes), and every standing has the near eye's line.
+
+**Said first, about the session:** the processor's area read 103 to 104 degrees through most of every flight,
+105 once (fast across the world at 64 chunks). It was hot before take-off: Builder had run tests and pictures for
+a quarter of an hour right up to it. So the processor's side of every frame in this window is slower than a cool
+session's (where the processor bounds the frame, the off flights' frames are 18 to 30% longer than build 194's
+own flight, whose processor read 74 to 90 at its first eight standings); the card's times aren't touched by it.
+Next window: a cool-down first.
+
+**Against the window's mark:**
+
+1. **Off is build 194's: met on the card, but for a hair at the mountain top.** The card's whole, off, off again,
+   build 194's own flight: the spawn 0.483, 0.482, 0.484; the plain 0.570, 0.571, 0.571; high over the spawn
+   1.117, 1.122, 1.116; the sea 0.661, 0.661, 0.664; the mountain top 1.075, 1.086, 1.062 (the two offs 1% apart,
+   and 1 to 2% over build 194's, the same steps to the ray: 6,571,675).
+2. **The far eye no dearer with the near eye on: MISSED.** The far eye's five passes on the card, ms (off; 4;
+   16; 64 chunks):
+
+   | view | off | 4 | 16 | 64 |
+   |---|---|---|---|---|
+   | the spawn | 0.474 | 0.481 | 0.490 | 0.519 (+9%) |
+   | the mountain top | 1.067 | 1.243 (+16%) | 1.241 (+16%) | 0.760 (-29%) |
+   | the bare plain | 0.563 | 0.667 (+18%) | 0.678 (+20%) | 0.679 (+21%) |
+   | high over the spawn | 1.108 | 1.115 | 1.114 | 0.724 (-35%) |
+   | low over the sea | 0.652 | 0.659 | 0.654 | 0.700 (+7%) |
+   | the plain, nodding | 0.568 | 0.677 (+19%) | 0.701 (+23%) | 0.648 (+14%) |
+
+   **Its cause, read from the rays' counts and then seen in a picture.** The far rays are begun a set distance
+   out (88 blocks at 4 chunks), every one of them, whatever lies nearer. A ray looking down at ground nearer than
+   that begins inside the ground: it draws stone at once. Where that distance meets the surface there is an edge
+   in the far picture, stone against grass, that isn't in the world; the far eye takes it for a skyline and sends
+   its finer layer there, and the rays that begin right at the surface skim along it and run long. On the bare
+   plain the finer layer marched no ray with the near eye off, 3,824 at 4 chunks and 17,332 at 64; the threads
+   held 1.40 million steps off, 1.89 million at 4. (The picture: the far eye alone on the plain, `INCUS_TEST_BEGIN=88`:
+   grey stone over the lower third of the screen under an arc, grass beyond it. In the game the near faces cover
+   all of it.) At 64 chunks from high ground the far eye is a third cheaper all the same: most of its rays' way
+   is skipped.
+   **What mends it is the step already next on 2.3's list:** the near faces' cover cancelling far rays. A far ray
+   isn't marched at all where an opaque near face covers its pixel, and so none begins inside the ground and no
+   false edge is made. That wants the near eye drawn before the far eye marches, into a picture and depth of its
+   own; the same thing David's x-fader wants (below).
+3. **At 64 chunks the frame holds the screen's 240 a second at every standing mark: MET,** on a hot processor.
+   The frame's median: high over the spawn 3.39 ms (295 a second), the spawn 3.01 (332), the mountain top 2.50
+   (400), the plain, the sea and the built marks 1.60 to 1.78 (560 to 630). The 99th is under 4.17 ms too but at
+   high over the spawn (4.27); the worst frame at any standing mark 10.0 ms (once, at David's build).
+4. **Said as they are, the dearest first:**
+   - **On the card at 64 chunks the near faces are now the dearest thing in the frame by far:** 2.60 ms high over
+     the spawn (11.2 million triangles drawn), 2.43 at the spawn (10.3 million), 1.66 at the mountain top (6.9
+     million); the far eye beside them 0.72, 0.52, 0.76. About 0.24 ms for each million triangles. On the plain
+     and the sea 0.18 to 0.20 ms (0.35 to 0.62 million). The near water 0.01. The card's whole at 64: 3.36, 2.98,
+     2.45 ms at those three, 0.89 on the plain. At 16 chunks the near faces are 0.06 to 0.21 ms; at 4, 0.01 to 0.07.
+   - **On the processor at 64 chunks, listing the chunks in view costs 0.8 to 1.1 ms every frame,** whatever is in
+     them (the plain's 0.35 million triangles the same as the spawn's 10 million): 4,400 to 5,100 chunks each
+     tested against the view and given a draw, each frame anew; and handing the card its work is 0.2 to 0.4 ms
+     dearer with those draws in it. So the plain's frame at 64 is 1.74 ms against 0.76 off, nearly all of it the
+     processor's. At 16 chunks the listing is 0.05 ms; at 4, 0.02. Putting the chunks on the card: 0.02 ms.
+   - **Moving at 64 chunks.** A player's run over the plain (the mark flies at 200 blocks a second): the
+     frame's median 2.39 ms, 99th 5.0, worst 9.8 (off: 0.78, 1.84, 6.5); chunks were still coming in every
+     measured frame, the faces reaching 1,351 blocks at the least; each chunk crossed costs its frame 2 to 3 ms
+     on the processor (the asking anew: 13,100 chunks sorted and looked up). Fast across the world (2,000 blocks a
+     second): 99th 7.9 ms, worst 16.0 (off: 4.3 to 5.2, 9.5 to 11.3). At 16 chunks there, one frame of 37 ms:
+     putting the chunks on the card took 24 ms once. Not looked into.
+   - **The built marks, measured with what's built for the first time.** David's build (23 whole blocks): nothing
+     that can be measured over the bare plain. The scatter, the near faces at 4 chunks: 1,000 blocks 0.07 ms
+     (bare: 0.05), 10,000 blocks 0.17, 100,000 blocks 0.51 ms for 0.36 million triangles: about 1.3 ms a million,
+     five times the ground's rate. They're near, large on the screen and many deep behind one another, and every face
+     is blended as if it might be fading.
+   - **Memory at 64 chunks:** 168 MB of faces on the card (28.8 million triangles kept at the spawn); the card's
+     memory 1,247 MB in use, 2,215 held; the main memory 3.3 GB.
+   - **The filling, as the flights waited for it at 64 chunks on 6 threads:** 36.7 s at the spawn (the far cells
+     are summed on the other threads then), 2.6 to 18.5 s at the marks after.
+
+**The trace's rows are David's to read** (asked: the Shader Pipelines tab of the near-64 trace).
+
+**What this says for the next step (Builder's reading, David's call):** at 64 chunks the two high spots are the
+card's 2.4 to 2.6 ms of near faces where 10 million triangles are in view, and the processor's 1 ms of listing
+chunks every frame. At small radii the high spot is the far eye's own 0.1 to 0.18 ms more. Drawing the near eye
+first, into a picture and depth of its own, serves three things at once: the far rays cancelled under near cover
+(the miss above, and the far eye cheaper wherever blocks fill the view), his x-fader (the two pictures joined by
+a curve a pixel at a time, with no fading faces hiding the ones behind them), and each pixel of the near picture
+shaded once instead of once for every face behind it.

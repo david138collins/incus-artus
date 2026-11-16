@@ -88,8 +88,17 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** nothing now; the near eye's tests are Builder's to run on his word ("go ahead with the
-  tests", 2026-11-16). He looked at build 195: "holds 240fps at 64 chunks, once its loaded in"; flying very fast,
+- **The near eye's tests are flown** (build 197, 2026-11-16, `journal/docs/experiments.md`): **at 64 chunks the
+  frame holds the screen's 240 a second at every standing mark** (the slowest 295 a second, high over the spawn,
+  on a hot processor); the near faces are then the dearest thing on the card (2.4 to 2.6 ms where 10 million
+  triangles are in view, the far eye 0.5 to 0.7 beside them) and listing the chunks in view costs the processor
+  1 ms a frame. **A miss:** the far eye is 16 to 21% dearer with the near eye on at ground views (its rays begin
+  inside the ground under the near faces and make a false edge); mended by the step already next, the near
+  faces' cover cancelling far rays. **Waiting on David:** his reading of the trace's rows; his look at build 198
+  (the debug panel's pages scrolling and folding, his "your way of folding the content of the debug pages is
+  fine"); and his word on the next step as Builder puts it to him: the near eye drawn first into a picture and
+  depth of its own, for the cancelling, his x-fader, and each pixel shaded once. Before the flights (his "go
+  ahead with the tests", 2026-11-16) he looked at build 195: "holds 240fps at 64 chunks, once its loaded in"; flying very fast,
   90 to 120 a second while chunks are made ("i don't think a player could experience a hiccup. off to a good
   start"); "there is a seam, but, its not very bad, and i think a x-fader with curves could hide it almost
   completely so blocks smoothly fade into rays". **Next for him after the tests:** the x-fader drawn up, its
