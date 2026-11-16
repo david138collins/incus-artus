@@ -6714,3 +6714,59 @@ and far, chunks arriving, and 64 chunks. **His words:** "holds 240fps at 64 chun
 - a slow place found by reading, in the frame's own code: each time the eye crossed into a new chunk, every
   wanted chunk was looked for by walking all the chunks made and waiting for their frame (thousands by thousands
   while a radius fills). Looked up in a set now.
+
+### David on the near eye's filling and its seam (2026-11-16): "off to a good start. go ahead with the tests"; build 197's mark (the flights' fittings) and the window's
+
+**His words, whole** (after build 195's look; build 196 isn't launched yet): "if i fly very fast the FPS go down
+to 90-120 while its generating chunks. i don't think a player could experience a hiccup. off to a good start. go
+ahead with the tests. there is a seam, but, its not very bad, and i think a x-fader with curves could hide it
+almost completely so blocks smoothly fade into rays."
+
+- **The filling:** flying very fast, 90 to 120 a second while chunks are made, and by his judgement nothing a
+  player would meet. Written down, not worked on (his judgement; and build 196's two changes for the filling
+  haven't been seen by him yet).
+- **"go ahead with the tests":** his word for the hands-off window (a trace, and the bracket of flights).
+- **The seam** where blocks hand over to rays: "not very bad". **His idea: an x-fader with curves,** so blocks
+  fade smoothly into rays. To be drawn up and brought to him after the tests, its controls' place and names asked
+  of him first.
+
+**Found by reading, on the way to the flights:** a mark's changes (his build at "the plain with David's build",
+the scatter's blocks) are made through the game's own doorway, and neither eye has ever read them there: the far
+lane sums the map as it was made, and the near lane's threads each have a doorway of their own. Those four
+standings have flown as the bare plain since the rebuild began (they're the near eye's marks, and there was no
+near eye). Build 195's mark has "a chunk made again when a change touches it" down as not built; without it the
+flights say nothing of built things. A second thing found the same way: each frame the near eye walks every
+wanted chunk to find how far its faces reach (13,100 look-ups a frame at 64 chunks, on the processor).
+
+**Build 197's pass mark** (the flights' fittings; nothing of either eye's program on the card changes):
+
+1. **The near lane hears of changes.** When a mark's changes are made (and the mark before's taken back), the
+   lane is told, and every chunk either set touches is made again; a chunk's old faces are drawn until its new
+   ones come. Whole blocks only: bars (his build has them) aren't the near eye's yet, as before. *Mark:* a test,
+   a lane told of a placed block hands that chunk over as the mesh made directly with the block, and told it's
+   taken back, as it was before; and a look by Builder off the screen at "the plain with David's build" with the
+   near eye on: his build's whole blocks stand there.
+2. **A flight waits for the near eye.** A standing mark's settling doesn't begin until the near eye's chunks are
+   all in there (three minutes at the most; then it's measured as it is and the report says so). A moving mark
+   isn't waited for: its chunks keep coming, as a player's would.
+3. **The near eye's line in each standing of a flight's report:** the radius, chunks in and drawn, triangles
+   drawn (the most in a frame) and kept, the pages' memory, how far its faces reached (the least), where the far
+   rays began, a chunk's meshing time, how long the chunks took to be all in.
+4. **The reach found without the walk:** how far in the wanted chunks are all in is remembered from frame to
+   frame. *Mark:* the same reach as the walk gives (the picture test's pictures at radius 4 and 64 the same as
+   build 195's to the pixel).
+
+**The window's pass mark** (hands off, about 45 minutes: two traces at the mountain top, the near eye off and on
+at 64 chunks; then five flights, the near eye off, on at 4, at 16, at 64, off again):
+
+- **Off is build 194's:** the two off flights agree with each other and with build 194's own (the far eye's
+  whole 0.48 to 1.12 ms over its nine views), to within the bracket's own spread.
+- **The far eye is no dearer with the near eye on,** at any standing, beyond that spread (its rays begin farther
+  out; nothing else of it changes).
+- **At 64 chunks the frame holds the screen's 240 a second at every standing mark** (its median under 4.17 ms).
+  This is David's goal put as a number, and it isn't known to hold: the spawn held by his look, the mountain top
+  has more in view.
+- **Said as they are, the dearest first, no number promised:** the near faces and the near water on the card at
+  each radius, putting the chunks on the card on the processor, the moving marks (where chunks are still coming),
+  and the four standings with built things, measured with them for the first time.
+- **The trace:** the near faces' rows beside `march_all`'s, read by David in Nsight's own window.
