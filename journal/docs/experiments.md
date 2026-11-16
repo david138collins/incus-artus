@@ -5908,3 +5908,75 @@ as seen. It was the land in front (grass, sand), and the notes are put right: th
 
 **Owed:** its size on the card (two Nsight rows, off and on, David's to read); the flights, off then on in one
 session; David's look on the stage.
+
+### Build 191 traced and flown (2026-11-16, 06:07 to 06:31, hands off): cover by faces costs about 2% of the march at every mark; two marks over the line
+
+On David's word ("go"). Two Nsight traces at the mountain top, the rule off and on
+(`logs/nsight/b191/b191-off/incus_artus_2026_11_16_06_09_15.ngfx-gputrace`,
+`logs/nsight/b191/b191-on/incus_artus_2026_11_16_06_11_13.ngfx-gputrace`; each session's log says it stood at the
+mountain top, and which program it ran), then three flights as launched: off (`logs/flight-1794831480.txt`), on
+(`-1794831876`), off again (`-1794832272`), all "the code committed". No hitch. **Before take-off the card read
+about 20% busy with the desktop's own compositor** (4% before yesterday's flights); flown all the same, since the
+off flights are build 190's program and say whether the session is comparable: it is (below).
+
+The march (the far 8 x 8 on the card, ms, the median):
+
+| mark | off | on | off again | on against the two offs' mean |
+|---|---|---|---|---|
+| on the ground at the spawn | 0.362 | 0.372 | 0.362 | **2.8% more** |
+| the mountain top | 0.919 | 0.939 | 0.929 | 1.6% more |
+| the bare plain | 0.446 | 0.455 | 0.448 | 1.8% more |
+| high over the spawn | 0.973 | 0.996 | 0.982 | 1.9% more |
+| low over the sea | 0.530 | 0.543 | 0.538 | 1.7% more |
+| a player's run over the plain | 0.591 | 0.606 | 0.591 | **2.5% more** |
+| fast across the world | 0.662 | 0.651 | 0.617 | (the two offs 7% apart: says nothing) |
+| the plain, nodding | 0.449 | 0.455 | 0.450 | 1.2% more |
+| the sea, nodding | 0.518 | 0.529 | 0.519 | 2.0% more |
+
+The card's whole over the nine views: 6.576, 6.671, 6.559 ms: on 1.6% over the offs' mean. The dearest view, high
+over the spawn: 1.125 ms on, for 1.102 and 1.111.
+
+**Against the mark:** the two marks where the card works within 2% of off: 1.6% and 1.9%, met (the second by a
+hair). No other mark over off by more than 2%: **missed at the spawn (2.8%) and the run (2.5%)**, and the sea
+nodding sits on the line.
+
+**Builder's reading:** it costs the same where the card waits as where it works, and the steps are level, so it's
+the rule's own arithmetic at every step (it's worked out at every look, in air too, in five places of the program),
+not a program grown past what the card holds [build 185's sign was the two working marks alone, 4.5%]. David's
+reading of the two rows says whether that's right. A cheaper form is next (build 192, its mark below).
+
+**Yesterday's reading of build 190 corrected.** Its flight read the two working marks 1 to 2% over build 189's,
+with the same work counted; Builder put it down to a hot machine and wrote that a cool start would say. Today's
+off flights are build 190's program from a cold machine (the card at 26 degrees before take-off): the mountain top
+0.919 and 0.929, high over the spawn 0.973 and 0.982, for build 189's 0.913 and 0.963 and build 190's 0.923 and
+0.980. So it wasn't the heat. And two flights of the one program in one session differ by 1% at these marks: a
+single flight can't tell a 1% change from none. Build 190 may be up to 1% dearer than 189 where the card works,
+or not at all; it isn't chased, and Builder stops reading 1% between single flights as anything. (A mark's line
+of 2% needs the bracket flown here, off, on, off, to mean something.)
+
+### Build 192, cover by faces where a step is gathered: the pass mark (written before the code)
+
+**What's to change:** the same rule, moved. The march already works out how much face a cell shows the ray, for
+its light, at each step that gathers (`faces_light`, for both ends of the step). There the step's cover becomes
+the greater of the bulk's share and the faces' (the two ends' mean), with one more power. In a hand-over the
+coarser look's faces are turned into the finer cell's as its bulk is (`by_finer_cell`), so the rule is still each
+level's own. Steps through air, the most of them, do nothing new; and the stepping itself goes by bulk as build
+190's did, so the path of a ray's steps is build 190's until its cover ends it.
+
+**The pass mark.** Off the screen:
+
+- **Off, it's build 190:** the five marks' pictures with `INCUS_FAR_FACES=0` are build 190's but for the test's
+  own noise.
+- **On, it's build 191's look:** the stage's three views (the castle from above, the plain's group, the town from
+  above) show what build 191's did (walls solid, the arch and the far spire read, roofs their colour, woods solid);
+  the pictures on against build 191's on, as numbers, and looked at.
+- **No bands over shallow water** (the shelf's view, on against off).
+- **The five marks on against off**, as numbers; **the steps** no more than off's by over 1% at any mark.
+- All the tests pass.
+
+Its size on the card: the off row is build 191's off trace (the same program); one new trace with it on, David's
+to read. The mark as build 191's: 12 groups still fit, nothing more put by than off.
+
+By flights (on David's word; off, on, off again in one session): every mark's march within 1% of the two offs'
+mean, or at least under build 191's cost at every mark. If it isn't cheaper than build 191, said, and build 191's
+form stays the one David looks at.
