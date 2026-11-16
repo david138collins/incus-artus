@@ -52,8 +52,11 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   more with nothing put by and about half a percent of the march once trimmed (builds 192 to 194); a "Cover by
   faces" tick box on the Render page for his A/B (build 193). His look: "looks good", kept and on. Lazy rays are
   shelved, kept in the back pocket "if we ever get a performance squeeze limited by long rays"
-  (`journal/docs/lazy-rays.md`). His weights by kind wait. Next asked of him: the land's own edge by a height table,
-  pocket or now; the Intel card's flight (Optimus and a restart); then the far eye's gate and the near eye. Both near drawers are flown before the fork ("Yes, fly both").
+  (`journal/docs/lazy-rays.md`), and the land's own edge by a height table beside them
+  (`journal/docs/cover-by-height.md`), with the march mapped by its parts for a later pass to free room
+  (`journal/docs/march-by-parts.md`): "if i become dissatissfied with some views in a fuller game i'll come back to
+  cover by height and lazy rays and there may be a final check pass against the engine later anyways." His weights by
+  kind wait. Next: the Intel card's flight (Optimus and a restart); then the far eye's gate and the near eye. Both near drawers are flown before the fork ("Yes, fly both").
 - **Just closed:** 2.1, done enough to go on (David: "yes, close 2.1. let us proceed."). Old is packed into `old\`
   and still runs; the journal is in `journal/`. The new project runs from the top of the folder (build 120; the
   numbers carry on from old's): a flying camera on old's keys, the panel (F3), the clocks a pass at a time, and the

@@ -2499,6 +2499,28 @@ Reference: `Art/quartile minecraft illustration.png`
     known, how to resume). Next asked of him: whether the land's own edge by a height table goes in the same pocket
     or is built now, and when the Intel card's flight is flown (Optimus and a restart, which ends the sessions: notes
     written first); then the far eye's gate and the near eye.
+  - **[DECIDED 2026-11-16] Cover by height shelved beside lazy rays; the march mapped by its parts** (David, to
+    Builder). Asked first: "would the lands own edge by a height table work with mountains in front of mountains as
+    well as in front of sky"; Builder: yes by its design (the edge worked out at the near ridge, whatever is behind),
+    though a far ridge's sideways steps stay as wide as its columns, anything not plain ground keeps the march, and
+    none of it is built. Then his word: "please pack it up next to lazy rays, along with scanning the march and
+    noting in a file anything that can later be removed from the march to free up room on it; i would like for a
+    sort of 'windirtree' view of the march by its components, and the size of those components inside the march, if
+    possible, so that later review could identify ways to further improve it by removing sections that do little and
+    replace them with something else. if i become dissatissfied with some views in a fuller game i'll come back to
+    cover by height and lazy rays and there may be a final check pass against the engine later anyways."
+    - Shelved, not dropped: the land's own edge by a height table and the sheet that hung on it
+      (`journal/docs/cover-by-height.md`). "A final check pass against the engine later" is when these documents and
+      `lazy-rays.md` get read again.
+    - The scan (`journal/docs/march-by-parts.md`, the script and build 194's program texts in `kept logs/march/`): the
+      march is 4,548 instructions; about a third finding where a read lands in the bricks' textures, mostly edge
+      cases; the hand-over's second read a quarter; the gather a twentieth. It carries 98 values round its loop (97
+      with cover by faces off, his rows' one register), 45 of them the two levels' numbers and the height table's
+      rows kept in hand. Eleven candidates for making room; first, a guard naga adds to every loop that wgpu lets a
+      trusted shader leave out. Only test code changed (34 tests pass); nothing to fly.
+    - *Counsel's note:* the first candidate is of the kind experiment 3 tried (the library's checks taken off), which
+      made the heavy views a third to a half *slower* (team kit: "price each program checked and unchecked; don't
+      assume either"); it would want its own flight, taken alone.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
