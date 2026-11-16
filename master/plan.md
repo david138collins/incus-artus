@@ -562,14 +562,28 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
 | ~~The cells of 2 to 16 blocks: in the far eye's march before the fork, or in 2.3?~~ | Answered by the Oracle, as David left it: before the fork, after the lean step and the layers side by side |
 | ~~The Oracle's third part's changes to 2.2's order (its section 11)?~~ | Answered 2026-11-12: "Yes, its order" |
 | One budget at the fork (the Oracle's split: far 1.2 typical and 2 worst, near 1.5, finishing 0.4, 0.9 left), read moving at the 99th? | The fork |
-| At the skyline's look: haze, as now, or cover (with the column-height table, and the sheet flown as rival if cover)? | Its look in 2.2 |
-| Lazy rays' far squares fixed to the world or to the screen? | When lazy rays are built |
+| ~~At the skyline's look: haze, as now, or cover (with the column-height table, and the sheet flown as rival if cover)?~~ | Answered 2026-11-16: cover by faces for what stands, in ("looks good"); the land's own edge by a height table, and the sheet with it, shelved (`journal/docs/cover-by-height.md`) |
+| Lazy rays' far squares fixed to the world or to the screen? And refreshed all at once or piece by piece? | If lazy rays are taken up (shelved 2026-11-16, `journal/docs/lazy-rays.md`) |
 | The moons: does the brighter one cast shadows? | 2.4 |
 | People far off: sharper than the squares behind them, or drawn into them? | 2.4 |
 | Leaves far off: a little see-through, as the averages make them, or solid? | 2.4 |
 | "1 always equals 1" as one stored answer everything reads, in David's words | 3.1 |
 | Rivers and the shore: carried over first, or rearranged on the way? | 3.4 |
 | The rejector: what makes one world better than another? | 3.5 |
+
+**For the later look back at the far eye** (David, 2026-11-16: "as long as we're set up to look back into the
+graphics engine at a later date, we can proceed"; "there may be a final check pass against the engine later
+anyways"). Everything set aside on the way, in one place, each with where to pick it up:
+
+| Set aside | Take it up when | Where it's packed |
+|---|---|---|
+| Lazy rays (far land kept as a picture round the eye, redone as the eye travels) | the far eye's time is in the way and the far part of its rays is where it goes | `journal/docs/lazy-rays.md` |
+| Cover by height (land's edge crisp against land and sky, by a height table), and the sheet that hangs on it | David is dissatisfied with far land's edges in a fuller game | `journal/docs/cover-by-height.md` |
+| Room in the march: eleven candidates for what could come out or be made lighter | something new wants into the march (it has two registers of room), or the final check pass | `journal/docs/march-by-parts.md`; the script and build 194's trees in `kept logs/march/` |
+| The Intel card's flight, the last line of the far eye's gate (David: "we can do that later"); with it, the new march priced checked and unchecked, each of the library's three checks alone (Phase 2's rule, slipped) | the laptop is next switched to "Optimus" (a restart, which ends the sessions: notes first) | `journal/docs/experiments.md`, 2026-11-16; the candidates' first note in `march-by-parts.md` |
+| David's weights by kind, to pull thin far things up (26 classes that could carry one were sent him) | he asks for it | `journal/docs/experiments.md`, build 191's mark; `journal/docs/decisions.md` |
+| The long rays' list filling where there's much detail (the run with the scatter stage on: 4,686 rays long for 4,096 places, 39% dearer) | the world has real detail in it | `journal/docs/experiments.md`, builds 188 and 189 flown; one number, `LONG_LIST` |
+| Small things written down and not mended: the last stride at the map's edge; the picture test's noise from run to run, and which compiler it uses; the main-memory test that fails now and then | they show, or the final check pass | `journal/docs/experiments.md` (builds 182, 183, 189; 2026-11-16) |
 
 ## The targets
 

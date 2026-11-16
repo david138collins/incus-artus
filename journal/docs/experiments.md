@@ -6394,3 +6394,20 @@ of DirectX compiler to wgpu (DXC if it finds one, else the old FXC), where the g
 (`card.rs`); the test now names the game's only when it's asked to keep the text. Which compiler the pictures
 checked off the screen have been made by isn't known. No difference has ever shown against the game; it isn't
 known that there's none.
+
+### The far eye left as it stands, and on to the near eye (2026-11-16, David's word)
+
+Asked when the Intel card's flight should be flown (it needs the laptop switched to "Optimus" and restarted),
+**David:** "we can do that later. as long as we're set up to look back into the graphics engine at a later date,
+we can proceed."
+
+So the far eye's part of the plan (2.2) is left as it stands, its gate's last line (the Intel card's numbers)
+owed, and the work goes on to the near eye (2.3). What "set up to look back" rests on is listed in one place in
+`master/plan.md` ("For the later look back at the far eye"): lazy rays and cover by height, each packed in its
+own document; the march by its parts, with its candidates; the Intel flight and the checked and unchecked pricing
+owed with it; his weights by kind; the long rays' list; the small things written down and not mended.
+
+**Where the far eye stands as it's left** (build 194, the game as launched, cover by faces on; the card's whole,
+ms, from its flight): the mountain top 1.06, high over the spawn 1.12, fast across 0.76, the run 0.74, the sea
+0.66, the sea nodding 0.65, the plain nodding 0.58, the plain 0.57, the spawn 0.48. Everything under 2 ms, his
+bar of 2026-11-13; two views over 1. Its march's size on the card: 168 registers, nothing put by, 12 groups.
