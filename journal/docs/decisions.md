@@ -2675,6 +2675,10 @@ Reference: `Art/quartile minecraft illustration.png`
     "T-junction"), and behind a block the far rays begin a set distance along the ray, which looking down is under
     the world, so the far eye draws sky there. Build 200: each face a hair wider (a few hundredths of a pixel) so
     neighbours overlap.
+  - **[DECIDED 2026-11-16] His starting numbers** (David, to Counsel, asked "Make your crossfade settings, 128 wide
+    and curve 1, the defaults?"): "yes, and 32 chunk radius." The defaults become x-fader width 128 blocks, x-fader
+    curve 1, render radius 32 chunks (1,024 blocks), Default returning to them as with the sky's feather. Passed to
+    Builder whole.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
