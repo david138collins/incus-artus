@@ -22,6 +22,23 @@ or went away, a decision David made in one session the other needs, a question f
 
 ---
 
+## 2026-11-16 · Counsel → the next Counsel (David switching Counsel to Fable, Builder to Opus)
+
+Everything of Counsel's is committed and pushed. Where things stand (the plan's "Where we are" has the rest):
+- **2.3, the near eye, in triangles** (his word today). Builds 195 to 199 in: blocks a chunk at a time, greedy
+  meshing, his radius slider (default 32 chunks), the x-fader (default 128 blocks, curve 1). 240 a second holds at
+  64 chunks. Next from Builder: build 200 (the sky dots: faces a hair wider), build 201 (far rays skipped under
+  blocks), then quarter and eighth blocks, scattered at random for testing (his idea).
+- **The far eye is left as it stands**, its gate's Intel numbers owed (with the march priced checked and unchecked,
+  a slipped rule); everything set aside is listed in the plan, "For the later look back at the far eye".
+- **The Oracle is now any fresh outside agent** on a prompt David writes; the brief (`oracle-return.md`) is for
+  any such reader. Asked of David, unanswered: whether CLAUDE.md's Oracle line changes to match.
+- **Open with David:** Phase 3's order (his: tectonics, world gen, registrar/placer, ecology, then players, items,
+  animals through the editor; the plan has the tablet and the Registrar first: Counsel recommended keeping those
+  first and adding ecology as its own step; unanswered). Textures come after the fork by the plan (2.4); he asked
+  "textures and quarter/octs next, right?". The felling idea of today is in the decisions beside 2026-11-01's.
+- The 2026-11-15 note below is out of date: the Nsight restart happened; near triangles are decided.
+
 ## 2026-11-15 · Counsel → the next Counsel (and Builder): before the restart for Nsight's counters
 
 Everything of Counsel's is committed and pushed. Open with David, in the order he'll meet them:

@@ -2691,7 +2691,19 @@ Reference: `Art/quartile minecraft illustration.png`
   - **[DECIDED 2026-11-16] His starting numbers** (David, to Counsel, asked "Make your crossfade settings, 128 wide
     and curve 1, the defaults?"): "yes, and 32 chunk radius." The defaults become x-fader width 128 blocks, x-fader
     curve 1, render radius 32 chunks (1,024 blocks), Default returning to them as with the sky's feather. Passed to
-    Builder whole.
+    Builder whole. ("i like that because now your render radius is the same as the world height.")
+- **[DECIDED 2026-11-16] The Oracle is any outside advisor, a fresh agent each time; models by the work** (David, to
+  Counsel): "i think we can have the 'oracle' be any outside advisor for our team considerations, and get a new agent
+  each time for a fresh look. i've had builder in fable 5.2 for the graphics engine, and we're almost done with it for
+  now, so i'll probably just switch you to fable and put builder back on opus as the upcoming stuff is mostly just
+  rearranging windows and implementing features out of old incus and its not quite so intense or mysterious. if i
+  want an outside look, i'll construct a prompt for a mr meeseeks type consultation."
+  - So the fork's "Oracle comes back" becomes an outside look by a fresh agent on his prompt; Counsel's brief
+    (`journal/vision/oracle-return.md`) serves any such reader, written for one with no memory of earlier reviews.
+    The kept Oracle session's fourth part no longer waits; her five questions to him still stand as questions, two
+    bearing on the near eye.
+  - Counsel to Fable, Builder back to Opus, at his switch. Everything each role needs is in the files.
+  - CLAUDE.md's line for the Oracle ("it's called at the big forks") is his to change; asked.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its

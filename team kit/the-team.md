@@ -14,7 +14,12 @@ part of the writing.
   gathers what we learn for the Oracle. Counsel doesn't hold the plan in its head: it observes it, protects it,
   informs Builder on it, and works with David to change it.
 - **The Oracle** reads and never edits, except its own review file. It's called at the big forks, reads fresh, and
-  questions the structure and the axioms: "find a more elegant form that does it with less".
+  questions the structure and the axioms: "find a more elegant form that does it with less". It's any outside
+  advisor, a fresh agent each time, summoned for one consultation by a prompt David puts together, so every look is
+  a fresh one; it carries nothing from the last but what's written down.
+- **Each role's model is picked by the work ahead:** the strongest for the hardest, least charted work (a new
+  engine), a steadier one for arranging and porting. Everything a role needs is in the files, so a role can change
+  model, or session, without losing its place.
 
 ## The three kinds of writing
 
@@ -70,7 +75,9 @@ Session transcripts aren't a store: they're summarised and forget.
 
 ## The Oracle's part
 
-- Is called at the forks the plan names, and early when David asks.
-- Reads `master/` fresh first, then Counsel's brief, then the experiments and their logs.
+- Is called at the forks the plan names, and early when David asks: a new agent each time, never a kept session, so
+  its eyes are fresh.
+- Reads `master/` fresh first, then Counsel's brief, then the experiments and their logs. The brief is written for a
+  reader with no memory of any earlier review.
 - Writes only its review file. Its answer is then put to David by Counsel, point by point, with Builder's read.
 - Questions what's treated as rock solid, and says which assumption it's questioning and why.

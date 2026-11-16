@@ -542,7 +542,8 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
     of what was planned. Still his: 1.5 ms or under at every ground mark, and his eye for pops and seams, above
     all where near hands over to far (`journal/docs/experiments.md`, 2026-11-16)
   - *Gate:* the rule above; David's eye for pops and seams; the scatter's curve (cost should follow the screen)
-- [ ] **The fork. The Oracle comes back:** flight logs from both cards and David's look; it reads `master/`
+- [ ] **The fork. An outside look** (the Oracle: any outside advisor, a fresh agent each time, on a prompt David
+      puts together; David, 2026-11-16)**:** flight logs from both cards and David's look; it reads `master/`
       fresh, then Counsel's brief, `journal/vision/oracle-return.md`. The design is fixed here, or changed
 - [ ] **2.4 The eye, whole:** the light lane, water and glass, quarter blocks, textures, objects, glows, far lights
   - [ ] The doorway's pieces, objects and lights, as the eye first draws them (carried from 2.1)
