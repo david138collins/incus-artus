@@ -2666,6 +2666,15 @@ Reference: `Art/quartile minecraft illustration.png`
     cost owed a bracket on his word. Next, under his go: build 200, far rays skipped under blocks (the near eye drawn
     before the far march, a small pass saying which far pixels are wholly covered, the march not marching those);
     it touches the march, so an off and an on trace for him to read and a bracket of flights, on his word.
+  - **His look at builds 198 and 199** (with a picture): "the fade looks good, and the panel folding is good. i notice
+    speckling white dots of sky when looking down and moving." The x-fader and the folded panel kept. In his picture
+    the x-fader stood at 128 blocks wide and curve 1 (they start at 64 and 2); the starting numbers left until he
+    says. The dots are holes, mended first: build 200 the dots, build 201 the far rays skipped under blocks. Found off
+    the screen, looking down from above: 38 to 117 lone pixels of sky in solid ground, from two causes together:
+    merged faces meeting at different corners can leave a pixel neither covers (greedy meshing's known price, the
+    "T-junction"), and behind a block the far rays begin a set distance along the ray, which looking down is under
+    the world, so the far eye draws sky there. Build 200: each face a hair wider (a few hundredths of a pixel) so
+    neighbours overlap.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
