@@ -155,7 +155,7 @@ pub const LANES: [Lane; 4] = [
         runs: "as tiles are asked for",
         what: "The world, read a tile at a time through the doorway. Going to a mark asks it for the ground under the eye; the far cells' lane will ask for tiles (2.2).",
         switches: &[("INCUS_SCATTER_STAGE", "1: the scatter stage is on: test detail the doorway applies as it answers a tile (woods within 10 km of the spawn, towers, a castle, a town, a hall's entrance, cave mouths, posts, a slab, an arch), from a seed and a short list of places, for the far cells, the far light and the near eye to be judged on. An instrument, not world generation; unset, the world as the export has it")],
-        files: &["src/doorway.rs", "src/scatter_stage.rs"],
+        files: &["src/doorway.rs", "src/scatter_stage.rs", "src/near.rs"],
     },
     Lane {
         id: LaneId::Temperatures,

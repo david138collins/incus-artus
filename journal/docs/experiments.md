@@ -6546,3 +6546,35 @@ plan's line (1.5 ms or under at every ground mark) is what later steps are held 
 
 **Then David's look:** the radius' edge standing and walking; chunks coming in as he moves; the slider.
 A miss is said, with what was seen.
+
+### Build 195, its first piece: the chunk's blocks and the mesher, checked block by block (2026-11-16; no build number yet, nothing drawn)
+
+`src/near.rs`, new: a chunk's blocks read through the doorway (32 x 32 columns and one column of its neighbours
+all round, from under the lowest cell that isn't solid to over the highest that's anything; whole blocks placed
+since are in; bars aren't yet), and its faces, merged (for each facing and each plane across it, the open sides of
+one block that make a rectangle become one face). A block's side is open where the cell it looks into is air or
+water; the water's top is a face of its own kind. Nothing uses it yet but its tests: the lane and the pass are the
+rest of the build.
+
+**The mark's first line, "the mesher is exact": met,** three tests, each counting every open side of every block
+one at a time from the chunk's cells (and the cells against the doorway's own columns) and holding the merged
+faces to cover each side once and nothing else:
+
+| where | chunks | open sides | merged faces | sides a face |
+|---|---|---|---|---|
+| bare ground round the spawn | 9 | 11,942 | 2,802 | 4.3 |
+| round the mountain top's mark | 9 | 37,789 | 21,337 | 1.8 |
+| round the plain's mark | 9 | 9,796 | 662 | 14.8 |
+| the map's corner (columns past the map are air: the world's edge shows its side) | 9 | 16,768 | 16 | 1,048 |
+| the scatter stage's places (every kind; every fifth cave; a wood) | 344 | 1,044,002 | 418,695 | 2.5 |
+
+A block placed in the air at a chunk's edge: six more faces in its own chunk, the chunk across the edge and the
+seven others round it unchanged, and each still exact.
+
+**What the counts already say, for the goal of 64 chunks** (16,600 chunks; arithmetic on these few chunks, to be
+measured properly when the lane fills a radius): merging helps most where the ground is flat (74 faces a chunk on
+the plain) and least where it's steep (2,370 a chunk at the mountain top; the stage's chunks 1,217). At the
+mountain top's rate the full radius would be some 40 million faces; at the plain's, about 1.2 million. Real
+radii lie between, and the numbers will be read at 1, 4, 16, 32 and 64 as the mark says.
+
+All 37 tests pass (the three new ones in; the map redrawn for the new file).

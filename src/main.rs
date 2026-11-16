@@ -39,6 +39,7 @@ mod marks;
 mod memory;
 mod panel;
 mod runner;
+mod near;
 mod scatter_stage;
 mod session;
 mod temperatures;
