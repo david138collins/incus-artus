@@ -6178,3 +6178,42 @@ from the card.
 
 **Not checked off the screen:** the tick box itself (its greying, its Default), which needs the panel: David's
 eye at his look, and said to him.
+
+### Build 193, David's look at cover by faces (2026-11-16): "looks good"
+
+Launched on his word ("launch") with the stage on, at the castle (`logs/session-1794837292.log`: it stood at the
+stage's castle; the march's other program made in 0.6 s there, not the 5 to 7 s the picture test took, so the
+switch costs the start next to nothing; 103 s, closed by him, no error in the log). He was asked whether the tick
+box worked once the world had loaded and how the castle's walls and the woods looked, ticked against unticked.
+**His words:** "looks good".
+
+**Builder's reading** (hers, not his words): the look is wanted, the woods as solid masses with it; cover by faces
+is kept, on as the game is launched, and the tick box stays on the Render page. He didn't say whether the box was
+greyed while the world loaded: not confirmed. His weights by kind (the talk's second step: "if he still wants
+things pulled up after seeing step 1") weren't asked for; the list of what could take a weight is with him and
+Counsel.
+
+**So cover by faces is done enough to go on.** What it costs, as flown (build 192's programs): the card's whole
+over the nine views 1.1% more; under 1% at five marks, the two working marks among them; 1.6% at the sea marks and
+2.8% on the run. Its size on the card: one register (168 for 167), nothing put by, 12 groups.
+
+### Build 194, one power where a step gathers: the pass mark (written before the code)
+
+**What's to change** (`far.wgsl`, with cover by faces on; off stays build 190's program to the letter): build
+192 works out a step's cover twice where it gathers (the bulk's first, to know whether the step gathers at all,
+then again with the faces in). A step gathers exactly when its two ends hold any solid or any water, which is two
+sums: so with the rule on the test is that, and the power and the water's exponential are worked out once, inside,
+with the faces already in. A step through air then works out neither.
+
+**The pass mark.** Off the screen:
+
+- **On, it's build 192's picture** at the five marks and the stage's views, to the test's own noise (the same
+  numbers are worked out, in another order).
+- **Off, it's build 190's**, the same way (nothing of it changes).
+- The steps, on, are build 192's on.
+- All the tests pass.
+
+Its size on the card: a trace with it on; the mark, no more than build 192's row (168 registers, nothing put by,
+12 groups). By flights (off, on, off, in a window David gives): no mark's march over the two offs' mean by more
+than 1%; the sea marks and the run, where build 192 cost 1.6 to 2.8%, are the ones it's for. If it's no better
+than build 192 there, said, and build 192's form stays.
