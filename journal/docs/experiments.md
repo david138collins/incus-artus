@@ -5675,3 +5675,60 @@ By a flight (on David's word):
 - no other mark's march over build 189's by more than 2%.
 
 A miss is said, with what the counts show.
+
+### Build 190 built (unflown): a length begins as the ray stood; what was built and what was checked off the screen
+
+**Built as the mark says,** two places, neither in the march's loop:
+
+- `far.wgsl`, where a length is set off: it begins letting through what the ray did at its cut the frame before,
+  down to a hundredth (was: never under a twentieth).
+- `far_all.wgsl`, the join: where a length stopped as covered, short of where it was to stop, and the ray still
+  lets through a hundredth or more by this frame's count (it stands more open than the length took it to), what
+  it lets through is given to the length's own colour and the ray is counted covered there. ("Short of where it
+  was to stop" is a line the mark didn't spell out: a length that reached its stop left no gap behind it, and the
+  next length carries the ray on.)
+
+A knob for the picture test, `FAR_TEST_TURN` (degrees of facing, then of pitch): the last frame is drawn with the
+eye turned.
+
+**The plain's ray holds still.** Pixel (250, 99) at frames 12, 13 and 14: lengths of 56 and 77 steps, the same
+each frame (its second length begins letting through 0.0132, as the ray stands, and stops at 1,566 blocks where
+it falls under a hundredth; it ran to 24,000). The plain's longest chain is 127 at the three frames (the longest
+length of any cut ray 120); its steps 1,181,845 each frame, for build 189's 1,182,905. The mark's three lines
+met.
+
+**Still pictures, the cut against uncut** (2,560 x 1,600, the tenth frame; pixels of 4,096,000):
+
+| mark | build 189: differ at all, by 4 of 255 or more, the most | build 190 |
+|---|---|---|
+| on the ground at the spawn | 496, none, 2 | 480, none, 2 |
+| the mountain top | 12,208, 64, 5 | 576, none, 2 |
+| the bare plain | 6,080, 3,072, 7 | 128, none, 1 |
+| low over the sea | 1,472, 128, 5 | 960, none, 2 |
+| high over the spawn | 1,712, 352, 7 | 784, 16, 7 |
+
+No pixel differs by 8 or more in either build. The cut's picture is nearer the uncut one at every mark: a length
+begun from a twentieth gathered on past where the whole ray stops, a little more ground and less sky than the
+whole ray's.
+
+**The uncut picture, build 190 against build 189:** the plain's and the sea's the same to the pixel; the spawn's
+208 pixels differ (the most 4), the mountain top's 80 (the most 1), high over the spawn's 672 (the most 6): the
+test's own noise from run to run, as it has been (up to 6 of 255 at a few rays).
+
+**A moving view: the first frame after a turn of 2 degrees, the cut against uncut:**
+
+| mark | build 189: by 4 or more, by 8, by 16, by 32, the most | build 190 |
+|---|---|---|
+| the bare plain | 2,816, none, none, none, 7 | 1,984, none, none, none, 7 |
+| low over the sea | 464, 128, none, none, 10 | 288, 64, none, none, 10 |
+| high over the spawn | 2,112, 1,008, 656, 256, 51 | 864, 160, none, none, 9 |
+
+The mark's line (no more pixels by 8 or more than build 189's, the most no greater) is met at the three; high
+over the spawn is where the guard shows: build 189's worst were rays the sky showed through for a frame, 51 of 255
+out; they're filled with the ground's own colour now, the worst 9.
+
+**All 34 tests pass.** No mistake of mine found on the way this time. (One line of the picture test was wrong and
+is put right, written under the flight above: the threads' steps can be more than the rays'.)
+
+**Owed:** the flight, on David's word: the bare plain's march within 2% of build 186's 0.450 ms, the sea
+nodding's within 2% of 0.561, no other mark over build 189's by more than 2%.

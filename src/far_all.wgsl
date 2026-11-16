@@ -333,15 +333,34 @@ fn join_pass(@builtin(global_invocation_id) id: vec3<u32>) {
         chain = max(chain, took);
         // What the length began letting through, and so how its numbers stand to the ray's as it is this frame:
         // scaled by `now`.
-        let began = clamp(bitcast<f32>(cut[s + 10u]), 0.05, 1.0);
+        let began = clamp(bitcast<f32>(cut[s + 10u]), 0.01, 1.0);
         let now = through / began;
         let ended = bitcast<f32>(cut[s + 6u]);
         let reached = bitcast<f32>(cut[s + 7u]);
         let touch = bitcast<f32>(cut[s + 8u]);
         touched = min(touched, touch);
-        gathered += now * vec3<f32>(bitcast<f32>(cut[s]), bitcast<f32>(cut[s + 1u]), bitcast<f32>(cut[s + 2u]));
-        sunny += now * vec3<f32>(bitcast<f32>(cut[s + 3u]), bitcast<f32>(cut[s + 4u]), bitcast<f32>(cut[s + 5u]));
-        let after = now * ended;
+        let its_all = vec3<f32>(bitcast<f32>(cut[s]), bitcast<f32>(cut[s + 1u]), bitcast<f32>(cut[s + 2u]));
+        let its_sun = vec3<f32>(bitcast<f32>(cut[s + 3u]), bitcast<f32>(cut[s + 4u]), bitcast<f32>(cut[s + 5u]));
+        gathered += now * its_all;
+        sunny += now * its_sun;
+        var after = now * ended;
+        // The moving view's guard. The length stopped as covered, short of where it was to stop, and yet the ray
+        // isn't covered: it stands more open here this frame than the frame before, which the length began by.
+        // Nothing marched from where the length stopped to the next cut, so what the ray still lets through is given
+        // to the length's own colour, as if the surface that stopped it went on, and the ray is covered there (the
+        // cuts beyond go, below). [To build 189 a length never began from under a twentieth instead, and the sky
+        // showed through such a ray, up to a fifth, for a frame.] In a still view the length began as the ray
+        // stands, `now` is one, and this is never taken.
+        var short = true;
+        if (to_cut <= 16u) {
+            short = bitcast<f32>(cut[s + 12u]) < cut_place(to_cut, shift);
+        }
+        if (ended < 0.01 && after >= 0.01 && short) {
+            let fill = (after - 0.0099) / max(began - ended, 1e-5);
+            gathered += fill * its_all;
+            sunny += fill * its_sun;
+            after = 0.0099;
+        }
         if (through > 0.5 && after <= 0.5 && touch < camera.reach.x) {
             // The ray's first surface is in this length: where the ray has let through a half. If the length began
             // as the ray stands this frame, that's where the length itself last gathered with over a half let

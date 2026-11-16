@@ -1624,6 +1624,12 @@ mod tests {
             }
             queue.submit([encoder.finish()]);
         }
+        // The last frame drawn with the eye turned, if asked (`FAR_TEST_TURN`: degrees of facing, then of pitch): a
+        // moving view's first frame, where every ray is led by another ray's frame before (the cut's lengths begin
+        // as the ray at that pixel stood; the finer layers follow the coarser's).
+        let turned: Vec<f32> = std::env::var("FAR_TEST_TURN").ok().map(|v| v.split(',').filter_map(|n| n.trim().parse().ok()).collect()).unwrap_or_default();
+        camera.facing += turned.first().copied().unwrap_or(0.0);
+        camera.pitch += turned.get(1).copied().unwrap_or(0.0);
         eye.prepare(&device, &queue, screen, &camera, doorway.sea_level as f32);
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("the far eye's test") });
         eye.start(&mut encoder, None);
@@ -1665,10 +1671,11 @@ mod tests {
         let counts = eye.tally_read().expect("the rays' counts came back");
         eprintln!("The rays: {}", counts.iter().zip(["8 x 8", "4 x 4", "2 x 2"]).map(|(c, name)| format!("the {name} {} marched, {} steps, the longest {} (the longest chain {}), {} of {} steps or more ({} listed), {} cut, {} in the list", c[6], c[7], c[0], c[8], c[4], c[11], c[5], c[9], c[10])).collect::<Vec<_>>().join("; "));
         if eye.one.is_some() {
-            // Threads kept waiting: every step a ray took is some thread's, the layers' or the strip's.
+            // Threads kept waiting: every step a ray took is some thread's, the layers' or the strip's. (The threads
+            // may have taken more: a length that marched behind the ray's cover isn't counted as the ray's.)
             let waiting = counts[LAYERS.len()];
             eprintln!("Threads kept waiting: the layers' {} steps taken, {} held by 32s, {} by 64s, {} threads marched; the strip's {} steps taken, {} held by 32s, {} by 64s, {} threads marched", waiting[0], waiting[1], waiting[2], waiting[3], waiting[4], waiting[5], waiting[6], waiting[7]);
-            assert_eq!(waiting[0] + waiting[4], counts[..LAYERS.len()].iter().map(|c| c[7]).sum::<u32>(), "the threads' steps are the rays' steps");
+            assert!(waiting[0] + waiting[4] >= counts[..LAYERS.len()].iter().map(|c| c[7]).sum::<u32>(), "the rays' steps are all some thread's");
             assert!(waiting[1] >= waiting[0] && waiting[2] >= waiting[1] && waiting[5] >= waiting[4] && waiting[6] >= waiting[5], "a group is held at least as long as its threads are busy");
         }
         if eye.one.is_some() && eye.cut_at > 0.0 {

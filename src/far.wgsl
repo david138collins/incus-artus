@@ -1449,12 +1449,15 @@ fn march_pixel(id: vec2<u32>, given: u32, from_cut: u32, to_cut: u32, stack: u32
             stop = cut_place(stops_at, shift) + phase;
         }
         // A length that takes up at a cut begins as the ray was there the frame before (`cut_before`: how much it
-        // still let through; under nothing, it was in haze or it isn't known). Never from under a twentieth: a
-        // length the ray reached with little left to cover still gathers, so the join has it if what covered the
-        // ray is thinner this frame.
+        // still let through; under nothing, it was in haze or it isn't known), down to the hundredth under which a
+        // ray is covered: so a still ray's lengths stop where the whole ray would. [To build 189 never from under a
+        // twentieth, so that a length the ray reached nearly covered still gathered if the ray stood more open this
+        // frame: a ray nearly covered at a cut, then skimming on, had its next length march 205 steps where the ray
+        // goes 100, and the join cut that length and uncut it every other frame: the plain's march 11.6% dearer.
+        // The moving view is the join's to guard now.]
         if (near > begin) {
             let before = cut_before(slot, from_cut);
-            through0 = clamp(abs(before), 0.05, 1.0);
+            through0 = clamp(abs(before), 0.01, 1.0);
             look_first = before < 0.0;
         }
         // Where it begins and what it begins letting through go to its stack now, before it marches: nothing of
