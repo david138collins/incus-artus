@@ -7557,3 +7557,38 @@ traces, followed by the on traces." Off is build 202 with the rule compiled out 
   and the half-block reading isn't yet: these traces are builds 202 and 203). The flights show no cost from it
   (the near faces 1.655 ms at this view, 1.658 in build 197); the corners are still half the card's samples at 64
   chunks, as they were.
+
+### Build 205's pass mark (2026-11-16): textures on the near faces (2.4's first step)
+
+**Why now:** the plan has textures after the pieces ("then 2.4 (textures and the rest of the eye)"), and David's
+word for the road is that graphics are finished before the world's work begins. The first step is the one with
+the least of his taste in it: old's look, which the spec has as decided ("Textures crisp up close, mipmapped as
+they shrink, shrinking toward the far colour: 'they look good'"), with old's placeholder pictures (the spec: "The
+master palette isn't chosen yet; textures are placeholders").
+
+**What's built** (written before the code):
+
+1. **The pictures:** old's placeholder block textures carried into `data/textures/` (stone, gabbro, grass top and
+   side, gravel, sand, snowy ground, dry grass; stone brick's bar side), 32 by 32, each with its shrunk versions
+   made by old's rule down to one pixel. A block with no picture wears its far colour, flat.
+2. **On the near faces:** a face wears its block's picture once a block (its top's looking up, its sides'
+   otherwise), in step with the block grid whatever was merged; a side's picture upright. Its own pixels crisp up
+   close; the shrunk versions as it gets small, so far off it is its far colour, the colour the far eye draws
+   and the x-fader hands over to.
+3. **A switch that leaves them off:** `INCUS_NEAR_TEXTURES=0`, the flat colours of build 204, to measure against.
+
+**The mark:**
+
+- **A test:** every picture's smallest version is its block's colour in `data/far colours.toml`, to within 2 of
+  1,023 (the file was made by the same rule from the same pictures).
+- **Pictures, off the screen:** up close a block's face shows its picture's own pixels, 32 across a block,
+  unblurred; far off (beyond 500 blocks) the textured picture is the flat one's colour, to within a few of 255
+  over a patch; with the switch off the picture is build 204's but for the near picture's own few pixels; no
+  gap.
+- **One flight as the game starts,** beside build 204's of the same radius: what the pictures cost the near
+  faces, said as it is.
+- **For David's look, not mine to judge:** whether they shimmer as he moves, and whether flat ground blurs
+  sooner than he likes at a low angle (the plain way of shrinking does that; the mend is known and not built).
+
+**Not in this build:** bars' own side and end pictures laid along each bar (a bar wears its block's picture by
+the grid, like any piece); the grass's shared edge; any new art; the far eye, which keeps its colours.
