@@ -2830,6 +2830,25 @@ Reference: `Art/quartile minecraft illustration.png`
     with pieces paying it.
   - Nothing waits on David but his looks when he wants them (the build, the pieces) and the march's row in the two
     traces. What comes next in 2.3, or on to 2.4, is his to say.
+- **His reading of the two traces** (David to Builder, with six pictures: "here are the off traces, followed by the
+  on traces."): with far rays skipped under blocks the march is 167 registers (168 without the rule), nothing put
+  by, 12 groups: the mark met. The near cover's pass is 3% of the card at that view, 93% of its stalls waiting on
+  its reads.
+- *Build 205, textures on the near faces* (mark 73fcbef, code fd17fda; 2.4's first step, taken on his "so textures
+  and quarter/octs next, right?" of the same day; one flight at 32 chunks, down at 16:04, `logs/flight-1794866685`,
+  read beside build 204's; checked by Counsel). Old's placeholder pictures carried into `data/textures` (the version
+  with the least of his taste in it, said to him), crisp up close, shrunk by old's rule to the far colour (the far
+  hill's colour the flat one's to a fifth of a level); a switch leaves them off; the PNG reader old used added. Off
+  the screen his build shows its stone brick, gabbro and grass in their own pixels. 42 tests pass. On the card the
+  pictures cost 0.01 to 0.04 ms on land and about 0.1 where blocks fill the screen (the densest scatter's whole
+  1.073 → 1.197 ms, its faces 0.710 → 0.799); everything still under his 2 ms (the dearest high over the spawn,
+  1.82); standing frames 1.09 to 1.86 ms.
+  - **Not explained yet, said plainly by Builder:** on the processor, recording the near faces is 0.04 to 0.09 ms a
+    frame dearer than in build 204's flight (the plain 0.195 → 0.280) and handing the card its work about 0.06
+    dearer (the plain 0.504 → 0.562), every other processor pass the same; read from two single flights half an hour
+    apart, so it wants a bracket in one session (pictures off, on, off) before anything is changed; flown after his
+    look.
+  - Waiting on him: his look at the textures ("launch"), then what of 2.4 comes next.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
