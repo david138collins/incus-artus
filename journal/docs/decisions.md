@@ -2643,6 +2643,18 @@ Reference: `Art/quartile minecraft illustration.png`
   - Next put to him by Builder, his call: the near eye drawn first into a picture and depth of its own, which serves
     the cancelling, his x-fader at the seam, and shading each near pixel once. *Counsel:* it suits "The shape" in
     the plan (small passes over a per-pixel store) and mends the miss at its cause.
+  - **[DECIDED 2026-11-16] The next step, and the near trace read** (David, to Builder, with three pictures of the
+    near-64 trace's Shader Pipelines tab): "here is the trace. go ahead with the next step and launch". The rows: the
+    near faces' cost on the card is their corners' program (49% of samples) against 15% for their pixels, so it goes
+    with how many faces are sent, not how many pixels they cover (Builder corrected her own emphasis: "each pixel
+    shaded once" is the small part); the march as it was (168 registers, nothing put by, 12 groups). His go taken to
+    cover the step as put (near blocks drawn into a picture and depth of their own, joined to the far picture by his
+    x-fader; far rays skipped under blocks the build after) and the x-fader's two sliders by the place and names asked
+    in the same question ("x-fader width (blocks)" and "x-fader curve", in "The near eye" under the render radius);
+    he answered with the go only, so the names are said back to him at the look. Build 199's pass mark in 230f4d5.
+    Build 198 (the panel folded) launched for his look.
+    - *Counsel's note:* with the corners the cost, the lever at 64 chunks is fewer faces sent far out, which is his
+      second slider's road ("a slider that seperates built things from the land render"), plain ground stepping down.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
