@@ -6091,3 +6091,31 @@ that's few steps; over water and along grass it's most of them. Not proven: the 
 
 **Owed:** David's reading of the on trace's row (does this form fit with nothing put by); his look on the stage,
 which decides whether the rule is wanted at all.
+
+### Build 192's row, read by David off Nsight's window (2026-11-16): the rule where a step is gathered fits, for one register
+
+`march_all` at the mountain top, from his screenshots of build 192's on trace, beside the two he read before:
+
+| | the rule off (build 190's program) | build 191's rule | build 192's rule |
+|---|---|---|---|
+| groups that fit (# Warp) | 12 | 12 | 12 |
+| registers (# Reg) | 167 | 168 | 168 |
+| live registers | 163 | 164 | 165 |
+| put by (Smem) | 0 | 512 | 0 |
+| instruction mix | 3.94K | 4.06K | 4.06K |
+| share of the samples | 86% | 86% | 86% |
+| top waits | WAIT 35%, LGSB 17%, SELECT 16% | WAIT 35%, LGSB 16%, SELECT 16% | WAIT 35%, LGSB 16%, SELECT 16% |
+
+**The mark (12 groups still fit, nothing more put by than off): met.** Build 192's form puts nothing by; it
+takes one register, 168 for 167: two under the line of about 170 where it was three. Build 191's form was the one
+that spilled (the same register and two values a ray put by). So the rule's size on the card, in this form, is one
+register: affordable, not free, and that register of room is gone for the next thing that wants into the march.
+
+(Not read: the off trace of build 192, taken to see by its hash that the off program is the one David read at
+build 191, 0x63fca007acf1f0c6. Its pictures are build 190's to the pixel and its flights read as build 191's offs;
+the hash is there in `logs/nsight/b192/b192-off/` if it's wanted.)
+
+**Where cover by faces stands, for David's look:** its look checked off the screen (builds 191 and 192: the same);
+its size on the card one register; its time under 1% at five marks, both working marks among them, 1.6% at the sea
+marks and 2.8% on the run (one power where there are two is the next form, unflown). His look on the stage decides
+whether it's wanted.

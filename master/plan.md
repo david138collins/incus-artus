@@ -66,8 +66,10 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** one row to read in Nsight's window (`march_all` in build 192's on trace), and his look
-  on the stage (launched on his word), which decides whether the rule is wanted. Build 192 is traced and flown
+- **Waiting on David:** his look at cover by faces on the stage (build 192, launched on his word), which
+  decides whether the rule is wanted. Its size on the card, by his reading of build 192's row: 168 registers for
+  167, nothing put by, 12 groups still: it fits, for one register (two of room left under the line, where there
+  were three). Build 192 is traced and flown
   (off, on, off): under 1% dearer at five marks, both working marks among them (the mountain top the same, high
   over the spawn 0.7%); 1.6% at the sea marks and 2.8% on the run, where rays gather at nearly every step (a miss
   on the run against its mark); the card's whole over the nine views 1.1% more. Next if he wants the rule: one
