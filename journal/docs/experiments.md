@@ -6929,3 +6929,59 @@ if he'd rather the Overview's two were open, that's one word each. The Camera pa
 
 **Not seen by anyone:** it compiles and the tests pass; there's no way to draw the panel off the screen yet. The
 look is David's.
+
+### The near eye's rows, read by David (2026-11-16): its cost on the card is the corners' work, not the pixels'; his go for the next step; build 199's mark (the x-fader)
+
+**His words, whole,** with three pictures of the Shader Pipelines tab of the near-64 trace (the mountain top,
+6.9 million triangles drawn): "here is the trace. go ahead with the next step and launch". Build 198 launched on
+that for his look at the panel.
+
+**The rows** (samples; groups; registers; Smem; live registers; instructions; top stalls):
+
+| program | samples | groups | registers | Smem | live | instructions | top stalls |
+|---|---|---|---|---|---|---|---|
+| `near_corner` (a face's corner) | 49% | ~32 | 18 | ~272 to 1,280 | 14 | 160 | WAIT 40%, SELECT 30%, SHRTSB 9% |
+| `march_all` | 28% | 12 | 168 | 0 | 165 | 4.06 K | WAIT 32%, LGSB 24%, SELECT 15% |
+| `near_face` (a face's pixels) | 15% | ~24 | 22 | ~84 to 672 | 16 | 248 | WAIT 28%, SHRTSB 17%, SELECT 17% |
+| `brought_up` | 5% | ~48 | 21 | ~36 to 288 | 18 | 264 | LGSB 54%, SHRTSB 24%, WAIT 7% |
+| `near_water` | under 1% | ~21 | 16 | | 10 | 432 | |
+
+- **The march is as it was** with the near eye on: 168 registers, Smem 0, 12 groups.
+- **The near faces' cost is their corners, three parts in four:** 49% of the card's samples in the corners'
+  program against 15% in the pixels'. Four corners a face, 3.45 million faces in view: 13.8 million runs of a
+  160-instruction program a frame, a third of its waiting on choosing between values (the facing's six cases).
+  So what the near eye costs at 64 chunks goes with **how many faces are sent,** not with how much of the screen
+  they fill.
+- **A correction of Builder's, said:** the write-up of the flights named "each pixel of the near picture shaded
+  once" as one of three gains of drawing the near eye into a picture of its own. By these rows that is the small
+  part (the pixels are 15%; it will matter where things stand many deep, as the scatter does). The large part at
+  64 chunks is the faces sent: those turned away from the eye (still drawn; on build 195's list, not built),
+  and a leaner corner.
+
+**"go ahead with the next step":** the step as put to him: the near blocks drawn into a picture and depth of
+their own and the two pictures joined a pixel at a time (his x-fader), then, a build after, far rays skipped
+under blocks (with flights). The x-fader's two sliders were put to him by place and name ("in 'The near eye'
+section under the render radius: 'x-fader width (blocks)' ... and 'x-fader curve'") with the question "Is that
+place and are those names right, and is the step a go?"; his answer was the go. Taken as yes to both, and said
+back to him at the look, since a name is a moment to change.
+
+**Build 199's pass mark** (written before its code; the far eye's programs untouched):
+
+1. **The near eye draws into a picture and depth of its own,** every face whole (no face is blended with what's
+   behind it: the nearest wins, whatever the order chunks are drawn in), the water over them; then **one pass
+   lays that picture over the far picture** ("the x-fader"). *Mark:* the near eye's picture is the same from run
+   to run but for the far eye's own share (build 197's differed from itself at up to 639 pixels, by up to 9); no
+   gap or black pixel at radius 1, 4, 16 or 64.
+2. **The x-fader:** how much of a block's pixel shows falls from all to none across a band before the faces'
+   reach, along a curve. Two sliders in "The near eye" section under the render radius: **"x-fader width
+   (blocks)"**, 0 to 512, how deep the band is (never more than half the faces' reach; the far rays begin 24
+   blocks before it, as now); and **"x-fader curve"**, 1 to 8: 1 a straight fade, higher an S that holds each
+   side longer and crosses quicker in the middle. The section's heading gets a Default like the others (the
+   radius back to 4 with them). *Mark:* at width 0 a hard edge at the reach; at the default (64 blocks, curve 2)
+   a pixel at the band's middle is half blocks, half rays (checked in a picture off the screen); the band's ends
+   meet the pictures on either side with no step.
+3. **What it costs is said by a bracket of flights** on David's word, not promised: one more pass and one more
+   picture the screen's size. The trace's rows say the corners' work won't change.
+
+**Not in this build:** far rays skipped under blocks (the build after, with the near eye drawn before the far
+eye marches); faces turned away left out; the listing of chunks each frame.

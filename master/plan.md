@@ -94,10 +94,12 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   triangles are in view, the far eye 0.5 to 0.7 beside them) and listing the chunks in view costs the processor
   1 ms a frame. **A miss:** the far eye is 16 to 21% dearer with the near eye on at ground views (its rays begin
   inside the ground under the near faces and make a false edge); mended by the step already next, the near
-  faces' cover cancelling far rays. **Waiting on David:** his reading of the trace's rows; his look at build 198
-  (the debug panel's pages scrolling and folding, his "your way of folding the content of the debug pages is
-  fine"); and his word on the next step as Builder puts it to him: the near eye drawn first into a picture and
-  depth of its own, for the cancelling, his x-fader, and each pixel shaded once. Before the flights (his "go
+  faces' cover cancelling far rays. **His reading of the trace's rows** (2026-11-16): the near faces' cost on the card is their
+  corners' work, 49% of the samples against 15% for their pixels: it goes with how many faces are sent. **His
+  word on the next step:** "go ahead with the next step and launch". **Waiting on David:** his look at build 198
+  (the debug panel's pages scrolling and folding; launched). **Builder is on build 199, its mark written:** the
+  near eye drawn into a picture and depth of its own and laid over the far picture by his x-fader ("x-fader
+  width (blocks)", "x-fader curve", in "The near eye" section); the build after it skips far rays under blocks. Before the flights (his "go
   ahead with the tests", 2026-11-16) he looked at build 195: "holds 240fps at 64 chunks, once its loaded in"; flying very fast,
   90 to 120 a second while chunks are made ("i don't think a player could experience a hiccup. off to a good
   start"); "there is a seam, but, its not very bad, and i think a x-fader with curves could hide it almost
