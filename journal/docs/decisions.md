@@ -2800,6 +2800,17 @@ Reference: `Art/quartile minecraft illustration.png`
   (eleven million needless reads a frame in the finer layers), and the cover's pass reads the near picture a pixel at
   a time where it could read four. Build 203 mends both under his "basic fixes", then a short flight and the on
   trace again.
+- *Build 203's window* (1c5753e; down at 15:10; the on trace at the mountain top at 64 chunks, and one flight at 16
+  chunks, `logs/flight-1794863432`, read against build 202's two at 16; checked by Counsel). The cover's pass halved,
+  0.062 to 0.079 ms (it was 0.137 to 0.162; the mark's "under 0.07" met at some standings, 0.07 to 0.08 at the rest).
+  On open ground the far eye is no longer dearer with the rule on than off (the mark met; Builder's figures the plain
+  0.705 against 0.709, the sea 0.679 against 0.684). The card's whole, the rule on in build 203 against off in build
+  202: the mountain top 1.172 for 1.520 ms, the densest scatter 0.729 for 1.273, the plain 0.882 for 0.814, the sea
+  0.876 for 0.811: cheaper at the working marks (0.35 ms at the mountain top, up to 0.54 where blocks fill the
+  view), 0.05 to 0.08 dearer on open flat ground, which is the cover's pass itself. Left there, done enough to go on,
+  the two ways to take the rest off written down for the later look back. Open, his when he likes: the march's row
+  in the two traces (`logs/nsight/b203/b203-cover-on/`, `logs/nsight/b202/b202-cover-off/`; the mark no more than
+  168 registers). Next: 2.3's quarter and eighth blocks, scattered at random to test them.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
