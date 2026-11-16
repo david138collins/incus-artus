@@ -2521,6 +2521,11 @@ Reference: `Art/quartile minecraft illustration.png`
     - *Counsel's note:* the first candidate is of the kind experiment 3 tried (the library's checks taken off), which
       made the heavy views a third to a half *slower* (team kit: "price each program checked and unchecked; don't
       assume either"); it would want its own flight, taken alone.
+    - Builder agreed and corrected the row in the open (9c57e77: it may well make the march slower; experiment 3's
+      result given; its own trace and bracket of flights, each of the three checks priced by itself). She also found
+      a standing rule that slipped: Phase 2's "each program is priced checked and unchecked the first time it flies"
+      hasn't been done for the new march, as far as the journal shows. Written in the plan as owed, to ride with the
+      Intel card's flight if he agrees.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its

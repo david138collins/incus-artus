@@ -56,7 +56,9 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/cover-by-height.md`), with the march mapped by its parts for a later pass to free room
   (`journal/docs/march-by-parts.md`): "if i become dissatissfied with some views in a fuller game i'll come back to
   cover by height and lazy rays and there may be a final check pass against the engine later anyways." His weights by
-  kind wait. Next: the Intel card's flight (Optimus and a restart); then the far eye's gate and the near eye. Both near drawers are flown before the fork ("Yes, fly both").
+  kind wait. Next: the Intel card's flight (Optimus and a restart); then the far eye's gate and the near eye. Owed
+  by Phase 2's own rule and slipped (found 2026-11-16): the new march priced checked and unchecked, each of the
+  library's three checks alone; it could ride with the Intel flight, on both cards. Both near drawers are flown before the fork ("Yes, fly both").
 - **Just closed:** 2.1, done enough to go on (David: "yes, close 2.1. let us proceed."). Old is packed into `old\`
   and still runs; the journal is in `journal/`. The new project runs from the top of the folder (build 120; the
   numbers carry on from old's): a flying camera on old's keys, the panel (F3), the clocks a pass at a time, and the
