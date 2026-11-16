@@ -21,8 +21,11 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   apart from the land, only "if that becomes intensive"; faces merged (greedy meshing) from the first build. First
   step: build 195, whole blocks a chunk at a time; in since: his radius slider (32 chunks to start), the x-fader
   where blocks fade into rays (128 blocks, curve 1: "the fade looks good"), the panel folded into sections, the sky
-  dots mended and far rays skipped under blocks (builds 196 to 201). 240 a second holds at 64 chunks. Next in it:
-  quarter and eighth blocks, scattered at random for testing (his idea); then 2.4 (textures and the rest of the eye).
+  dots mended and far rays skipped under blocks (builds 196 to 203), and quarter and eighth blocks, scattered at
+  random to test them, his old build drawn whole for the first time in the new game (build 204). 240 a second holds
+  at 64 chunks; as the game starts (32 chunks) the card's whole is under his 2 ms at every mark (the dearest high
+  over the spawn, 1.80), pieces costing about what whole blocks do. What comes next in 2.3, or on to 2.4 (textures
+  and the rest of the eye), is his to say; his looks at the build and the pieces when he wants them.
 - **His word on the road** (2026-11-16): "i'm pretty happy and confident with our graphics engine now"; hanging
   homework and questions are dropped (the kept Oracle's five questions among them; an outside look is his to call,
   no longer a gate); "Builder can proceed with the tests and basic fixes, i'll bring it up if i see undesirable
@@ -573,7 +576,8 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
       fresh, then Counsel's brief, `journal/vision/oracle-return.md`. The design is fixed here, or changed.
       *No longer a gate* (his word, 2026-11-16: "i'm pretty happy and confident with our graphics engine now ... if i
       want an outside look, i'll construct a prompt"): called when he wants one; 2.4 follows 2.3 without it
-- [ ] **2.4 The eye, whole:** the light lane, water and glass, quarter blocks, textures, objects, glows, far lights
+- [ ] **2.4 The eye, whole:** the light lane, water and glass, textures, objects, glows, far lights (quarter blocks
+      were here; built in 2.3 as triangles, build 204)
   - [ ] The doorway's pieces, objects and lights, as the eye first draws them (carried from 2.1)
   - [ ] Water's look, far: shallow sea over a nearly flat shelf shows as long square contours (the shore and each
         block of depth), seen from high over the plain at build 188; a shallow edge that fades in, with water's own

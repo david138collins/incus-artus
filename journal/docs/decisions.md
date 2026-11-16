@@ -2811,6 +2811,25 @@ Reference: `Art/quartile minecraft illustration.png`
   the two ways to take the rest off written down for the later look back. Open, his when he likes: the march's row
   in the two traces (`logs/nsight/b203/b203-cover-on/`, `logs/nsight/b202/b202-cover-off/`; the mark no more than
   168 registers). Next: 2.3's quarter and eighth blocks, scattered at random to test them.
+- *Build 204, quarter and eighth blocks in the near eye* (e2949a3; one flight as the game starts, 32 chunks, his
+  x-fader numbers, the skipping rule on, down at 15:41, `logs/flight-1794865272`, sixteen standings, checked by
+  Counsel). The doorway takes an eighth; a chunk with pieces is meshed in half blocks; the marks' scatter can make
+  quarters and eighths, with a new last mark, "the scatter of pieces" (1,000, 10,000, 100,000). **His old build is
+  drawn whole for the first time in the new game** (its 146 stone-brick bars with its 23 blocks), 0.006 ms over the
+  bare plain by Builder's reading. Pieces cost the card about what whole blocks do, count for count: the near faces
+  0.085, 0.162 and 0.642 ms at the three densities of pieces, 0.099, 0.238 and 0.710 for whole blocks (Builder's
+  figures for the near eye whole: 0.19, 0.28, 0.77 beside 0.21, 0.35, 0.83). The card's whole under his 2 ms at
+  every mark (the dearest high over the spawn, 1.80); every standing frame 0.96 to 1.84 ms. Where blocks or pieces
+  fill the view the far march is nearly silent (0.09 to 0.10 ms). 41 tests pass.
+  - Found and mended in it: a block's number wasn't the same through every doorway (a block the world's list hasn't
+    got was numbered by each doorway as first asked there; the bars first came out oak's brown), now one list for the
+    process. Stone brick had no far colour: added to `data/far colours.toml` by the file's own rule from old's bar
+    textures (59, 61, 55); the file is David's ("i'll go in and regulate everything again once we rebuild the
+    registrar"), told him plainly.
+  - Written down and left: a chunk in half blocks costs the lane nine times a whole one (0.3 ms to 2.8), only chunks
+    with pieces paying it.
+  - Nothing waits on David but his looks when he wants them (the build, the pieces) and the march's row in the two
+    traces. What comes next in 2.3, or on to 2.4, is his to say.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
