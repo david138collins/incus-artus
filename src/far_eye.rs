@@ -1698,11 +1698,22 @@ mod tests {
         let mut near = std::env::var("FAR_TEST_NEAR").ok().and_then(|radius| radius.parse::<f32>().ok()).map(|radius| {
             let mut near = crate::near_eye::NearEye::new(&device, &queue, format, crate::doorway::test_world(), &colours.as_light()).unwrap();
             near.radius = radius;
+            // The mark's own changes (David's build; a scatter at `FAR_TEST_SCATTER`, its count), told to the near eye
+            // as the game tells it on going to the mark.
+            let mut changed = Doorway::open(&crate::doorway::test_world()).unwrap();
+            if let Some(name) = &mark.changes {
+                let made = crate::marks::place(&mut changed, &std::fs::read_to_string(crate::session::project_folder().join(name)).unwrap());
+                eprintln!("The mark's changes: {} whole blocks, {} bars, {} refused", made.blocks, made.bars, made.refused);
+            }
+            if let (Some(scatter), Some(count)) = (&mark.scatter, std::env::var("FAR_TEST_SCATTER").ok().and_then(|count| count.parse::<u32>().ok())) {
+                crate::marks::scatter(&mut changed, mark, scatter, count).unwrap();
+            }
+            near.changed(changed.changes());
             let began = std::time::Instant::now();
             loop {
                 near.put(&device, &queue, at, &mut eye).unwrap();
                 queue.submit([]);
-                if near.counts.kept >= near.counts.wanted && near.counts.wanted > 0 {
+                if near.whole(at) {
                     break;
                 }
                 assert!(began.elapsed().as_secs() < 600, "the near eye's radius fills in ten minutes");

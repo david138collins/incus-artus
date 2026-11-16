@@ -6770,3 +6770,37 @@ at 64 chunks; then five flights, the near eye off, on at 4, at 16, at 64, off ag
   each radius, putting the chunks on the card on the processor, the moving marks (where chunks are still coming),
   and the four standings with built things, measured with them for the first time.
 - **The trace:** the near faces' rows beside `march_all`'s, read by David in Nsight's own window.
+
+### Build 197 built (unlaunched, unflown): the flights' fittings; what was built and checked off the screen
+
+**Built as the mark says:**
+
+1. **The near lane hears of changes** (`near.rs`, `near_eye.rs`, the doorway's changes whole). Going to a mark
+   tells the near eye what the game's doorway holds now; the lane's threads take the changes up at their next
+   chunk; every chunk these changes touch, or the ones before them touched, is asked for again, its old faces
+   drawn till the new come (a chunk handed over from older changes than its own is let go). *The test*
+   (`the_lane_hears_of_changes`): told of a block in the air, the chunk comes as the mesh made directly with it
+   (six faces more); told it's taken back, as it was before. **Met.** *The look, off the screen, the near eye on
+   at 8 chunks:* at "the plain with David's build", **his build's whole blocks stand on the plain** (23 whole
+   blocks; its 146 bars aren't drawn, as said); at "the scatter" at 10,000, the blocks hang in the air over the
+   plain, stone, gabbro and sand, each lit by its side. **The first picture of either from the new game.**
+2. **A flight waits for the near eye** (`flight.rs`, `runner.rs`): a standing mark's settling begins again each
+   frame until the near eye says every wanted chunk is in, its changes in them; three minutes at the most; a
+   moving mark not at all. Not run yet: its first run is the window's flights.
+3. **The near eye's line in each standing of the report.** Not seen yet, the same.
+4. **The reach without the walk:** how far into the wanted chunks all are in is kept from frame to frame.
+   *Against build 195's pictures, the same settings:* at 64 chunks 1 pixel differs, by 1; at 4 chunks 143, by 2
+   at the most. **The mark said "to the pixel", and that can't be read:** build 197 drawn three times over differs
+   from itself at 11 to 639 pixels, by 9 at the most. So the near eye's picture isn't the same from run to run.
+   Not looked into; a guess, to be checked with the seam's work: where faces fade out they're blended in the
+   order chunks happen to be drawn, and that order differs each run.
+
+**A slip of Builder's on the way, said:** the first comparison at 4 chunks came out 8,400 pixels different, by
+up to 88. It was the test's own setting (one region of far cells loaded for build 197's picture, three for build
+195's), not the code.
+
+**Seen and written down for the seam's work:** the chunks wanted are those within the radius of the eye when it
+enters a chunk; as the eye walks on inside that chunk, the far side's circle moves out over chunks that aren't
+wanted yet, so the edge of the near picture isn't an even circle until the next chunk is crossed.
+
+All 40 tests pass (the map redrawn).

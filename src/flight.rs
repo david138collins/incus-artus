@@ -21,6 +21,8 @@ const SETTLE: Duration = Duration::from_secs(5);
 const WARM_UP: Duration = Duration::from_secs(30);
 /// How long they're measured at each (old's standing marks: 20 s).
 const MEASURE: Duration = Duration::from_secs(20);
+/// How long a standing mark's settling waits for the near eye's chunks to be all in, at the most.
+const NEAR_WAIT: Duration = Duration::from_secs(180);
 /// A GPU clock under this (MHz) counts as slow in a standing's heat line (the laptop's card runs 2,400 to 2,800 at work).
 const SLOW_CLOCK: f32 = 2000.0;
 
@@ -62,12 +64,29 @@ pub struct Standing {
     /// The longest rays over the measured frames (step 0): each far layer's most steps, and the most rays at once over
     /// 256, 384 and 512.
     longest: Vec<[u32; crate::far_eye::TALLY]>,
+    /// The near eye here (none without one): how long after arriving its chunks were all in, or were no longer
+    /// waited for, and whether they were all in then; and what it was over the measured frames.
+    near_wait: Option<(f32, bool)>,
+    near: Option<NearSeen>,
+}
+
+/// The near eye over a standing's measured frames: its counts at the last of them, the most faces and chunks it drew
+/// in one, the least its faces reached, and in how many of the frames chunks were still to come.
+struct NearSeen {
+    last: crate::near_eye::Counts,
+    most_faces: u64,
+    most_chunks: usize,
+    least_reach: f32,
+    filling: u32,
+    frames: u32,
 }
 
 pub struct Flight {
     standings: Vec<Standing>,
     /// The standing now, and when it began.
     now: Option<(usize, Instant)>,
+    /// When the camera went to it (its beginning is put off while it waits).
+    came: Option<Instant>,
 }
 
 /// What the report says about the session.
@@ -96,11 +115,11 @@ impl Flight {
                 None => vec![None],
             };
             for count in counts {
-                standings.push(Standing { mark: k, count, made: Made::default(), eye: None, going: None, frames: Vec::new(), passes: vec![Vec::new(); PASSES.len()], card: Vec::new(), end: None, reach: None, hottest: Temperatures::default(), gpu_watts: Vec::new(), slow_clock: 0.0, heat_at: None, most_main_memory: None, longest: Vec::new() });
+                standings.push(Standing { mark: k, count, made: Made::default(), eye: None, going: None, frames: Vec::new(), passes: vec![Vec::new(); PASSES.len()], card: Vec::new(), end: None, reach: None, hottest: Temperatures::default(), gpu_watts: Vec::new(), slow_clock: 0.0, heat_at: None, most_main_memory: None, longest: Vec::new(), near_wait: None, near: None });
             }
         }
         log::info!("A flight: {} standings at {} marks, {} s settling and {} s measured at each (the first settling {} s more)", standings.len(), marks.len(), SETTLE.as_secs(), MEASURE.as_secs(), WARM_UP.as_secs());
-        Self { standings, now: None }
+        Self { standings, now: None, came: None }
     }
 
     /// How long standing `k` settles before it's measured.
@@ -116,7 +135,25 @@ impl Flight {
             Some(_) => return None,
         };
         self.now = Some((next, now));
+        self.came = Some(now);
         Some(&self.standings[next])
+    }
+
+    /// The standing now held back (its settling begun again) until the near eye's chunks are all in there (`whole`;
+    /// none: no near eye). A moving mark (`moves`) isn't waited for: its chunks keep coming, as a player's would.
+    /// Nor is any for longer than `NEAR_WAIT`: it's measured as it is then, and the report says so.
+    pub fn hold_for_near(&mut self, now: Instant, whole: Option<bool>, moves: bool) {
+        let (Some((k, since)), Some(came), Some(whole)) = (&mut self.now, self.came, whole) else { return };
+        let standing = &mut self.standings[*k];
+        if standing.near_wait.is_some() {
+            return;
+        }
+        let waited = now.duration_since(came);
+        if whole || moves || waited >= NEAR_WAIT {
+            standing.near_wait = Some((waited.as_secs_f32(), whole));
+        } else {
+            *since = now;
+        }
     }
 
     /// The first standing held back (its settling begun again) while something it waits for isn't ready yet: the far
@@ -184,6 +221,19 @@ impl Flight {
             for (kept, new) in standing.longest.iter_mut().zip(counts) {
                 *kept = std::array::from_fn(|k| kept[k].max(new[k]));
             }
+        }
+    }
+
+    /// The near eye's counts this frame.
+    pub fn near(&mut self, now: Instant, counts: crate::near_eye::Counts) {
+        if let Some(standing) = self.measuring(now) {
+            let seen = standing.near.get_or_insert(NearSeen { last: counts, most_faces: 0, most_chunks: 0, least_reach: counts.reach, filling: 0, frames: 0 });
+            seen.last = counts;
+            seen.most_faces = seen.most_faces.max(counts.faces_drawn);
+            seen.most_chunks = seen.most_chunks.max(counts.drawn);
+            seen.least_reach = seen.least_reach.min(counts.reach);
+            seen.filling += u32::from(!counts.whole);
+            seen.frames += 1;
         }
     }
 
@@ -315,6 +365,31 @@ impl Flight {
             }
             if let Some(reach) = standing.reach {
                 text += &format!("  the window round the eye: the usable 32s reached at least {:.0} blocks round it over the measured frames, the 64s {:.0}\n", reach[0], reach[1]);
+            }
+            if let Some(near) = &standing.near {
+                let c = &near.last;
+                let came = match standing.near_wait {
+                    _ if mark.speed.is_some() => "a moving mark, its chunks not waited for".to_string(),
+                    Some((seconds, true)) => format!("its chunks all in {seconds:.1} s after arriving, the settling begun then"),
+                    Some((seconds, false)) => format!("its chunks NOT all in after {seconds:.0} s: measured as it was"),
+                    None => "its chunks not waited for".to_string(),
+                };
+                text += &format!(
+                    "  the near eye: a render radius of {:.0} chunks; {} chunks in of {} wanted at the end, {} drawn at the most; {:.2} million triangles drawn in a frame at the most, of {:.2} million kept, {:.0} MB; its faces reached {:.0} blocks at the least, the far rays beginning at {:.0} at the end; a chunk meshed in {:.1} ms on {} threads; {came}; chunks still to come in {} of {} measured frames\n",
+                    c.radius,
+                    c.kept,
+                    c.wanted,
+                    near.most_chunks,
+                    near.most_faces as f64 * 2.0 / 1e6,
+                    c.faces as f64 * 2.0 / 1e6,
+                    c.megabytes,
+                    near.least_reach,
+                    c.far_from,
+                    c.chunk_ms,
+                    c.threads,
+                    near.filling,
+                    near.frames
+                );
             }
             let made = &standing.made;
             if made.blocks + made.bars + made.refused > 0 {

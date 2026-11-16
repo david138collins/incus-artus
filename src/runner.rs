@@ -310,16 +310,25 @@ impl Runner {
             flight.hold(now);
         }
         self.at_first_mark = true;
-        let Some((k, count)) = target else { return true };
-        let (made, eye) = self.go_to(k, count);
-        let going = now.elapsed().as_secs_f32() * 1000.0;
-        // The doorway's answers on the way, each timed as its own pass.
-        let times = self.doorway.as_ref().map(Doorway::take_times).unwrap_or_default();
-        if let Some(flight) = &mut self.flight {
-            flight.arrived(made, eye, (going, times.len(), times.iter().sum()));
+        if let Some((k, count)) = target {
+            let (made, eye) = self.go_to(k, count);
+            let going = now.elapsed().as_secs_f32() * 1000.0;
+            // The doorway's answers on the way, each timed as its own pass.
+            let times = self.doorway.as_ref().map(Doorway::take_times).unwrap_or_default();
+            if let Some(flight) = &mut self.flight {
+                flight.arrived(made, eye, (going, times.len(), times.iter().sum()));
+            }
+            for ms in times {
+                self.ran(PassId::TheDoorway, ms);
+            }
         }
-        for ms in times {
-            self.ran(PassId::TheDoorway, ms);
+        // Nor is a standing mark measured till the near eye's chunks are all in there, the mark's changes in them (a
+        // moving mark's keep coming, and aren't waited for).
+        if let Some(flight) = &mut self.flight {
+            let eye = [self.camera.position.x, self.camera.position.y];
+            let whole = self.running.as_ref().and_then(|running| running.near.as_ref()).map(|near| near.whole(eye));
+            let moves = flight.speed(&self.marks).is_some();
+            flight.hold_for_near(now, whole, moves);
         }
         true
     }
@@ -357,6 +366,10 @@ impl Runner {
                 None
             }
         };
+        // The near eye told of the changes as they are now (the mark before's taken back, this one's made).
+        if let Some(near) = self.running.as_mut().and_then(|running| running.near.as_mut()) {
+            near.changed(doorway.changes());
+        }
         let dial = count.map_or(String::new(), |count| format!(", the scatter at {count}"));
         log::info!(
             "At {}{dial}: the eye at {:.1} {:.1} {:.1}; {} whole blocks and {} bars made through the doorway, {} refused",
@@ -624,6 +637,9 @@ impl Runner {
         }
         if let Some(longest) = longest {
             flight.longest(shown, &longest);
+        }
+        if let Some(near) = self.running.as_ref().and_then(|running| running.near.as_ref()) {
+            flight.near(shown, near.counts);
         }
         if flight.finished(shown)
             && let Some(running) = &self.running

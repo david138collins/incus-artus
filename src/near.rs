@@ -294,7 +294,8 @@ pub fn packed(face: &Face, chunk: [i32; 2]) -> [u32; 3] {
 
 /// A chunk as the lane hands it over: its packed faces, the blocks' sides first and then the water's tops (`water`
 /// of them, so each kind is drawn by its own pass with no word of the other's), the lowest and highest block any of
-/// them touches (for leaving it out when it's out of view), and how long it took to make (ms).
+/// them touches (for leaving it out when it's out of view), how long it took to make (ms), and which telling of the
+/// changes it was made from (`Lane::changed`'s count; 0 before any).
 pub struct Made {
     pub chunk: [i32; 2],
     pub faces: Vec<[u32; 3]>,
@@ -302,6 +303,7 @@ pub struct Made {
     pub low: i32,
     pub high: i32,
     pub ms: f32,
+    pub told: u64,
 }
 
 /// The chunks within `radius` chunks of `eye` (north, east, blocks): every chunk any part of which is that near, so
@@ -330,9 +332,12 @@ pub fn nearest_part(chunk: [i32; 2], eye: [f32; 2]) -> f32 {
     (d[0] * d[0] + d[1] * d[1]).sqrt()
 }
 
-/// What the lane's threads share: the chunks asked for, nearest first, and whether to stop.
+/// What the lane's threads share: the chunks asked for, nearest first; the changes made through the game's doorway
+/// as the lane was last told them, and how many times it's been told; and whether to stop.
 struct Asked {
     queue: std::collections::VecDeque<[i32; 2]>,
+    changes: std::sync::Arc<HashMap<[i32; 2], Vec<Change>>>,
+    told: u64,
     stop: bool,
 }
 
@@ -350,24 +355,26 @@ impl Lane {
     pub fn start(folder: std::path::PathBuf, staged: bool, threads: usize) -> Result<Self, String> {
         // (Opened once here so a world that can't be opened is said at once, not by a thread later.)
         Doorway::open_with(&folder, staged)?;
-        let asked = std::sync::Arc::new((std::sync::Mutex::new(Asked { queue: Default::default(), stop: false }), std::sync::Condvar::new()));
+        let asked = std::sync::Arc::new((std::sync::Mutex::new(Asked { queue: Default::default(), changes: Default::default(), told: 0, stop: false }), std::sync::Condvar::new()));
         let (sender, made) = std::sync::mpsc::channel();
         for k in 0..threads.max(1) {
             let (asked, sender, folder) = (asked.clone(), sender.clone(), folder.clone());
             std::thread::Builder::new()
                 .name(format!("the near lane {k}"))
                 .spawn(move || {
-                    let doorway = match Doorway::open_with(&folder, staged) {
+                    let mut doorway = match Doorway::open_with(&folder, staged) {
                         Ok(doorway) => doorway,
                         Err(error) => {
                             let _ = sender.send(Err(error));
                             return;
                         }
                     };
+                    // The telling of the changes this thread's doorway holds.
+                    let mut told = 0u64;
                     // A few tiles kept (a chunk's columns come from one tile, or two or four at a tile's edge).
                     let mut tiles: HashMap<[i32; 2], Tile> = HashMap::new();
                     loop {
-                        let chunk = {
+                        let (chunk, news) = {
                             let (lock, heard) = &*asked;
                             let mut asked = lock.lock().unwrap();
                             loop {
@@ -375,11 +382,17 @@ impl Lane {
                                     return;
                                 }
                                 if let Some(chunk) = asked.queue.pop_front() {
-                                    break chunk;
+                                    break (chunk, (asked.told != told).then(|| (asked.told, asked.changes.clone())));
                                 }
                                 asked = heard.wait(asked).unwrap();
                             }
                         };
+                        // The changes, if the lane's been told of them since this thread's last chunk (copied here,
+                        // outside the lock).
+                        if let Some((now, changes)) = news {
+                            doorway.set_changes((*changes).clone());
+                            told = now;
+                        }
                         let began = std::time::Instant::now();
                         if tiles.len() > 6 {
                             tiles.clear();
@@ -393,7 +406,7 @@ impl Lane {
                                 let top = face.at[2] + if matches!(face.facing, Facing::Up | Facing::Down) { 1 } else { face.high };
                                 (low.min(face.at[2]), high.max(top))
                             });
-                            Made { chunk, faces: faces.iter().map(|face| packed(face, chunk)).collect(), water, low, high, ms: began.elapsed().as_secs_f32() * 1000.0 }
+                            Made { chunk, faces: faces.iter().map(|face| packed(face, chunk)).collect(), water, low, high, ms: began.elapsed().as_secs_f32() * 1000.0, told }
                         });
                         if sender.send(made).is_err() {
                             return;
@@ -412,6 +425,16 @@ impl Lane {
         asked.queue.clear();
         asked.queue.extend(chunks);
         heard.notify_all();
+    }
+
+    /// The changes made through the game's doorway, as they are now: every chunk taken up from here on is made with
+    /// them. Says the count of tellings, which each chunk made carries (`Made::told`).
+    pub fn changed(&self, changes: HashMap<[i32; 2], Vec<Change>>) -> u64 {
+        let (lock, _) = &*self.asked;
+        let mut asked = lock.lock().unwrap();
+        asked.changes = std::sync::Arc::new(changes);
+        asked.told += 1;
+        asked.told
     }
 
     /// The chunks made since the last taking, as many as `most`.
@@ -650,6 +673,48 @@ mod tests {
                 assert!(made[chunk].faces.is_empty() || made[chunk].low < made[chunk].high, "a chunk with faces has a height");
             }
         }
+    }
+
+    /// The lane told of a block placed hands its chunk over with it, as the mesh made directly; told it's taken back,
+    /// as it was before.
+    #[test]
+    fn the_lane_hears_of_changes() {
+        let folder = crate::doorway::test_world();
+        let mut doorway = Doorway::open_with(&folder, false).unwrap();
+        let stone = doorway.block("incus:stone");
+        let lane = Lane::start(folder.clone(), false, 2).unwrap();
+        let from_lane = |told: u64| {
+            lane.ask([[0, 0]]);
+            let began = std::time::Instant::now();
+            loop {
+                if let Some(made) = lane.take(16).unwrap().into_iter().find(|made| made.told == told) {
+                    assert_eq!(made.chunk, [0, 0]);
+                    break made.faces;
+                }
+                assert!(began.elapsed().as_secs() < 60, "the lane hands the chunk over, made from telling {told}");
+                std::thread::sleep(std::time::Duration::from_millis(2));
+            }
+        };
+        let direct = |doorway: &Doorway| {
+            let mut faces = Blocks::read(doorway, &mut HashMap::new(), [0, 0]).unwrap().faces();
+            faces.sort_by_key(|face| face.water);
+            faces.iter().map(|face| packed(face, [0, 0])).collect::<Vec<_>>()
+        };
+        let before = from_lane(0);
+        assert_eq!(before, direct(&doorway), "before any change, the mesh made directly");
+        // A block in the air over the chunk's middle.
+        let ground = match doorway.column(16, 16).unwrap() {
+            Column::Here { ground, .. } => ground,
+            Column::Past => panic!("the spawn's chunk is on the map"),
+        };
+        doorway.make(Change::Block { cell: [16, 16, ground + 12], block: stone }).unwrap();
+        assert_eq!(lane.changed(doorway.changes().clone()), 1);
+        let with = from_lane(1);
+        assert_eq!(with.len(), before.len() + 6, "a block in the air shows six sides");
+        assert_eq!(with, direct(&doorway), "told of the block, the mesh made directly with it");
+        doorway.forget_changes();
+        assert_eq!(lane.changed(doorway.changes().clone()), 2);
+        assert_eq!(from_lane(2), before, "told it's taken back, as it was before");
     }
 
     /// A face's three words hold what it is.

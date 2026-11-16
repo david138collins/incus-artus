@@ -5,9 +5,10 @@
 //! is in, fade out over the last stretch before that, and the far rays begin a little inside it, so there's never a
 //! gap between the two eyes.
 
+use crate::doorway::Change;
 use crate::far_eye::FarEye;
 use crate::near::{CHUNK, Lane, Made, nearest_part, wanted};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 /// The radius the game starts with, chunks (128 blocks), and the most the slider goes to (David's goal: 64).
 pub const RADIUS: f32 = 4.0;
@@ -58,6 +59,9 @@ pub struct Counts {
     /// A chunk's making on the lane, ms (the last hundred's mean), and the lane's threads.
     pub chunk_ms: f32,
     pub threads: usize,
+    /// The render radius these are for (chunks), and whether every wanted chunk is in, as its changes have it now.
+    pub radius: f32,
+    pub whole: bool,
 }
 
 pub struct NearEye {
@@ -69,6 +73,15 @@ pub struct NearEye {
     /// What was last asked of the lane: the eye's chunk and the radius; and the chunks wanted then, nearest first.
     asked: Option<([i32; 2], f32)>,
     want: Vec<[i32; 2]>,
+    /// How far into `want` every chunk is in (all before this are): the faces' reach is looked for from here on.
+    /// [Build 196 walked every wanted chunk each frame for it: 13,100 look-ups at 64 chunks.]
+    first_to_come: usize,
+    /// The changes as the lane was last told them: the chunks they touch; for each chunk a telling has touched, the
+    /// telling its faces must be made from at the least; and the chunks kept whose faces are older than that (made
+    /// again, and drawn as they were until then).
+    touched: HashSet<[i32; 2]>,
+    need: HashMap<[i32; 2], u64>,
+    remake: HashSet<[i32; 2]>,
     /// Made and waiting for room in a frame.
     waiting: std::collections::VecDeque<Made>,
     recent_ms: std::collections::VecDeque<f32>,
@@ -177,7 +190,7 @@ impl NearEye {
         let draws = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the near eye's draws"), size: MOST_DRAWN * 2 * 16, usage: wgpu::BufferUsages::INDIRECT | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let radius = std::env::var("INCUS_NEAR_RADIUS").ok().and_then(|r| r.parse::<f32>().ok()).map_or(RADIUS, |r| r.clamp(1.0, MOST_RADIUS));
         log::info!("The near eye: faces as triangles within a render radius of {radius} chunks ({} blocks), its lane on {threads} threads", radius * CHUNK as f32);
-        Ok(Self { lane, radius, chunks: HashMap::new(), pages: Vec::new(), asked: None, want: Vec::new(), waiting: Default::default(), recent_ms: Default::default(), faces, water, layout, depth_layout, group: None, numbers, colours, depth: None, draws, drawn: Vec::new(), drawn_water: Vec::new(), counts: Counts { threads, ..Default::default() } })
+        Ok(Self { lane, radius, chunks: HashMap::new(), pages: Vec::new(), asked: None, want: Vec::new(), first_to_come: 0, touched: HashSet::new(), need: HashMap::new(), remake: HashSet::new(), waiting: Default::default(), recent_ms: Default::default(), faces, water, layout, depth_layout, group: None, numbers, colours, depth: None, draws, drawn: Vec::new(), drawn_water: Vec::new(), counts: Counts { threads, ..Default::default() } })
     }
 
     /// Room for `count` faces: a page and where in it (a free stretch that holds them, the first found; a new page
@@ -228,22 +241,31 @@ impl NearEye {
         if self.asked != Some((here, radius)) {
             self.asked = Some((here, radius));
             self.want = wanted(eye, radius);
-            // Out of reach by a chunk and more: given back.
+            self.first_to_come = 0;
+            // Out of reach by a chunk and more: given back. So is a chunk to be made again that isn't wanted now (it's
+            // past the radius, and is made new when it's wanted).
             let reach = (radius + 2.0) * CHUNK as f32;
-            let gone: Vec<[i32; 2]> = self.chunks.keys().filter(|chunk| nearest_part(**chunk, eye) > reach).copied().collect();
+            let mut gone: Vec<[i32; 2]> = self.chunks.keys().filter(|chunk| nearest_part(**chunk, eye) > reach).copied().collect();
+            if !self.remake.is_empty() {
+                let want: HashSet<[i32; 2]> = self.want.iter().copied().collect();
+                gone.extend(self.remake.iter().filter(|chunk| !want.contains(*chunk)));
+            }
             for chunk in gone {
                 if let Some(kept) = self.chunks.remove(&chunk) {
                     self.give_back(&kept);
                 }
+                self.remake.remove(&chunk);
             }
             self.waiting.retain(|made| nearest_part(made.chunk, eye) <= reach);
             // (What's made and waiting for its frame isn't asked for again. Looked up in a set: by walking the waiting
             // ones for each wanted chunk, a crossing into a new chunk while a radius filled was thousands by thousands.)
-            let waiting: std::collections::HashSet<[i32; 2]> = self.waiting.iter().map(|made| made.chunk).collect();
-            let chunks = &self.chunks;
-            self.lane.ask(self.want.iter().filter(|chunk| !chunks.contains_key(*chunk) && !waiting.contains(*chunk)).copied());
+            let waiting: HashSet<[i32; 2]> = self.waiting.iter().map(|made| made.chunk).collect();
+            let (chunks, remake) = (&self.chunks, &self.remake);
+            self.lane.ask(self.want.iter().filter(|chunk| (!chunks.contains_key(*chunk) || remake.contains(*chunk)) && !waiting.contains(*chunk)).copied());
         }
-        self.waiting.extend(self.lane.take(4096)?);
+        // (A chunk made from changes older than its own is let go: it's been asked for again.)
+        let need = &self.need;
+        self.waiting.extend(self.lane.take(4096)?.into_iter().filter(|made| made.told >= need.get(&made.chunk).copied().unwrap_or(0)));
         // Onto the card, nearest the eye first, as many faces as a frame may (one chunk at least).
         let mut put = 0usize;
         while let Some(made) = self.waiting.front() {
@@ -266,11 +288,16 @@ impl NearEye {
                 queue.write_buffer(&self.pages[page].buffer, first as u64 * FACE, &bytes);
             }
             self.chunks.insert(made.chunk, Kept { page, first, count, water: made.water, low: made.low, high: made.high });
+            self.remake.remove(&made.chunk);
         }
-        // How far the faces reach: to the nearest chunk that's wanted and not yet in, or the whole radius.
+        while self.first_to_come < self.want.len() && self.chunks.contains_key(&self.want[self.first_to_come]) {
+            self.first_to_come += 1;
+        }
+        // How far the faces reach: to the nearest chunk that's wanted and not yet in, or the whole radius. (A chunk
+        // being made again counts as in: its old faces are drawn.)
         let mut reach = radius * CHUNK as f32;
         let mut missing = 0;
-        for chunk in &self.want {
+        for chunk in &self.want[self.first_to_come..] {
             if !self.chunks.contains_key(chunk) {
                 reach = reach.min(nearest_part(*chunk, eye));
                 missing += 1;
@@ -294,8 +321,46 @@ impl NearEye {
             threads: self.counts.threads,
             drawn: self.counts.drawn,
             faces_drawn: self.counts.faces_drawn,
+            radius,
+            whole: self.first_to_come >= self.want.len() && self.remake.is_empty(),
         };
         Ok(())
+    }
+
+    /// Whether every chunk wanted round `eye` at the radius is in, as its changes have it now (a flight's standing
+    /// waits for this).
+    pub fn whole(&self, eye: [f32; 2]) -> bool {
+        let here = [(eye[0] / CHUNK as f32).floor() as i32, (eye[1] / CHUNK as f32).floor() as i32];
+        self.asked == Some((here, self.radius.clamp(1.0, MOST_RADIUS))) && self.counts.whole
+    }
+
+    /// The changes made through the game's doorway, as they are now (a mark's are made, and the mark before's taken
+    /// back, as the camera goes to it): the lane told, and every chunk these or the ones before them touch made
+    /// again. A chunk's old faces are drawn until its new ones come. Whole blocks: bars aren't the near eye's yet.
+    pub fn changed(&mut self, changes: &HashMap<[i32; 2], Vec<Change>>) {
+        let now: HashSet<[i32; 2]> = changes
+            .values()
+            .flatten()
+            .filter_map(|change| match change {
+                Change::Block { cell, .. } => Some(crate::near::touched(*cell)),
+                Change::Bar { .. } => None,
+            })
+            .flatten()
+            .collect();
+        if now.is_empty() && self.touched.is_empty() {
+            return;
+        }
+        let told = self.lane.changed(changes.clone());
+        for chunk in now.union(&self.touched) {
+            self.need.insert(*chunk, told);
+            if self.chunks.contains_key(chunk) {
+                self.remake.insert(*chunk);
+            }
+        }
+        let need = &self.need;
+        self.waiting.retain(|made| made.told >= need.get(&made.chunk).copied().unwrap_or(0));
+        self.touched = now;
+        self.asked = None;
     }
 
     /// The frame's numbers and draws made ready (before its passes are recorded): the depth at the picture's size, the

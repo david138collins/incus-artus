@@ -248,13 +248,22 @@ impl Doorway {
         Ok(())
     }
 
+    /// Every change, by its tile (for the near lane, whose threads each have a doorway of their own).
+    pub fn changes(&self) -> &HashMap<[i32; 2], Vec<Change>> {
+        &self.changes
+    }
+
+    /// The changes replaced by these: a near lane's thread, told what the game's doorway holds now.
+    pub fn set_changes(&mut self, changes: HashMap<[i32; 2], Vec<Change>>) {
+        self.changes = changes;
+    }
+
     /// Every change forgotten (a mark's changes are taken back when the flight moves on).
     pub fn forget_changes(&mut self) {
         self.changes.clear();
     }
 
     /// What changed in a tile, in the order it was made. Asked for by the near eye's change path (2.3); today by the tests.
-    #[cfg_attr(not(test), allow(dead_code))]
     pub fn changes_in(&self, tx: i32, ty: i32) -> &[Change] {
         self.changes.get(&[tx, ty]).map_or(&[], Vec::as_slice)
     }

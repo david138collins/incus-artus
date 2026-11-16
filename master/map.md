@@ -204,7 +204,7 @@ flowchart TB
 ### going to a mark
 
 - **A pass** in the frame, on the processor.
-- **What it is:** At the start, and on a flight once a mark is measured: the camera taken to the next mark, a player's eye over the ground the doorway answers, and the mark's changes made through the doorway (the build's placings, the scatter).
+- **What it is:** At the start, and on a flight once a mark is measured: the camera taken to the next mark, a player's eye over the ground the doorway answers, and the mark's changes made through the doorway (the build's placings, the scatter), the near eye told of them. On a flight a standing mark isn't measured till the far cells are on the card and the near eye's chunks are all in.
 - **Reads:** the marks and a tile's columns. **Writes:** the camera and what changed.
 - **Switch** `INCUS_MARK`: the mark the game starts at, by its name (the first in data/marks.toml unless set).
 - **Cost, last measured** (`kept logs/flight-1794589790.txt`): on the processor median 0.000, 95th 0.000, 99th 0.000, worst 0.206.
@@ -373,7 +373,7 @@ flowchart TB
 ### meshing the near chunks
 
 - **A pass** in loading, on the processor.
-- **What it is:** A chunk's faces made on the near lane's own threads (32 x 32 columns, the world's height): every side of a solid block that looks into air or water, merged where they make a rectangle in one plane (greedy meshing), and the water's top. Timed a chunk; not in the frame.
+- **What it is:** A chunk's faces made on the near lane's own threads (32 x 32 columns, the world's height): every side of a solid block that looks into air or water, merged where they make a rectangle in one plane (greedy meshing), and the water's top; with the whole blocks placed through the game's doorway, as the lane was last told of them (a chunk they touch is made again). Timed a chunk; not in the frame.
 - **Reads:** a tile's columns and what changed. **Writes:** the near faces.
 - **Cost, last measured** (`kept logs/flight-1794589790.txt`): not measured.
 - **Files:** src/near.rs.
