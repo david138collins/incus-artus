@@ -6234,3 +6234,48 @@ pixels, the most 6. **The steps, on, are build 192's on** to a step or two at ev
 
 David, asked whether it should wait for another build's window: "we can do the trim and checks now." So its trace
 and flights (off, on, off) go up as soon as this is committed.
+
+### Build 194 traced and flown (2026-11-16, 08:19 to 08:42, hands off): cover by faces now costs about half a percent; the sea marks 0.5 to 0.7% where they were 1.6%
+
+On David's word ("we can do the trim and checks now"). The card idle before take-off (6 to 9%), mains, one screen,
+Nsight's window closed. Two traces at the mountain top
+(`logs/nsight/b194/b194-off/incus_artus_2026_11_16_08_20_43.ngfx-gputrace`,
+`logs/nsight/b194/b194-on/incus_artus_2026_11_16_08_22_41.ngfx-gputrace`), then three flights: off
+(`logs/flight-1794839365.txt`), on (`-1794839756`), off again (`-1794840152`), all "the code committed". No hitch.
+
+The march (the far 8 x 8 on the card, ms, the median):
+
+| mark | off | on | off again | on against the two offs' mean | build 192's |
+|---|---|---|---|---|---|
+| on the ground at the spawn | 0.373 | 0.368 | 0.370 | 0.9% less | 0.8% more |
+| the mountain top | 0.926 | 0.931 | 0.936 | the same | the same |
+| the bare plain | 0.450 | 0.453 | 0.451 | 0.6% more | 0.6% |
+| high over the spawn | 0.979 | 0.988 | 0.977 | 1.0% more | 0.7% |
+| low over the sea | 0.533 | 0.539 | 0.538 | 0.7% more | 1.6% |
+| a player's run over the plain | 0.586 | 0.605 | 0.617 | (the two offs 5% apart: unreadable) | 2.8% |
+| fast across the world | 0.619 | 0.627 | 0.614 | 1.7% more | 2.6% |
+| the plain, nodding | 0.453 | 0.456 | 0.454 | 0.6% more | 0.8% |
+| the sea, nodding | 0.518 | 0.524 | 0.525 | 0.5% more | 1.6% |
+
+The card's whole over the nine views: 6.564, 6.616, 6.614 ms: on 0.4% over the offs' mean, the offs themselves
+0.8% apart. The dearest view, high over the spawn: 1.116 ms on, for 1.108 and 1.106.
+
+**How good the session is:** worse than the morning's two. The machine was hot by the second flight (the
+processor's area at 103 to 104 degrees at several marks). In the on flight the card's clock dipped at high over the
+spawn (2,445 MHz at its least, for 2,647 in both offs; that mark's 95th 1.122 for 0.999 and 0.997, its worst
+4.9 ms) and at fast across (under 2,000 MHz for 1.9 s). So on's median at high over the spawn leans high, and the
+run's two offs differ by 5%.
+
+**Against the mark** (no mark's march over the two offs' mean by more than 1%): met at six marks; high over the
+spawn sits on the line (1.0%, with the clock's dip in it); fast across is over it (1.7%); the run can't be read.
+**What it was for:** the sea marks, 0.5 and 0.7% where build 192 cost 1.6%: done. The run isn't shown either way
+by this session.
+
+**So, as flown:** cover by faces costs the march about half a percent, at the edge of what a bracket of three
+flights can tell on this machine; nowhere is it clearly over 1% but fast across, a mark whose 99th is twice its
+median. Kept as it is. **Owed:** David's reading of the on trace's row (the mark: no more than build 192's 168
+registers, nothing put by, 12 groups).
+
+**For the next windows (Builder's note):** three flights and two traces straight after an hour of picture tests
+leave the machine hot by the last flight; a few minutes' rest before a bracket, and the card's clock read beside
+each mark's median, as here.
