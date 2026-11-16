@@ -7327,3 +7327,26 @@ the near faces at 64 chunks 2.435 ms at the spawn (197: 2.43 with the water), 1.
 
 **Next (basic fixes, on his word for them):** build 203, the two faults mended; then one short flight for the
 cover's pass and the far eye's floor, and the on trace made again.
+
+### Build 203's pass mark (2026-11-16): the cover's two faults mended
+
+Under David's "basic fixes"; both are in build 201's own new code.
+
+1. **The march asks whether a pixel is wanted before it asks the cover.** The cover's nine reads come after the
+   finer layers' "not wanted" leaves (so only a wanted pixel reads them), and stay first thing for the base's
+   pixels, which are all wanted.
+2. **The cover's pass reads the near picture four pixels at a time** (one read for the four screen pixels under a
+   pixel of the finest layer), where the base's pixel is 8 screen pixels a side as it is; a pixel at a time
+   otherwise, as now.
+
+**The mark:**
+
+- **The same cover, the same picture:** off the screen the far eye marches the very rays build 201 counted (the
+  spawn at 16 chunks 26,235 base rays and 19,970 finer; at 64, 20,756 and none; looking down at 32, 1,051 and
+  3,963), and the picture is build 202's but for the near picture's own few pixels.
+- **One flight, the rule on at 16 chunks, against build 202's two at 16:** the cover's pass under half what it
+  was (under 0.07 ms; it was 0.137 to 0.162); on open ground the far eye no dearer with the rule on than off (the
+  plain: 0.709 off, 0.738 on in build 202), within the 1.5% two sessions differ by; the far eye's floor where
+  blocks fill the view (the scatter at 100,000: 0.261) said as it is.
+- **The march's row:** the on trace made again on this build (the off trace of build 202 stands: the rule
+  compiled out is the same program).
