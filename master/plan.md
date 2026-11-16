@@ -66,17 +66,17 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** his go for one flight of build 190 (the mend below; about eight minutes, hands off).
-  Builds 188 and 189 are flown (2026-11-15,
-  `journal/docs/experiments.md`): seven marks of nine within 2% of build 186's, the two where the card works to
-  the hair; the bare plain 11.6% over and the sea nodding 3.9%. The cause: a ray nearly covered at a cut has its
-  next length begin as if a twentieth were let through, so the length marches far past the ray's true end (205
-  steps for about 100), and the join cuts it and uncuts it every other frame. Build 190 mends it (built, unflown):
-  a length begins as the ray truly stood, and the guard for a moving view is the join's; off the screen the
-  plain's ray holds still, the cut's picture is nearer the uncut one at every mark, and on the first frame after a
-  turn the worst pixel high over the spawn is 9 of 255 out for 51. With the scatter stage on, the card's whole over the nine views is 5%
+- **Waiting on David:** the skyline talk with Builder (below). Builds 188, 189 and 190 are flown (2026-11-15,
+  `journal/docs/experiments.md`). Build 189 missed at the bare plain (11.6% over) and the sea nodding (3.9%): a
+  ray nearly covered at a cut had its next length begin as if a twentieth were let through, so the length marched
+  far past the ray's true end and the join cut it and uncut it every other frame. Build 190 mends it (a length
+  begins as the ray truly stood; the guard for a moving view is the join's) and its flight met its mark: the plain
+  0.448 ms (build 186's 0.450), the sea nodding 0.518 (0.561), the plain nodding 0.451 (0.473); the card's whole
+  over the nine views 6.548 ms, the least yet; the dearest view high over the spawn at 1.109 ms (it read 1.8%
+  dearer than build 189's with the same work counted on a hotter machine: Builder reads it as the session, the
+  next flight says). With the scatter stage on (build 189's flight), the card's whole over the nine views is 5%
   more (6.995 ms for 6.663), the dearest view 1.21 ms, and the run 39% more (there more rays are long than the
-  list holds). After the mend: the skyline talk with Builder (haze, as now, or cover), which the stage's pictures
+  list holds). Next: the skyline talk with Builder (haze, as now, or cover), which the stage's pictures
   now feed: thin things (an arch's piers, posts) nearly vanish against the
   sky at the far cells' size. After it by the plan: lazy rays, the Intel card's flight; then the near eye. His
   looks today: the cut, "alarmingly fast and looks really nice"; the scatter stage (build 188, on with

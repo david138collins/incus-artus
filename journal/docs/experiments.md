@@ -5732,3 +5732,47 @@ is put right, written under the flight above: the threads' steps can be more tha
 
 **Owed:** the flight, on David's word: the bare plain's march within 2% of build 186's 0.450 ms, the sea
 nodding's within 2% of 0.561, no other mark over build 189's by more than 2%.
+
+### Build 190 flown (2026-11-15, 18:31 to 18:38, hands off): the mark met; the plain back to 0.448 ms, the nodding marks cheaper than they have been
+
+`logs/flight-1794789487.txt`, "the code committed" (d1fe13c), on David's word ("go"); the game as launched, as
+builds 186 and 189 were flown. No hitch. The march (the far 8 x 8 on the card, ms, the median):
+
+| mark | build 186 | build 189 | build 190 | against build 189 |
+|---|---|---|---|---|
+| on the ground at the spawn | 0.363 | 0.363 | 0.363 | the same |
+| the mountain top | 0.914 | 0.913 | 0.923 | 1.1% more |
+| the bare plain | 0.450 | 0.502 | **0.448** | 10.8% less |
+| high over the spawn | 0.958 | 0.963 | 0.980 | 1.8% more |
+| low over the sea | 0.528 | 0.537 | 0.532 | 0.9% less |
+| a player's run over the plain | 0.591 | 0.583 | 0.584 | the same |
+| fast across the world | 0.616 | 0.622 | 0.622 | the same |
+| the plain, nodding | 0.473 | 0.478 | **0.451** | 5.6% less |
+| the sea, nodding | 0.561 | 0.583 | **0.518** | 11.1% less |
+
+The card's whole over the nine views: 6.548 ms, the least yet (build 186: 6.582; build 189: 6.663). Two views
+over 1 ms, as before.
+
+**The mark's lines:** the bare plain within 2% of build 186's 0.450: 0.448, met. The sea nodding within 2% of
+0.561: 0.518, 7.7% under it, met. No other mark over build 189's by more than 2%: the most is high over the
+spawn's 1.8%, met. The plain's longest chain is 127 again, the sea's too (it was 153).
+
+**The dearest view reads a little dearer, said plainly:** high over the spawn's march 0.980 for 0.963 (the card's
+whole 1.109 ms for 1.091), and the mountain top's 0.923 for 0.913: the two marks where the card works. By the
+card's own counts it did the same work at both (high over the spawn: 6,043,136 thread-steps taken and 7,536,160
+held, for build 189's 6,043,398 and 7,535,616; the mountain top: 6,604,394 and 7,492,384 for 6,606,472 and
+7,496,128), and nothing in the march's program changed but one number. What differs is the machine: the card's
+clock at its least was 2,625 MHz at the mountain top for 2,700, the card 69 degrees for 66, the processor's area
+up to 87 for 78 (an hour of picture tests ran right before this flight; build 189's flew after a rest). Builder
+reads the 1 to 2% as the session's heat, not the build. One flight can't prove that: the next flight flown for
+any reason says. If high over the spawn's march reads 0.98 again from a cool start with these counts, it's the
+code and is looked into.
+
+**What the mend gave beyond its mark:** the moving marks. The plain nodding is 0.451 for build 186's 0.473 (the
+card's whole at its 99th 0.626 ms for 0.764), the sea nodding 0.518 for 0.561. In a moving view a ray's standing
+at a cut changes every frame, so lengths begun from a twentieth marched on past the ray's end there all the time,
+not only at one ray.
+
+**Kept; the cut is done enough to go on, again.** David's eye on a moving view when he next plays (the guard
+changed: on a turn, where sky showed through a cut ray for a frame, the ground's own colour fills now); nothing
+is asked of him for it.
