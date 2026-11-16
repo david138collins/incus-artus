@@ -7691,3 +7691,41 @@ recording the near faces was 0.04 to 0.09 ms dearer on the processor):
 *The mark:* the bracket says which of the two parts is dearer with the pictures on, and by how much; or, if
 neither differs by more than the two offs differ from each other, that build 205's reading was the session's,
 said plainly. Nothing is mended in this build.
+
+### Build 206's bracket flown (2026-11-16): the pictures cost nothing a bracket can show; build 205's reading was the session's, and Builder's to have known
+
+**The bracket** (NVIDIA only, mains, one screen, hands off, 16:26 to 16:54; each flight begun at 58 to 67
+degrees; the card 6% busy at rest): build 206, the code committed, as the game starts (32 chunks): the pictures
+off (`flight-1794868466`), on (`-1794869099`), off again (`-1794869687`). No error.
+
+**On the processor, medians summed over the fourteen standing marks, ms:**
+
+| | pictures off | on | off again |
+|---|---|---|---|
+| listing the near chunks | 2.78 | 2.99 | 2.47 |
+| the near faces (handing the pass over) | 0.05 | 0.05 | 0.05 |
+| handing the card its work | 4.69 | 4.66 | 5.14 |
+| the frame | 16.50 | 16.88 | 16.83 |
+
+**Against the mark:**
+
+- **Neither part is dearer with the pictures on by more than the two offs differ from each other.** The listing
+  with the pictures on is 0.21 over the first off and 0.52 over the second; the two offs are 0.31 apart. Handing
+  the card its work is no dearer on than off. **So build 205's "0.04 to 0.09 ms dearer" was the session's, not
+  the pictures'.**
+- **On the card too:** the near faces with the pictures on read between or under the two offs (the spawn 0.885,
+  0.869, 0.870; the mountain top 0.510, 0.504, 0.499; the scatter at 100,000 0.679, 0.641, 0.690). Build 205's
+  "0.01 to 0.09 ms" was read the same wrong way. **By a bracket, the pictures cost nothing that can be shown.**
+- **A slip of Builder's, said:** build 205's flight was read against build 204's, two single flights half an hour
+  apart, for numbers of a few hundredths of a millisecond; the standing habit says a bracket, and says why. An
+  hour of David's hands-off time and a build went to finding what the habit would have said at the start.
+
+**What the instrument did find:**
+
+- **All of the near eye's time on the processor is the listing:** 0.15 to 0.27 ms a frame at 32 chunks; handing
+  the faces' pass to the card's library is 0.003 to 0.005. So the listing is the whole of what there is to bring
+  down there (1 ms at 64 chunks, written down at build 197).
+- **The processor's passes swing with its heat far more than with anything built today:** handing the card its
+  work reads 0.29 ms at a standing where the processor's area is 84 degrees and 0.48 to 0.54 where it is 103 to
+  104, in one program. A flight's processor times mean something only beside another's at a like heat, mark by
+  mark.

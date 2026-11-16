@@ -133,9 +133,10 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   blocks do, count for count; the card's whole frame under his 2 ms bar at every mark (the dearest 1.80), every
   standing mark at 544 a second or more. **Textures are on the near faces (build 205, 2.4's first step,** by his order "so textures and
   quarter/octs next"): old's placeholder pictures, crisp up close, shrinking to the far colour; they cost the card
-  0.01 to 0.09 ms. **His look, with the scatter stage on: "its looking really good."** Open: recording the near
-  faces read 0.04 to 0.09 ms dearer on the processor in build 205's flight, cause not found; build 206 times the
-  listing apart and flies a bracket. What of 2.4 comes next is his to say. Before the flights (his "go
+  0.01 to 0.09 ms. **His look, with the scatter stage on: "its looking really good."** Build 206's bracket (the pictures
+  off, on, off) shows no cost from them on the card or the processor: build 205's dearer reading was the
+  difference between two sessions. All of the near eye's processor time is listing the chunks in view (0.15 to
+  0.27 ms a frame at 32 chunks, 1 ms at 64). What of 2.4 comes next is his to say. Before the flights (his "go
   ahead with the tests", 2026-11-16) he looked at build 195: "holds 240fps at 64 chunks, once its loaded in"; flying very fast,
   90 to 120 a second while chunks are made ("i don't think a player could experience a hiccup. off to a good
   start"); "there is a seam, but, its not very bad, and i think a x-fader with curves could hide it almost
