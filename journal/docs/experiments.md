@@ -6578,3 +6578,50 @@ mountain top's rate the full radius would be some 40 million faces; at the plain
 radii lie between, and the numbers will be read at 1, 4, 16, 32 and 64 as the mark says.
 
 All 37 tests pass (the three new ones in; the map redrawn for the new file).
+
+### Build 195, its second piece: the near lane, and what each render radius comes to (2026-11-16; still nothing drawn)
+
+David on the slider's place and name (the Render page, "Render radius (chunks)", 1 to 64): "yes thats fine".
+
+**The lane** (`near.rs`): threads of its own, each with a doorway of its own, making chunks' faces as they're
+asked for, nearest the eye first; asking again replaces what's waiting, so a change of place or radius is heard at
+the next chunk. A face is handed over as three words (its place, facing and size; its block; its chunk): 12
+bytes. A chunk is wanted if any part of it is within the radius, so the whole circle is covered. Checked: a
+radius is filled and each chunk is the mesh made directly; a packed face unpacks to what it was.
+
+**The mark's numbers, "given not promised", for faces, memory and filling** (the test world, off the screen, 23
+threads; a triangle count is two a face, before anything is left out for being out of view or turned away):
+
+| from | radius | chunks | faces | triangles | faces' memory | filled in |
+|---|---|---|---|---|---|---|
+| the spawn | 1 (32 blocks) | 8 | 2,509 | 5,018 | | 0.01 s |
+| | 4 (128) | 64 | 39,810 | 79,620 | 0.5 MB | 0.02 s |
+| | 16 (512) | 860 | 1,180,365 | 2.4 million | 14 MB | 0.20 s |
+| | 32 (1,024) | 3,342 | 5,425,611 | 10.9 million | 62 MB | 0.85 s |
+| | 64 (2,048) | 13,114 | 14,399,227 | 28.8 million | 165 MB | 3.4 s |
+| the plain | 4 | 69 | 5,771 | 11,542 | 0.1 MB | 0.03 s |
+| | 16 | 871 | 54,514 | 109,028 | 0.6 MB | 0.12 s |
+| | 32 | 3,347 | 143,932 | 287,864 | 1.6 MB | 0.76 s |
+| | 64 | 13,123 | 1,358,554 | 2.7 million | 16 MB | 3.0 s |
+| the mountain top | 4 | 67 | 192,628 | 385,256 | 2.2 MB | 0.04 s |
+| | 16 | 870 | 1,777,317 | 3.6 million | 20 MB | 0.22 s |
+| | 32 | 3,342 | 4,771,992 | 9.5 million | 55 MB | 0.81 s |
+| | 64 | 13,125 | 13,592,563 | 27.2 million | 156 MB | 3.5 s |
+| the stage's castle, the stage on | 4 | 69 | 10,373 | 20,746 | 0.1 MB | 0.15 s |
+| | 16 | 877 | 326,665 | 653,330 | 3.7 MB | 0.84 s |
+| | 64 | 13,147 | 3,508,614 | 7.0 million | 40 MB | 34.7 s |
+
+- **His 64 chunks are 13,100 chunks,** not the 16,600 Builder's arithmetic said (that was a square's count; a
+  circle of 64 is 13,100).
+- **The lane isn't the limit:** the whole of 64 chunks is made in about three and a half seconds, 5 to 6 ms of
+  one thread a chunk. (With the scatter stage on it's ten times slower, 35 s: each thread applies the stage to
+  every tile it reads, and reads them again as it moves on. The stage is a test's fixture, not the game's world;
+  written down.)
+- **The memory isn't the limit:** 165 MB of faces at the most, where the card has gigabytes to spare.
+- **The triangles are the question,** as expected: on hilly ground the full radius is 27 to 29 million triangles
+  before anything is left out; on the plain 2.7 million; with a castle, a town and woods on the plain 7 million.
+  How many of those the card draws in what time is the next piece's to measure. What's known to cut them without
+  changing the picture: chunks out of view left out, and in each chunk the faces turned away from the eye left
+  out (about half).
+
+All the near eye's tests pass (5).

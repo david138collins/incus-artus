@@ -280,6 +280,156 @@ pub fn touched(cell: [i32; 3]) -> Vec<[i32; 2]> {
     chunks
 }
 
+/// A face as the card is given it, three words: its place in its chunk, its facing and its width; its height and
+/// its block; its chunk. (North and east 0 to 31 in 6 bits each, up in 10, the facing in 3, the width less one in 5,
+/// water's top marked; the height less one in 10, the block in 16; the chunk's north and east, each with 32,768
+/// added, in 16 bits each.)
+pub fn packed(face: &Face, chunk: [i32; 2]) -> [u32; 3] {
+    let facing = Facing::ALL.iter().position(|f| *f == face.facing).unwrap() as u32;
+    let a = face.at[0] as u32 | (face.at[1] as u32) << 6 | (face.at[2] as u32) << 12 | facing << 22 | ((face.wide - 1) as u32) << 25 | (face.water as u32) << 30;
+    let b = (face.high - 1) as u32 | (face.block as u32) << 10;
+    let c = (chunk[0] + 32768) as u32 | ((chunk[1] + 32768) as u32) << 16;
+    [a, b, c]
+}
+
+/// A chunk as the lane hands it over: its packed faces, the lowest and highest block any of them touches (for
+/// leaving it out when it's out of view), and how long it took to make (ms).
+pub struct Made {
+    pub chunk: [i32; 2],
+    pub faces: Vec<[u32; 3]>,
+    pub low: i32,
+    pub high: i32,
+    pub ms: f32,
+}
+
+/// The chunks within `radius` chunks of `eye` (north, east, blocks): every chunk any part of which is that near, so
+/// the whole circle is covered. Nearest first.
+pub fn wanted(eye: [f32; 2], radius: f32) -> Vec<[i32; 2]> {
+    let reach = radius * CHUNK as f32;
+    let middle = [(eye[0] / CHUNK as f32).floor() as i32, (eye[1] / CHUNK as f32).floor() as i32];
+    let span = radius.ceil() as i32 + 1;
+    let mut chunks: Vec<(f32, [i32; 2])> = Vec::new();
+    for north in middle[0] - span..=middle[0] + span {
+        for east in middle[1] - span..=middle[1] + span {
+            let off = nearest_part([north, east], eye);
+            if off <= reach {
+                chunks.push((off, [north, east]));
+            }
+        }
+    }
+    chunks.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
+    chunks.into_iter().map(|(_, chunk)| chunk).collect()
+}
+
+/// How far (blocks, level) the nearest part of a chunk is from `eye`.
+pub fn nearest_part(chunk: [i32; 2], eye: [f32; 2]) -> f32 {
+    let side = CHUNK as f32;
+    let d: Vec<f32> = (0..2).map(|k| (chunk[k] as f32 * side - eye[k]).max(eye[k] - (chunk[k] + 1) as f32 * side).max(0.0)).collect();
+    (d[0] * d[0] + d[1] * d[1]).sqrt()
+}
+
+/// What the lane's threads share: the chunks asked for, nearest first, and whether to stop.
+struct Asked {
+    queue: std::collections::VecDeque<[i32; 2]>,
+    stop: bool,
+}
+
+/// The near lane: threads of its own that make chunks' faces as they're asked for, each through a doorway of its
+/// own, handing each over as it's done. The asking is the frame's: `ask` replaces what's waiting (so a change of
+/// place or radius is heard at the next chunk), and what a thread already has in hand is finished and handed over.
+pub struct Lane {
+    asked: std::sync::Arc<(std::sync::Mutex<Asked>, std::sync::Condvar)>,
+    made: std::sync::mpsc::Receiver<Result<Made, String>>,
+    pub threads: usize,
+}
+
+impl Lane {
+    /// Starts the lane on the map behind the doorway in `folder` (with the scatter stage if `staged`), on `threads`.
+    pub fn start(folder: std::path::PathBuf, staged: bool, threads: usize) -> Result<Self, String> {
+        // (Opened once here so a world that can't be opened is said at once, not by a thread later.)
+        Doorway::open_with(&folder, staged)?;
+        let asked = std::sync::Arc::new((std::sync::Mutex::new(Asked { queue: Default::default(), stop: false }), std::sync::Condvar::new()));
+        let (sender, made) = std::sync::mpsc::channel();
+        for k in 0..threads.max(1) {
+            let (asked, sender, folder) = (asked.clone(), sender.clone(), folder.clone());
+            std::thread::Builder::new()
+                .name(format!("the near lane {k}"))
+                .spawn(move || {
+                    let doorway = match Doorway::open_with(&folder, staged) {
+                        Ok(doorway) => doorway,
+                        Err(error) => {
+                            let _ = sender.send(Err(error));
+                            return;
+                        }
+                    };
+                    // A few tiles kept (a chunk's columns come from one tile, or two or four at a tile's edge).
+                    let mut tiles: HashMap<[i32; 2], Tile> = HashMap::new();
+                    loop {
+                        let chunk = {
+                            let (lock, heard) = &*asked;
+                            let mut asked = lock.lock().unwrap();
+                            loop {
+                                if asked.stop {
+                                    return;
+                                }
+                                if let Some(chunk) = asked.queue.pop_front() {
+                                    break chunk;
+                                }
+                                asked = heard.wait(asked).unwrap();
+                            }
+                        };
+                        let began = std::time::Instant::now();
+                        if tiles.len() > 6 {
+                            tiles.clear();
+                        }
+                        let made = Blocks::read(&doorway, &mut tiles, chunk).map(|blocks| {
+                            let faces = blocks.faces();
+                            let (low, high) = faces.iter().fold((blocks.high, blocks.low), |(low, high), face| {
+                                let top = face.at[2] + if matches!(face.facing, Facing::Up | Facing::Down) { 1 } else { face.high };
+                                (low.min(face.at[2]), high.max(top))
+                            });
+                            Made { chunk, faces: faces.iter().map(|face| packed(face, chunk)).collect(), low, high, ms: began.elapsed().as_secs_f32() * 1000.0 }
+                        });
+                        if sender.send(made).is_err() {
+                            return;
+                        }
+                    }
+                })
+                .map_err(|error| format!("the near lane's thread couldn't start: {error}"))?;
+        }
+        Ok(Self { asked, made, threads: threads.max(1) })
+    }
+
+    /// What's wanted now, nearest first: replaces what was waiting.
+    pub fn ask(&self, chunks: impl IntoIterator<Item = [i32; 2]>) {
+        let (lock, heard) = &*self.asked;
+        let mut asked = lock.lock().unwrap();
+        asked.queue.clear();
+        asked.queue.extend(chunks);
+        heard.notify_all();
+    }
+
+    /// The chunks made since the last taking, as many as `most`.
+    pub fn take(&self, most: usize) -> Result<Vec<Made>, String> {
+        let mut taken = Vec::new();
+        while taken.len() < most {
+            match self.made.try_recv() {
+                Ok(made) => taken.push(made?),
+                Err(_) => break,
+            }
+        }
+        Ok(taken)
+    }
+}
+
+impl Drop for Lane {
+    fn drop(&mut self) {
+        let (lock, heard) = &*self.asked;
+        lock.lock().unwrap().stop = true;
+        heard.notify_all();
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -441,5 +591,65 @@ mod tests {
                 assert_eq!(&after, before, "chunk {chunk:?} doesn't change (a block in the air hides no side of its neighbour's)");
             }
         }
+    }
+
+    /// The lane makes every chunk of a radius, each the mesh made directly; and what a radius comes to (`NEAR_TEST_RADII`:
+    /// radii in chunks, for the numbers; `NEAR_TEST_AT`: north, east; `NEAR_TEST_STAGE=1`: with the scatter stage).
+    #[test]
+    fn the_lane_fills_a_radius() {
+        let folder = crate::doorway::test_world();
+        let staged = std::env::var("NEAR_TEST_STAGE").as_deref() == Ok("1");
+        let at: Vec<f32> = std::env::var("NEAR_TEST_AT").ok().map(|v| v.split(',').filter_map(|n| n.trim().parse().ok()).collect()).unwrap_or_default();
+        let eye = if at.len() == 2 { [at[0], at[1]] } else { [0.5, 0.5] };
+        let radii: Vec<f32> = std::env::var("NEAR_TEST_RADII").ok().map(|v| v.split(',').filter_map(|n| n.trim().parse().ok()).collect()).unwrap_or_else(|| vec![2.0]);
+        let threads = std::thread::available_parallelism().map_or(2, |n| n.get()).saturating_sub(1).max(1);
+        for radius in radii {
+            let lane = Lane::start(folder.clone(), staged, threads).unwrap();
+            let want = wanted(eye, radius);
+            // Only chunks in reach are wanted, and every chunk in reach is.
+            assert!(want.iter().all(|chunk| nearest_part(*chunk, eye) <= radius * CHUNK as f32), "only chunks in reach are wanted");
+            let began = std::time::Instant::now();
+            lane.ask(want.iter().copied());
+            let mut made: HashMap<[i32; 2], Made> = HashMap::new();
+            while made.len() < want.len() {
+                for chunk in lane.take(4096).unwrap() {
+                    made.insert(chunk.chunk, chunk);
+                }
+                assert!(began.elapsed().as_secs() < 900, "the lane fills radius {radius} in a quarter of an hour");
+                std::thread::sleep(std::time::Duration::from_millis(2));
+            }
+            let seconds = began.elapsed().as_secs_f32();
+            let faces: usize = made.values().map(|chunk| chunk.faces.len()).sum();
+            let work: f32 = made.values().map(|chunk| chunk.ms).sum();
+            eprintln!(
+                "The near lane, radius {radius} chunks ({:.0} blocks) round {eye:?}{}: {} chunks, {faces} faces ({} triangles), {:.1} MB of faces; filled in {seconds:.2} s on {} threads, {:.2} ms a chunk",
+                radius * CHUNK as f32,
+                if staged { ", the stage on" } else { "" },
+                made.len(),
+                faces * 2,
+                faces as f32 * 12.0 / 1048576.0,
+                lane.threads,
+                work / made.len() as f32
+            );
+            // A few of them against the mesh made directly, and their heights.
+            let doorway = Doorway::open_with(&folder, staged).unwrap();
+            let mut tiles = HashMap::new();
+            for chunk in want.iter().step_by((want.len() / 7).max(1)) {
+                let blocks = Blocks::read(&doorway, &mut tiles, *chunk).unwrap();
+                let direct: Vec<[u32; 3]> = blocks.faces().iter().map(|face| packed(face, *chunk)).collect();
+                assert_eq!(made[chunk].faces, direct, "chunk {chunk:?} from the lane is the mesh made directly");
+                assert!(made[chunk].faces.is_empty() || made[chunk].low < made[chunk].high, "a chunk with faces has a height");
+            }
+        }
+    }
+
+    /// A face's three words hold what it is.
+    #[test]
+    fn a_packed_face_unpacks() {
+        let face = Face { at: [31, 7, 1000], facing: Facing::West, wide: 32, high: 1024, block: 513, water: false };
+        let [a, b, c] = packed(&face, [-1125, 990]);
+        assert_eq!([a & 63, (a >> 6) & 63, (a >> 12) & 1023, (a >> 22) & 7, ((a >> 25) & 31) + 1, (a >> 30) & 1], [31, 7, 1000, 3, 32, 0]);
+        assert_eq!([(b & 1023) + 1, b >> 10], [1024, 513]);
+        assert_eq!([(c & 0xFFFF) as i32 - 32768, (c >> 16) as i32 - 32768], [-1125, 990]);
     }
 }
