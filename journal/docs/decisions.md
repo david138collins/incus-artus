@@ -2620,6 +2620,29 @@ Reference: `Art/quartile minecraft illustration.png`
     it out: in every flight "the plain with David's build" and the three scatter marks time as the bare plain
     (build 183's uncut: 0.910, 0.909, 0.910, 0.909, 0.909 ms). Build 197 tells the near lane of them, waits for the
     near eye's chunks at standing marks, and gives the near eye a line in the report.
+  - *The near eye's window* (build 197, 64eeb0e, on "go ahead with the tests"; down at 12:05; two traces at the
+    mountain top, flights `logs/flight-1794850683` off, `-1794851080` at 4 chunks, `-1794851486` at 16,
+    `-1794851956` at 64, `-1794852349` off again; checked by Counsel; the processor's area 103 to 105 °C all window,
+    Builder's own tests having run to take-off, said in the journal). **240 a second holds at 64 chunks at every
+    standing mark:** the slowest, high over the spawn, 3.39 ms a frame (295 a second), its 99th 4.27; the spawn 3.01
+    (99th 4.03). At 64 chunks the near faces are the dearest thing on the card (the card's whole 2.98 ms at the
+    spawn and 3.36 high over the spawn, for 0.48 and 1.12 off: 2.4 to 2.6 ms of near faces for 10 million triangles),
+    and the processor spends about 1 ms a frame listing the chunks in view. At 4 and 16 chunks everything stays under
+    1.5 ms on the card. **One miss, its cause found:** at ground views the far march is 16 to 23% dearer with the near
+    eye on (the plain 0.452 → 0.549 ms at 4 chunks, the mountain top 0.948 → 1.118), though about a third cheaper at
+    64 from high ground (the mountain top 0.636, high over the spawn 0.599): far rays begin a set distance out
+    whatever lies nearer, so under the near faces they begin inside the ground and make a false edge that calls in
+    the finer layer. The mend is the step next on 2.3's list, near cover cancelling far rays. With the near eye on,
+    his build and the scatter now cost what they hold (the densest scatter 1.24 ms at 4 chunks).
+  - **[DECIDED 2026-11-16] The debug panel folded into sections, scrolling** (David to Builder, mid-window: "hey btw,
+    we gotta do something about that debug panel, it runs off the screen its so long. we should add collapsing
+    sections to it and a scrollbar."; on her list of sections and names: "your way of folding the content of the
+    debug pages is fine"). The Render page: "The far eye", "The near eye" (with the radius slider), "The picture",
+    "Ray start", "Crossovers", "Light", "Fog", the first three open at the start; the Overview: "The frame", "Each
+    pass"; the whole page scrolling, never taller than the screen. Build 198.
+  - Next put to him by Builder, his call: the near eye drawn first into a picture and depth of its own, which serves
+    the cancelling, his x-fader at the seam, and shading each near pixel once. *Counsel:* it suits "The shape" in
+    the plan (small passes over a per-pixel store) and mends the miss at its cause.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
