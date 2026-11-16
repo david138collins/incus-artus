@@ -48,6 +48,11 @@ pub struct Scatter {
     pub high: i32,
     pub blocks: Vec<String>,
     pub seed: u64,
+    /// What it scatters, each thing one of these at random: "blocks" (whole blocks; so is an empty list, as the first
+    /// scatter was), "quarters" (a quarter block: a bar along a random axis at a random half-block place in its cell,
+    /// so some lie across two cells), "octs" (an eighth: a lone octant of its cell).
+    #[serde(default)]
+    pub kinds: Vec<String>,
 }
 
 /// The marks, in the file's order.
@@ -71,6 +76,7 @@ pub struct Made {
     pub blocks: usize,
     pub bars: usize,
     pub refused: usize,
+    pub octs: usize,
 }
 
 /// An event log's placings (its "edit request" lines: whole blocks and bars; other edits aren't read), made as changes
@@ -158,9 +164,25 @@ pub fn scatter(doorway: &mut Doorway, mark: &Mark, scatter: &Scatter, count: u32
         if !taken.insert(cell) {
             continue;
         }
-        match doorway.make(Change::Block { cell, block }) {
-            Ok(()) => made.blocks += 1,
-            Err(_) => made.refused += 1,
+        // (A scatter of whole blocks alone draws nothing more here: its blocks are as they always were.)
+        let kind = if scatter.kinds.is_empty() { "blocks" } else { scatter.kinds[next(scatter.kinds.len() as u64) as usize].as_str() };
+        let change = match kind {
+            "blocks" => Change::Block { cell, block },
+            "quarters" | "octs" => {
+                let from = [cell[0] * 2 + next(2) as i32, cell[1] * 2 + next(2) as i32, cell[2] * 2 + next(2) as i32];
+                if kind == "octs" {
+                    Change::Oct { cell, from, block }
+                } else {
+                    Change::Bar { cell, from, axis: [Axis::NorthSouth, Axis::EastWest, Axis::Upright][next(3) as usize], block }
+                }
+            }
+            other => return Err(format!("{}'s scatter has no kind \"{other}\" (blocks, quarters, octs)", mark.name)),
+        };
+        match (doorway.make(change), change) {
+            (Ok(()), Change::Block { .. }) => made.blocks += 1,
+            (Ok(()), Change::Bar { .. }) => made.bars += 1,
+            (Ok(()), Change::Oct { .. }) => made.octs += 1,
+            (Err(_), _) => made.refused += 1,
         }
     }
     Ok(made)
@@ -187,9 +209,9 @@ mod tests {
             ("low over the sea", [-1905.7, -2137.7, 151.4], 228.3),
         ];
         // Then the window's two moving marks (plan 2.2, step 4: new, not old's), each with its speed.
-        assert_eq!(marks.len(), old.len() + 4);
-        assert_eq!(marks[old.len()..].iter().map(|m| (m.name.as_str(), m.speed)).collect::<Vec<_>>(), [("a player's run over the plain", Some(200.0)), ("fast across the world", Some(2000.0)), ("the plain, nodding", None), ("the sea, nodding", None)]);
-        assert!(marks[old.len() + 2..].iter().all(|m| m.nod.is_some()), "the nodding marks nod");
+        assert_eq!(marks.len(), old.len() + 5);
+        assert_eq!(marks[old.len()..old.len() + 4].iter().map(|m| (m.name.as_str(), m.speed)).collect::<Vec<_>>(), [("a player's run over the plain", Some(200.0)), ("fast across the world", Some(2000.0)), ("the plain, nodding", None), ("the sea, nodding", None)]);
+        assert!(marks[old.len() + 2..old.len() + 4].iter().all(|m| m.nod.is_some()), "the nodding marks nod");
         assert!(marks[..old.len()].iter().all(|m| m.speed.is_none()), "old's marks stand still");
         for (mark, (name, at, facing)) in marks.iter().zip(old) {
             assert_eq!(mark.name, name);
@@ -201,7 +223,7 @@ mod tests {
         }
         let build = marks.iter().find(|mark| mark.changes.is_some()).unwrap();
         let log = std::fs::read_to_string(crate::session::project_folder().join(build.changes.as_ref().unwrap())).unwrap();
-        assert_eq!(place(&mut doorway, &log), Made { blocks: 23, bars: 146, refused: 0 });
+        assert_eq!(place(&mut doorway, &log), Made { blocks: 23, bars: 146, refused: 0, octs: 0 });
         // Each change kept with the tile its cell is in: the build lies in one or two tiles, all 169 there.
         let mut tiles: Vec<[i32; 2]> = Vec::new();
         for change in std::fs::read_to_string(crate::session::project_folder().join(build.changes.as_ref().unwrap())).unwrap().lines().filter(|line| line.contains("edit request")).filter_map(|line| line.rsplit_once(" at ")) {
@@ -218,7 +240,17 @@ mod tests {
         let dial = scattered.scatter.as_ref().unwrap();
         for &count in &dial.counts {
             doorway.forget_changes();
-            assert_eq!(scatter(&mut doorway, scattered, dial, count).unwrap(), Made { blocks: count as usize, bars: 0, refused: 0 });
+            assert_eq!(scatter(&mut doorway, scattered, dial, count).unwrap(), Made { blocks: count as usize, bars: 0, refused: 0, octs: 0 });
+        }
+        // The scatter of pieces (plan 2.3), the last mark: quarters and eighths, none refused, about half of each.
+        let pieces = marks.last().unwrap();
+        assert_eq!(pieces.name, "the scatter of pieces");
+        let dial = pieces.scatter.as_ref().unwrap();
+        for &count in &dial.counts {
+            doorway.forget_changes();
+            let made = scatter(&mut doorway, pieces, dial, count).unwrap();
+            assert_eq!((made.blocks, made.refused, made.bars + made.octs), (0, 0, count as usize), "{count} pieces: {made:?}");
+            assert!(made.bars * 3 > count as usize && made.octs * 3 > count as usize, "quarters and eighths both: {made:?}");
         }
     }
 }

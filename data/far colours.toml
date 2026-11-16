@@ -78,3 +78,10 @@ side = [110, 68, 30]
 name = "incus:thatch"
 top = [230, 180, 70]
 side = [230, 180, 70]
+
+# Stone brick, what David's build's bars are made of (build 204, when the near eye first drew pieces): by the same
+# rule, from old's bar textures (old/assets/textures/bars/stone_brick_side.png and _end.png, which come to the same).
+[[block]]
+name = "incus:stone_brick"
+top = [59, 61, 55]
+side = [59, 61, 55]

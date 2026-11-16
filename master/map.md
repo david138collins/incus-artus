@@ -217,6 +217,7 @@ flowchart TB
 - **What it is:** At the start, and on a flight once a mark is measured: the camera taken to the next mark, a player's eye over the ground the doorway answers, and the mark's changes made through the doorway (the build's placings, the scatter), the near eye told of them. On a flight a standing mark isn't measured till the far cells are on the card and the near eye's chunks are all in.
 - **Reads:** the marks and a tile's columns. **Writes:** the camera and what changed.
 - **Switch** `INCUS_MARK`: the mark the game starts at, by its name (the first in data/marks.toml unless set).
+- **Switch** `INCUS_SCATTER`: outside a flight: how many things the starting mark's scatter makes, if the mark has one (unset: none, the mark bare), for a look.
 - **Cost, last measured** (`kept logs/flight-1794589790.txt`): on the processor median 0.000, 95th 0.000, 99th 0.000, worst 0.206.
 - **Files:** src/marks.rs and src/runner.rs.
 

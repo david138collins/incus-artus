@@ -133,3 +133,16 @@ pitch = -2.0
 fog = true
 eyes = ["far"]
 nod = 1.4
+
+# Pieces (plan 2.3; David, 2026-11-16: "builder can just scatter random quarters and octs to test it"): quarter blocks
+# (bars, each along a random axis at a random half-block place in its cell) and eighths (lone octants) round the bare
+# plain, flown at each count. `kinds` says what a scatter makes ("blocks", "quarters", "octs"; whole blocks if unsaid).
+[[mark]]
+name = "the scatter of pieces"
+at = [-3975.0, -1192.0]
+above = 0.0
+facing = 180.0
+pitch = 0.4
+fog = true
+eyes = ["near"]
+scatter = { counts = [1000, 10000, 100000], around = 64, high = 16, blocks = ["incus:stone", "incus:gabbro", "incus:sand"], kinds = ["quarters", "octs"], seed = 2 }

@@ -413,16 +413,12 @@ impl NearEye {
 
     /// The changes made through the game's doorway, as they are now (a mark's are made, and the mark before's taken
     /// back, as the camera goes to it): the lane told, and every chunk these or the ones before them touch made
-    /// again. A chunk's old faces are drawn until its new ones come. Whole blocks: bars aren't the near eye's yet.
+    /// again. A chunk's old faces are drawn until its new ones come. Whole blocks and pieces (build 204).
     pub fn changed(&mut self, changes: &HashMap<[i32; 2], Vec<Change>>) {
         let now: HashSet<[i32; 2]> = changes
             .values()
             .flatten()
-            .filter_map(|change| match change {
-                Change::Block { cell, .. } => Some(crate::near::touched(*cell)),
-                Change::Bar { .. } => None,
-            })
-            .flatten()
+            .flat_map(crate::near::touched_by)
             .collect();
         if now.is_empty() && self.touched.is_empty() {
             return;

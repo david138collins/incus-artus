@@ -301,7 +301,8 @@ impl Runner {
     fn going_to_a_mark(&mut self, now: Instant) -> bool {
         let target = match &mut self.flight {
             Some(flight) => flight.due(now).map(|standing| (standing.mark, standing.count)),
-            None if !self.at_first_mark => Some((self.first_mark, None)),
+            // (Outside a flight a mark's scatter isn't made, unless a count is asked for: `INCUS_SCATTER`, for a look.)
+            None if !self.at_first_mark => Some((self.first_mark, std::env::var("INCUS_SCATTER").ok().and_then(|count| count.parse::<u32>().ok()))),
             None => None,
         };
         // A flight's first mark isn't measured till the far cells are all on the card (old's marks waited on their
@@ -352,6 +353,8 @@ impl Runner {
             match crate::marks::scatter(doorway, &mark, scatter, count) {
                 Ok(scattered) => {
                     made.blocks += scattered.blocks;
+                    made.bars += scattered.bars;
+                    made.octs += scattered.octs;
                     made.refused += scattered.refused;
                 }
                 Err(error) => log::warn!("{error}"),

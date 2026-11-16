@@ -70,15 +70,26 @@ mod tests {
     /// Windows answers for the game's own process: something in use, no more than it ever held, and a machine with room.
     #[test]
     fn the_main_memory_is_read() {
-        let now = MainMemory::now().expect("Windows says how much memory the process holds");
-        // Written to and looked at, so the build can't leave it out.
-        let held = std::hint::black_box(vec![1u8; 64 << 20]);
-        let after = MainMemory::now().unwrap();
-        assert_eq!(std::hint::black_box(&held)[12345], 1);
-        assert!(now.in_use > 0 && now.in_use <= now.most_in_use && now.working_set <= now.most_working_set, "{now:?}");
-        assert!(after.in_use >= now.in_use + (60 << 20), "64 MB held shows: {} then {}", now.in_use, after.in_use);
-        assert!(now.machine > (1 << 30) && now.machine_free <= now.machine, "{now:?}");
-        drop(held);
+        // (Tried a few times: the other tests run in this same process at the same time, and one of them giving back
+        // a hundred megabytes between the two readings hid the 64 held here, now and then, when the whole suite ran.)
+        let mut shown = None;
+        for _ in 0..8 {
+            let now = MainMemory::now().expect("Windows says how much memory the process holds");
+            // Written to and looked at, so the build can't leave it out.
+            let held = std::hint::black_box(vec![1u8; 64 << 20]);
+            let after = MainMemory::now().unwrap();
+            assert_eq!(std::hint::black_box(&held)[12345], 1);
+            assert!(now.in_use > 0 && now.in_use <= now.most_in_use && now.working_set <= now.most_working_set, "{now:?}");
+            assert!(now.machine > (1 << 30) && now.machine_free <= now.machine, "{now:?}");
+            drop(held);
+            shown = Some((now.in_use, after));
+            if after.in_use >= now.in_use + (60 << 20) {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+        let (before, after) = shown.unwrap();
+        assert!(after.in_use >= before + (60 << 20), "64 MB held shows: {before} then {}", after.in_use);
         eprintln!("The test's process: {}", after.line());
     }
 }

@@ -7,7 +7,9 @@
 //!
 //! This file, so far: a chunk's blocks and the mesher, checked block by block. The lane that keeps the chunks round
 //! the eye made, and the pass that draws them, come with the rest of build 195 (its pass mark:
-//! `journal/docs/experiments.md`). Pieces (bars, quarter blocks) aren't meshed yet: a later step of 2.3.
+//! `journal/docs/experiments.md`). Pieces (build 204; David, 2026-11-16: "builder can just scatter random quarters
+//! and octs to test it"): a chunk with any quarter block or eighth in it is meshed in half blocks, the whole of it,
+//! every octant's open sides merged as whole blocks' are.
 
 // (Nothing outside its tests uses it yet: the lane and the pass are the rest of build 195.)
 #![cfg_attr(not(test), allow(dead_code))]
@@ -58,7 +60,8 @@ impl Facing {
 
 /// A face: a rectangle of one block's sides that look one way, all in one plane. `at` is its least cell in the chunk
 /// (north and east from the chunk's least corner, 0 to 31; up from bedrock); it's `wide` cells along the first of
-/// its facing's axes and `high` along the second. `water`: the water's top, not a block's side.
+/// its facing's axes and `high` along the second. `water`: the water's top, not a block's side. In a chunk meshed in
+/// half blocks (`Blocks::unit` 2) all of these are in half blocks (north and east 0 to 63).
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct Face {
     pub at: [i32; 3],
@@ -71,12 +74,16 @@ pub struct Face {
 
 /// A chunk's blocks with a column of its neighbours all round (so a side at the chunk's edge knows what it looks
 /// into), from `low` up to `high`: under `low` every one of these columns is solid, over `high` all are air, and
-/// neither has a face. A cell is 0 for air, or its block's number and one.
+/// neither has a face. A cell is 0 for air, or its block's number and one. Where a piece (a quarter block or an
+/// eighth) lies in these columns, everything is kept in half blocks: `unit` is 2, a block is eight cells, and the
+/// cells are octants.
 pub struct Blocks {
     /// The chunk (its place in chunks, north and east: the chunk of column `c` is `c.div_euclid(32)`).
     pub chunk: [i32; 2],
     pub low: i32,
     pub high: i32,
+    /// How many cells a block is across: 1, or 2 where there are pieces.
+    pub unit: i32,
     cells: Vec<u16>,
 }
 
@@ -105,23 +112,32 @@ impl Blocks {
                 columns.push(tiles[&tile].column(doorway, i, j)?);
             }
         }
-        // The whole blocks placed in these columns.
-        let mut placed: Vec<([i32; 3], Block)> = Vec::new();
+        // What was placed in these columns, in the order it was made: whole blocks, and pieces by their octants.
+        let mut placed: Vec<Change> = Vec::new();
+        let inside = |cell: [i32; 3]| {
+            let local = [cell[0] - least[0], cell[1] - least[1]];
+            local[0] >= 0 && local[1] >= 0 && local[0] < WIDE as i32 && local[1] < WIDE as i32 && cell[2] >= 0 && cell[2] < height
+        };
         let mut asked: Vec<[i32; 2]> = Vec::new();
         for corner in [[0, 0], [WIDE as i32 - 1, 0], [0, WIDE as i32 - 1], [WIDE as i32 - 1, WIDE as i32 - 1]] {
             let (tile, _) = doorway.place(least[0] + corner[0], least[1] + corner[1]);
             if !asked.contains(&tile) {
                 asked.push(tile);
                 for change in doorway.changes_in(tile[0], tile[1]) {
-                    if let Change::Block { cell, block } = *change {
-                        let local = [cell[0] - least[0], cell[1] - least[1]];
-                        if local[0] >= 0 && local[1] >= 0 && local[0] < WIDE as i32 && local[1] < WIDE as i32 && cell[2] >= 0 && cell[2] < height {
-                            placed.push(([local[0], local[1], cell[2]], block));
-                        }
+                    let here = match change.octants() {
+                        None => inside(change.cell()),
+                        Some((octants, _)) => octants.iter().any(|octant| inside(octant.map(|half| half.div_euclid(2)))),
+                    };
+                    if here {
+                        placed.push(*change);
                     }
                 }
             }
         }
+        // (A change is kept with its cell's tile. A bar whose cell is outside these columns can reach half a block
+        // into their outermost ring, the neighbours' column: only its far half, which no side of this chunk's own
+        // blocks looks into. So the tiles of these columns are all that's asked.)
+        let unit: i32 = if placed.iter().any(|change| change.octants().is_some()) { 2 } else { 1 };
         // From the lowest cell that isn't solid in any of the columns (one under it, so its floor's face is in) to the
         // highest that is anything at all.
         let mut low = height;
@@ -142,40 +158,80 @@ impl Blocks {
                 }
             }
         }
-        for (cell, _) in &placed {
-            low = low.min(cell[2]);
-            high = high.max(cell[2] + 1);
+        for change in &placed {
+            let cells = match change.octants() {
+                None => vec![change.cell()],
+                Some((octants, _)) => octants.iter().map(|octant| octant.map(|half| half.div_euclid(2))).collect(),
+            };
+            for cell in cells.into_iter().filter(|cell| inside(*cell)) {
+                low = low.min(cell[2]);
+                high = high.max(cell[2] + 1);
+            }
         }
         let low = (low - 1).max(0);
         let high = (high + 1).min(height).max(low + 1);
-        let tall = (high - low) as usize;
-        let mut cells = vec![0u16; WIDE * WIDE * tall];
+        let (u, wide, tall) = (unit as usize, WIDE * unit as usize, ((high - low) * unit) as usize);
+        let mut cells = vec![0u16; wide * wide * tall];
         for (k, column) in columns.iter().enumerate() {
             if let Column::Here { runs, .. } = column {
+                let (north, east) = (k % WIDE, k / WIDE);
                 for run in runs {
-                    for z in run.from.max(low)..run.to.min(high) {
-                        cells[k * tall + (z - low) as usize] = run.block + 1;
+                    for z in (run.from.max(low) - low) as usize * u..(run.to.min(high) - low).max(0) as usize * u {
+                        for de in 0..u {
+                            for dn in 0..u {
+                                cells[(north * u + dn + (east * u + de) * wide) * tall + z] = run.block + 1;
+                            }
+                        }
                     }
                 }
             }
         }
-        for (cell, block) in placed {
-            cells[(cell[0] as usize + cell[1] as usize * WIDE) * tall + (cell[2] - low) as usize] = block + 1;
+        for change in placed {
+            match change.octants() {
+                // A whole block: its cell, all of it.
+                None => {
+                    let Change::Block { cell, block } = change else { continue };
+                    let (north, east, z) = ((cell[0] - least[0]) as usize, (cell[1] - least[1]) as usize, (cell[2] - low) as usize);
+                    for dz in 0..u {
+                        for de in 0..u {
+                            for dn in 0..u {
+                                cells[(north * u + dn + (east * u + de) * wide) * tall + z * u + dz] = block + 1;
+                            }
+                        }
+                    }
+                }
+                // A piece: each of its octants that's empty (air or water): it doesn't displace ground, and where two
+                // pieces would share an octant the first placed keeps it.
+                Some((octants, block)) => {
+                    for octant in octants {
+                        let local = [octant[0] - least[0] * 2, octant[1] - least[1] * 2, octant[2] - low * 2];
+                        if local[0] < 0 || local[1] < 0 || local[2] < 0 || local[0] >= wide as i32 || local[1] >= wide as i32 || local[2] >= tall as i32 {
+                            continue;
+                        }
+                        let at = (local[0] as usize + local[1] as usize * wide) * tall + local[2] as usize;
+                        if cells[at] == 0 || cells[at] == WATER + 1 {
+                            cells[at] = block + 1;
+                        }
+                    }
+                }
+            }
         }
-        Ok(Self { chunk, low, high, cells })
+        Ok(Self { chunk, low, high, unit, cells })
     }
 
     /// The cell at `north`, `east` from the chunk's least corner (-1 to 32) and `up` from bedrock: 0 air, or its
-    /// block's number and one. Under what's kept, solid stone; over it, air.
+    /// block's number and one. Under what's kept, solid stone; over it, air. (In half blocks where `unit` is 2: -2 to
+    /// 65, and `up` in half blocks.)
     pub fn cell(&self, north: i32, east: i32, up: i32) -> u16 {
-        if up < self.low {
+        let u = self.unit;
+        if up < self.low * u {
             return crate::doorway::STONE + 1;
         }
-        if up >= self.high {
+        if up >= self.high * u {
             return 0;
         }
-        let tall = (self.high - self.low) as usize;
-        self.cells[((north + 1) as usize + (east + 1) as usize * WIDE) * tall + (up - self.low) as usize]
+        let tall = ((self.high - self.low) * u) as usize;
+        self.cells[((north + u) as usize + (east + u) as usize * WIDE * u as usize) * tall + (up - self.low * u) as usize]
     }
 
     /// Whether a cell stops the eye: a block, not air and not water.
@@ -189,7 +245,8 @@ impl Blocks {
     /// has air over it.
     pub fn faces(&self) -> Vec<Face> {
         let mut faces = Vec::new();
-        let size = [CHUNK, CHUNK, self.high - self.low];
+        let unit = self.unit;
+        let size = [CHUNK * unit, CHUNK * unit, (self.high - self.low) * unit];
         for facing in Facing::ALL {
             let ([a, b], along) = facing.axes();
             let step = facing.step();
@@ -205,7 +262,7 @@ impl Blocks {
                         at[a] = u as i32;
                         at[b] = v as i32;
                         at[along] = plane;
-                        let (north, east, up) = (at[0], at[1], at[2] + self.low);
+                        let (north, east, up) = (at[0], at[1], at[2] + self.low * unit);
                         let cell = self.cell(north, east, up);
                         let beyond = self.cell(north + step[0], east + step[1], up + step[2]);
                         // (The world's floor shows no underside.)
@@ -231,12 +288,14 @@ impl Blocks {
                             u += 1;
                             continue;
                         }
+                        // (No wider than 32 nor higher than 1,024, as a face is packed: whole blocks never are; in
+                        // half blocks a face that would be is two.)
                         let mut across = 1;
-                        while u + across < wide && mask[u + across + v * wide] == shows {
+                        while u + across < wide && across < 32 && mask[u + across + v * wide] == shows {
                             across += 1;
                         }
                         let mut down = 1;
-                        while v + down < high && (0..across).all(|k| mask[u + k + (v + down) * wide] == shows) {
+                        while v + down < high && down < 1024 && (0..across).all(|k| mask[u + k + (v + down) * wide] == shows) {
                             down += 1;
                         }
                         for dv in 0..down {
@@ -248,7 +307,7 @@ impl Blocks {
                         at[a] = u as i32;
                         at[b] = v as i32;
                         at[along] = plane;
-                        at[2] += self.low;
+                        at[2] += self.low * unit;
                         faces.push(Face { at, facing, wide: across as i32, high: down as i32, block: (shows & 0xFFFF) as Block - 1, water: shows >> 31 == 1 });
                         u += across;
                     }
@@ -262,6 +321,27 @@ impl Blocks {
 /// The chunks whose faces a change in `cell` (north, east, up) can alter: its own, and the one across each edge of
 /// its chunk it lies on (a face depends only on the cell it's on and the one it looks into).
 pub fn touched(cell: [i32; 3]) -> Vec<[i32; 2]> {
+    touched_cell(cell)
+}
+
+/// The chunks a change can alter the faces of: a whole block's cell's, or each of a piece's octants' cells'.
+pub fn touched_by(change: &Change) -> Vec<[i32; 2]> {
+    let mut chunks = Vec::new();
+    let cells = match change.octants() {
+        None => vec![change.cell()],
+        Some((octants, _)) => octants.iter().map(|octant| octant.map(|half| half.div_euclid(2))).collect(),
+    };
+    for cell in cells {
+        for chunk in touched_cell(cell) {
+            if !chunks.contains(&chunk) {
+                chunks.push(chunk);
+            }
+        }
+    }
+    chunks
+}
+
+fn touched_cell(cell: [i32; 3]) -> Vec<[i32; 2]> {
     let chunk = [cell[0].div_euclid(CHUNK), cell[1].div_euclid(CHUNK)];
     let local = [cell[0].rem_euclid(CHUNK), cell[1].rem_euclid(CHUNK)];
     let mut chunks = vec![chunk];
@@ -281,13 +361,15 @@ pub fn touched(cell: [i32; 3]) -> Vec<[i32; 2]> {
 }
 
 /// A face as the card is given it, three words: its place in its chunk, its facing and its width; its height and
-/// its block; its chunk. (North and east 0 to 31 in 6 bits each, up in 10, the facing in 3, the width less one in 5,
-/// water's top marked; the height less one in 10, the block in 16; the chunk's north and east, each with 32,768
-/// added, in 16 bits each.)
-pub fn packed(face: &Face, chunk: [i32; 2]) -> [u32; 3] {
+/// its block; its chunk. (North and east in 6 bits each, up in 10, the facing in 3, the width less one in 5, water's
+/// top marked, and the top bit set where it's all in half blocks (`unit` 2: north and east then 0 to 63, and up to
+/// 2,047, its eleventh bit kept in the second word); the height less one in 10, the block in 16, up's eleventh bit;
+/// the chunk's north and east, each with 32,768 added, in 16 bits each.)
+pub fn packed(face: &Face, chunk: [i32; 2], unit: i32) -> [u32; 3] {
     let facing = Facing::ALL.iter().position(|f| *f == face.facing).unwrap() as u32;
-    let a = face.at[0] as u32 | (face.at[1] as u32) << 6 | (face.at[2] as u32) << 12 | facing << 22 | ((face.wide - 1) as u32) << 25 | (face.water as u32) << 30;
-    let b = (face.high - 1) as u32 | (face.block as u32) << 10;
+    let up = face.at[2] as u32;
+    let a = face.at[0] as u32 | (face.at[1] as u32) << 6 | (up & 1023) << 12 | facing << 22 | ((face.wide - 1) as u32) << 25 | (face.water as u32) << 30 | ((unit == 2) as u32) << 31;
+    let b = (face.high - 1) as u32 | (face.block as u32) << 10 | (up >> 10 & 1) << 26;
     let c = (chunk[0] + 32768) as u32 | ((chunk[1] + 32768) as u32) << 16;
     [a, b, c]
 }
@@ -402,11 +484,14 @@ impl Lane {
                             // (A sort that keeps each kind's own order: the blocks' sides, then the water's tops.)
                             faces.sort_by_key(|face| face.water);
                             let water = faces.iter().filter(|face| face.water).count() as u32;
+                            // (The lowest and highest block the faces touch: a face's own numbers are in half
+                            // blocks where the chunk is.)
+                            let unit = blocks.unit;
                             let (low, high) = faces.iter().fold((blocks.high, blocks.low), |(low, high), face| {
                                 let top = face.at[2] + if matches!(face.facing, Facing::Up | Facing::Down) { 1 } else { face.high };
-                                (low.min(face.at[2]), high.max(top))
+                                (low.min(face.at[2].div_euclid(unit)), high.max((top + unit - 1).div_euclid(unit)))
                             });
-                            Made { chunk, faces: faces.iter().map(|face| packed(face, chunk)).collect(), water, low, high, ms: began.elapsed().as_secs_f32() * 1000.0, told }
+                            Made { chunk, faces: faces.iter().map(|face| packed(face, chunk, unit)).collect(), water, low, high, ms: began.elapsed().as_secs_f32() * 1000.0, told }
                         });
                         if sender.send(made).is_err() {
                             return;
@@ -461,15 +546,17 @@ impl Drop for Lane {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::doorway::Axis;
     use std::collections::HashSet;
 
     /// Every open side of every solid block of a chunk, and every cell of water's top, one at a time from the
     /// chunk's own cells: the count the merged faces have to cover, each once.
     fn open_sides(blocks: &Blocks) -> HashSet<([i32; 3], Facing, Block, bool)> {
         let mut open = HashSet::new();
-        for north in 0..CHUNK {
-            for east in 0..CHUNK {
-                for up in blocks.low..blocks.high {
+        let unit = blocks.unit;
+        for north in 0..CHUNK * unit {
+            for east in 0..CHUNK * unit {
+                for up in blocks.low * unit..blocks.high * unit {
                     let cell = blocks.cell(north, east, up);
                     if cell == 0 {
                         continue;
@@ -621,6 +708,75 @@ mod tests {
         }
     }
 
+    /// Pieces: a quarter block (a bar) and an eighth in the air over the spawn's chunk, then a bar across the chunk's
+    /// north edge. The chunk is meshed in half blocks; its merged faces are every open side of every octant once; a
+    /// bar is six faces (two ends half by half, four sides one by a half) and an eighth six; a bar across two chunks
+    /// is in both, each with its half; and a piece put where one already is leaves the first's octant as it was.
+    #[test]
+    fn pieces_are_meshed_in_half_blocks() {
+        let mut doorway = Doorway::open_with(&crate::doorway::test_world(), false).unwrap();
+        let (stone, sand) = (doorway.block("incus:stone"), doorway.block("incus:sand"));
+        // (Over the highest ground of the chunk and the columns round it, so every piece here hangs in the air.)
+        let ground = (-1..=CHUNK)
+            .flat_map(|north| (-1..=CHUNK).map(move |east| (north, east)))
+            .map(|(north, east)| match doorway.column(north, east).unwrap() {
+                Column::Here { ground, .. } => ground,
+                Column::Past => panic!("the spawn's chunk is on the map"),
+            })
+            .max()
+            .unwrap();
+        let before = Blocks::read(&doorway, &mut HashMap::new(), [0, 0]).unwrap();
+        assert_eq!(before.unit, 1, "no piece: whole blocks");
+        let (sides_before, _) = exact(&before);
+        // A north–south bar well over the ground, in one cell; and an eighth beside it, apart.
+        let z = ground + 12;
+        doorway.make(Change::Bar { cell: [16, 16, z], from: [32, 33, z * 2], axis: Axis::NorthSouth, block: stone }).unwrap();
+        doorway.make(Change::Oct { cell: [20, 16, z], from: [41, 32, z * 2 + 1], block: sand }).unwrap();
+        let blocks = Blocks::read(&doorway, &mut HashMap::new(), [0, 0]).unwrap();
+        assert_eq!(blocks.unit, 2, "a piece: half blocks");
+        // What half blocks cost the lane, for the record: the same chunk read and meshed each way (its tiles kept).
+        let mut tiles = HashMap::new();
+        let mut timed = |doorway: &Doorway| {
+            Blocks::read(doorway, &mut tiles, [0, 0]).unwrap();
+            let began = std::time::Instant::now();
+            let faces = (0..5).map(|_| Blocks::read(doorway, &mut tiles, [0, 0]).unwrap().faces().len()).last().unwrap();
+            (began.elapsed().as_secs_f32() * 200.0, faces)
+        };
+        let plain = Doorway::open_with(&crate::doorway::test_world(), false).unwrap();
+        let ((whole_ms, whole_faces), (half_ms, half_faces)) = (timed(&plain), timed(&doorway));
+        eprintln!("The spawn's chunk read and meshed: in whole blocks {whole_ms:.1} ms, {whole_faces} faces; with two pieces in it, in half blocks, {half_ms:.1} ms, {half_faces} faces");
+        let (sides, _) = exact(&blocks);
+        // (Every whole block's side is four half sides; the bar shows 2 ends + 4 sides of 2 = 10, the eighth 6.)
+        assert_eq!(sides, sides_before * 4 + 10 + 6, "the ground's sides in half blocks, and the pieces'");
+        let faces = blocks.faces();
+        // (Nothing else is that high: every face from there up is a piece's.)
+        let of = |block: Block| faces.iter().filter(|face| face.block == block && face.at[2] >= z * 2).collect::<Vec<_>>();
+        let bar = of(stone);
+        assert_eq!(bar.len(), 6, "a bar in the air is six faces: {bar:?}");
+        assert_eq!(bar.iter().filter(|face| face.wide * face.high == 1).count(), 2, "two ends, half by half");
+        assert_eq!(bar.iter().filter(|face| face.wide * face.high == 2).count(), 4, "four sides, one by a half");
+        assert_eq!(of(sand).len(), 6, "an eighth is six faces");
+        // A second bar put across the first's north octant: the first keeps it, the second shows only its other half.
+        doorway.make(Change::Bar { cell: [16, 16, z], from: [33, 33, z * 2], axis: Axis::Upright, block: sand }).unwrap();
+        let blocks = Blocks::read(&doorway, &mut HashMap::new(), [0, 0]).unwrap();
+        exact(&blocks);
+        assert_eq!(blocks.cell(33, 33, z * 2), stone + 1, "the first bar keeps the octant they'd share");
+        assert_eq!(blocks.cell(33, 33, z * 2 + 1), sand + 1, "the second fills its other octant");
+        // A bar across the chunk's north edge (its second octant in the chunk to the north): both chunks have it.
+        doorway.forget_changes();
+        let edge = Change::Bar { cell: [CHUNK - 1, 5, z], from: [CHUNK * 2 - 1, 10, z * 2], axis: Axis::NorthSouth, block: stone };
+        doorway.make(edge).unwrap();
+        assert_eq!(touched_by(&edge), vec![[0, 0], [1, 0]], "a bar across a chunk's edge touches both chunks");
+        let south = Blocks::read(&doorway, &mut HashMap::new(), [0, 0]).unwrap();
+        let north = Blocks::read(&doorway, &mut HashMap::new(), [1, 0]).unwrap();
+        exact(&south);
+        exact(&north);
+        assert_eq!(south.cell(CHUNK * 2 - 1, 10, z * 2), stone + 1, "its south half is the south chunk's");
+        assert_eq!(north.cell(0, 10, z * 2), stone + 1, "its north half is the north chunk's");
+        assert_eq!(south.cell(CHUNK * 2, 10, z * 2), stone + 1, "and each chunk knows the other's half beside its own (no face between them)");
+        assert_eq!(Blocks::read(&doorway, &mut HashMap::new(), [0, 1]).unwrap().unit, 1, "a chunk the bar doesn't touch stays in whole blocks");
+    }
+
     /// The lane makes every chunk of a radius, each the mesh made directly; and what a radius comes to (`NEAR_TEST_RADII`:
     /// radii in chunks, for the numbers; `NEAR_TEST_AT`: north, east; `NEAR_TEST_STAGE=1`: with the scatter stage).
     #[test]
@@ -667,7 +823,7 @@ mod tests {
                 let mut direct = blocks.faces();
                 direct.sort_by_key(|face| face.water);
                 let water = direct.iter().filter(|face| face.water).count() as u32;
-                let direct: Vec<[u32; 3]> = direct.iter().map(|face| packed(face, *chunk)).collect();
+                let direct: Vec<[u32; 3]> = direct.iter().map(|face| packed(face, *chunk, blocks.unit)).collect();
                 assert_eq!(made[chunk].faces, direct, "chunk {chunk:?} from the lane is the mesh made directly, its water's tops last");
                 assert_eq!(made[chunk].water, water, "and it says how many of them are water's");
                 assert!(made[chunk].faces.is_empty() || made[chunk].low < made[chunk].high, "a chunk with faces has a height");
@@ -698,7 +854,7 @@ mod tests {
         let direct = |doorway: &Doorway| {
             let mut faces = Blocks::read(doorway, &mut HashMap::new(), [0, 0]).unwrap().faces();
             faces.sort_by_key(|face| face.water);
-            faces.iter().map(|face| packed(face, [0, 0])).collect::<Vec<_>>()
+            faces.iter().map(|face| packed(face, [0, 0], 1)).collect::<Vec<_>>()
         };
         let before = from_lane(0);
         assert_eq!(before, direct(&doorway), "before any change, the mesh made directly");
@@ -721,9 +877,14 @@ mod tests {
     #[test]
     fn a_packed_face_unpacks() {
         let face = Face { at: [31, 7, 1000], facing: Facing::West, wide: 32, high: 1024, block: 513, water: false };
-        let [a, b, c] = packed(&face, [-1125, 990]);
-        assert_eq!([a & 63, (a >> 6) & 63, (a >> 12) & 1023, (a >> 22) & 7, ((a >> 25) & 31) + 1, (a >> 30) & 1], [31, 7, 1000, 3, 32, 0]);
-        assert_eq!([(b & 1023) + 1, b >> 10], [1024, 513]);
+        let [a, b, c] = packed(&face, [-1125, 990], 1);
+        assert_eq!([a & 63, (a >> 6) & 63, (a >> 12) & 1023, (a >> 22) & 7, ((a >> 25) & 31) + 1, (a >> 30) & 1, a >> 31], [31, 7, 1000, 3, 32, 0, 0]);
+        assert_eq!([(b & 1023) + 1, (b >> 10) & 0xFFFF, b >> 26], [1024, 513, 0]);
         assert_eq!([(c & 0xFFFF) as i32 - 32768, (c >> 16) as i32 - 32768], [-1125, 990]);
+        // A face in half blocks: north and east to 63, up to 2,047 (its eleventh bit in the second word).
+        let half = Face { at: [63, 40, 2047], facing: Facing::Up, wide: 2, high: 1, block: 7, water: false };
+        let [a, b, _] = packed(&half, [3, -4], 2);
+        assert_eq!([a & 63, (a >> 6) & 63, ((a >> 12) & 1023) | ((b >> 26) & 1) << 10, (a >> 22) & 7, ((a >> 25) & 31) + 1, a >> 31], [63, 40, 2047, 4, 2, 1]);
+        assert_eq!([(b & 1023) + 1, (b >> 10) & 0xFFFF], [1, 7]);
     }
 }

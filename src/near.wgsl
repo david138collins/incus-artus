@@ -47,11 +47,15 @@ struct Corner {
 @vertex
 fn near_corner(@builtin(vertex_index) corner: u32, @location(0) face: vec3<u32>) -> Corner {
     let facing = (face.x >> 22u) & 7u;
-    let wide = f32(((face.x >> 25u) & 31u) + 1u);
-    let high = f32((face.y & 1023u) + 1u);
+    // (A face of a chunk with pieces is all in half blocks: its top bit says so; its place's eleventh bit of up is
+    // in the second word.)
+    let unit = select(1.0, 0.5, (face.x >> 31u) == 1u);
+    let wide = f32(((face.x >> 25u) & 31u) + 1u) * unit;
+    let high = f32((face.y & 1023u) + 1u) * unit;
     let chunk = vec2<i32>(i32(face.z & 0xFFFFu) - 32768, i32(face.z >> 16u) - 32768);
-    // The face's least cell, from the eye's cell, in whole blocks.
-    let cell = vec3<i32>(chunk * 32 + vec2<i32>(i32(face.x & 63u), i32((face.x >> 6u) & 63u)), i32((face.x >> 12u) & 1023u)) - near.cell.xyz;
+    // The face's least corner, from the eye's cell: its chunk's in whole blocks first, then its place in the chunk.
+    let in_chunk = vec3<f32>(f32(face.x & 63u), f32((face.x >> 6u) & 63u), f32(((face.x >> 12u) & 1023u) | (((face.y >> 26u) & 1u) << 10u))) * unit;
+    let cell = vec3<f32>(vec3<i32>(chunk * 32, 0) - near.cell.xyz) + in_chunk;
     var u = f32(corner & 1u);
     let v = f32(corner >> 1u);
     // The two ways it spreads, and the way it looks: a face that looks up or down spreads north and east; north or
@@ -72,7 +76,7 @@ fn near_corner(@builtin(vertex_index) corner: u32, @location(0) face: vec3<u32>)
         u = 1.0 - u;
     }
     let greater = facing == 0u || facing == 2u || facing == 4u;
-    let exact = vec3<f32>(cell) + spread_a * u * wide + spread_b * v * high + out_of * select(0.0, 1.0, greater) - near.part.xyz;
+    let exact = cell + spread_a * u * wide + spread_b * v * high + out_of * select(0.0, unit, greater) - near.part.xyz;
     // A hair wider than its cells all round, in its own plane, and more the farther it is (a few hundredths of a
     // pixel whatever its distance). Merged faces meet along an edge at different corners, and the card, placing
     // corners on its fine grid, can leave a pixel between them that neither covers: with the far eye's sky behind,
@@ -88,7 +92,7 @@ fn near_corner(@builtin(vertex_index) corner: u32, @location(0) face: vec3<u32>)
     var corner_out: Corner;
     corner_out.clip = vec4<f32>(x, y, near.reach.z, ahead);
     corner_out.from_eye = from_eye;
-    corner_out.what = vec2<u32>(facing, face.y >> 10u);
+    corner_out.what = vec2<u32>(facing, (face.y >> 10u) & 0xFFFFu);
     corner_out.ahead = ahead;
     return corner_out;
 }
@@ -144,7 +148,13 @@ fn near_face(corner: Corner) -> @location(0) vec4<f32> {
     }
     let facing = corner.what.x;
     let way = looks(facing);
-    let colour = colours[corner.what.y * 2u + select(1u, 0u, facing == 4u)].rgb;
+    // (A block the colours' table hasn't got, one first named after the table was made: mid grey, as the far cells
+    // have a block with no colour.)
+    let which = corner.what.y * 2u + select(1u, 0u, facing == 4u);
+    var colour = vec3<f32>(0.5);
+    if (which < arrayLength(&colours)) {
+        colour = colours[which].rgb;
+    }
     let light = max(dot(way, camera.sun.xyz), 0.0);
     // (Into the near eye's own picture, whole: the nearest face wins a pixel, whatever order the chunks come in.
     // Kept multiplied by how much of it shows, for the x-fader to lay over the far picture.)

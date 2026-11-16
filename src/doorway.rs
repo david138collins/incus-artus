@@ -31,6 +31,13 @@ pub struct Run {
     pub to: i32,
 }
 
+/// The blocks asked for by name that a world's own list hasn't got (a change's, the scatter stage's, the colours'
+/// file's), in the order first asked: one list for every doorway of the process, so such a block has the same number
+/// through each of them (the game's, the lanes' threads', the one the colours are read by). [Each doorway numbered
+/// its own till build 204: David's build's stone brick, first asked for in the game's doorway, had the number oak
+/// has where the colours are read, and its bars were drawn oak's brown.]
+static EXTRA_BLOCKS: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
+
 /// Which way a bar lies.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Axis {
@@ -39,18 +46,38 @@ pub enum Axis {
     Upright,
 }
 
-/// A change made through the doorway: a whole block placed in a cell, or a bar of a block (half a block across, a whole
-/// block long) from its corner, in half blocks, along an axis, in a cell. As old's event log tells its placings.
+/// A change made through the doorway: a whole block placed in a cell; a bar of a block (a quarter block: half a
+/// block across, a whole block long) from its least corner, in half blocks from the world's, along an axis; or a lone
+/// octant (an eighth: half a block each way) at its place in half blocks. As old's event log tells its placings. A
+/// cell is eight octants; a bar is two of them, and may lie across two cells.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Change {
     Block { cell: [i32; 3], block: Block },
     Bar { cell: [i32; 3], from: [i32; 3], axis: Axis, block: Block },
+    Oct { cell: [i32; 3], from: [i32; 3], block: Block },
 }
 
 impl Change {
     pub fn cell(&self) -> [i32; 3] {
         match self {
-            Change::Block { cell, .. } | Change::Bar { cell, .. } => *cell,
+            Change::Block { cell, .. } | Change::Bar { cell, .. } | Change::Oct { cell, .. } => *cell,
+        }
+    }
+
+    /// The octants a piece fills, each by its place in half blocks (north, east, up), and its block: a bar's two, an
+    /// eighth's one. None for a whole block.
+    pub fn octants(&self) -> Option<(Vec<[i32; 3]>, Block)> {
+        match *self {
+            Change::Block { .. } => None,
+            Change::Bar { from, axis, block, .. } => {
+                let step = match axis {
+                    Axis::NorthSouth => [1, 0, 0],
+                    Axis::EastWest => [0, 1, 0],
+                    Axis::Upright => [0, 0, 1],
+                };
+                Some((vec![from, [from[0] + step[0], from[1] + step[1], from[2] + step[2]]], block))
+            }
+            Change::Oct { from, block, .. } => Some((vec![from], block)),
         }
     }
 }
@@ -104,7 +131,10 @@ pub struct Doorway {
     tiles: i32,
     pub sea_level: i32,
     world_height: i32,
+    /// The blocks by number: the world's own (the first `own_blocks`), then those asked for by name that it hasn't
+    /// got (`EXTRA_BLOCKS`), as this doorway last saw them.
     blocks: Vec<String>,
+    own_blocks: usize,
     /// The profiles, by number.
     profiles: Vec<Option<Profile>>,
     /// What changed, by tile.
@@ -163,6 +193,7 @@ impl Doorway {
             tiles: world.tiles as i32,
             sea_level: world.sea_level,
             world_height: world.world_height,
+            own_blocks: blocks.len(),
             blocks,
             profiles,
             changes: HashMap::new(),
@@ -228,13 +259,18 @@ impl Doorway {
     /// A block by its name, added to the world's list if it isn't there yet (a change can bring blocks the export
     /// doesn't use).
     pub fn block(&mut self, name: &str) -> Block {
-        match self.blocks.iter().position(|known| known == name) {
-            Some(k) => k as Block,
-            None => {
-                self.blocks.push(name.to_string());
-                (self.blocks.len() - 1) as Block
-            }
+        if let Some(k) = self.blocks[..self.own_blocks].iter().position(|known| known == name) {
+            return k as Block;
         }
+        let mut extra = EXTRA_BLOCKS.lock().unwrap();
+        let k = extra.iter().position(|known| known == name).unwrap_or_else(|| {
+            extra.push(name.to_string());
+            extra.len() - 1
+        });
+        // (Kept here too, for `block_name`.)
+        self.blocks.truncate(self.own_blocks);
+        self.blocks.extend(extra.iter().cloned());
+        (self.own_blocks + k) as Block
     }
 
     /// A change made, kept with its tile. Refused if its cell is past the map or outside the world's height.
@@ -516,6 +552,7 @@ mod tests {
             sea_level: 128,
             world_height: 1024,
             blocks: vec!["stone".into(), "water".into(), "grass".into(), "dirt".into(), "clay".into()],
+            own_blocks: 5,
             profiles: vec![Some(Profile { top: 2, under: vec![(3, 3), (4, 5)] })],
             changes: HashMap::new(),
             times: RefCell::new(Vec::new()),

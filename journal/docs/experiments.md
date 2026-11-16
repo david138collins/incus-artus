@@ -7443,3 +7443,51 @@ Where two pieces would share an octant the first placed keeps it.
 
 **Not in this build:** the far eye sees no piece and no placed block, as before (past the render radius a build
 isn't drawn); textures; the rule that only blocks marked in the Registrar can be bars.
+
+### Build 204 built (unlaunched, unflown): quarter and eighth blocks in the near eye; David's build drawn whole; checked off the screen
+
+**Built as the mark says:**
+
+- **The doorway** (`doorway.rs`): `Change::Oct`, an eighth by its place in half blocks; a change says which
+  octants it fills (a bar's two, an eighth's one).
+- **The marks** (`marks.rs`, `data/marks.toml`): a scatter's `kinds` (blocks, quarters, octs); the new last mark,
+  "the scatter of pieces", quarters and eighths at random at 1,000, 10,000 and 100,000; a flight's report counts
+  eighths. For a look outside a flight, `INCUS_SCATTER=<count>` makes the starting mark's scatter.
+- **The mesher** (`near.rs`): a chunk with a piece in its columns (or its neighbours' nearest column) is read and
+  meshed in half blocks, all of it, by the same merging; a piece fills only empty octants; a face is packed with
+  a bit that says half blocks (its place then to 63 by 63 by 2,047).
+- **The corners' program** (`near.wgsl`) reads that bit. **The near eye** makes a piece's chunks again as it does
+  a block's.
+
+**Two things found on the way and mended in the same build:**
+
+- **A block's number wasn't the same through every doorway.** A block the world's own list hasn't got was
+  numbered by each doorway as it was first asked there. The build's stone brick, first asked in the game's
+  doorway, had the number oak has in the doorway the colours are read through: **the bars were drawn oak's
+  brown** (seen in the first picture). Now one list for the whole process (`doorway.rs`, `EXTRA_BLOCKS`). The
+  scatter stage's seven blocks had agreed only because every doorway happened to ask for them in one order.
+- **Stone brick had no colour from far** (`data/far colours.toml` was made from old's block textures; stone
+  brick is a bar's). Added by the file's own rule from old's bar textures: 59, 61, 55 of 1,023 (the rule checked
+  against stone, gabbro, sand and grass: it gives the file's own numbers to within 2). A block with no colour at
+  all is mid grey in the near eye now, as it is in the far cells (it read past the table's end before). **This
+  is David's file:** said to him.
+- (And the memory test that failed now and then in a whole run is tried a few times: other tests giving memory
+  back in the same process hid the 64 MB it holds.)
+
+**Against the mark, off the screen:**
+
+- **Tests: met.** `pieces_are_meshed_in_half_blocks`: the faces cover every open side of every octant once and
+  nothing else; a bar in the air six faces (two ends half by half, four sides one by a half), an eighth six; a
+  second bar across the first's octant leaves it the first's; a bar across a chunk's edge is in both chunks, each
+  knowing the other's half; a chunk it doesn't touch stays in whole blocks. The scatter of pieces makes its count,
+  quarters and eighths both, none refused. A packed half-block face unpacks. All 41 tests pass.
+- **Pictures: met.** The scatter of pieces at 10,000: bars and eighths half a block thick hanging over the plain,
+  each side lit. **David's build whole for the first time in the new game: its 146 stone-brick bars with its 23
+  gabbro blocks.** No gap in any; looking down on the scatter, no lone pixel of sky.
+- **A chunk in half blocks costs the lane nine times a whole one:** the spawn's chunk read and meshed in 0.3 ms
+  in whole blocks, 2.8 ms with two pieces in it (295 faces, then 307). Only chunks with pieces pay it. Left: done
+  enough to go on; what would take it down (half blocks only round the pieces) written here for when a town
+  needs it.
+- **Faces:** 10,000 pieces 78,600 faces kept at 8 chunks (the bare plain 18,400); 100,000 pieces 592,000.
+
+**Owed:** the flight at 32 chunks.

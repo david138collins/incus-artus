@@ -196,7 +196,10 @@ pub const PASSES: [Pass; 27] = [
         what: "At the start, and on a flight once a mark is measured: the camera taken to the next mark, a player's eye over the ground the doorway answers, and the mark's changes made through the doorway (the build's placings, the scatter), the near eye told of them. On a flight a standing mark isn't measured till the far cells are on the card and the near eye's chunks are all in.",
         reads: &[StoreId::Marks, StoreId::TileColumns],
         writes: &[StoreId::Camera, StoreId::Changes],
-        switches: &[("INCUS_MARK", "the mark the game starts at, by its name (the first in data/marks.toml unless set)")],
+        switches: &[
+            ("INCUS_MARK", "the mark the game starts at, by its name (the first in data/marks.toml unless set)"),
+            ("INCUS_SCATTER", "outside a flight: how many things the starting mark's scatter makes, if the mark has one (unset: none, the mark bare), for a look"),
+        ],
         files: &["src/marks.rs", "src/runner.rs"],
     },
     Pass {

@@ -392,8 +392,8 @@ impl Flight {
                 );
             }
             let made = &standing.made;
-            if made.blocks + made.bars + made.refused > 0 {
-                text += &format!("  made through the doorway: {} whole blocks, {} bars, {} refused\n", made.blocks, made.bars, made.refused);
+            if made.blocks + made.bars + made.octs + made.refused > 0 {
+                text += &format!("  made through the doorway: {} whole blocks, {} bars, {} eighths, {} refused\n", made.blocks, made.bars, made.octs, made.refused);
             }
             let frames = Spread::of(standing.frames.iter().copied());
             let fps = if frames.median > 0.0 { 1000.0 / frames.median } else { 0.0 };
