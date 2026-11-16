@@ -6411,3 +6411,40 @@ owed with it; his weights by kind; the long rays' list; the small things written
 ms, from its flight): the mountain top 1.06, high over the spawn 1.12, fast across 0.76, the run 0.74, the sea
 0.66, the sea nodding 0.65, the plain nodding 0.58, the plain 0.57, the spawn 0.48. Everything under 2 ms, his
 bar of 2026-11-13; two views over 1. Its march's size on the card: 168 registers, nothing put by, 12 groups.
+
+### The near eye: David chooses triangles (2026-11-16), after four questions about how near and far would sit together
+
+Before any reading or code for 2.3, David asked, and Builder answered (none of it built or measured; said so each
+time):
+
+- *"how would the near rays pack with the far rays in the march? do we have room in the march, or would it run
+  concurrently, ideally as a quite short rays?"* Not in the march: a program of its own, with its own size on the
+  card. The near pass first, short rays ended at the near field's edge; it writes what each pixel hit and how much
+  it covered; the far march then runs only where it's still needed and starts at the near field's edge. One after
+  the other, not side by side (two programs can't share a dispatch).
+- *"how do you think it will compare with triangles?"* Builder's lean, low to medium: triangles faster and steadier
+  for whole blocks (a triangle can't wait on a long ray; skimming rays at eye height are the risk), rays the better
+  tool for the pieces inside a block; the picture the same either way.
+- *"is there any way that triangles help the far march at all? will screen triangles cancel screen rays since they
+  occlude?"* Yes: drawn first, their depth says which of the far eye's squares are covered; covered squares march
+  nothing, part-covered ones only their finer rays, and every far ray starts at the near field's edge. A lot at
+  ground level (flat ground 128 blocks off is under a degree below the horizon), in towns, woods and indoors;
+  little from high up, which is where the two dearest views are.
+- *"so in a cave, the march would be totally silent"* As near as makes no difference, closed all round: what's left
+  is asking (about 0.03 ms of groups that do nothing, or nothing if the far pass isn't launched) and bringing the
+  picture up. Not along a sightline longer than the near field, through a cave's mouth, or behind water or glass.
+
+**Then his decision:** "I believe we should try to accomplish the rest of the graphics engine with triangles.
+rays may come in later for different cases, but i don't believe quarter/oct blocks will present any difficulty in
+terms of triangle count. it will still have less polygons than half life 1. i'd like to hear how you think we
+could gracefully add the triangles in, and make sure they cooperate nicely with the march."
+
+**What it changes:** the plan's rule for 2.3 was his "Yes, fly both" of 2026-11-12 (rays first, then triangles,
+both flown on the same marks before the fork). By today's word the near eye is built with triangles, quarter
+blocks and pieces too; near rays aren't built now and may come later for particular cases. The fork's comparison
+of two near drawers falls away with it (Counsel's and the Oracle's to weigh).
+
+**One thing in it put right to him, the conclusion standing:** a block world's near field is many more polygons
+than Half-Life's scenes were (those ran to hundreds or a few thousand; a flat square of 256 blocks is 65,000 faces
+before any merging). It's still no load on this card, and the triangle hardware is what a small card is best at.
+What to watch with pieces is the meshing and the overdraw, not the count.

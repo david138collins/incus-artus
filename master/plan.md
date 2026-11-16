@@ -501,6 +501,13 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
   - *The rule, changed by David's word* ("Yes, fly both", 2026-11-12; it was: triangles only if rays missed a mark):
     rays and triangles both built and flown; 1.5 ms or under at every ground mark; over 1 ms apart at the worst mark
     is David's call; his eye for pops and seams
+  - ***Changed again by his word, 2026-11-16: triangles.*** "I believe we should try to accomplish the rest of the
+    graphics engine with triangles. rays may come in later for different cases, but i don't believe quarter/oct
+    blocks will present any difficulty in terms of triangle count ... i'd like to hear how you think we could
+    gracefully add the triangles in, and make sure they cooperate nicely with the march." So the near eye is built
+    with triangles, pieces too; near rays aren't built now. The lines above about rays first stand as the record
+    of what was planned. Still his: 1.5 ms or under at every ground mark, and his eye for pops and seams, above
+    all where near hands over to far (`journal/docs/experiments.md`, 2026-11-16)
   - *Gate:* the rule above; David's eye for pops and seams; the scatter's curve (cost should follow the screen)
 - [ ] **The fork. The Oracle comes back:** flight logs from both cards and David's look; it reads `master/`
       fresh, then Counsel's brief, `journal/vision/oracle-return.md`. The design is fixed here, or changed
