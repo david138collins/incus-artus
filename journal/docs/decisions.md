@@ -2416,6 +2416,21 @@ Reference: `Art/quartile minecraft illustration.png`
     more), the level skyline itself unmoved. Owed: one hands-off window of about 30 minutes (two Nsight traces at
     the mountain top; three flights, off, on, off again, so the session's drift is known); then his two rows, and
     his look on the stage.
+  - *Build 191's window* (on "go", 2026-11-16, 06:07 to 06:31; `logs/nsight/b191/`, flights `logs/flight-1794831480`
+    off, `-1794831876` on, `-1794832272` off again; before take-off the card about 20% busy with the desktop's own
+    compositor, 4% the day before). The flights, by Counsel's reading: the two off flights agree with each other and
+    with build 190 (the card's whole over the nine views 6.576 and 6.559 ms, build 190's 6.548), so the session
+    compares; on, 6.671, **about 2% dearer everywhere** (against the two offs' mean: the mountain top +1.6%, high over
+    the spawn +1.9%, the plain +1.8%, the sea +1.7%, the spawn and the run +2.5 to 2.8%; the dearest view high over
+    the spawn 1.125 ms). **His two Nsight rows** at the mountain top: off, 167 registers, 163 live, nothing put by,
+    12 groups, 3.94K in the instruction mix (as build 178's: the cut and all since added nothing to the program's
+    size; the join 72 registers, the start 46); on, 168 registers, 164 live, **512 put by**, 12 groups, 4.06K. So
+    build 191's form pressed on the program's size, from three under the line of about 170 to on it: its mark's "nothing
+    more put by" missed, and Builder's word to him that the 2% was arithmetic alone was partly wrong (said to him).
+  - *Build 192* (mark 0596ce6, code 5ca541f): the same rule where a step is gathered, reusing the number worked out
+    for light (five places gone). Off the screen: off build 190 to the pixel; on, build 191's look (a few thousand
+    pixels by 8 of 255 at most); the shallow shelf's sea the same on and off; the steps within 1% of off's. Owed: one
+    window (two traces, off and on; three flights, off, on, off), his row, and his look on the stage.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
