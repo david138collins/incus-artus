@@ -2587,6 +2587,18 @@ Reference: `Art/quartile minecraft illustration.png`
     blocks as merged faces a chunk of 32 at a time on a lane, drawn after the far picture with depth, lit from the
     far eye's light, fading at the radius; the far march's program untouched; `INCUS_NEAR=0` is build 194;
     instruments from the first build; no line set for its time yet, this being the first measurement.
+  - The slider's place and name (the Render page, "Render radius (chunks)", 1 to 64): "yes thats fine".
+  - *Build 195, built* (the mesher b48b804, the lane 026c581, the pass 399f59d; unflown, unlaunched). Off the screen:
+    blocks inside the radius as merged faces, a chunk of 32 at a time on a lane of its own, drawn after the far picture
+    with depth, each face its block's far colour lit by the far eye's own text; the far eye's water over them; faces
+    to where every chunk is in, fading over the last stretch, the far rays beginning a little inside it (no hole while
+    a radius fills). The far march's program untouched. From the spawn at 64 chunks: 13,100 chunks, 14.4 million
+    faces kept (168 MB), 10.3 million triangles drawn in view, filled in 5 s; the whole radius 2.7 million triangles
+    on the plain, 27 to 29 million on hilly ground, 7 million with the stage's castle and town. Colour and light
+    within 5 of 255 of the far eye's; no gap at radius 1, 4, 16 or 64. 39 tests pass. At 64 chunks far hills' blocks
+    are under a pixel and speckle: written down for his eye. Not yet: the near eye's counts in a flight's report,
+    changes reaching the lane while the game runs, off against build 194 with the whole world, the stage's views and
+    the near marks. Owed: his word to launch, then a trace's row and a bracket of flights.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
