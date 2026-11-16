@@ -2870,6 +2870,25 @@ Reference: `Art/quartile minecraft illustration.png`
     ms a frame at 32 chunks; handing the pass over 0.004), and the processor's passes swing with its heat far more
     than with anything built that day (handing the card its work 0.29 ms at 84 °C, about 0.5 at 104, one program).
   - Nothing waits on him but his word for what of 2.4 comes next.
+- **[IDEA, David 2026-11-16] Finer far detail just past the triangles** (to Builder): "i have a question. once the
+  triangles end, is it 2x2 rays?" (Builder: no; mostly 8 × 8 rays, 4 × 4 in places, the 2 × 2 layer marching no ray
+  at any mark that day.) Then: "those seem to do something at a great distance, but none of those controls seem to
+  have an effect on the detail of the nearest of the far view rendering. i ask because it seems like a a ring of 2x2
+  fading from the triangle radius might look better, when you have a fence half in and half out of the render
+  radius."
+  - Builder's answer to him: the controls don't reach it, and the limit there isn't the rays but the far cells: past
+    the triangles the far view is 32-block cells (each about 21 screen pixels wide at 1,024 blocks), and finer rays
+    over them would only magnify the blur. What would give his ring is the fine rings (the 8s and 16s) sitting just
+    past the triangle radius, the finer rays then coming in by the rule already in; a real step, his call. Also: the
+    far eye doesn't yet see anything placed in play, so a player's fence past the radius isn't drawn at all, its own
+    step.
+  - *Counsel, a figure to check before he weighs it* (put to Builder): she told him the fine rings lie "within 128
+    blocks of the eye"; `src/far_ring.rs` says 128 cell columns, "so the 16s reach about 1,024 blocks from the eye
+    and the 8s about 512". If so, at his 32 chunks (1,024 blocks) the 16s end just where the triangles do, a
+    coincidence of the two numbers; a free look is any smaller radius (at 16 chunks the far view past the triangles
+    is the 16s out to 1,024); and the step may be only a ring a size wider, not a ring with a hole. The Oracle's
+    first reply said the same of the rings ("the rings as sized sit mostly inside the near eye's ground"; "ring
+    width, not ring count, sets how big the star facets look").
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
