@@ -7034,3 +7034,40 @@ pixels deep over the true horizon (its near cells' haze). With its rays begun fa
 near eye on, that band is gone and the horizon is a clean line.
 
 **Not flown:** what the own picture and the extra pass cost. All 40 tests pass.
+
+### Builds 198 and 199 looked at (2026-11-16): "the fade looks good, and the panel folding is good"; white dots of sky looking down; build 200's mark (the dots)
+
+**His words, whole,** with a picture (32 chunks, the x-fader at 128 blocks wide and curve 1, looking down on hills
+from above; a handful of white specks in the brown ground at the picture's middle): "the fade looks good, and the
+panel folding is good.  i notice speckling white dots of sky when looking down and moving."
+
+- **The x-fader: "the fade looks good".** Build 199's look, by him. He was using it wider and straighter than it
+  starts (128 and 1 against 64 and 2); the starting numbers left as they are until he says.
+- **The panel: "the panel folding is good".** Build 198's look. In his picture the Render page is scrolled and
+  fits the screen.
+- **The dots: a hole, so mended at once** (the standing rule: holes at once; shading and settings only written
+  down).
+
+**The dots found off the screen** (build 199; the spawn's hills from 205 blocks over them looking 60 degrees
+down, 32 chunks, three places a fraction of a block apart; every pixel there should be ground or water): **38,
+117 and 107 lone pixels of the sky's own colour** (206, 221, 239). Two things make them:
+
+1. **Why there's a hole:** merged faces meet along an edge at different corners (a long face's edge beside two
+   short ones'), and the card, which places corners on a fine grid, can leave a pixel between them that neither
+   covers. It's the known price of greedy meshing; it shows more where faces are small on the screen, and it
+   flickers as the eye moves.
+2. **Why it's white:** behind a block the far rays begin a set distance along the ray whatever is nearer.
+   Looking down from a height, that is under the world: the ray meets nothing and the far eye draws sky there. So
+   a hole shows sky. (Looking level it shows ground or stone, and nobody sees it.)
+
+**Build 200's pass mark** (the near eye's corners alone; nothing of the far eye changes):
+
+- Each face is drawn a hair wider than its cells all round, a few hundredths of a pixel whatever its distance,
+  so faces that meet along an edge overlap instead of leaving a pixel between.
+- *Mark:* from the same three places, **no lone pixel of the sky's colour**; the spawn's picture at 4 chunks the
+  same as build 199's but for a handful of pixels along faces' edges (counted, and none changed by more than a
+  face's own colour against its neighbour's); no gap at 1, 4, 16 or 64 chunks; all tests pass.
+- Not in this build: making what lies behind a block something other than sky. The build after (far rays
+  skipped under blocks) decides what a skipped pixel shows.
+
+**Then:** build 201, far rays skipped under blocks, as put to him and gone ahead on.

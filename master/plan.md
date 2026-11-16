@@ -96,10 +96,13 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   inside the ground under the near faces and make a false edge); mended by the step already next, the near
   faces' cover cancelling far rays. **His reading of the trace's rows** (2026-11-16): the near faces' cost on the card is their
   corners' work, 49% of the samples against 15% for their pixels: it goes with how many faces are sent. **His
-  word on the next step:** "go ahead with the next step and launch". **Waiting on David:** his look at build 198
-  (the debug panel's pages scrolling and folding; launched). **Builder is on build 199, its mark written:** the
-  near eye drawn into a picture and depth of its own and laid over the far picture by his x-fader ("x-fader
-  width (blocks)", "x-fader curve", in "The near eye" section); the build after it skips far rays under blocks. Before the flights (his "go
+  word on the next step:** "go ahead with the next step and launch". **His looks at builds 198 and 199** (2026-11-16): "the fade looks good, and the panel folding
+  is good.  i notice speckling white dots of sky when looking down and moving." Build 199 is the near eye drawn
+  into a picture and depth of its own and laid over the far picture by his x-fader ("x-fader width (blocks)",
+  "x-fader curve", in "The near eye" section). **Builder is on build 200, its mark written:** the white dots
+  (holes between merged faces, found off the screen: 38 to 117 lone pixels of sky looking down), mended by
+  drawing each face a hair wider. **After it, build 201:** far rays skipped under blocks, with a trace and
+  flights on his word. **Waiting on David:** nothing now. Before the flights (his "go
   ahead with the tests", 2026-11-16) he looked at build 195: "holds 240fps at 64 chunks, once its loaded in"; flying very fast,
   90 to 120 a second while chunks are made ("i don't think a player could experience a hiccup. off to a good
   start"); "there is a seam, but, its not very bad, and i think a x-fader with curves could hide it almost
