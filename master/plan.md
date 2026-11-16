@@ -583,6 +583,34 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
       want an outside look, i'll construct a prompt"): called when he wants one; 2.4 follows 2.3 without it
 - [ ] **2.4 The eye, whole:** the light lane, water and glass, textures, objects, glows, far lights (quarter blocks
       were here; built in 2.3 as triangles, build 204)
+  - **The near-term checklist, his word (2026-11-16):** "we need placed things, near light, glows and far light,
+    textures, an assessement of a fine ring after the triangles to transition more smoothly, listing chunks, faces
+    turned away, a chunk with pieces taking too long, chunk optimizing if theres a visible way, dont worry about
+    very fast flight." In his order; each its own build, pass mark first, flown in a bracket where it's a cost:
+    - [ ] **Placed things in the far view:** whatever is placed (a build, a scatter, later a player's work) summed
+          into the far cells, so it doesn't stop at the render radius. He called it necessary before graphics are
+          done enough to move on from
+    - [ ] **Near light:** the near eye's own light, per face, blocky and quantised (the spec); placed lights in 16
+          clear steps a block, coloured, flooding through air and stopped by walls, flickering; moving lights (a
+          held lantern, effects); caves and interiors dark unless lit ("i want light to be precious")
+    - [ ] **Glows and far lights:** lights seen from far off, sparkling, their glow shrinking and fading into fog,
+          never snapping off
+    - [ ] **Textures:** bars wearing their own side and end pictures along each bar, joins seamless; the grass's
+          shared edge; pictures for the blocks that have none (the stage's seven), placeholders or his art
+    - [ ] **An assessment of a fine ring past the triangles** (his idea: "a ring of 2x2 fading from the triangle
+          radius might look better, when you have a fence half in and half out of the render radius"): the 16s' and
+          8s' rings a size wider (16s to about 2,048 blocks, 8s to about 1,024) behind a switch, A/B at the same
+          radius, its memory and remaking measured; his eye decides whether it stays
+    - [ ] **Listing chunks:** the near eye's processor time is all in listing the chunks in view (0.15 to 0.27 ms a
+          frame at 32 chunks, about 1 ms at 64)
+    - [ ] **Faces turned away** from the eye left out (still sent to the card)
+    - [ ] **A chunk with pieces** meshes nine times slower than a plain one (2.8 ms against 0.3): half blocks only
+          round the pieces, or another way
+    - [ ] **Chunk optimizing where it would show:** what a player would feel (filling 64 chunks took 37 s at the
+          spawn; the corners' program is half the card at 64 chunks), each only if its gain is visible
+    - Not now, by his word: very fast flight (single frames of about 20 ms at 2,000 blocks a second)
+    - Not in his list, kept here as they were: water's look, objects, glass, the doorway's pieces and lights below;
+      the Intel card's flight and his walk through old's world (the gate)
   - [ ] The doorway's pieces, objects and lights, as the eye first draws them (carried from 2.1)
   - [ ] Water's look, far: shallow sea over a nearly flat shelf shows as long square contours (the shore and each
         block of depth), seen from high over the plain at build 188; a shallow edge that fades in, with water's own
