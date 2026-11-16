@@ -7774,3 +7774,35 @@ work) is drawn by the near eye only, and stops at the render radius.
 
 **Not in this build:** a player placing and breaking live (no way to yet; the path is the same, and its speed is
 measured then); detail finer than the far cells (a fence is one block: at the 8s it is an eighth of a cell).
+
+### Build 207 built (unlaunched, unflown): placed things in the far view; checked off the screen
+
+**Built as the mark says:**
+
+- **The rule** (`far.rs`): a square's columns with something placed in them (or beside them) are summed from their
+  runs as they are now, as the scatter stage's columns are: a whole block takes its cell; a cell of pieces counts as
+  their main material (`placed_cells`), filling it only where nothing solid is (`with_placed`); an export column keeps
+  its water where nothing solid now stands.
+- **The regions** (`far_eye.rs`, `bricks.rs`, `atlas.rs`): when told of changes (going to a mark), the regions they
+  and the last ones touch are summed again on a thread ("summing what's placed"); once every region is in and no
+  other thread holds the cells kept, each is put over what was there (`Store::resum_region`: bands, the levels not
+  windowed by new bricks, the cells kept, the levels over 1,024 above it, the window's 32s and 64s in place); the far
+  textures of its bricks and of the bricks south and west that read its cells made again (`redo_region`,
+  `redo_upper`); the height table and the light worked out again on their threads.
+- **The rings** (`far_ring.rs`): told of changes, the maker sums again the squares they touch and makes again the
+  bricks over them; the frame keeps the old ones on the card till the new ring is moved over.
+- **The game** (`runner.rs`): the far eye told with the near eye; a flight's standing waits for both.
+
+**Against the mark, off the screen:**
+
+- **The test: met.** `what_is_placed_is_summed`: a block in the air over the spawn is one solid block more and six
+  faces more in its cell, the columns beside it unchanged; three octants of sand and two of gabbro in a cell sum
+  exactly as a whole block of sand; a piece in the ground changes nothing; taken back, the cells are as they were.
+  All 44 tests pass.
+- **Pictures, the far eye alone, 290 blocks short of the build looking at it: met.** **David's build stands in the
+  far picture** where the bare plain has grass: a dark patch a few pixels across in the 8s' cells (the build is
+  mostly air and smaller than a cell there; it's what the far eye can show of it). The scatter of 10,000 is a broad
+  dark field over the plain (1% of the picture, by up to 23 of 255). **Taken back, the bare plain's picture to the
+  pixel.**
+- **How long:** 0.28 s from the changes to the far eye having them, rings, light and height table included (the
+  test's regions round the mark); taking them back the same.

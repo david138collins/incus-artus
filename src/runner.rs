@@ -332,7 +332,9 @@ impl Runner {
         // moving mark's keep coming, and aren't waited for).
         if let Some(flight) = &mut self.flight {
             let eye = [self.camera.position.x, self.camera.position.y];
-            let whole = self.running.as_ref().and_then(|running| running.near.as_ref()).map(|near| near.whole(eye));
+            // (And the far eye's: what's placed there summed, on the card and lit.)
+            let far_settled = self.running.as_ref().and_then(|running| running.far.as_ref()).is_none_or(FarEye::changes_settled);
+            let whole = self.running.as_ref().and_then(|running| running.near.as_ref()).map(|near| near.whole(eye) && far_settled);
             let moves = flight.speed(&self.marks).is_some();
             flight.hold_for_near(now, whole, moves);
         }
@@ -374,9 +376,13 @@ impl Runner {
                 None
             }
         };
-        // The near eye told of the changes as they are now (the mark before's taken back, this one's made).
+        // The near eye and the far eye told of the changes as they are now (the mark before's taken back, this one's
+        // made).
         if let Some(near) = self.running.as_mut().and_then(|running| running.near.as_mut()) {
             near.changed(doorway.changes());
+        }
+        if let Some(far) = self.running.as_mut().and_then(|running| running.far.as_mut()) {
+            far.changed(doorway.changes());
         }
         let dial = count.map_or(String::new(), |count| format!(", the scatter at {count}"));
         log::info!(

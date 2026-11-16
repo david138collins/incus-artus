@@ -15,7 +15,7 @@
 
 use crate::atlas::{Atlas, Bench, Brick, Kept, NO_SLOT};
 use crate::bricks::{Level, NO_BRICK, RING, Store, row};
-use crate::doorway::{Doorway, Tile};
+use crate::doorway::{Change, Doorway, Tile};
 use crate::far::{Cell, FarColours};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::PathBuf;
@@ -51,7 +51,8 @@ pub struct Made {
 
 /// A ring the maker has ready: its least column, its bands (north fastest from there), its columns' numbers for the
 /// height table (`bricks::tops_round`), every brick it holds, those of them not handed over with the ring before, and
-/// how long it took to make.
+/// how long it took to make. And (build 207) the telling of what's placed it was made with, and those of its new
+/// bricks made again over what's placed (the frame holds older ones there).
 pub struct Ready {
     from: [i32; 2],
     entries: Vec<u32>,
@@ -59,6 +60,15 @@ pub struct Ready {
     holds: Vec<[i32; 3]>,
     new: Vec<Made>,
     seconds: f32,
+    told: u64,
+    remade: Vec<[i32; 3]>,
+}
+
+/// What the frame asks of the maker: the ring with this least column; or (build 207) what's placed through the doorway
+/// as it is now, its telling's number.
+enum Ask {
+    Ring([i32; 2]),
+    Changes(u64, HashMap<[i32; 2], Vec<Change>>),
 }
 
 /// A brick on the card: where its cells start in the pool, its slot in the atlas (`NO_SLOT` till the atlas is in), and
@@ -73,7 +83,7 @@ struct Held {
 pub struct Ring {
     /// Its level (4: cells of 16).
     pub level: usize,
-    asks: mpsc::Sender<[i32; 2]>,
+    asks: mpsc::Sender<Ask>,
     readies: mpsc::Receiver<Result<Ready, String>>,
     /// The ring last asked of the maker (its least column).
     asked: Option<[i32; 2]>,
@@ -95,6 +105,12 @@ pub struct Ring {
     pub made_in: f32,
     /// Whether the maker has failed (it says why in the log): nothing waits on a ring that won't come.
     pub failed: bool,
+    /// What's placed (build 207): the tellings sent to the maker, the telling the ring on the card was made with, and
+    /// the bricks made again over it that the ring on the card still reads (given back once the new ring is moved
+    /// over).
+    told: u64,
+    switched_told: u64,
+    retiring: Vec<Held>,
 }
 
 impl Ring {
@@ -104,7 +120,7 @@ impl Ring {
         let (asks, asked) = mpsc::channel();
         let (made, readies) = mpsc::channel();
         std::thread::Builder::new().name("making the far ring".into()).spawn(move || maker(folder, level, side, asked, made)).map_err(|error| format!("a thread for the far ring: {error}"))?;
-        Ok(Self { level: level.level, asks, readies, asked: None, coming: None, waiting: BTreeMap::new(), held: BTreeMap::new(), from: None, on_card: Vec::new(), unsent: 0, stale: false, moves: 0, made_in: 0.0, failed: false })
+        Ok(Self { level: level.level, asks, readies, asked: None, coming: None, waiting: BTreeMap::new(), held: BTreeMap::new(), from: None, on_card: Vec::new(), told: 0, switched_told: 0, retiring: Vec::new(), unsent: 0, stale: false, moves: 0, made_in: 0.0, failed: false })
     }
 
     /// The ring's least column for an eye at `eye` (north, east): the eye's column in the middle, to a step.
@@ -112,6 +128,20 @@ impl Ring {
         let cell = (1 << level.level) as f32;
         let snap = |e: f32| ((e / cell).floor() as i32 - RING / 2).div_euclid(STEP) * STEP;
         [snap(eye[0]), snap(eye[1])]
+    }
+
+    /// What's placed through the doorway, as it is now (build 207): the maker told, and the ring asked for again, so
+    /// the squares the changes touch are summed again and their bricks made again.
+    pub fn changed(&mut self, changes: HashMap<[i32; 2], Vec<Change>>) {
+        self.told += 1;
+        if self.asks.send(Ask::Changes(self.told, changes)).is_ok() {
+            self.asked = None;
+        }
+    }
+
+    /// Whether the ring on the card was made with what's placed as last told (true of a ring that failed).
+    pub fn changes_settled(&self) -> bool {
+        self.failed || self.switched_told == self.told
     }
 
     /// Whether every brick of the ring that's on the card has its texture in the atlas and its slot written (true of
@@ -134,13 +164,23 @@ impl Ring {
         let in_time = || started.elapsed().as_secs_f32() * 1000.0 < ms;
         let level = store.levels[row(self.level)];
         let wanted = Self::wanted(&level, eye);
-        if self.asked != Some(wanted) && self.asks.send(wanted).is_ok() {
+        if self.asked != Some(wanted) && self.asks.send(Ask::Ring(wanted)).is_ok() {
             self.asked = Some(wanted);
         }
         // What the maker has handed over: the latest ring counts, and only its bricks are kept waiting.
         while let Ok(ready) = self.readies.try_recv() {
             match ready {
                 Ok(mut ready) => {
+                    // Bricks made again over what's placed: the frame's older ones there retire (the ring on the card
+                    // reads them till the new ring is moved over), so the new ones are sent.
+                    for at in ready.remade.drain(..) {
+                        if let Some(held) = self.held.remove(&at) {
+                            if held.textures.is_some() {
+                                self.unsent -= 1;
+                            }
+                            self.retiring.push(held);
+                        }
+                    }
                     for made in ready.new.drain(..) {
                         self.waiting.insert(made.at, made);
                     }
@@ -222,6 +262,15 @@ impl Ring {
                     atlas.release(held.slot);
                 }
             }
+            for held in self.retiring.drain(..) {
+                store.ring_release(held.start);
+                if held.slot != NO_SLOT
+                    && let Some(atlas) = atlas.as_deref_mut()
+                {
+                    atlas.release(held.slot);
+                }
+            }
+            self.switched_told = ready.told;
             if self.from.is_none() {
                 log::info!("The far ring: the {}s round the eye on the card, {} bricks, made in {:.2} s", 1 << self.level, ready.holds.len(), ready.seconds);
             }
@@ -264,7 +313,7 @@ impl Ring {
 }
 
 /// The ring's maker, on a thread of its own: each ring asked for (the latest, if several wait) made and handed over.
-fn maker(folder: PathBuf, level: Level, side: u32, asks: mpsc::Receiver<[i32; 2]>, readies: mpsc::Sender<Result<Ready, String>>) {
+fn maker(folder: PathBuf, level: Level, side: u32, asks: mpsc::Receiver<Ask>, readies: mpsc::Sender<Result<Ready, String>>) {
     let opened = Doorway::open(&folder).and_then(|mut doorway| FarColours::load(&mut doorway).map(|colours| (doorway, colours)));
     let (doorway, colours) = match opened {
         Ok(opened) => opened,
@@ -273,11 +322,21 @@ fn maker(folder: PathBuf, level: Level, side: u32, asks: mpsc::Receiver<[i32; 2]
             return;
         }
     };
-    let mut making = Making { doorway, colours, level, side, squares: HashMap::new(), read: HashMap::new(), handed: HashSet::new(), bench: Bench::default() };
-    while let Ok(mut from) = asks.recv() {
+    let mut making = Making { doorway, colours, level, side, squares: HashMap::new(), read: HashMap::new(), handed: HashSet::new(), bench: Bench::default(), told: 0, touched: HashSet::new(), remade: HashSet::new() };
+    while let Ok(first) = asks.recv() {
+        // Everything asked since, in order: what's placed taken in as it comes, and the latest ring made.
+        let mut from = None;
+        let mut pending = vec![first];
         while let Ok(later) = asks.try_recv() {
-            from = later;
+            pending.push(later);
         }
+        for ask in pending {
+            match ask {
+                Ask::Ring(asked) => from = Some(asked),
+                Ask::Changes(told, changes) => making.changed(told, changes),
+            }
+        }
+        let Some(from) = from else { continue };
         let ready = making.ring(from);
         if let Ok(ready) = &ready {
             making.handed = ready.holds.iter().copied().collect();
@@ -306,9 +365,50 @@ struct Making {
     /// The bricks of the ring handed over last: the frame has those.
     handed: HashSet<[i32; 3]>,
     bench: Bench,
+    /// What's placed (build 207): the telling the doorway has, the squares the last changes touched, and the bricks
+    /// taken from `handed` to be made again (the frame holds older ones there).
+    told: u64,
+    touched: HashSet<[i32; 2]>,
+    remade: HashSet<[i32; 3]>,
 }
 
 impl Making {
+    /// What's placed through the doorway, as it is now: the squares these changes and the last ones touch (a placed
+    /// block's faces reach the columns round it) summed again at the next ring, and every brick whose cells, or the
+    /// cells its textures borrow from, lie over them made again.
+    fn changed(&mut self, told: u64, changes: HashMap<[i32; 2], Vec<Change>>) {
+        let cell = 1i32 << self.level.level;
+        let mut squares = HashSet::new();
+        for change in changes.values().flatten() {
+            let cells = match change.octants() {
+                None => vec![change.cell()],
+                Some((octants, _)) => octants.iter().map(|octant| octant.map(|half| half.div_euclid(2))).collect(),
+            };
+            for c in cells {
+                for dn in -1..=1 {
+                    for de in -1..=1 {
+                        squares.insert([(c[0] + dn).div_euclid(cell).div_euclid(STEP), (c[1] + de).div_euclid(cell).div_euclid(STEP)]);
+                    }
+                }
+            }
+        }
+        let dropped: HashSet<[i32; 2]> = squares.union(&self.touched).copied().collect();
+        self.doorway.set_changes(changes);
+        self.squares.retain(|s, _| !dropped.contains(s));
+        let wide = self.level.wide;
+        let over = |at: &[i32; 3]| {
+            let (x0, x1, y0, y1) = (at[0] * wide - MARGIN, at[0] * wide + wide + MARGIN, at[1] * wide - MARGIN, at[1] * wide + wide + MARGIN);
+            dropped.iter().any(|s| s[0] * STEP <= x1 && s[0] * STEP + STEP - 1 >= x0 && s[1] * STEP <= y1 && s[1] * STEP + STEP - 1 >= y0)
+        };
+        let gone: Vec<[i32; 3]> = self.handed.iter().filter(|at| over(at)).copied().collect();
+        for at in gone {
+            self.handed.remove(&at);
+            self.remade.insert(at);
+        }
+        self.touched = squares;
+        self.told = told;
+    }
+
     /// The ring whose least column is `from`, made: the squares it and its margin lie over summed (those not kept
     /// already), its bands, and the cells and textures of each of its bricks the frame doesn't have.
     fn ring(&mut self, from: [i32; 2]) -> Result<Ready, String> {
@@ -404,6 +504,8 @@ impl Making {
                 new.push(Made { at, cells, textures });
             }
         }
-        Ok(Ready { from, entries, tops, holds, new, seconds: started.elapsed().as_secs_f32() })
+        let remade = new.iter().map(|made| made.at).filter(|at| self.remade.contains(at)).collect();
+        self.remade.clear();
+        Ok(Ready { from, entries, tops, holds, new, seconds: started.elapsed().as_secs_f32(), told: self.told, remade })
     }
 }

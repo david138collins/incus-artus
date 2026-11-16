@@ -23,7 +23,8 @@
 //! loading lane (`Lane`) sums them on threads of their own, nearest the eye first, and hands each over as it's done:
 //! the far eye puts it on the card (`bricks.rs`).
 
-use crate::doorway::{Block, Doorway, Run, WATER};
+use crate::doorway::{Block, Change, Doorway, Run, WATER};
+use std::collections::HashMap;
 use serde::Deserialize;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -423,11 +424,14 @@ fn cells_by(doorway: &Doorway, colours: &FarColours, cell: i32, at: [i32; 2], ac
     // The columns the scatter stage changed, each as its solid runs: where they are in `staged_runs` (none: unchanged).
     let mut staged: Vec<(u32, u32)> = Vec::new();
     let mut staged_runs: Vec<Run> = Vec::new();
+    // What was placed through the doorway in the tiles read (build 207).
+    let mut changes: Vec<Change> = Vec::new();
     let (least, tile) = doorway.grid();
     let tiles = |from: i32, to: i32, axis: usize| (from - least[axis]).div_euclid(tile)..=(to - least[axis]).div_euclid(tile);
     for tx in tiles(at[0] - 1, at[0] + size, 0) {
         for ty in tiles(at[1] - 1, at[1] + size, 1) {
             let answer = tile_of(tx, ty)?;
+            changes.extend_from_slice(doorway.changes_in(tx, ty));
             let base = [least[0] + tx * tile, least[1] + ty * tile];
             let (n0, n1) = (base[0].max(at[0] - 1), (base[0] + tile).min(at[0] + size + 1));
             let (e0, e1) = (base[1].max(at[1] - 1), (base[1] + tile).min(at[1] + size + 1));
@@ -447,6 +451,31 @@ fn cells_by(doorway: &Doorway, colours: &FarColours, cell: i32, at: [i32; 2], ac
                     }
                 }
             }
+        }
+    }
+    // What was placed through the doorway (build 207): each column of the square, and round it, that has some is summed
+    // from its runs as they are now (a whole block placed its block; a cell of pieces its main material, where it isn't
+    // solid already), as the scatter stage's columns are. An export column keeps its water where nothing solid stands
+    // (`wet`); a stage column has none, as before.
+    let mut wet: Vec<bool> = Vec::new();
+    let placed = placed_cells(&changes, at, size);
+    if !placed.is_empty() {
+        if staged.is_empty() {
+            staged = vec![(0, 0); side * side];
+        }
+        wet = vec![false; side * side];
+        for (column, cells) in placed {
+            let k = (column[0] - at[0] + 1) as usize + (column[1] - at[1] + 1) as usize * side;
+            if grounds[k] < 0 {
+                continue;
+            }
+            let (from, to) = staged[k];
+            let was_staged = to > from;
+            let base = if was_staged { staged_runs[from as usize..to as usize].to_vec() } else { doorway.solid_runs(grounds[k], profiles[k])? };
+            let runs = with_placed(base, &cells);
+            staged[k] = (staged_runs.len() as u32, (staged_runs.len() + runs.len()) as u32);
+            staged_runs.extend_from_slice(&runs);
+            wet[k] = !was_staged;
         }
     }
     // A column's solid runs: the stage's, or the export's own (none past the map).
@@ -479,7 +508,7 @@ fn cells_by(doorway: &Doorway, colours: &FarColours, cell: i32, at: [i32; 2], ac
                         let own = runs_of(k)?;
                         let beside = [runs_of(around[0])?, runs_of(around[1])?, runs_of(around[2])?, runs_of(around[3])?];
                         // The export's water, in what's open over its ground (a column the stage changed has none).
-                        let water = if is_staged(k) { (1, 0) } else { (grounds[k] + 1, waters[k].max(doorway.sea_level).min(height) - 1) };
+                        let water = if is_staged(k) && !wet.get(k).copied().unwrap_or(false) { (1, 0) } else { (grounds[k] + 1, waters[k].max(doorway.sea_level).min(height) - 1) };
                         highest = highest.max(own.last().map_or(0, |run| run.to)).max(water.1 + 1);
                         add_column_runs(&mut sums, cell, height, colours, &own, water, [&beside[0], &beside[1], &beside[2], &beside[3]]);
                         continue;
@@ -602,6 +631,107 @@ fn add_column_runs(cells: &mut [Sums], cell: i32, height: i32, colours: &FarColo
     }
 }
 
+/// What was placed through the doorway over the square of `size` columns from `at` and the columns round it (build
+/// 207), by column: each cell touched, its block as the far cells count it, and whether it's a whole block (which takes
+/// its cell whatever was there) or pieces (which fill it only where it's empty). A cell of pieces counts as their main
+/// material, the block with the most of its octants (the first placed of those that tie), never as air: old's sight
+/// counted a cell of pieces so. Where two pieces would share an octant the first placed keeps it; a whole block placed
+/// takes its cell, and pieces after it find no room (as the near eye has them).
+fn placed_cells(changes: &[Change], at: [i32; 2], size: i32) -> HashMap<[i32; 2], Vec<(i32, Block, bool)>> {
+    struct Placed {
+        whole: Option<Block>,
+        octants: [Option<Block>; 8],
+        order: Vec<Block>,
+    }
+    let inside = |cell: [i32; 3]| cell[0] >= at[0] - 1 && cell[0] <= at[0] + size && cell[1] >= at[1] - 1 && cell[1] <= at[1] + size;
+    let mut cells: HashMap<[i32; 3], Placed> = HashMap::new();
+    for change in changes {
+        match (change.octants(), *change) {
+            (None, Change::Block { cell, block }) => {
+                if inside(cell) {
+                    cells.insert(cell, Placed { whole: Some(block), octants: [None; 8], order: Vec::new() });
+                }
+            }
+            (Some((octants, block)), _) => {
+                for octant in octants {
+                    let cell = octant.map(|half| half.div_euclid(2));
+                    if !inside(cell) {
+                        continue;
+                    }
+                    let placed = cells.entry(cell).or_insert_with(|| Placed { whole: None, octants: [None; 8], order: Vec::new() });
+                    if placed.whole.is_some() {
+                        continue;
+                    }
+                    let k = (octant[0].rem_euclid(2) + octant[1].rem_euclid(2) * 2 + octant[2].rem_euclid(2) * 4) as usize;
+                    if placed.octants[k].is_none() {
+                        placed.octants[k] = Some(block);
+                        if !placed.order.contains(&block) {
+                            placed.order.push(block);
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    let mut columns: HashMap<[i32; 2], Vec<(i32, Block, bool)>> = HashMap::new();
+    for (cell, placed) in cells {
+        let counted = match placed.whole {
+            Some(block) => Some((block, true)),
+            None => {
+                let mut best: Option<(Block, usize)> = None;
+                for &block in &placed.order {
+                    let n = placed.octants.iter().filter(|o| **o == Some(block)).count();
+                    if best.is_none_or(|(_, most)| n > most) {
+                        best = Some((block, n));
+                    }
+                }
+                best.map(|(block, _)| (block, false))
+            }
+        };
+        if let Some((block, whole)) = counted {
+            columns.entry([cell[0], cell[1]]).or_default().push((cell[2], block, whole));
+        }
+    }
+    columns
+}
+
+/// A column's solid runs (bedrock up, air between) with what was placed in it (`placed_cells`' for the column): a
+/// whole block takes its cell; pieces fill a cell only where nothing solid is. Runs of one block that meet are joined.
+fn with_placed(mut runs: Vec<Run>, placed: &[(i32, Block, bool)]) -> Vec<Run> {
+    for &(z, block, whole) in placed {
+        match runs.iter().position(|run| run.from <= z && z < run.to) {
+            Some(i) => {
+                if !whole || runs[i].block == block {
+                    continue;
+                }
+                let run = runs[i];
+                let mut split = Vec::new();
+                if run.from < z {
+                    split.push(Run { block: run.block, from: run.from, to: z });
+                }
+                split.push(Run { block, from: z, to: z + 1 });
+                if z + 1 < run.to {
+                    split.push(Run { block: run.block, from: z + 1, to: run.to });
+                }
+                runs.splice(i..=i, split);
+            }
+            None => {
+                let i = runs.iter().position(|run| run.from > z).unwrap_or(runs.len());
+                runs.insert(i, Run { block, from: z, to: z + 1 });
+            }
+        }
+    }
+    let mut joined: Vec<Run> = Vec::with_capacity(runs.len());
+    for run in runs {
+        match joined.last_mut() {
+            Some(last) if last.to == run.from && last.block == run.block => last.to = run.to,
+            _ => joined.push(run),
+        }
+    }
+    joined
+}
+
 /// The heights `from` to `to` (from bedrock up), split at the edges of the cells of `cell` blocks, each piece added
 /// to its cell.
 fn add_range(cells: &mut [Sums], cell: i32, from: i32, to: i32, add: impl Fn(&mut Sums, i32, i32)) {
@@ -617,6 +747,49 @@ fn add_range(cells: &mut [Sums], cell: i32, from: i32, to: i32, add: impl Fn(&mu
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// What's placed in the far cells (build 207): a block placed in the air over the spawn changes its cell column of
+    /// 32 by exactly one solid block and its six faces (and the columns beside it not at all); a cell of pieces counts
+    /// as its main material; a piece where ground is changes nothing; taken back, the cells are as they were.
+    #[test]
+    fn what_is_placed_is_summed() {
+        let mut doorway = Doorway::open_with(&crate::doorway::test_world(), false).unwrap();
+        let colours = FarColours::load(&mut doorway).unwrap();
+        let (stone, sand, gabbro) = (doorway.block("incus:stone"), doorway.block("incus:sand"), doorway.block("incus:gabbro"));
+        let summed = |doorway: &Doorway| cells(doorway, &colours, 32, [0, 0], 2, |tx, ty| doorway.tile(tx, ty).map(std::rc::Rc::new)).unwrap();
+        let before = summed(&doorway);
+        let ground = match doorway.column(5, 5).unwrap() {
+            crate::doorway::Column::Here { ground, .. } => ground,
+            crate::doorway::Column::Past => panic!("the spawn is on the map"),
+        };
+        let z = ground + 40;
+        doorway.make(Change::Block { cell: [5, 5, z], block: stone }).unwrap();
+        let after = summed(&doorway);
+        let (one, two) = (before[0].at(z / 32, 32), after[0].at(z / 32, 32));
+        assert_eq!(two.solid, one.solid + 1, "one solid block more in its cell");
+        assert_eq!(two.showing(), one.showing() + 6, "its six faces showing");
+        assert_eq!(after[1..], before[1..], "the cell columns beside it as they were");
+        // Pieces: three octants of sand and two of gabbro in one cell: a cell of sand; in the air, six faces of sand.
+        doorway.forget_changes();
+        let cell = [9, 9, z];
+        for (octant, block) in [([18, 18, z * 2], sand), ([19, 18, z * 2], sand), ([18, 19, z * 2], gabbro), ([19, 19, z * 2], gabbro), ([18, 18, z * 2 + 1], sand)] {
+            doorway.make(Change::Oct { cell, from: octant, block }).unwrap();
+        }
+        let pieces = summed(&doorway);
+        let mut whole = Doorway::open_with(&crate::doorway::test_world(), false).unwrap();
+        whole.block("incus:stone");
+        whole.block("incus:sand");
+        whole.block("incus:gabbro");
+        whole.make(Change::Block { cell, block: sand }).unwrap();
+        assert_eq!(pieces, summed(&whole), "a cell of pieces counts as its main material, whole");
+        // A piece in the ground: nothing changes.
+        doorway.forget_changes();
+        doorway.make(Change::Oct { cell: [5, 5, ground - 3], from: [10, 10, (ground - 3) * 2], block: sand }).unwrap();
+        assert_eq!(summed(&doorway), before, "a piece where ground is changes nothing");
+        // Taken back: as before, exactly.
+        doorway.forget_changes();
+        assert_eq!(summed(&doorway), before, "taken back, the cells are as they were");
+    }
     use std::collections::HashMap;
     use std::sync::Mutex;
     use std::sync::atomic::{AtomicUsize, Ordering};

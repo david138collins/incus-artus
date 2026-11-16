@@ -478,6 +478,39 @@ impl Store {
     /// regions under them are in. With a window, the 32s' and 64s' bands are written but not their bricks: those come
     /// with the window (`follow`).
     pub fn put_region(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, region: [i32; 2], columns: &[Vec<CellColumn>]) {
+        self.take_region(device, queue, region, columns);
+        if self.summed.insert(region) {
+            self.regions_in += 1;
+        }
+    }
+
+    /// A region summed again with what was placed through the doorway (build 207), put over what was there, once every
+    /// region is in and nothing else holds the cells kept: its bands, the bricks of the levels not windowed (new ones;
+    /// their old places in the pool are left), the cells kept, the levels over 1,024 above it, and the window's 32s and
+    /// 64s made again in place if they're on the card. The windowed levels made again, for the atlas.
+    pub fn resum_region(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, region: [i32; 2], columns: &[Vec<CellColumn>]) -> Vec<usize> {
+        if !self.summed.contains(&region) {
+            return Vec::new();
+        }
+        self.take_region(device, queue, region, columns);
+        let mut again = Vec::new();
+        for k in 0..self.on_card.len() {
+            if let Some(old) = self.on_card[k].remove(&region) {
+                for (_, start) in old {
+                    self.free[k].push(start);
+                    self.bricks -= 1;
+                }
+                let placed = self.bring(device, queue, k, region);
+                self.on_card[k].insert(region, placed);
+                again.push(FIRST + k);
+            }
+        }
+        again
+    }
+
+    /// A region's columns put on the card and kept, and the levels over 1,024 made above it where all their regions are
+    /// in (`put_region`'s, and `resum_region`'s).
+    fn take_region(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, region: [i32; 2], columns: &[Vec<CellColumn>]) {
         let windowed = if self.window.is_some() { WINDOWED } else { 0 };
         for part in region_parts(&self.levels, region, columns, windowed) {
             self.put(device, queue, &part);
@@ -494,8 +527,6 @@ impl Store {
         // The highest anything stands: the top of the highest band among its cells of 32.
         let top = columns[0].iter().map(|c| (c.high() + 1) * (1 << FIRST)).max().unwrap_or(0);
         self.highest = self.highest.max(top as f32);
-        self.regions_in += 1;
-        self.summed.insert(region);
         self.tops.insert(region, columns[REGION - FIRST][0].clone());
         let mut place = region;
         for level in REGION + 1..=TOP {
@@ -612,23 +643,7 @@ impl Store {
                 break;
             }
             let level = FIRST + k;
-            let cells = self.levels[k].brick_cells() as u64;
-            let mut placed = Vec::new();
-            for (place, _, brick) in self.region_bricks(level, g) {
-                let start = match self.free[k].pop() {
-                    Some(start) => start,
-                    None => {
-                        self.reserve(device, queue, cells);
-                        self.used += cells;
-                        self.used - cells
-                    }
-                };
-                let bytes: Vec<u8> = brick.iter().flat_map(cell_bytes).collect();
-                queue.write_buffer(&self.pool, start * CELL_BYTES, &bytes);
-                queue.write_buffer(&self.index, place as u64 * 4, &(start as u32).to_le_bytes());
-                placed.push((place, start));
-                self.bricks += 1;
-            }
+            let placed = self.bring(device, queue, k, g);
             moved.came.push((level, g));
             self.on_card[k].insert(g, placed);
             changed = true;
@@ -639,6 +654,30 @@ impl Store {
             self.write_flags(queue);
         }
         moved
+    }
+
+    /// A windowed region's bricks at the `k`th windowed level brought onto the card from the cells kept: each in a place
+    /// in the pool given back if there is one, at its end if not, and its place written in the index. Each brick's place
+    /// in the index and in the pool.
+    fn bring(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, k: usize, g: [i32; 2]) -> Vec<(u32, u64)> {
+        let cells = self.levels[k].brick_cells() as u64;
+        let mut placed = Vec::new();
+        for (place, _, brick) in self.region_bricks(FIRST + k, g) {
+            let start = match self.free[k].pop() {
+                Some(start) => start,
+                None => {
+                    self.reserve(device, queue, cells);
+                    self.used += cells;
+                    self.used - cells
+                }
+            };
+            let bytes: Vec<u8> = brick.iter().flat_map(cell_bytes).collect();
+            queue.write_buffer(&self.pool, start * CELL_BYTES, &bytes);
+            queue.write_buffer(&self.index, place as u64 * 4, &(start as u32).to_le_bytes());
+            placed.push((place, start));
+            self.bricks += 1;
+        }
+        placed
     }
 
     /// A windowed region's bricks at `level`, made from the cells kept: each brick's place in the index, its least

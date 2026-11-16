@@ -560,6 +560,70 @@ impl Atlas {
         self.regions.insert((level, region), places);
     }
 
+    /// A region's bricks at `level` (up to 1,024) made again from the cells kept, after what was placed changed (build
+    /// 207): a windowed level's only if the window has the region; every level's otherwise, each in a new slot, its
+    /// old one given back.
+    pub fn redo_region(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, kept: &Kept, level: usize, region: [i32; 2], windowed: bool) {
+        if windowed {
+            if self.regions.contains_key(&(level, region)) {
+                self.remove_region(level, region);
+                self.add_region(device, queue, kept, level, region);
+            }
+            return;
+        }
+        let mut bench = Bench::default();
+        for brick in region_bricks(kept, level, region) {
+            self.redo_brick(device, queue, kept, &brick, &mut bench);
+        }
+    }
+
+    /// The bricks of a level over 1,024 that read the column `column` (the one holding it, and those one before it
+    /// each way), made again from the cells kept (build 207).
+    pub fn redo_upper(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, kept: &Kept, level: usize, column: [i32; 2]) {
+        let l = kept.levels[kept.at(level)];
+        let columns = &kept.columns[kept.at(level)];
+        let band_in = |cx: i32, cy: i32, z0: i32, z1: i32| {
+            let Some(at) = l.entry(cx, cy) else { return false };
+            let entry = columns[(at - l.entries_at) as usize].0;
+            if entry == NOT_SUMMED {
+                return false;
+            }
+            let low = (entry & 0xFFFF) as u16 as i16 as i32;
+            low.max(z0) < (low + (entry >> 16) as i32).min(z1)
+        };
+        let mut list = Vec::new();
+        for (dx, dy) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
+            let (gx, gy) = ((column[0] - dx - l.from[0]).div_euclid(l.wide), (column[1] - dy - l.from[1]).div_euclid(l.wide));
+            if gx < 0 || gy < 0 || gx >= l.bricks || gy >= l.bricks {
+                continue;
+            }
+            let (cx0, cy0) = (l.from[0] + gx * l.wide, l.from[1] + gy * l.wide);
+            for bz in 0..l.bricks_up {
+                let (z0, z1) = (bz * l.tall, ((bz + 1) * l.tall).min(l.up));
+                let reach = l.wide + 1;
+                let brick = Brick { level, place: l.brick(gx, gy, bz), origin: [cx0, cy0, bz * l.tall] };
+                if !list.iter().any(|b: &Brick| b.place == brick.place) && (0..reach * reach).any(|k| band_in(cx0 + k % reach, cy0 + k / reach, z0, z1 + 1)) {
+                    list.push(brick);
+                }
+            }
+        }
+        let mut bench = Bench::default();
+        for brick in list {
+            self.redo_brick(device, queue, kept, &brick, &mut bench);
+        }
+    }
+
+    /// A brick's textures made again in a new slot, its old slot given back.
+    fn redo_brick(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, kept: &Kept, brick: &Brick, bench: &mut Bench) {
+        let bytes = brick_bytes(kept, brick, self.side, bench);
+        let s = self.prepare(device, queue, &bytes);
+        let old = std::mem::replace(&mut self.slot_of[brick.place as usize], s);
+        if old != NO_SLOT {
+            self.release(old);
+        }
+        queue.write_buffer(&self.slots, brick.place as u64 * 4, &s.to_le_bytes());
+    }
+
     /// A region the window left, its bricks given back: their slots kept for the next to come. The card's slots for
     /// those places aren't written: the region isn't usable, so nothing reads them, and a region brought back writes
     /// them again.

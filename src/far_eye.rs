@@ -230,6 +230,14 @@ pub struct FarEye {
     cover_on: bool,
     pub store: Store,
     lane: Option<Lane>,
+    /// What's placed through the doorway (build 207): the regions being summed again with it (its answer on the way,
+    /// the regions it sums, those the changes touch), what's come back and waits for its moment, the regions on the
+    /// card with something placed in them, whether the light is to be made again, and when it was last told.
+    placed_job: Option<(mpsc::Receiver<Result<Vec<([i32; 2], Vec<Vec<crate::far::CellColumn>>)>, String>>, std::collections::HashSet<[i32; 2]>, std::collections::HashSet<[i32; 2]>)>,
+    placed_ready: Option<(Vec<([i32; 2], Vec<Vec<crate::far::CellColumn>>)>, std::collections::HashSet<[i32; 2]>)>,
+    placed_regions: std::collections::HashSet<[i32; 2]>,
+    relight: bool,
+    placed_asked: Option<Instant>,
     /// The rings round the eye (`far_ring.rs`), the 16s' first, then the 8s' (as many as `INCUS_FAR_RING` says: 0
     /// none), and where the eye last was.
     rings: Vec<crate::far_ring::Ring>,
@@ -602,7 +610,7 @@ impl FarEye {
         let tally_counts = LAYERS.iter().map(|_| device.create_buffer(&wgpu::BufferDescriptor { label: Some("a far layer's longest ray"), size: 4 * TALLY as u64, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false })).collect();
         let tally_back = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the longest rays read back"), size: 4 * (TALLY * (LAYERS.len() + 1)) as u64, usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let tally_state = std::sync::Arc::new(std::sync::atomic::AtomicU8::new(0));
-        Self { near_from: 0.0, targets_made: 0, cover_on, store, lane, rings, eye: [0.0; 2], start, march, up, layout, up_layout, sampler, targets: None, look, textures, atlas: None, building: None, stand_ins, light: None, lighting: None, sweeping: None, sun_asked, light_stand_ins, blue, blue_bytes, edge, layers, one, one_loaded, one_loaded_other, faces_asked, one_start, one_join, cut_at, long, loaded_off: std::env::var("INCUS_FAR_LOADED").as_deref() == Ok("0"), loaded_said: std::sync::atomic::AtomicBool::new(false), audit, parity: 0, fresh: false, haze_step, most_steps, tops_making: None, tops_made: None, tops_off: false, reach, begin, tally, tally_counts, tally_back, tally_state, waiting, waiting_counts }
+        Self { near_from: 0.0, targets_made: 0, cover_on, placed_job: None, placed_ready: None, placed_regions: std::collections::HashSet::new(), relight: false, placed_asked: None, store, lane, rings, eye: [0.0; 2], start, march, up, layout, up_layout, sampler, targets: None, look, textures, atlas: None, building: None, stand_ins, light: None, lighting: None, sweeping: None, sun_asked, light_stand_ins, blue, blue_bytes, edge, layers, one, one_loaded, one_loaded_other, faces_asked, one_start, one_join, cut_at, long, loaded_off: std::env::var("INCUS_FAR_LOADED").as_deref() == Ok("0"), loaded_said: std::sync::atomic::AtomicBool::new(false), audit, parity: 0, fresh: false, haze_step, most_steps, tops_making: None, tops_made: None, tops_off: false, reach, begin, tally, tally_counts, tally_back, tally_state, waiting, waiting_counts }
     }
 
     /// Whether every region is on the card, the window's regions round the eye too, and the far textures if they're made.
@@ -789,6 +797,7 @@ impl FarEye {
                 self.lane = None;
             }
         }
+        self.placed(device, queue);
         // The window brought to the eye with what's left of the pass's time (a millisecond at least), half of it when
         // the atlas follows too; held still while the atlas is being made from it.
         if self.building.is_none() {
@@ -809,6 +818,123 @@ impl FarEye {
         }
     }
 
+    /// What's placed through the doorway, as it is now (build 207; a mark's changes are made, and the mark before's taken
+    /// back, as the camera goes to it): the far regions these changes touch, and those the last ones did, summed again
+    /// with them on a thread of their own; the rings told too.
+    pub fn changed(&mut self, changes: &std::collections::HashMap<[i32; 2], Vec<crate::doorway::Change>>) {
+        let region = 1i32 << crate::far::REGION;
+        let mut touched = std::collections::HashSet::new();
+        for change in changes.values().flatten() {
+            let cells = match change.octants() {
+                None => vec![change.cell()],
+                Some((octants, _)) => octants.iter().map(|octant| octant.map(|half| half.div_euclid(2))).collect(),
+            };
+            for c in cells {
+                for dn in -1..=1 {
+                    for de in -1..=1 {
+                        touched.insert([(c[0] + dn).div_euclid(region), (c[1] + de).div_euclid(region)]);
+                    }
+                }
+            }
+        }
+        let (from, across) = self.store.regions;
+        touched.retain(|r| (from[0]..from[0] + across).contains(&r[0]) && (from[1]..from[1] + across).contains(&r[1]));
+        let mut regions = touched.clone();
+        regions.extend(self.placed_regions.iter().copied());
+        if let Some((_, pending, _)) = self.placed_job.take() {
+            regions.extend(pending);
+        }
+        if let Some((ready, _)) = self.placed_ready.take() {
+            regions.extend(ready.iter().map(|(r, _)| *r));
+        }
+        for ring in &mut self.rings {
+            ring.changed(changes.clone());
+        }
+        if regions.is_empty() {
+            return;
+        }
+        let list: Vec<[i32; 2]> = regions.iter().copied().collect();
+        let changes = changes.clone();
+        let (sender, receiver) = mpsc::channel();
+        let spawned = std::thread::Builder::new().name("summing what's placed".into()).spawn(move || {
+            let made = (|| {
+                let mut doorway = crate::doorway::Doorway::open(&crate::doorway::test_world())?;
+                let colours = crate::far::FarColours::load(&mut doorway)?;
+                doorway.set_changes(changes);
+                list.iter().map(|r| crate::far::region(&doorway, &colours, *r).map(|columns| (*r, columns))).collect::<Result<Vec<_>, String>>()
+            })();
+            let _ = sender.send(made);
+        });
+        if let Err(error) = spawned {
+            log::error!("What's placed couldn't be summed for the far eye: {error}");
+            return;
+        }
+        self.placed_job = Some((receiver, regions, touched));
+        self.placed_asked = Some(Instant::now());
+    }
+
+    /// What's placed put on the card (build 207), once it's summed, every region is in and nothing else holds the cells
+    /// kept: each region summed again put over what was there, the far textures of its bricks (and of those beside it
+    /// that read its cells) made again, and the height table and the light worked out again on their threads.
+    fn placed(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
+        if let Some((receiver, _, _)) = &self.placed_job
+            && let Ok(made) = receiver.try_recv()
+        {
+            let (_, _, touched) = self.placed_job.take().unwrap();
+            match made {
+                Ok(columns) => self.placed_ready = Some((columns, touched)),
+                Err(error) => log::error!("What's placed couldn't be summed for the far eye: {error}"),
+            }
+        }
+        if self.lane.is_some() || self.placed_ready.is_none() || std::sync::Arc::strong_count(&self.store.kept) > 1 {
+            return;
+        }
+        let Some((columns, touched)) = self.placed_ready.take() else { return };
+        let started = Instant::now();
+        let windowed = self.store.window().map_or(0, |_| crate::bricks::WINDOWED);
+        for (region, levels) in &columns {
+            self.store.resum_region(device, queue, *region, levels);
+        }
+        if let Some(atlas) = &mut self.atlas {
+            let kept = &self.store.kept;
+            let mut done = std::collections::HashSet::new();
+            for (region, _) in &columns {
+                for level in crate::far::FIRST..=crate::far::REGION {
+                    for (dx, dy) in [(0, 0), (-1, 0), (0, -1), (-1, -1)] {
+                        let r = [region[0] + dx, region[1] + dy];
+                        if done.insert((level, r)) {
+                            atlas.redo_region(device, queue, kept, level, r, level < crate::far::FIRST + windowed);
+                        }
+                    }
+                }
+                let mut place = *region;
+                for level in crate::far::REGION + 1..=crate::bricks::TOP {
+                    place = [place[0].div_euclid(2), place[1].div_euclid(2)];
+                    if done.insert((level, place)) {
+                        atlas.redo_upper(device, queue, kept, level, place);
+                    }
+                }
+            }
+        }
+        self.placed_regions = touched;
+        if !self.tops_off {
+            self.tops_made = None;
+        }
+        self.relight = true;
+        log::info!(
+            "What's placed: {} far regions summed again and put on the card in {:.1} ms ({:.2} s after it was made)",
+            columns.len(),
+            started.elapsed().as_secs_f32() * 1000.0,
+            self.placed_asked.map_or(0.0, |at| at.elapsed().as_secs_f32())
+        );
+    }
+
+    /// Whether the far eye has what's placed as last told: summed, on the card, its light made again, and the rings
+    /// made with it (a flight's standing waits for this).
+    pub fn changes_settled(&self) -> bool {
+        self.placed_job.is_none() && self.placed_ready.is_none() && !self.relight && self.lighting.is_none() && self.rings.iter().all(|ring| ring.changes_settled())
+    }
+
     /// Whether the rings round the eye are on the card whole (true with none), for a picture.
     #[cfg(test)]
     pub fn ring_settled(&self) -> bool {
@@ -823,7 +949,8 @@ impl FarEye {
         if sun != self.sun_asked.0 {
             self.sun_asked = (sun, Instant::now());
         }
-        if self.lane.is_none() && self.light.is_none() && self.lighting.is_none() {
+        if self.lane.is_none() && (self.light.is_none() || self.relight) && self.lighting.is_none() {
+            self.relight = false;
             let kept = self.store.kept.clone();
             let (device, queue) = (device.clone(), queue.clone());
             let (sender, receiver) = mpsc::channel();
@@ -1738,6 +1865,48 @@ mod tests {
             assert!(eye.one_loaded_other.is_some(), "the march's other program is made");
             eye.look.faces = asked != 0;
         }
+        // The mark's own changes (David's build; a scatter at `FAR_TEST_SCATTER`, its count), made as the game makes them
+        // on going to the mark, and told to the far eye (and the near eye's, below) as the game tells them; the far eye
+        // given them whole, its light and height table and rings too, before a frame is drawn.
+        let mut changed = Doorway::open(&crate::doorway::test_world()).unwrap();
+        if let Some(name) = &mark.changes {
+            let made = crate::marks::place(&mut changed, &std::fs::read_to_string(crate::session::project_folder().join(name)).unwrap());
+            eprintln!("The mark's changes: {} whole blocks, {} bars, {} refused", made.blocks, made.bars, made.refused);
+        }
+        if let (Some(scatter), Some(count)) = (&mark.scatter, std::env::var("FAR_TEST_SCATTER").ok().and_then(|count| count.parse::<u32>().ok())) {
+            crate::marks::scatter(&mut changed, mark, scatter, count).unwrap();
+        }
+        if !changed.changes().is_empty() && std::env::var("FAR_TEST_PLACED").as_deref() != Ok("0") {
+            eye.changed(changed.changes());
+            let began = std::time::Instant::now();
+            loop {
+                eye.put(&device, &queue, at);
+                queue.submit([]);
+                let _ = device.poll(wgpu::PollType::Poll);
+                if eye.changes_settled() && eye.lit() && eye.tops_made.is_some() && eye.ring_settled() {
+                    break;
+                }
+                assert!(began.elapsed().as_secs() < 300, "the far eye takes what's placed in five minutes");
+                std::thread::sleep(std::time::Duration::from_millis(5));
+            }
+            eprintln!("The far eye took what's placed in {:.2} s", began.elapsed().as_secs_f32());
+            // Taken back again, if asked (`FAR_TEST_TAKE_BACK`): the picture should be the bare mark's.
+            if std::env::var_os("FAR_TEST_TAKE_BACK").is_some() {
+                eye.changed(&std::collections::HashMap::new());
+                let began = std::time::Instant::now();
+                loop {
+                    eye.put(&device, &queue, at);
+                    queue.submit([]);
+                    let _ = device.poll(wgpu::PollType::Poll);
+                    if eye.changes_settled() && eye.lit() && eye.tops_made.is_some() && eye.ring_settled() {
+                        break;
+                    }
+                    assert!(began.elapsed().as_secs() < 300, "the far eye takes what's placed back in five minutes");
+                    std::thread::sleep(std::time::Duration::from_millis(5));
+                }
+                eprintln!("The far eye took what's placed back in {:.2} s", began.elapsed().as_secs_f32());
+            }
+        }
         // The near eye over the far picture, if asked (`FAR_TEST_NEAR`: its render radius, chunks): every chunk of the
         // radius in before a frame is drawn.
         let mut near = std::env::var("FAR_TEST_NEAR").ok().and_then(|radius| radius.parse::<f32>().ok()).map(|radius| {
@@ -1747,16 +1916,6 @@ mod tests {
             let fader: Vec<f32> = std::env::var("FAR_TEST_FADER").ok().map(|v| v.split(',').filter_map(|n| n.trim().parse().ok()).collect()).unwrap_or_default();
             if fader.len() == 2 {
                 (near.look.fader_width, near.look.fader_curve) = (fader[0], fader[1]);
-            }
-            // The mark's own changes (David's build; a scatter at `FAR_TEST_SCATTER`, its count), told to the near eye
-            // as the game tells it on going to the mark.
-            let mut changed = Doorway::open(&crate::doorway::test_world()).unwrap();
-            if let Some(name) = &mark.changes {
-                let made = crate::marks::place(&mut changed, &std::fs::read_to_string(crate::session::project_folder().join(name)).unwrap());
-                eprintln!("The mark's changes: {} whole blocks, {} bars, {} refused", made.blocks, made.bars, made.refused);
-            }
-            if let (Some(scatter), Some(count)) = (&mark.scatter, std::env::var("FAR_TEST_SCATTER").ok().and_then(|count| count.parse::<u32>().ok())) {
-                crate::marks::scatter(&mut changed, mark, scatter, count).unwrap();
             }
             near.changed(changed.changes());
             let began = std::time::Instant::now();
