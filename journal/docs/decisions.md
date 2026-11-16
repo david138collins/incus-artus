@@ -2599,6 +2599,16 @@ Reference: `Art/quartile minecraft illustration.png`
     are under a pixel and speckle: written down for his eye. Not yet: the near eye's counts in a flight's report,
     changes reaching the lane while the game runs, off against build 194 with the whole world, the stage's views and
     the near marks. Owed: his word to launch, then a trace's row and a bracket of flights.
+  - **His first look at the near eye** (build 195 on "launch", at the spawn, the radius starting at 4 chunks; 372 s,
+    closed by him, no error or warning; its first run in the game): "holds 240fps at 64 chunks, once its loaded in."
+    So today's goal, "64 chunk render radius running smoothly along with the far march", is met at the spawn by his
+    own look. 240 is the screen's refresh the game is held to outside a flight: it says "all it's asked for", not
+    what's left over (the flights say that). He didn't speak of the filling, the edge, chunks arriving or far hills'
+    speckle; Builder asked lightly, not taking silence for "fine". Seen in the log: the processor's area at 102 °C at
+    320 s, the near lane on 12 threads. Build 196 for the next launch: the near lane on 2 to 6 threads with a switch,
+    and a slow place in the frame's asking found by reading (looked up in a set now). Owed: a trace's row; flights
+    (near off, on at 4, 16 and 64); the near eye's counts in a flight's report; the lane told of changes; the mark's
+    remaining checks off the screen.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
