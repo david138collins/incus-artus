@@ -1122,11 +1122,23 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32, end: f32, stop: f32
             let length = min(t, stop) - before_t;
             let solid_share = 0.5 * (before.solid + look.solid);
             let water_share = 0.5 * (before.water + look.water);
-            var solid = 1.0 - pow(1.0 - min(solid_share, 0.999), length / size);
-            let water = 1.0 - exp(-camera.water.w * water_share * length);
-            var covered = 1.0 - (1.0 - solid) * (1.0 - water);
-            if (covered > 0.0) {
-                touched = min(touched, before_t);
+            // Whether the step gathers, and what covers it. By bulk alone (build 190's march, kept to the letter to
+            // measure against): the cover is worked out, and the step gathers if there's any. With cover by faces: a
+            // step can gather only if its ends hold any solid or water, which takes no power to know; its cover is
+            // worked out once, inside, with the faces in. [Build 192 worked the bulk's cover out first, as by bulk
+            // alone, then again with the faces: a second power at every step that gathers, 1.6% on the march at the
+            // sea marks and 2.8% on the run, where nearly every step gathers.]
+            var solid = 0.0;
+            var water = 0.0;
+            var covered = 0.0;
+            var gathers = solid_share + water_share > 0.0;
+            if (!FACES) {
+                solid = 1.0 - pow(1.0 - min(solid_share, 0.999), length / size);
+                water = 1.0 - exp(-camera.water.w * water_share * length);
+                covered = 1.0 - (1.0 - solid) * (1.0 - water);
+                gathers = covered > 0.0;
+            }
+            if (gathers) {
                 let faces_before = faces_light(before, d);
                 let faces_now = faces_light(look, d);
                 if (FACES) {
@@ -1134,32 +1146,36 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32, end: f32, stop: f32
                     // its two ends show the ray.
                     let shown = 0.5 * (shown_share(before, faces_before.y) + shown_share(look, faces_now.y));
                     solid = 1.0 - pow(1.0 - min(max(solid_share, shown), 0.999), length / size);
+                    water = 1.0 - exp(-camera.water.w * water_share * length);
                     covered = 1.0 - (1.0 - solid) * (1.0 - water);
                 }
-                let light_before = faces_before.x;
-                let light_now = faces_now.x;
-                let solids = max(before.solid + look.solid, 1e-6);
-                let ground = (lit(before.colour, light_before) * before.solid + lit(look.colour, light_now) * look.solid) / solids;
-                let ground_sun = (sunlit(before.colour, light_before) * before.solid + sunlit(look.colour, light_now) * look.solid) / solids;
-                let both = max(solid + water, 1e-6);
-                let here = (ground * solid + lit(water_colour, 1.0) * water) / both;
-                let here_sun = (ground_sun * solid + sunlit(water_colour, 1.0) * water) / both;
-                colour += through * covered * here;
-                sunny += through * covered * here_sun;
-                if (p.z <= size * 1.5) {
-                    bottom = true;
-                    bottom_here = here;
-                    bottom_sun = here_sun;
-                    bottom_t = t;
-                    bottom_level = level;
+                if (covered > 0.0) {
+                    touched = min(touched, before_t);
+                    let light_before = faces_before.x;
+                    let light_now = faces_now.x;
+                    let solids = max(before.solid + look.solid, 1e-6);
+                    let ground = (lit(before.colour, light_before) * before.solid + lit(look.colour, light_now) * look.solid) / solids;
+                    let ground_sun = (sunlit(before.colour, light_before) * before.solid + sunlit(look.colour, light_now) * look.solid) / solids;
+                    let both = max(solid + water, 1e-6);
+                    let here = (ground * solid + lit(water_colour, 1.0) * water) / both;
+                    let here_sun = (ground_sun * solid + sunlit(water_colour, 1.0) * water) / both;
+                    colour += through * covered * here;
+                    sunny += through * covered * here_sun;
+                    if (p.z <= size * 1.5) {
+                        bottom = true;
+                        bottom_here = here;
+                        bottom_sun = here_sun;
+                        bottom_t = t;
+                        bottom_level = level;
+                    }
+                    // Kept at every step that gathers while over half is still let through: the last of them is where
+                    // that falls to a half, its first surface; or where it last gathered, if it never does (`reached`).
+                    if (through > 0.5) {
+                        first = t;
+                        first_level = level;
+                    }
+                    through *= 1.0 - covered;
                 }
-                // Kept at every step that gathers while over half is still let through: the last of them is where
-                // that falls to a half, its first surface; or where it last gathered, if it never does (`reached`).
-                if (through > 0.5) {
-                    first = t;
-                    first_level = level;
-                }
-                through *= 1.0 - covered;
             }
         }
         before = look;

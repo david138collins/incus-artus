@@ -1390,7 +1390,7 @@ fn audit_variants(whole: &str, batch: u32) -> Vec<(&'static str, String)> {
     // The ray's answer written as it is: no light, fog, sky's weight or views after the march.
     let no_finish = |t: &str| cut(t, FINISH, PUT, "    if (camera.layer.y > 0.5) {\n        put_worth(id.y * size.x + id.x, u32(round(worth_of(seen.distance, seen.level) * 255.0)));\n    }\n    var colour = seen.colour;\n");
     // Nothing kept of the cells over the world's floor.
-    let no_floor = |t: &str| once(t, "                if (p.z <= size * 1.5) {\n                    bottom = true;\n                    bottom_here = here;\n                    bottom_sun = here_sun;\n                    bottom_t = t;\n                    bottom_level = level;\n                }\n", "");
+    let no_floor = |t: &str| once(t, "                    if (p.z <= size * 1.5) {\n                        bottom = true;\n                        bottom_here = here;\n                        bottom_sun = here_sun;\n                        bottom_t = t;\n                        bottom_level = level;\n                    }\n", "");
     // The skip with two columns, its own and the one two levels coarser: no third row kept.
     let two_rows = |t: &str| {
         let t = once(t, "        for (var k = 0; k < 3 && in_air && !walking; k++) {\n", "        for (var k = 1; k < 3 && in_air && !walking; k++) {\n");

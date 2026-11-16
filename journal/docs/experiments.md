@@ -6217,3 +6217,20 @@ Its size on the card: a trace with it on; the mark, no more than build 192's row
 12 groups). By flights (off, on, off, in a window David gives): no mark's march over the two offs' mean by more
 than 1%; the sea marks and the run, where build 192 cost 1.6 to 2.8%, are the ones it's for. If it's no better
 than build 192 there, said, and build 192's form stays.
+
+### Build 194 built (untraced, unflown): one power where a step gathers; what was built and what was checked off the screen
+
+**Built as the mark says** (`far.wgsl`, the step's gathering): with cover by faces on, a step is tried for
+gathering if its two ends hold any solid or water (two sums), and its cover (the power, the water's exponential)
+is worked out once, inside, with the faces in; a share too faint to cover anything still gathers nothing (the
+cover's own test kept inside, so the picture is build 192's). By bulk alone (the rule off) the lines are build
+190's, in their order. The audit's "no floor" version matched a piece of this by its text, moved one level in:
+its text follows.
+
+**On, it's build 192's picture** (2,560 x 1,600, the whole world loaded): the plain's, the sea's, the castle
+from above and the shelf the same to the pixel; the spawn, the mountain top and high over the spawn 592 to 2,208
+pixels differing, the most 6 (the test's own noise). **Off, it's build 192's off** (build 190's): none to 576
+pixels, the most 6. **The steps, on, are build 192's on** to a step or two at every mark. **All 34 tests pass.**
+
+David, asked whether it should wait for another build's window: "we can do the trim and checks now." So its trace
+and flights (off, on, off) go up as soon as this is committed.
