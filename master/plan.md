@@ -131,7 +131,11 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   Crossovers' sliders govern. **Waiting on David:** nothing; the trace's row is his to read when he likes. **Quarter and eighth blocks are in the near eye** (build 204, flown as the game starts, 32 chunks;
   `journal/docs/experiments.md`): his build drawn whole (146 bars, 23 blocks); pieces cost the card what whole
   blocks do, count for count; the card's whole frame under his 2 ms bar at every mark (the dearest 1.80), every
-  standing mark at 544 a second or more. What comes next in 2.3, or on to 2.4 (textures), is his to say. Before the flights (his "go
+  standing mark at 544 a second or more. **Textures are on the near faces (build 205, 2.4's first step,** by his order "so textures and
+  quarter/octs next"): old's placeholder pictures, crisp up close, shrinking to the far colour; they cost the card
+  0.01 to 0.09 ms. **His look, with the scatter stage on: "its looking really good."** Open: recording the near
+  faces read 0.04 to 0.09 ms dearer on the processor in build 205's flight, cause not found; build 206 times the
+  listing apart and flies a bracket. What of 2.4 comes next is his to say. Before the flights (his "go
   ahead with the tests", 2026-11-16) he looked at build 195: "holds 240fps at 64 chunks, once its loaded in"; flying very fast,
   90 to 120 a second while chunks are made ("i don't think a player could experience a hiccup. off to a good
   start"); "there is a seam, but, its not very bad, and i think a x-fader with curves could hide it almost

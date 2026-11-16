@@ -7663,3 +7663,31 @@ measuring (the listing timed apart from the handing over; the same flight with t
 is changed.
 
 **Standing marks' frames, build 205:** 1.09 to 1.86 ms (537 to 917 a second).
+
+### Build 205 looked at with the scatter stage (2026-11-16): "its looking really good."; build 206's mark (the listing timed apart)
+
+**His words:** "can you launch with your scattered details like castles and forests?" Launched on that: build 205
+at the spawn with `INCUS_SCATTER_STAGE=1` (`logs/session-1794866918.log`: 466 s, closed by him, no error or
+warning; the far cells with the stage summed in 56 s; the near eye at 32 chunks with the pictures). The near
+eye's first run in the game with the stage, and the first with textures. **After it: "its looking really good."**
+
+- **A slip of Builder's, corrected to him before his word:** told before the launch that the castle was among
+  what he'd see; it's on the plain, 4,900 blocks from the spawn, past his 32 chunks. Near the spawn the stage has
+  a village (houses 290 to 340 blocks west), a tower 540 blocks off and the woods. A launch at the plain mark,
+  where the castle stands in front of the eye, is offered.
+- He was told the stage's own blocks have no pictures (flat in their far colours) and didn't speak of it, nor of
+  shimmer or of flat ground softening. Not taken as answers to those; his word is for the whole.
+
+**Build 206's pass mark** (an instrument and a stand-in, to find what build 205's flight couldn't say: why
+recording the near faces was 0.04 to 0.09 ms dearer on the processor):
+
+1. **The listing timed apart:** finding the chunks in view and listing their draws becomes a pass of its own on
+   the processor, "listing the near chunks"; "the near faces" is then the handing of the pass to the card's
+   library alone.
+2. **With the pictures off, none are put on the card** (a one-pixel stand-in in their place), so off is build
+   204's as far as the card's library can tell.
+3. **A bracket in one session, after a cool-down:** the pictures off, on, off, as the game starts.
+
+*The mark:* the bracket says which of the two parts is dearer with the pictures on, and by how much; or, if
+neither differs by more than the two offs differ from each other, that build 205's reading was the session's,
+said plainly. Nothing is mended in this build.
