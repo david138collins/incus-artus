@@ -6448,3 +6448,30 @@ of two near drawers falls away with it (Counsel's and the Oracle's to weigh).
 than Half-Life's scenes were (those ran to hundreds or a few thousand; a flat square of 256 blocks is 65,000 faces
 before any merging). It's still no load on this card, and the triangle hardware is what a small card is best at.
 What to watch with pieces is the meshing and the overdraw, not the count.
+
+### The near eye's goal, in David's words (2026-11-16): a 64-chunk render radius, running smoothly with the far march
+
+Builder had proposed how triangles would come in (a mesher on a lane; drawn first, their depth cancelling far
+rays; one set of colours and one light for both drawers at first; an overlap at the near field's edge, not a line;
+a step a build) and said she'd start the near field at about 128 blocks. **David:** "in old incus artus, i was
+playing with a 64 chunk render radius, which i believe would be 2000 blocks. the overlap can be pretty deep. that
+may be excessive render radius but i don't think so for a whole town, so my goal would be 64 chunk render radius
+running smoothly along with the far march like we have it now, which is super quick."
+
+**Checked against the record:**
+- Old's chunks were 32 blocks across (`old/src/world/position.rs`), so 64 chunks is 2,048 blocks: his figure.
+- What old's Render page did with it, by `journal/docs/far-view.md` (builds 27 and 42, early November): the
+  render distance was how far real chunks were kept, and a second number, "the march starts at (chunks)", was how
+  far they were *drawn*, the far view taking over past it. His preset then is written there as render distance
+  64, the line at 8 (256 blocks), fog off. So with that preset real blocks were drawn to 256 blocks and kept to
+  2,048. Whether he also played with the line out at 64 the record doesn't say. Told to him as the record's, with
+  its date; his goal now is what counts.
+
+**What the goal means in size** (arithmetic, nothing measured): a circle of 2,048 blocks is 13.2 million columns,
+about 16,600 chunks. One top face a column is 26 million triangles before any merging, more with the sides of
+slopes. A block 1,000 blocks off is about 0.9 of a screen pixel across (2,560 x 1,600, 100 degrees up and down),
+at 2,000 under half a pixel. So true blocks all the way out are tens of millions of triangles a frame, most of
+them smaller than a pixel: the count has to come down by merging faces, by drawing only what's in view, and, for
+plain ground far out, by coarser cells (which is what the far eye's cells already are). And the far march, begun
+at the radius' edge, loses most of its work: by today's measurement at most 43% of the mountain top's work and
+28% of high over the spawn's lies beyond 2 km.
