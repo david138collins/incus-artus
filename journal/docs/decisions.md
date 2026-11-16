@@ -2739,6 +2739,23 @@ Reference: `Art/quartile minecraft illustration.png`
     the Registrar and the Graphics Kit both show, not two palettes kept in step by hand (the rebuild's "shared pieces
     once"; the spec already has reshading "as shared code"). Whether a copy in the Kit stays linked to the Registrar's
     or goes its own way once copied is his to say when its page is laid out.
+  - **Answered, and the Graphics Kit's shape** (David, the same day): "i think both sides of the palette would be
+    able to both create splines and quantize images into less colors and derive splines. they'd have the same
+    palette. each sides unregulated colors would be temporary, as it gathers the colors the image has to be processed
+    or added or reduced or whatever. that's useful enough to have the graphics kit have the image processor first
+    before the animator and the fx engine. bouncing from the world gen is kind of pointless, but it won't be pointless
+    bouncing between those three inside the graphics kit; i don't foresee needing creative editing like a pen tool or
+    anything, but filters, layers, curves, colors, etc. yes, in a way where i can macro/automate them on a timeline in
+    the animator".
+    - So: one palette, the same on both sides (linked, not a copy that drifts); both sides make splines, quantize
+      images into fewer colours and derive splines; unregulated colours are a working set, temporary. The Graphics
+      Kit's three in building order: the image processor, the animator, the fx engine, made to be moved between. No
+      pen tool; filters, layers, curves and colours, automatable on a timeline in the animator.
+    - *Counsel:* it carries his earlier ideas forward (the spec: "Not a drawing program ... every slider moves by
+      itself"; three devices as pages in one window, then named Graphics Kit, Sequencer and FX Lab; today's "animator"
+      and "fx engine" are his newer words, and the names are his to settle when the pages are laid out). For
+      building: every filter, layer, curve and colour control made as a numbered setting from its first day, so the
+      animator's timeline can drive any of them without each being rebuilt for it.
   - Graphics still ahead by the plan: 2.3's quarter and eighth blocks (scattered at random for testing, his idea),
     then 2.4 (textures, the light lane, water and glass, objects, glows, far lights), his eye raising anything
     undesirable.
