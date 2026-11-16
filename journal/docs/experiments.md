@@ -6119,3 +6119,32 @@ the hash is there in `logs/nsight/b192/b192-off/` if it's wanted.)
 its size on the card one register; its time under 1% at five marks, both working marks among them, 1.6% at the sea
 marks and 2.8% on the run (one power where there are two is the next form, unflown). His look on the stage decides
 whether it's wanted.
+
+### Build 193, a live switch for cover by faces: David's words and the pass mark (written before the code)
+
+**David (2026-11-16), before his look:** "do i have an a/b switch?" He didn't: the rule was chosen when the game
+starts. Builder's proposal: the game compiles the march's other program beside the one the launch asks for, and a
+tick box swaps which of the two marches; neither carries a switch inside it, so nothing is added to either's size
+on the card and each is the program whose row he read; it costs a longer start. Where it goes and what it's called
+was asked of him: the Render page, "Cover by faces", ticked by default. **His answer:** "yes, that place is fine
+for the switch."
+
+**What's to change:** `far_eye.rs` compiles the loaded march a second time with the rule the other way (one more
+program); the look gains `faces`, which the Render page's tick box sets and which picks the program once the world
+is loaded (till then the whole march draws, by the launch's choice). `INCUS_FAR_FACES=0` still starts the game
+with the rule off everywhere, and then the tick box starts unticked. Nothing in `far.wgsl` changes.
+
+**The pass mark.** Off the screen:
+
+- **Each side of the switch is build 192's program:** ticked, the five marks' pictures are build 192's on
+  pictures; unticked, build 192's off pictures (build 190's), each but for the test's own noise; and the text
+  each is compiled from is, by the code, the text the launch's choice compiles (so the rows David read stand, and
+  the flights flown stand: none is asked for this build).
+- **Flipped while it runs:** a frame drawn ticked, then unticked: the second frame's picture is the unticked
+  picture's (but for what a ray keeps from the frame before); no error from the card.
+- **Greyed, not hidden,** where it can do nothing: while the world loads, and where there's no second program
+  (the layers marched one after another, or an audit's version marched in its place).
+- **The start:** how much longer, measured and said.
+- All the tests pass.
+
+**Then David's look**, the switch in his hand.
