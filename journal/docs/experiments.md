@@ -6475,3 +6475,18 @@ them smaller than a pixel: the count has to come down by merging faces, by drawi
 plain ground far out, by coarser cells (which is what the far eye's cells already are). And the far march, begun
 at the radius' edge, loses most of its work: by today's measurement at most 43% of the mountain top's work and
 28% of high over the spawn's lies beyond 2 km.
+
+### The near eye begins with one radius slider (2026-11-16, David's word)
+
+Builder had put a choice to him (every block true out to 2,048, or built things true all the way with plain
+ground stepping down in detail). **David:** "well lets just make a radius slider and get started. the render
+radius set there will determine where the triangles start and rays fade. if that becomes intensive we can add a
+slider that seperates built things from the land render so they can be adjusted seperately until it hits a nice
+balance with the march. and, for combining faces, i thought that was called greedy meshing and kind of an
+automatic part of any block game triangle mesh geometry".
+
+So: one render radius, a slider, sets where the triangles end and the far rays fade in; the choice between A and
+B isn't made now (a second slider, built things apart from the land, only if the first gets heavy: written down,
+not built); faces are merged from the first build (greedy meshing: his name for it is the usual one; it's the
+mesher's work, not automatic, and it's built in from the start). Asked of him, by his own rule for controls:
+the Render page, "Render radius (chunks)", 1 to 64, unless he wants another place or name.
