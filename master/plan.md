@@ -70,14 +70,15 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** one row to read in Nsight's window (`march_all` in build 194's on trace); then the
-  lazy rays talk with Builder. Cover by faces is in and done enough to go on (2026-11-16,
+- **Waiting on David:** the lazy rays talk with Builder (she brings a measurement: at the most, 71% of the
+  mountain top's work and 38% of high over the spawn's lies beyond 1 km; 43% and 28% beyond 2 km; 26% and 15%
+  beyond 4 km: ceilings, not savings). Build 194's row is read: 168 registers, nothing put by, 12 groups, as
+  build 192's. Cover by faces is in and done enough to go on (2026-11-16,
   `journal/docs/experiments.md`): his look at build 193, the live switch in his hand (the Render page's "Cover by
   faces" tick box swaps the march's two compiled programs, nothing switched inside either): **"looks good"**. As
   flown in build 194 (one power where a step gathers; off, on, off) it costs the march about half a percent, the
   card's whole over the nine views 0.4% more, the sea marks 0.5 to 0.7% (build 192: 1.6%); its size on the card
-  by his reading of build 192's row one register (168 for 167, nothing put by, 12 groups), build 194's row still
-  to read. Next by the plan, his question ("what do we move on to next?") answered so: lazy rays, starting with a
+  by his reading of the rows one register (168 for 167, nothing put by, 12 groups; builds 192 and 194 alike). Next by the plan, his question ("what do we move on to next?") answered so: lazy rays, starting with a
   talk (his choice: far squares fixed to the world or to the screen) and a measurement of how much of the two
   working marks' work is far enough to be lazy; then the land's own edge by a height table weighed; the Intel
   card's flight; the far eye's gate; then the near eye. His weights by kind weren't asked for at his look. Its size on the card, by his reading of build 192's row: 168 registers for

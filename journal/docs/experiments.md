@@ -6279,3 +6279,51 @@ registers, nothing put by, 12 groups).
 **For the next windows (Builder's note):** three flights and two traces straight after an hour of picture tests
 leave the machine hot by the last flight; a few minutes' rest before a bracket, and the card's clock read beside
 each mark's median, as here.
+
+### Build 194's row, read by David off Nsight's window (2026-11-16): the trim changed nothing in the march's size; cover by faces closed
+
+`march_all` at the mountain top, from his screenshots of build 194's on trace (its hash 0xad639e0fa55d7005): 86%
+of the samples, **12 groups (# Warp), 168 registers (# Reg), 165 live, nothing put by (Smem 0)**, 4.06K in the
+instruction mix; top waits WAIT 35%, LGSB 16%, SELECT 16%. Build 192's row to the number. **The mark (no more
+than build 192's row): met.**
+
+**Cover by faces, as it closes** (the skyline talk's first step; builds 191 to 194):
+- *The look:* David, the live switch in his hand: "looks good". On as the game is launched; the Render page's
+  "Cover by faces" tick box swaps the march's two programs.
+- *Its size on the card:* one register (168 for 167), nothing put by, 12 groups; two of room under the line of
+  about 170, where there were three.
+- *Its time:* about half a percent of the march (build 194, flown off, on, off: the card's whole over the nine
+  views 0.4% over the offs' mean, at the edge of what the bracket can tell).
+- *What it took:* three forms. At every look in five places (build 191: 2% everywhere, and two values put by);
+  where a step is gathered, with a second power (build 192: under 1% at five marks, 1.6 to 2.8% where rays gather
+  at every step); one power (build 194). David's worry named the thing to watch before the first was flown ("pay
+  careful attention to the weight of the shader ... its size on the card"), and his reading of the rows caught
+  what Builder's reading of the flights had missed.
+- *Left open, his to ask for:* his weights by kind on top (not asked for at his look); the land's own edge by a
+  height table, weighed after lazy rays.
+
+### For the lazy rays talk: how much of the two working marks' work lies beyond a distance (2026-11-16, off the screen, no code changed)
+
+David, 2026-11-16: "what do we move on to next?" By the plan: lazy rays, starting with a talk. A measurement for
+it, taken with the measuring switch from build 172 (`INCUS_TEST_REACH`: rays ended so many blocks out) in the
+picture test (2,560 x 1,600, the whole world loaded, build 194): the thread-steps held (the layers' and the
+strip's, by 32s), which is what the card's time follows at these two marks.
+
+| rays ended at | the mountain top: held | of the whole | high over the spawn: held | of the whole |
+|---|---|---|---|---|
+| (whole) | 7,465,984 | | 7,472,640 | |
+| 8,192 blocks | 6,436,128 | 86% | 6,925,568 | 93% |
+| 4,096 | 5,513,088 | 74% | 6,351,264 | 85% |
+| 2,048 | 4,258,432 | 57% | 5,361,344 | 72% |
+| 1,024 | 2,149,408 | 29% | 4,617,504 | 62% |
+| 512 | 1,138,816 | 15% | 1,302,048 | 17% |
+
+So the work that lies beyond a distance, at the most: beyond 1 km, 71% of the mountain top's and 38% of high over
+the spawn's; beyond 2 km, 43% and 28%; beyond 4 km, 26% and 15%; beyond 8 km, 14% and 7%.
+
+**These are ceilings, not what lazy rays would save,** for two reasons said before the talk: a ray ended short
+finds no surface, so the finer layer isn't marched for it at all and its near steps are dropped with its far ones
+(the mountain top's 4 x 4 marches 11,512 rays at 1,024 blocks for 69,588 whole): the far share is over-counted;
+and a lazy scheme still marches the far part some frames, re-marches it as the eye travels, and keeps books.
+[Build 172's flight of the same switch read the mountain top's near kilometre at 32% of its march and high over
+the spawn's at 57%: the same shape.]
