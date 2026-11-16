@@ -24,6 +24,9 @@ struct Near {
     reach: vec4<f32>,
 }
 
+// How much wider than its cells a face is drawn all round, for each block of its distance from the eye (`near_corner`).
+const HAIR: f32 = 0.00002;
+
 struct Corner {
     @builtin(position) clip: vec4<f32>,
     // From the eye (north, east, up).
@@ -65,7 +68,14 @@ fn near_corner(@builtin(vertex_index) corner: u32, @location(0) face: vec3<u32>)
         u = 1.0 - u;
     }
     let greater = facing == 0u || facing == 2u || facing == 4u;
-    let from_eye = vec3<f32>(cell) + spread_a * u * wide + spread_b * v * high + out_of * select(0.0, 1.0, greater) - near.part.xyz;
+    let exact = vec3<f32>(cell) + spread_a * u * wide + spread_b * v * high + out_of * select(0.0, 1.0, greater) - near.part.xyz;
+    // A hair wider than its cells all round, in its own plane, and more the farther it is (a few hundredths of a
+    // pixel whatever its distance). Merged faces meet along an edge at different corners, and the card, placing
+    // corners on its fine grid, can leave a pixel between them that neither covers: with the far eye's sky behind,
+    // white dots that flicker as the eye moves [David, 2026-11-16, build 199: "i notice speckling white dots of sky
+    // when looking down and moving"]. So neighbours overlap by that hair.
+    let hair = length(exact) * HAIR;
+    let from_eye = exact + spread_a * (u * 2.0 - 1.0) * hair + spread_b * (v * 2.0 - 1.0) * hair;
     // The far eye's own view: a pixel's ray is forward + x right + y up, so a place's x and y are its share of right
     // and up over how far ahead it is.
     let ahead = dot(from_eye, camera.forward.xyz);

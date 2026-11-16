@@ -7071,3 +7071,26 @@ down, 32 chunks, three places a fraction of a block apart; every pixel there sho
   skipped under blocks) decides what a skipped pixel shows.
 
 **Then:** build 201, far rays skipped under blocks, as put to him and gone ahead on.
+
+### Build 200 built (unlaunched): the white dots mended, each face a hair wider; checked off the screen
+
+**Built as the mark says** (`near.wgsl`, the corners' program alone): a face's corners are moved outward in its
+own plane by its distance times 0.00002 (`HAIR`: at 1,000 blocks 0.02 of a block, a few hundredths of a pixel at
+any distance), so faces that meet along an edge overlap by that much.
+
+**Against the mark, off the screen:**
+
+- **No lone pixel of the sky's colour: met.** The same three places looking down at 32 chunks: 0, 0 and 0, where
+  build 199 had 38, 117 and 107. So the holes were where merged faces meet at different corners, as read.
+- **The spawn's picture against build 199's:** at 4 chunks 1,210 pixels differ (0.03%), the most by 45; at 64
+  chunks 9,136 (0.22%), the most by 188. Looked at enlarged where they differ most: pixels on faces' edges and
+  on the skyline that fall to the face beside them, and holes filled; nothing else. (The mark said "a handful":
+  at 64 chunks, where faces are smaller than a pixel, it is thousands, each a single pixel. Said.)
+- **No gap** at 1, 4, 16 or 64 chunks: no black or clear pixel.
+- **Run to run:** 16 pixels of the spawn's picture at 4 chunks now differ between two runs, by 1 of 255 (build
+  199: none). Where two faces of one plane overlap by the hair, the one drawn first wins, and chunks' order
+  differs each run. Far under what an eye sees; written down.
+- All 40 tests pass.
+
+**Still as it was:** what lies behind a block when looking down is the far eye's sky. Nothing shows it now; build
+201 (far rays skipped under blocks) decides what a skipped pixel holds.
