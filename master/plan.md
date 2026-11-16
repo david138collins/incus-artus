@@ -411,7 +411,11 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
         frames comes as lazy rays. After the cells of 2 to 16, so it's judged on them (David, 2026-11-14: "yes and
         yes, you can proceed"). His lean (2026-11-15): "i like the way cover works", with an idea for the talk:
         weights like the sky's feather, by kind of far hit, to pull thin things (posts, towers, trunks) up in the
-        picture
+        picture. *The talk, his word* (2026-11-15: "i do like the crisper line of the 'cover' ... but pay careful
+        attention to the weight of the shader"), in three steps: (1) cover by faces, a ray stopped by the face a
+        far cell shows it as well as by its bulk, from what the cells already carry (build 191, now); (2) his
+        weights on top if he still wants things pulled up, the 26 classes that could carry one sent him; (3) the
+        land's own edge by a height table (the Oracle's cover), weighed after lazy rays
   - [ ] Lazy rays (David's lead: "spread out any rays that can be lazy"), by lengths of distance, under the Oracle's
         nine rules (a ray in flight always finishes; light and fog put on every frame; the gate read moving); its
         tests amended (the store, once whole, equals a full march of its own directions; the lag; card time moving,
@@ -553,7 +557,11 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
   at a time; a drop is for its context, not for good; what's true lives in `master/`, and the agents' memory
   holds only habits and warnings.
 - **The shape:** no megakernels. The eye is built as small passes over a per-pixel store, each measured alone (David,
-  2026-11-12: "establish an architectural goal that supports the microkernalization of it").
+  2026-11-12: "establish an architectural goal that supports the microkernalization of it"). The far march's
+  program is full where the card works, so nothing new is carried through its loop; work goes before it, after it,
+  or into the sums, each addition flown against a switch back to the program before: "pay careful attention to the
+  weight of the shader. i hope it doesn't become too much and start squeezing no matter what we do" (David,
+  2026-11-15).
 - **Room for modders, later:** David's recipe ships first; nothing is built for modders now, but each system is
   assembled so its parts can be opened to them later (content as data, his own content through the same door a
   pack would use, world gen as stages): "i just want to architecture that later on can be set up for modders at a

@@ -2382,6 +2382,28 @@ Reference: `Art/quartile minecraft illustration.png`
     high over the spawn 0.980 for 0.963; the dearest view 1.109 ms for 1.091) with the same steps to the thousand;
     Builder reads it as the session (the card's least clock 2,625 MHz at the mountain top for 2,700, after an hour of
     picture tests), not proven by one flight; the next flight flown for any reason will say. Next: the skyline talk.
+- **[DECIDED 2026-11-15] The skyline talk: cover by faces first, the shader's weight watched** (David, to Builder,
+  on her three steps): "first send a list of any class of items on screen that could conceivably recieve weights,
+  and begin. i do like the crisper line of the 'cover' as it was shown to me, against the skyline, and other things
+  against other things, hopefully; but pay careful attention to the weight of the shader. i hope it doesn't become
+  too much and start squeezing no matter what we do."
+  - What "begin" answers (Builder's step 1, cover by faces): thin things vanish because a far cell stops a ray by how
+    full it is (a wall a block thick, face-on in an 8-block cell, stops an eighth), and every far cell already
+    carries how much face it shows each way (used for light only). Step 1 lets a ray be stopped by the face a cell
+    shows it as well as by its bulk: walls solid, towers holding, a post a true eighth-strength band; gentle ground
+    at a skyline shows a skimming ray almost no face, so his crisp skyline and sky weight of 4 stay. Nothing new
+    stored. Step 2, his weights on top, if he still wants things pulled up after step 1 (where the slider goes and
+    its name asked then). Step 3, the land's own edge by a height table (the Oracle's cover), the bigger build,
+    weighed after lazy rays.
+  - The list he asked for, sent first: 26 classes in five groups. By what it's made of (ground blocks, water,
+    trunks, leaves, built stone, built wood and plaster, roofs, blocks to come) and by shape (thin standing things,
+    thin sheets, thin flat things in the air, masses, porous masses, holes): both free per frame, known when the
+    cells are summed. By where it sits in the picture (against the sky, against other things, by distance, by size
+    on screen, the horizon band): each priced by a flight. By light (sunlit or turned away, in cast shadow, things
+    that give light at night, glint). Not in the far cells yet (creatures and people, smoke and weather, the sky's
+    bodies).
+  - For the shader's weight: nothing new carried through the march's loop, and a switch that gives build 190's exact
+    program, so on and off fly in one session. His concern is kept in the plan's "What every step keeps".
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
