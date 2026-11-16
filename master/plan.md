@@ -114,8 +114,15 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   **His word for the rest** (2026-11-16, to Counsel): "Builder can proceed with the tests and basic fixes, i'll
   bring it up if i see undesirable graphics behaviors." So Builder goes on without waiting on a look: build 202
   (the near eye's depth, found too coarse at a distance: its mark written), then the window on it (an off and an
-  on trace for the march's row, a bracket of flights, after a cool-down). **Waiting on David:** nothing; the
-  trace's row is his to read when he likes. After the window, 2.3's next step by his word: quarter and eighth
+  on trace for the march's row, a bracket of flights, after a cool-down). **Build 202 flown** (2026-11-16, `journal/docs/experiments.md`): a mixed result. Skipping far rays
+  under blocks saves the far eye a quarter to a half where it works (the mountain top, the spawn at 64 chunks,
+  and wherever blocks fill the view: there the far eye falls to 0.25 ms), but its own new pass, the near cover,
+  costs 0.145 ms a frame, so the card's whole frame is 0.06 to 0.19 ms dearer on open ground. 240 a second at 64
+  chunks still holds at every standing mark (the slowest 284). Two faults of Builder's own found in the new code
+  (the march asks the cover before asking whether a pixel is wanted; the cover's pass reads a pixel at a time):
+  build 203 mends them, then a short flight. And the plain is dearer with the near eye on whatever the rule: the
+  far eye now draws a crisper horizon there with its finer layer (its near haze no longer hides it), which the
+  Crossovers' sliders govern. **Waiting on David:** nothing; the trace's row is his to read when he likes. After the window, 2.3's next step by his word: quarter and eighth
   blocks, scattered at random to test them. Before the flights (his "go
   ahead with the tests", 2026-11-16) he looked at build 195: "holds 240fps at 64 chunks, once its loaded in"; flying very fast,
   90 to 120 a second while chunks are made ("i don't think a player could experience a hiccup. off to a good

@@ -7246,3 +7246,84 @@ how far ahead it is, 1 nearest and falling towards 0; the faces' test takes the 
   at side by side); 23,900 pixels differ by under 4 (the water's dimming is worked from a finer depth), 95 by 16
   or more, all single pixels of land (a top against a side: the depth's own gain).
 - All 40 tests pass.
+
+### Build 202 flown (2026-11-16): far rays skipped under blocks, priced. A mixed result: it pays where the far eye works, and its own new pass costs more than it saves on open ground
+
+**The window** (NVIDIA only, mains, one screen, hands off, 13:49 to 14:50, on David's relayed word; the card read
+15 to 34% busy at rest before it). A cool-down first (84 degrees to 61 in a minute), and before each flight
+(each began at 66 to 77). Two traces at the mountain top at 64 chunks (`logs/nsight/b202/b202-cover-off/` and
+`b202-cover-on/`), then seven flights, `INCUS_FAR_SIDE=1` with: the near eye off (`flight-1794859356`); at 4
+chunks the rule off (`-1794859808`) and on (`-1794860266`); at 16, off (`-1794860745`) and on (`-1794861242`); at
+64, off (`-1794861745`) and on (`-1794862234`). No error in any log; every report says build 202, the code
+committed.
+
+**The session compares:** the near eye off, the far eye's five passes are within 1.5% of build 197's and build
+194's own (the spawn 0.483 ms, the plain 0.568, the mountain top 1.081, high over the spawn 1.129). And cool
+flights are quicker on the processor's side: the spawn's frame 0.669 ms against the hot window's 0.753.
+
+**The card's times, ms** (far: the far eye's five passes; cover: the new pass; whole: the card's whole frame):
+
+| view | chunks | far, rule off | far, rule on | cover | whole, off | whole, on |
+|---|---|---|---|---|---|---|
+| the spawn | 4 | 0.473 | 0.502 | 0.150 | 0.584 | 0.775 |
+| | 16 | 0.545 | 0.485 | 0.153 | 0.821 | 0.903 |
+| | 64 | 0.526 | 0.253 | 0.147 | 3.015 | 2.886 |
+| the mountain top | 4 | 1.303 | 0.961 | 0.142 | 1.400 | 1.207 |
+| | 16 | 1.275 | 0.881 | 0.137 | 1.520 | 1.260 |
+| | 64 | 0.762 | 0.700 | 0.138 | 2.479 | 2.541 |
+| the bare plain | 4 | 0.668 | 0.693 | 0.145 | 0.756 | 0.929 |
+| | 16 | 0.709 | 0.738 | 0.146 | 0.814 | 0.992 |
+| | 64 | 0.696 | 0.712 | 0.142 | 0.934 | 1.094 |
+| the scatter at 100,000 | 4 | 0.698 | 0.277 | 0.176 | 1.308 | 1.048 |
+| | 16 | 0.736 | 0.261 | 0.162 | 1.273 | 0.893 |
+| | 64 | 0.696 | 0.236 | 0.154 | 1.443 | 1.241 |
+| high over the spawn | 4 | 1.137 | 1.194 | 0.131 | 1.182 | 1.370 |
+| | 16 | 1.137 | 1.113 | 0.138 | 1.380 | 1.497 |
+| | 64 | 0.741 | 0.677 | 0.148 | 3.406 | 3.491 |
+| low over the sea | 4 | 0.688 | 0.720 | 0.142 | 0.793 | 0.972 |
+| | 16 | 0.684 | 0.711 | 0.147 | 0.811 | 0.988 |
+| | 64 | 0.708 | 0.676 | 0.143 | 0.960 | 1.077 |
+
+**Against the mark:**
+
+1. **"The far eye no dearer with the near eye on than with it off": MISSED on open ground; met and well beaten
+   where the far eye works.** The near eye off against on with the rule: the mountain top 1.081 to 0.961, 0.881
+   and 0.700 (4, 16, 64 chunks); the spawn 0.483 to 0.502, 0.485, 0.253; but the plain 0.568 to 0.693, 0.738,
+   0.712 (22 to 30% dearer) and the sea 0.662 to 0.720, 0.711, 0.676.
+2. **What the rule itself does** (off to on at one radius): where the far eye works it saves a quarter to a half
+   (the mountain top 0.34 and 0.39 ms at 4 and 16 chunks; the spawn at 64, 0.27 ms; where blocks fill the view,
+   the scatter at 100,000, 0.42 to 0.47 ms: the far eye falls to 0.24 to 0.28 ms, nearly all of it bringing up and
+   the march's own floor with no ray marched, 0.13 to 0.15). On open ground it changes little and costs a little
+   (0.02 to 0.06 ms dearer).
+3. **The near cover's pass costs 0.13 to 0.18 ms a frame,** three times what Builder took it for. So **the card's
+   whole frame is dearer with the rule on at most standing marks** (0.06 to 0.19 ms), and cheaper at the mountain
+   top at 4 and 16 chunks (0.19, 0.26), the spawn at 64 (0.13) and the scatter (0.20 to 0.38).
+4. **240 a second at 64 chunks: still met at every standing mark,** on or off: the slowest high over the spawn,
+   3.52 ms on (284 a second), 3.44 off; the spawn 2.91 on (344), 3.05 off.
+5. **The march's row:** the two traces are David's to read when he likes (below: the on trace is to be made
+   again, as the march's text changes).
+
+**Why the plain is dearer with the near eye on, whatever the rule: read from its rays.** With the near eye off
+the plain's finer layer marches no ray. With it on, 2,884 finer rays at 4 chunks and 7,300 to 7,900 at 16 and 64,
+long ones (a hundred steps and more each, 1,300 of them listed as long), and they are not under blocks: they're
+along the horizon. With its rays begun beyond the near blocks the far eye no longer gathers its own near cells'
+haze over the horizon (the soft band seen at build 199), a horizon ray's first surface is the far land itself,
+and the far eye's own rule calls its finer layer in there. So this cost is the far eye drawing a crisper horizon
+than it did, not waste; the rule can't take it away. Whether the finer layer is wanted along a plain's horizon is
+the Crossovers' sliders' business (David's).
+
+**Two faults of Builder's own in build 201's new code, found by reading after these numbers:**
+
+- **The march asks the cover before it asks whether a pixel is wanted at all.** Nearly all of the two finer
+  layers' 1.28 million threads are not wanted and used to leave at once; each now reads the cover's nine pixels
+  first: some eleven million reads a frame for nothing. That is most of the "0.02 to 0.06 ms dearer" on open
+  ground and of the march's floor.
+- **The cover's pass reads every screen pixel of the near picture one at a time** (four million reads). Read four
+  at a time, as the card can, it is a quarter of the reads.
+
+**The near eye beside build 197's** (the own picture, the x-fader, the hair, the depth turned round, all since):
+the near faces at 64 chunks 2.435 ms at the spawn (197: 2.43 with the water), 1.655 at the mountain top (1.66),
+2.601 high over the spawn (2.60): nothing added that can be measured. The x-fader's pass: 0.02 ms.
+
+**Next (basic fixes, on his word for them):** build 203, the two faults mended; then one short flight for the
+cover's pass and the far eye's floor, and the on trace made again.
