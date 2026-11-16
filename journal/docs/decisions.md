@@ -2756,6 +2756,18 @@ Reference: `Art/quartile minecraft illustration.png`
       and "fx engine" are his newer words, and the names are his to settle when the pages are laid out). For
       building: every filter, layer, curve and colour control made as a numbered setting from its first day, so the
       animator's timeline can drive any of them without each being rebuilt for it.
+    - **The names, and what each does** (David, the same day, correcting "animator"): "sequencer and fx engine i
+      think. image processor, sequencer in which you can bounce images into frames, or across frames, or back to the
+      image processor, fx engine, which im not even sure the exact scope of it, but i know it'll need particle fx to
+      bounce to the image processor or sequencer, and be able to step through the simulations and probably fx on
+      images as well." So the three are the **image processor**, the **sequencer** and the **fx engine** (where
+      Counsel wrote "animator" above, read sequencer). The sequencer: images bounced into frames, across frames, or
+      back to the image processor. The fx engine: its scope open; known so far, particle fx that bounce to the image
+      processor or the sequencer, simulations stepped through, probably fx on images too.
+    - **A shared clipboard for bouncing** (asked by Counsel whether bouncing could be one shared operation): "yes, a
+      shared clipboard for bouncing". All three send to it and take from it. *Counsel, for building:* it holds an
+      image or a run of frames; what else it may hold (a palette, a spline) is his to say.
+    - (Written after build 202's window landed; his words were held in a note outside the project while it flew.)
   - Graphics still ahead by the plan: 2.3's quarter and eighth blocks (scattered at random for testing, his idea),
     then 2.4 (textures, the light lane, water and glass, objects, glows, far lights), his eye raising anything
     undesirable.
