@@ -6692,3 +6692,25 @@ The panel's slider and readouts haven't been seen by anyone.
 
 **Owed:** David's look (the radius' edge standing and walking, chunks coming in, the slider); then its row in a
 trace and its flights (a bracket, near off and on at radius 4, 16 and 64); the rest of the mark's checks.
+
+### Build 195, David's first look at the near eye (2026-11-16): "holds 240fps at 64 chunks, once its loaded in"
+
+Launched on his word at the spawn, the radius starting at 4 (`logs/session-1794847902.log`: 372 s, closed by him,
+no error or warning in its log; the near eye's first run in the game itself). Asked about the edge between near
+and far, chunks arriving, and 64 chunks. **His words:** "holds 240fps at 64 chunks, once its loaded in."
+
+- **His goal of 2026-11-16 ("64 chunk render radius running smoothly along with the far march") is met at the
+  spawn by his own look,** with the frame at the screen's 240 a second (the game is held to the screen's refresh
+  outside a flight, so 240 is "all it's asked for", not a measure of what's left over: the flights say that).
+- **"Once its loaded in"**: the filling is the part he marks off. He hasn't said what it was like; asked.
+- **He didn't speak of the edge, of chunks arriving as he moved, or of far hills' speckle at 64.** Not taken as
+  "fine": asked again, lightly.
+- **Seen in the log, not by him:** the processor's area read 102 degrees at 320 s (and 97 at 2 s, the launch's
+  own summing of the far cells, as it has been). The near lane had 12 threads.
+
+**Changed for the next launch (build 196), both small:**
+- the near lane's threads: a quarter of the processor's, 2 to 6 (it was half, to 12), with a switch
+  (`INCUS_NEAR_THREADS`); six fill the whole of 64 chunks in about twice the time;
+- a slow place found by reading, in the frame's own code: each time the eye crossed into a new chunk, every
+  wanted chunk was looked for by walking all the chunks made and waiting for their frame (thousands by thousands
+  while a radius fills). Looked up in a set now.

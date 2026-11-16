@@ -236,6 +236,7 @@ flowchart TB
 - **Reads:** the camera. **Writes:** the near faces and the far eye's look.
 - **Switch** `INCUS_NEAR`: 0: no near eye at all (the game as build 194, for measuring against); unset, the blocks inside the render radius drawn as triangles (plan 2.3).
 - **Switch** `INCUS_NEAR_RADIUS`: the render radius the game starts with, in chunks of 32 blocks, 1 to 64 (unset: 4); the Render page's slider moves it.
+- **Switch** `INCUS_NEAR_THREADS`: how many threads the near lane meshes chunks on (unset: a quarter of the processor's, 2 to 6).
 - **Cost, last measured** (`kept logs/flight-1794589790.txt`): not measured.
 - **Files:** src/near_eye.rs and src/near.rs.
 

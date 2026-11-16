@@ -114,7 +114,10 @@ impl NearEye {
     /// The near eye, its lane started on the map behind the doorway in `folder`. `colours`: each block's top's and
     /// sides' colour as light (`FarColours::as_light`). `format`: the picture's.
     pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, format: wgpu::TextureFormat, folder: std::path::PathBuf, colours: &[[f32; 4]]) -> Result<Self, String> {
-        let threads = std::thread::available_parallelism().map_or(2, |n| n.get()).saturating_sub(2).clamp(1, 12);
+        // The lane's threads: a quarter of the processor's, 2 at least and 6 at most, unless told (`INCUS_NEAR_THREADS`).
+        // [Build 195 took 12 of 24: the whole of 64 chunks in 5 s, and the processor's area at 102 degrees in David's
+        // first look. Six fill it in about twice the time and leave the frame and the far eye's lanes their room.]
+        let threads = std::env::var("INCUS_NEAR_THREADS").ok().and_then(|n| n.parse::<usize>().ok()).map_or_else(|| (std::thread::available_parallelism().map_or(2, |n| n.get()) / 4).clamp(2, 6), |n| n.clamp(1, 32));
         let lane = Lane::start(folder, crate::scatter_stage::on(), threads)?;
         let module = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some("the near eye"), source: wgpu::ShaderSource::Wgsl(source().into()) });
         let both = wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT;
@@ -234,8 +237,11 @@ impl NearEye {
                 }
             }
             self.waiting.retain(|made| nearest_part(made.chunk, eye) <= reach);
-            let (chunks, waiting) = (&self.chunks, &self.waiting);
-            self.lane.ask(self.want.iter().filter(|chunk| !chunks.contains_key(*chunk) && !waiting.iter().any(|made| made.chunk == **chunk)).copied());
+            // (What's made and waiting for its frame isn't asked for again. Looked up in a set: by walking the waiting
+            // ones for each wanted chunk, a crossing into a new chunk while a radius filled was thousands by thousands.)
+            let waiting: std::collections::HashSet<[i32; 2]> = self.waiting.iter().map(|made| made.chunk).collect();
+            let chunks = &self.chunks;
+            self.lane.ask(self.want.iter().filter(|chunk| !chunks.contains_key(*chunk) && !waiting.contains(*chunk)).copied());
         }
         self.waiting.extend(self.lane.take(4096)?);
         // Onto the card, nearest the eye first, as many faces as a frame may (one chunk at least).

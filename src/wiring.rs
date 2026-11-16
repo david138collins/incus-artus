@@ -232,6 +232,7 @@ pub const PASSES: [Pass; 25] = [
         switches: &[
             ("INCUS_NEAR", "0: no near eye at all (the game as build 194, for measuring against); unset, the blocks inside the render radius drawn as triangles (plan 2.3)"),
             ("INCUS_NEAR_RADIUS", "the render radius the game starts with, in chunks of 32 blocks, 1 to 64 (unset: 4); the Render page's slider moves it"),
+            ("INCUS_NEAR_THREADS", "how many threads the near lane meshes chunks on (unset: a quarter of the processor's, 2 to 6)"),
         ],
         files: &["src/near_eye.rs", "src/near.rs"],
     },
