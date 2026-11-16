@@ -20,6 +20,8 @@ struct Sizes {
 // side by side from its left, as its distances are kept.
 @group(0) @binding(1) var cover: texture_storage_2d<rgba8unorm, write>;
 @group(0) @binding(2) var<uniform> sizes: Sizes;
+// For reading four screen pixels at once.
+@group(0) @binding(3) var four: sampler;
 
 @compute @workgroup_size(8, 8)
 fn near_cover(@builtin(global_invocation_id) id: vec3<u32>) {
@@ -37,11 +39,18 @@ fn near_cover(@builtin(global_invocation_id) id: vec3<u32>) {
         for (var f = 0u; f < 4u; f++) {
             let fine_pixel = middle_pixel * 2u + vec2<u32>(f & 1u, f >> 1u);
             var fine = 1u;
-            for (var y = 0u; y < side; y++) {
-                for (var x = 0u; x < side; x++) {
-                    let p = fine_pixel * side + vec2<u32>(x, y);
-                    if (p.x < sizes.screen.x && p.y < sizes.screen.y && textureLoad(t_near, vec2<i32>(p), 0).a < 0.999) {
-                        fine = 0u;
+            if (side == 2u) {
+                // Its four screen pixels' shares in one read, from the corner they meet at (past the screen's edge,
+                // the edge's own pixels). [Build 202 read them one at a time: four million reads, 0.145 ms a frame.]
+                let shares = textureGather(3, t_near, four, (vec2<f32>(fine_pixel * 2u) + 1.0) / vec2<f32>(sizes.screen.xy));
+                fine = u32(min(min(shares.x, shares.y), min(shares.z, shares.w)) >= 0.999);
+            } else {
+                for (var y = 0u; y < side; y++) {
+                    for (var x = 0u; x < side; x++) {
+                        let p = fine_pixel * side + vec2<u32>(x, y);
+                        if (p.x < sizes.screen.x && p.y < sizes.screen.y && textureLoad(t_near, vec2<i32>(p), 0).a < 0.999) {
+                            fine = 0u;
+                        }
                     }
                 }
             }

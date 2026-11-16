@@ -7350,3 +7350,17 @@ Under David's "basic fixes"; both are in build 201's own new code.
   blocks fill the view (the scatter at 100,000: 0.261) said as it is.
 - **The march's row:** the on trace made again on this build (the off trace of build 202 stands: the rule
   compiled out is the same program).
+
+### Build 203 built (unflown): the cover's two faults mended; the same cover, counted off the screen
+
+**Built as the mark says:** in `far.wgsl` the cover's test stands after the finer layers' "not wanted" leave; in
+`near_cover.wgsl` a pixel of the finest layer's four screen pixels are read in one (their shares gathered from
+the corner they meet at), the near eye's cover pass given a sampler for it.
+
+**The same cover: met, to the ray.** Off the screen, the rule on, the far eye marches exactly what build 201
+counted: the spawn at 16 chunks 26,235 base rays and 19,970 finer (705,422 and 385,669 steps); at 64, 20,756 and
+none; looking down at 32, 1,051 and 3,963; the bare plain at 4, 33,866 and 228. No gap, no lone pixel of sky.
+
+All tests pass (the memory test failed once and passed alone, as it has before: written down long since).
+
+**Owed:** the one flight and the on trace.

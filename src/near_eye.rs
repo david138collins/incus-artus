@@ -135,6 +135,7 @@ pub struct NearEye {
     cover_pass: wgpu::ComputePipeline,
     cover_layout: wgpu::BindGroupLayout,
     cover_sizes: wgpu::Buffer,
+    cover_sampler: wgpu::Sampler,
     cover_group: Option<(wgpu::BindGroup, u64, (u32, u32))>,
     /// The frame's draws, the blocks' sides' and then the water's tops', each a page after another: for each page
     /// where its draws begin in `draws` and how many.
@@ -250,13 +251,15 @@ impl NearEye {
         let cover_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("the near cover"),
             entries: &[
-                wgpu::BindGroupLayoutEntry { binding: 0, visibility: compute, ty: wgpu::BindingType::Texture { sample_type: wgpu::TextureSampleType::Float { filterable: false }, view_dimension: wgpu::TextureViewDimension::D2, multisampled: false }, count: None },
+                wgpu::BindGroupLayoutEntry { binding: 0, visibility: compute, ty: wgpu::BindingType::Texture { sample_type: wgpu::TextureSampleType::Float { filterable: true }, view_dimension: wgpu::TextureViewDimension::D2, multisampled: false }, count: None },
+                wgpu::BindGroupLayoutEntry { binding: 3, visibility: compute, ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering), count: None },
                 wgpu::BindGroupLayoutEntry { binding: 1, visibility: compute, ty: wgpu::BindingType::StorageTexture { access: wgpu::StorageTextureAccess::WriteOnly, format: wgpu::TextureFormat::Rgba8Unorm, view_dimension: wgpu::TextureViewDimension::D2 }, count: None },
                 wgpu::BindGroupLayoutEntry { binding: 2, visibility: compute, ty: wgpu::BindingType::Buffer { ty: wgpu::BufferBindingType::Uniform, has_dynamic_offset: false, min_binding_size: None }, count: None },
             ],
         });
         let cover_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor { label: Some("the near cover"), bind_group_layouts: &[Some(&cover_layout)], immediate_size: 0 });
         let cover_pass = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("near_cover"), layout: Some(&cover_pipeline_layout), module: &cover_module, entry_point: Some("near_cover"), compilation_options: Default::default(), cache: None });
+        let cover_sampler = device.create_sampler(&wgpu::SamplerDescriptor { label: Some("the near cover's four at a time"), ..Default::default() });
         let cover_sizes = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the near cover's numbers"), size: 64, usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let numbers = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the near eye's numbers"), size: 48, usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let colour_bytes: Vec<u8> = colours.iter().flatten().flat_map(|v| v.to_le_bytes()).collect();
@@ -265,7 +268,7 @@ impl NearEye {
         let draws = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the near eye's draws"), size: MOST_DRAWN * 2 * 16, usage: wgpu::BufferUsages::INDIRECT | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let radius = std::env::var("INCUS_NEAR_RADIUS").ok().and_then(|r| r.parse::<f32>().ok()).map_or(RADIUS, |r| r.clamp(1.0, MOST_RADIUS));
         log::info!("The near eye: faces as triangles within a render radius of {radius} chunks ({} blocks), its lane on {threads} threads", radius * CHUNK as f32);
-        Ok(Self { lane, look: NearLook { radius, ..NearLook::DEFAULT }, chunks: HashMap::new(), pages: Vec::new(), asked: None, want: Vec::new(), first_to_come: 0, touched: HashSet::new(), need: HashMap::new(), remake: HashSet::new(), waiting: Default::default(), recent_ms: Default::default(), faces, water, layout, depth_layout, group: None, numbers, colours, join, join_layout, format, pictures: None, cover_pass, cover_layout, cover_sizes, cover_group: None, draws, drawn: Vec::new(), drawn_water: Vec::new(), counts: Counts { threads, ..Default::default() } })
+        Ok(Self { lane, look: NearLook { radius, ..NearLook::DEFAULT }, chunks: HashMap::new(), pages: Vec::new(), asked: None, want: Vec::new(), first_to_come: 0, touched: HashSet::new(), need: HashMap::new(), remake: HashSet::new(), waiting: Default::default(), recent_ms: Default::default(), faces, water, layout, depth_layout, group: None, numbers, colours, join, join_layout, format, pictures: None, cover_pass, cover_layout, cover_sizes, cover_sampler, cover_group: None, draws, drawn: Vec::new(), drawn_water: Vec::new(), counts: Counts { threads, ..Default::default() } })
     }
 
     /// Room for `count` faces: a page and where in it (a free stretch that holds them, the first found; a new page
@@ -573,6 +576,7 @@ impl NearEye {
                     wgpu::BindGroupEntry { binding: 0, resource: wgpu::BindingResource::TextureView(&pictures.colour) },
                     wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::TextureView(words) },
                     wgpu::BindGroupEntry { binding: 2, resource: self.cover_sizes.as_entire_binding() },
+                    wgpu::BindGroupEntry { binding: 3, resource: wgpu::BindingResource::Sampler(&self.cover_sampler) },
                 ],
             });
             self.cover_group = Some((group, made, pictures.size));

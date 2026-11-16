@@ -1445,22 +1445,6 @@ fn march_pixel(id: vec2<u32>, given: u32, from_cut: u32, to_cut: u32, stack: u32
     if (id.x >= size.x || id.y >= size.y) {
         return;
     }
-    // Under the near eye's blocks (build 201): this pixel and the eight round it are wholly covered by blocks nearer
-    // than the x-fader's band, so nothing of the far picture shows here, nor is blended in from here: no ray is
-    // marched. [Till now a far ray under a block began where far rays may begin, inside the ground, and its finer
-    // layer was called in after it: the far eye 16 to 21% dearer with the near eye on, build 197's flights.] It
-    // writes what a pixel not wanted writes, and for the frame after says it first touched where a far ray may
-    // begin, so the rays that start by it start no farther out than they would have.
-    if (COVER && covered(id)) {
-        if (from_cut == 0u) {
-            put_picture(vec2<i32>(id), vec4<f32>(0.0));
-            put_far(vec2<i32>(id), vec4<f32>(camera.sky.w, 0.0, 0.0, 0.0));
-            if (camera.layer.y > 0.5) {
-                put_worth(id.y * size.x + id.x, 0u);
-            }
-        }
-        return;
-    }
     var shown = 1.0;
     let parent = parent_of(id);
     if (camera.layer.x > 0.0) {
@@ -1477,6 +1461,24 @@ fn march_pixel(id: vec2<u32>, given: u32, from_cut: u32, to_cut: u32, stack: u32
             }
             return;
         }
+    }
+    // Under the near eye's blocks (build 201): this pixel and the eight round it are wholly covered by blocks nearer
+    // than the x-fader's band, so nothing of the far picture shows here, nor is blended in from here: no ray is
+    // marched. [Till now a far ray under a block began where far rays may begin, inside the ground, and its finer
+    // layer was called in after it: the far eye 16 to 21% dearer with the near eye on, build 197's flights.] It
+    // writes what a pixel not wanted writes, and for the frame after says it first touched where a far ray may
+    // begin, so the rays that start by it start no farther out than they would have. (Asked only of a pixel that's
+    // wanted: build 202 asked first, and the finer layers' million threads that leave at once each read the cover's
+    // nine pixels before leaving.)
+    if (COVER && covered(id)) {
+        if (from_cut == 0u) {
+            put_picture(vec2<i32>(id), vec4<f32>(0.0));
+            put_far(vec2<i32>(id), vec4<f32>(camera.sky.w, 0.0, 0.0, 0.0));
+            if (camera.layer.y > 0.5) {
+                put_worth(id.y * size.x + id.x, 0u);
+            }
+        }
+        return;
     }
     // Where its tile's rays start (from the start pass), or from the eye.
     var begin = 0.5;
