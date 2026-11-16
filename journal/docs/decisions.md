@@ -2703,7 +2703,18 @@ Reference: `Art/quartile minecraft illustration.png`
     The kept Oracle session's fourth part no longer waits; her five questions to him still stand as questions, two
     bearing on the near eye.
   - Counsel to Fable, Builder back to Opus, at his switch. Everything each role needs is in the files.
-  - CLAUDE.md's line for the Oracle ("it's called at the big forks") is his to change; asked.
+  - CLAUDE.md's line for the Oracle ("it's called at the big forks") is his to change; asked. His answer: "Yes,
+    change it" (changed in 8f9b248).
+- *Builds 200 and 201* (unlaunched, unflown; 201 at db29d24, with his starting numbers: 32 chunks, x-fader 128 wide,
+  curve 1, Default returning to them). Build 200 (1affa62), the white dots: looking down from three places, 38, 117
+  and 107 lone sky pixels, now none (each face drawn a hair wider, so merged faces overlap). Build 201, far rays
+  skipped under blocks: the near eye drawn before the march, a new pass, "the near cover", saying which far pixels
+  blocks wholly cover, and the march marching none of those; off the screen the far eye holds 7% (4 chunks) to 87%
+  (64 chunks, looking down) fewer thread-steps, the far picture unchanged. Owed on his word: an off and an on trace
+  for the march's row, and a bracket of flights after a cool-down. Found and put to him with the launch, not built:
+  the near eye's depth is too coarse far out (at 2,000 blocks it can't tell faces a block apart), so a few hundred
+  single pixels differ run to run there, and moving would show far faces flickering between a top and a side; the
+  standard mend is small.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
