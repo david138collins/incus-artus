@@ -2609,6 +2609,17 @@ Reference: `Art/quartile minecraft illustration.png`
     and a slow place in the frame's asking found by reading (looked up in a set now). Owed: a trace's row; flights
     (near off, on at 4, 16 and 64); the near eye's counts in a flight's report; the lane told of changes; the mark's
     remaining checks off the screen.
+  - **His words after it** (to Builder): "if i fly very fast the FPS go down to 90-120 while its generating chunks. i
+    don't think a player could experience a hiccup. off to a good start. go ahead with the tests. there is a seam,
+    but, its not very bad, and i think a x-fader with curves could hide it almost completely so blocks smoothly fade
+    into rays." Taken as: his go for the near eye's hands-off window (two traces; five flights, near off, 4, 16, 64,
+    off); the filling fine by his judgement, written down and left; the seam's x-fader with curves drawn up after the
+    tests, its controls' place and names asked before anything is placed.
+  - *Found by Builder, reading for build 197* (the flights' fittings): a mark's changes (his build, the scatter
+    densities) have never been drawn by either eye in a flight, only put in the game's own doorway. The reports bear
+    it out: in every flight "the plain with David's build" and the three scatter marks time as the bare plain
+    (build 183's uncut: 0.910, 0.909, 0.910, 0.909, 0.909 ms). Build 197 tells the near lane of them, waits for the
+    near eye's chunks at standing marks, and gives the near eye a line in the report.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
