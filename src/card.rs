@@ -46,8 +46,10 @@ impl Card {
         let info = adapter.get_info();
         let description = format!("{} ({:?}, {:?}, driver {} {}; chosen by {chosen_by})", info.name, info.device_type, info.backend, info.driver, info.driver_info);
         log::info!("The card: {description}");
-        let required_features = adapter.features() & wgpu::Features::TIMESTAMP_QUERY;
-        if required_features.is_empty() {
+        // (The near eye's draws are read from a list, each beginning at its chunk's first face in a page: that wants
+        // the card to take a first instance from the list, which DirectX 12 does.)
+        let required_features = adapter.features() & (wgpu::Features::TIMESTAMP_QUERY | wgpu::Features::INDIRECT_FIRST_INSTANCE);
+        if !required_features.contains(wgpu::Features::TIMESTAMP_QUERY) {
             log::warn!("This card can't time its own work: the card's clock is off");
         }
         let largest = adapter.limits().max_buffer_size.min(adapter.limits().max_storage_buffer_binding_size).min(BIGGEST);

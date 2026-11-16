@@ -101,6 +101,8 @@ struct Running {
     refresh: f32,
     /// The far eye (none if the doorway couldn't open the world).
     far: Option<FarEye>,
+    /// The near eye (none without a far eye, or with `INCUS_NEAR=0`).
+    near: Option<crate::near_eye::NearEye>,
     /// The card's memory, as last asked (once a second while a panel shows it), and when.
     memory: Option<(f64, f64)>,
     memory_at: Option<Instant>,
@@ -184,7 +186,15 @@ impl Runner {
                 .collect();
             FarEye::new(&card.device, card.config.format, store, lane, rings)
         });
-        self.running = Some(Running { window, card, card_clock, egui_ctx, egui_state, egui_renderer, to_free: Vec::new(), refresh, far, memory: None, memory_at: None });
+        // The near eye: the blocks inside the render radius as triangles (plan 2.3), its lane's threads its own.
+        let near = (far.is_some() && std::env::var("INCUS_NEAR").as_deref() != Ok("0"))
+            .then(|| {
+                let mut doorway = Doorway::open(&crate::doorway::test_world()).map_err(|error| log::error!("The near eye's colours couldn't be read: {error}")).ok()?;
+                let colours = crate::far::FarColours::load(&mut doorway).map_err(|error| log::error!("The near eye's colours couldn't be read: {error}")).ok()?;
+                crate::near_eye::NearEye::new(&card.device, &card.queue, card.config.format, crate::doorway::test_world(), &colours.as_light()).map_err(|error| log::error!("The near eye couldn't start: {error}")).ok()
+            })
+            .flatten();
+        self.running = Some(Running { window, card, card_clock, egui_ctx, egui_state, egui_renderer, to_free: Vec::new(), refresh, far, near, memory: None, memory_at: None });
     }
 
     /// The mouse captured for flying, or let go for the panels.
@@ -261,6 +271,7 @@ impl Runner {
                 PassId::GoingToAMark => self.going_to_a_mark(started),
                 PassId::Flying => self.flying(started),
                 PassId::PuttingTheFarCellsOnTheCard => self.putting_the_far_cells_on_the_card(),
+                PassId::PuttingTheNearChunksOnTheCard => self.putting_the_near_chunks_on_the_card(),
                 PassId::LayingOutThePanel => self.laying_out_the_panel(&mut work),
                 PassId::GettingThePicture => self.getting_the_picture(&mut work),
                 PassId::TheFarStart => self.the_far_start(&mut work),
@@ -268,11 +279,13 @@ impl Runner {
                 PassId::TheFar4 => self.the_far_layer(&mut work, 1, PassId::TheFar4),
                 PassId::TheFar2 => self.the_far_layer(&mut work, 2, PassId::TheFar2),
                 PassId::BringingItUp => self.bringing_it_up(&mut work),
+                PassId::TheNearFaces => self.the_near(&mut work, false),
+                PassId::TheNearWater => self.the_near(&mut work, true),
                 PassId::ThePanel => self.the_panel(&mut work),
                 PassId::HandingTheCardItsWork => self.handing_the_card_its_work(&mut work),
                 PassId::ShowingIt => self.showing_it(&mut work),
                 PassId::Measuring => self.measuring(&mut work, event_loop),
-                PassId::HearingTheWindow | PassId::TheDoorway | PassId::SummingTheFarCells | PassId::MakingTheFarTextures | PassId::MakingTheFarLight | PassId::MakingTheFarRing | PassId::ReadingTheTemperatures => unreachable!("{} isn't one of the frame's passes", pass.name),
+                PassId::HearingTheWindow | PassId::TheDoorway | PassId::SummingTheFarCells | PassId::MakingTheFarTextures | PassId::MakingTheFarLight | PassId::MakingTheFarRing | PassId::MeshingTheNearChunks | PassId::ReadingTheTemperatures => unreachable!("{} isn't one of the frame's passes", pass.name),
             };
             self.timed(pass.id, started);
             if !carry_on {
@@ -368,6 +381,48 @@ impl Runner {
         true
     }
 
+    /// The near eye's chunks: asked for, put on the card, given back; and the far eye told where its rays begin.
+    fn putting_the_near_chunks_on_the_card(&mut self) -> bool {
+        let eye = [self.camera.position.x, self.camera.position.y];
+        let mut chunk_ms = None;
+        if let Some(running) = &mut self.running
+            && let (Some(near), Some(far)) = (&mut running.near, &mut running.far)
+        {
+            if let Err(error) = near.put(&running.card.device, &running.card.queue, eye, far) {
+                log::error!("The near lane stopped: {error}");
+                running.near = None;
+                far.near_from = 0.0;
+            } else if near.counts.chunk_ms > 0.0 {
+                chunk_ms = Some(near.counts.chunk_ms);
+            }
+        }
+        if let Some(ms) = chunk_ms {
+            self.ran(PassId::MeshingTheNearChunks, ms);
+        }
+        true
+    }
+
+    /// The near eye's faces over the far picture, then (its second pass) its water over them.
+    fn the_near(&mut self, work: &mut FrameWork, water: bool) -> bool {
+        let Some(running) = &mut self.running else { return false };
+        let (Some(near), Some(far), Some(texture), Some(encoder)) = (&mut running.near, &running.far, &work.texture, &mut work.encoder) else { return true };
+        if !work.far_drew {
+            return true;
+        }
+        let view = texture.texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let id = if water { PassId::TheNearWater } else { PassId::TheNearFaces };
+        if !water && !near.prepare(&running.card.device, &running.card.queue, (running.card.config.width, running.card.config.height), far, &self.camera) {
+            return true;
+        }
+        let timestamps = wiring::card_slot(id).and_then(|slot| running.card_clock.as_ref().and_then(|clock| clock.render_pass(slot)));
+        if water {
+            near.draw_water(encoder, &view, timestamps);
+        } else {
+            near.draw_faces(encoder, &view, timestamps);
+        }
+        true
+    }
+
     /// The far eye's numbers for the frame (on the processor), then its start pass (on the card).
     fn the_far_start(&mut self, work: &mut FrameWork) -> bool {
         let Some(running) = &mut self.running else { return false };
@@ -451,9 +506,10 @@ impl Runner {
             memory: running.memory,
             blends: running.far.as_ref().map_or([true, false], FarEye::blends),
             faces_switch: running.far.as_ref().is_some_and(FarEye::faces_switch),
+            near: running.near.as_ref().map(|near| near.counts),
             far: running.far.as_ref().map_or("none".to_string(), FarEye::state),
         };
-        self.panel.show(&ctx, &readings, running.far.as_mut().map(|far| &mut far.look), &mut self.camera.pace);
+        self.panel.show(&ctx, &readings, running.far.as_mut().map(|far| &mut far.look), running.near.as_mut().map(|near| &mut near.radius), &mut self.camera.pace);
         // The temperatures, top right, always, flights too [David: "while you are running tests, i am sitting here
         // watching, and id like to know what the temps are at while watching"].
         if let Some(watch) = &self.temperatures {

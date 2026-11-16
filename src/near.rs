@@ -292,11 +292,13 @@ pub fn packed(face: &Face, chunk: [i32; 2]) -> [u32; 3] {
     [a, b, c]
 }
 
-/// A chunk as the lane hands it over: its packed faces, the lowest and highest block any of them touches (for
-/// leaving it out when it's out of view), and how long it took to make (ms).
+/// A chunk as the lane hands it over: its packed faces, the blocks' sides first and then the water's tops (`water`
+/// of them, so each kind is drawn by its own pass with no word of the other's), the lowest and highest block any of
+/// them touches (for leaving it out when it's out of view), and how long it took to make (ms).
 pub struct Made {
     pub chunk: [i32; 2],
     pub faces: Vec<[u32; 3]>,
+    pub water: u32,
     pub low: i32,
     pub high: i32,
     pub ms: f32,
@@ -383,12 +385,15 @@ impl Lane {
                             tiles.clear();
                         }
                         let made = Blocks::read(&doorway, &mut tiles, chunk).map(|blocks| {
-                            let faces = blocks.faces();
+                            let mut faces = blocks.faces();
+                            // (A sort that keeps each kind's own order: the blocks' sides, then the water's tops.)
+                            faces.sort_by_key(|face| face.water);
+                            let water = faces.iter().filter(|face| face.water).count() as u32;
                             let (low, high) = faces.iter().fold((blocks.high, blocks.low), |(low, high), face| {
                                 let top = face.at[2] + if matches!(face.facing, Facing::Up | Facing::Down) { 1 } else { face.high };
                                 (low.min(face.at[2]), high.max(top))
                             });
-                            Made { chunk, faces: faces.iter().map(|face| packed(face, chunk)).collect(), low, high, ms: began.elapsed().as_secs_f32() * 1000.0 }
+                            Made { chunk, faces: faces.iter().map(|face| packed(face, chunk)).collect(), water, low, high, ms: began.elapsed().as_secs_f32() * 1000.0 }
                         });
                         if sender.send(made).is_err() {
                             return;
@@ -636,8 +641,12 @@ mod tests {
             let mut tiles = HashMap::new();
             for chunk in want.iter().step_by((want.len() / 7).max(1)) {
                 let blocks = Blocks::read(&doorway, &mut tiles, *chunk).unwrap();
-                let direct: Vec<[u32; 3]> = blocks.faces().iter().map(|face| packed(face, *chunk)).collect();
-                assert_eq!(made[chunk].faces, direct, "chunk {chunk:?} from the lane is the mesh made directly");
+                let mut direct = blocks.faces();
+                direct.sort_by_key(|face| face.water);
+                let water = direct.iter().filter(|face| face.water).count() as u32;
+                let direct: Vec<[u32; 3]> = direct.iter().map(|face| packed(face, *chunk)).collect();
+                assert_eq!(made[chunk].faces, direct, "chunk {chunk:?} from the lane is the mesh made directly, its water's tops last");
+                assert_eq!(made[chunk].water, water, "and it says how many of them are water's");
                 assert!(made[chunk].faces.is_empty() || made[chunk].low < made[chunk].high, "a chunk with faces has a height");
             }
         }

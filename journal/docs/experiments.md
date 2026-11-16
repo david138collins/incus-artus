@@ -6625,3 +6625,70 @@ threads; a triangle count is two a face, before anything is left out for being o
   out (about half).
 
 All the near eye's tests pass (5).
+
+### Build 195 built (unlaunched, unflown, unlooked): the near eye draws; what was built and what was checked off the screen
+
+**Built as the mark says,** with the differences said:
+
+- **The near eye on the card** (`near_eye.rs`, new): the chunks' faces kept in pages of one buffer each (a
+  million faces, 12 MB, a page), a chunk's faces in one stretch of a page, given back when it falls outside the
+  radius by more than two chunks. Each frame the lane is asked for what the eye's chunk and the radius want (when
+  either changes), what it has made is put on the card nearest first, 350,000 faces a frame at the most, and
+  **the faces' reach** is worked out: to the nearest chunk still to come, or the whole radius. The faces fade out
+  over the last eighth of their reach (8 to 48 blocks), and **the far rays begin 24 blocks inside that**
+  (`FarEye::near_from`, taken with the measuring switch's own number in the camera's row): so while a radius
+  fills, or the eye outruns the lane, the far eye draws whatever the near eye hasn't got yet and there's no hole.
+- **The near pass** (`near.wgsl`, new, two programs of its own): a face is four corners made from its three
+  words; its place is taken from the eye in whole blocks first; its place on the screen from the far eye's own
+  camera (the same forward, right and up the rays are made from, so the two pictures lie on each other). Its
+  colour is its block's from the far colours' table (top or side), lit by the far eye's own text (`lit`,
+  `sunlit`, the light store's reading: put in from `far.wgsl` when the program is built, one text for both eyes).
+  Drawn after the far picture is brought up, with depth. **The water** is a second pass, which the mark had as
+  "drawn plain": it's the far eye's water instead (its colour and how fast it dims what's behind, by how much
+  water the eye looks through to the face behind, read from the near faces' depth), so the sea doesn't change
+  kind at the radius. A chunk's water's tops are kept after its blocks' sides, so each pass draws its own.
+- **Only the chunks in view are drawn** (a chunk's box against the view's four sides), each page's by one call
+  that reads its draws from a list. (The card is asked for one thing more for that: a draw from a list may begin
+  at any face of a page.) Faces turned away from the eye are still drawn: not left out yet.
+- **The Render page:** the near eye's time on the card, chunks in and drawn, triangles drawn and kept, the pages'
+  memory, how far its faces reach and where the far rays begin, a chunk's meshing time; and the slider, "Render
+  radius (chunks)", 1 to 64 (David: "yes thats fine"), greyed where there's no near eye.
+- **The wiring:** four passes ("putting the near chunks on the card", "the near faces", "the near water" in the
+  frame; "meshing the near chunks" on the loading lane), a store ("the near faces"), two switches (`INCUS_NEAR=0`:
+  no near eye; `INCUS_NEAR_RADIUS`: the radius it starts with). The map redrawn.
+- **Not built yet, of the mark's list:** the near eye's counts in a flight's report (the panel has them); a
+  chunk made again when a change touches it while the game runs (the mesher and the test for it are there; the
+  lane isn't yet told of changes).
+
+**Off the screen** (the picture test with `FAR_TEST_NEAR=<radius>`: the spawn, 2,560 x 1,600, the regions round
+it loaded; no error from the card at any radius):
+
+| radius | chunks in | chunks drawn | faces drawn (triangles) | faces kept | pages | filled in |
+|---|---|---|---|---|---|---|
+| 1 | 8 | 5 | 1,610 (3,220) | 2,509 | 12 MB | 0.01 s |
+| 4 | 64 | 28 | 16,554 (33,108) | 39,810 | 12 MB | 0.01 s |
+| 16 | 860 | 320 | 313,121 (626,242) | 1,180,365 | 24 MB | 0.20 s |
+| 64 | 13,114 | 4,631 | 5,154,126 (10.3 million) | 14,399,227 | 168 MB | 4.9 s |
+
+- **The picture:** crisp blocks, steps and terraces where the far eye alone draws smooth blurred ground; the far
+  hill behind as before at radius 4, and itself in true blocks with a sharp edge against the sky at radius 64.
+- **Colour and light agree with the far eye's** (the mark's line, within 8 of 255): the ground at the eye's feet
+  78, 76, 63 for the far eye's 83, 80, 68 (the near picture has the steps' dark sides, which the far cells
+  average in); a little out 83, 80, 67 for 81, 79, 67; the hill behind and the sky the same.
+- **No gap between near and far** at radius 1, 4, 16 or 64: no black or clear pixel anywhere. Counted, 57,000 to
+  86,000 pixels are sky with the near eye where the far eye alone has something; looked at, they're the far eye's
+  soft haze over near slopes (a band many pixels deep beside the eye), which crisp blocks don't have. So the
+  mark's count ("no pixel of sky where ground should be") can't be read off that number, and is judged by the
+  pictures: met, as far as Builder's eye goes.
+- **Seen and written down, for David's eye:** at radius 64 the far hill's blocks are smaller than a pixel and its
+  steps' dark sides make a fine speckle on it. That's the shimmer expected of faces under a pixel.
+
+**Not checked yet, of the mark's lines:** off against build 194's pictures with the whole world loaded (off is
+the game without a near eye, and nothing of the far eye's program changed; the far eye's own tests pass); the
+stage's views; the near marks; the plain. All 39 tests pass.
+
+**Its first run in the game itself is the launch for David's look:** everything above is the picture test's.
+The panel's slider and readouts haven't been seen by anyone.
+
+**Owed:** David's look (the radius' edge standing and walking, chunks coming in, the slider); then its row in a
+trace and its flights (a bracket, near off and on at radius 4, 16 and 64); the rest of the mark's checks.

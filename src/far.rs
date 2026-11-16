@@ -74,6 +74,17 @@ impl FarColours {
         Ok(Self { blocks })
     }
 
+    /// Every block's colour as light (0 to 1), its top's and then its sides', by the block's number: for the near eye,
+    /// whose faces are the colour the far cells are summed from.
+    pub fn as_light(&self) -> Vec<[f32; 4]> {
+        (0..self.blocks.len().max(1) as Block)
+            .flat_map(|block| [true, false].map(|up| {
+                let colour = self.colour(block, up);
+                [colour[0] as f32 / FULL as f32, colour[1] as f32 / FULL as f32, colour[2] as f32 / FULL as f32, 1.0]
+            }))
+            .collect()
+    }
+
     /// A face's colour: its block's top looking up, its sides' every other way (a block with none: mid grey, as old).
     fn colour(&self, block: Block, up: bool) -> [u64; 3] {
         self.blocks.get(block as usize).copied().flatten().map_or([FULL / 2; 3], |(top, side)| if up { top } else { side })

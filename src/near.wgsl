@@ -1,0 +1,150 @@
+// The near eye's faces (plan 2.3, build 195): the chunks' merged faces drawn as triangles, lit as the far eye lights.
+// `near_eye.rs` puts the far eye's own text in front of this when the program is built (`far.wgsl`'s `Camera`, its
+// levels' table, its light's rule and its light store's reading), so both eyes light by one text.
+
+@group(0) @binding(0) var<uniform> camera: Camera;
+@group(0) @binding(1) var<uniform> levels: array<vec4<i32>, 48>;
+@group(0) @binding(2) var t_shadow: texture_2d<f32>;
+@group(0) @binding(3) var t_sky: texture_2d<f32>;
+@group(0) @binding(4) var soft: sampler;
+// Each block's colour from far, as light: its top's, then its sides' (the far colours' table).
+@group(0) @binding(5) var<storage, read> colours: array<vec4<f32>>;
+@group(0) @binding(6) var<uniform> near: Near;
+// The faces' depth, for the water (its pass alone).
+@group(1) @binding(0) var t_depth: texture_depth_2d;
+
+struct Near {
+    // The eye's block (north, east, up), and how far into it the eye is: a face's place is taken from the eye in whole
+    // blocks first, so far from the map's middle nothing wobbles.
+    cell: vec4<i32>,
+    part: vec4<f32>,
+    // x: how far out the near faces reach now (blocks, level); y: over how many blocks before that they fade out onto
+    // the far picture; z, w: the nearest and farthest depth kept.
+    reach: vec4<f32>,
+}
+
+struct Corner {
+    @builtin(position) clip: vec4<f32>,
+    // From the eye (north, east, up).
+    @location(0) from_eye: vec3<f32>,
+    // The facing (0 north, 1 south, 2 east, 3 west, 4 up, 5 down) and the block.
+    @location(1) @interpolate(flat) what: vec2<u32>,
+    // How far along the eye's own way.
+    @location(2) ahead: f32,
+}
+
+// A face's corner. The face is three words (`near.rs`, `packed`): its place in its chunk, its facing and its width;
+// its height and its block; its chunk. Four corners a face, a strip; every face is wound the same way seen from the
+// side it looks out of.
+@vertex
+fn near_corner(@builtin(vertex_index) corner: u32, @location(0) face: vec3<u32>) -> Corner {
+    let facing = (face.x >> 22u) & 7u;
+    let wide = f32(((face.x >> 25u) & 31u) + 1u);
+    let high = f32((face.y & 1023u) + 1u);
+    let chunk = vec2<i32>(i32(face.z & 0xFFFFu) - 32768, i32(face.z >> 16u) - 32768);
+    // The face's least cell, from the eye's cell, in whole blocks.
+    let cell = vec3<i32>(chunk * 32 + vec2<i32>(i32(face.x & 63u), i32((face.x >> 6u) & 63u)), i32((face.x >> 12u) & 1023u)) - near.cell.xyz;
+    var u = f32(corner & 1u);
+    let v = f32(corner >> 1u);
+    // The two ways it spreads, and the way it looks: a face that looks up or down spreads north and east; north or
+    // south, east and up; east or west, north and up. On the far side of its cell if it looks the greater way.
+    var spread_a = vec3<f32>(1.0, 0.0, 0.0);
+    var spread_b = vec3<f32>(0.0, 1.0, 0.0);
+    var out_of = vec3<f32>(0.0, 0.0, 1.0);
+    if (facing < 2u) {
+        spread_a = vec3<f32>(0.0, 1.0, 0.0);
+        spread_b = vec3<f32>(0.0, 0.0, 1.0);
+        out_of = vec3<f32>(1.0, 0.0, 0.0);
+    } else if (facing < 4u) {
+        spread_b = vec3<f32>(0.0, 0.0, 1.0);
+        out_of = vec3<f32>(0.0, 1.0, 0.0);
+    }
+    // (North, west and up are wound one way as they come; the other three turned round.)
+    if (facing == 1u || facing == 2u || facing == 5u) {
+        u = 1.0 - u;
+    }
+    let greater = facing == 0u || facing == 2u || facing == 4u;
+    let from_eye = vec3<f32>(cell) + spread_a * u * wide + spread_b * v * high + out_of * select(0.0, 1.0, greater) - near.part.xyz;
+    // The far eye's own view: a pixel's ray is forward + x right + y up, so a place's x and y are its share of right
+    // and up over how far ahead it is.
+    let ahead = dot(from_eye, camera.forward.xyz);
+    let x = dot(from_eye, camera.right.xyz) / dot(camera.right.xyz, camera.right.xyz);
+    let y = dot(from_eye, camera.up.xyz) / dot(camera.up.xyz, camera.up.xyz);
+    let span = near.reach.w / (near.reach.w - near.reach.z);
+    var corner_out: Corner;
+    corner_out.clip = vec4<f32>(x, y, (ahead - near.reach.z) * span, ahead);
+    corner_out.from_eye = from_eye;
+    corner_out.what = vec2<u32>(facing, face.y >> 10u);
+    corner_out.ahead = ahead;
+    return corner_out;
+}
+
+fn looks(facing: u32) -> vec3<f32> {
+    switch facing {
+        case 0u: { return vec3<f32>(1.0, 0.0, 0.0); }
+        case 1u: { return vec3<f32>(-1.0, 0.0, 0.0); }
+        case 2u: { return vec3<f32>(0.0, 1.0, 0.0); }
+        case 3u: { return vec3<f32>(0.0, -1.0, 0.0); }
+        case 4u: { return vec3<f32>(0.0, 0.0, 1.0); }
+        default: { return vec3<f32>(0.0, 0.0, -1.0); }
+    }
+}
+
+// A surface's colour lit as the far eye lights a finished ray (`far.wgsl`'s `lit`, `sunlit` and `shaded`): the sun on
+// the way it looks, the sky's light, and from the far eye's light store at its place the sun's shadow and how much
+// sky it sees.
+fn near_lit(colour: vec3<f32>, light: f32, from_eye: vec3<f32>) -> vec3<f32> {
+    var whole = lit(colour, light);
+    let sunny = sunlit(colour, light);
+    let skyish = whole - sunny;
+    var sun = 1.0;
+    var sky_open = 1.0;
+    if (camera.view.w > 0.5) {
+        let store = cell_light(camera.position.xyz + from_eye, f32(1 << u32(FIRST)));
+        sun = select(1.0, store.x, camera.follow.y > 0.5);
+        sky_open = store.y;
+    }
+    whole -= sunny * (1.0 - sun);
+    let sky = select(1.0, mix(1.0, sky_open, camera.sky.y), camera.sky.x > 0.5);
+    let tint = mix(vec3<f32>(1.0), SKY_TINT, camera.sky.z);
+    return whole + skyish * (sky * tint - 1.0);
+}
+
+// How much of a near surface shows at a place: all of it, fading to none over the last stretch before the near
+// faces' reach, where the far picture behind takes over.
+fn near_shows(from_eye: vec3<f32>) -> f32 {
+    return clamp((near.reach.x - length(from_eye.xy)) / max(near.reach.y, 1.0), 0.0, 1.0);
+}
+
+@fragment
+fn near_face(corner: Corner) -> @location(0) vec4<f32> {
+    let shows = near_shows(corner.from_eye);
+    if (shows <= 0.0) {
+        discard;
+    }
+    let facing = corner.what.x;
+    let way = looks(facing);
+    let colour = colours[corner.what.y * 2u + select(1u, 0u, facing == 4u)].rgb;
+    let light = max(dot(way, camera.sun.xyz), 0.0);
+    return vec4<f32>(to_srgb(clamp(near_lit(colour, light, corner.from_eye), vec3<f32>(0.0), vec3<f32>(1.0))), shows);
+}
+
+// The water's top, over the faces already drawn: the far eye's water (its colour, and how fast it dims what's seen
+// through it), by how much water the eye looks through to the face behind.
+@fragment
+fn near_water(corner: Corner) -> @location(0) vec4<f32> {
+    let shows = near_shows(corner.from_eye);
+    if (shows <= 0.0) {
+        discard;
+    }
+    let behind = textureLoad(t_depth, vec2<i32>(corner.clip.xy), 0);
+    if (corner.clip.z > behind) {
+        discard;
+    }
+    // How far ahead the face behind is, from its depth; nothing behind (the near faces end): deep water.
+    let span = near.reach.w / (near.reach.w - near.reach.z);
+    let ahead_behind = select(near.reach.z * span / max(span - behind, 1e-6), near.reach.w, behind >= 1.0);
+    let through = max(ahead_behind - corner.ahead, 0.0) * length(corner.from_eye) / max(corner.ahead, 0.01);
+    let dimmed = 1.0 - exp(-camera.water.w * through);
+    return vec4<f32>(to_srgb(clamp(near_lit(camera.water.rgb, 1.0, corner.from_eye), vec3<f32>(0.0), vec3<f32>(1.0))), dimmed * shows);
+}

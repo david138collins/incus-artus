@@ -218,6 +218,11 @@ struct Targets {
 }
 
 pub struct FarEye {
+    /// Where the far rays begin while the near eye draws what's nearer (blocks from the eye; 0: at the eye). Set by
+    /// the near eye each frame (`near_eye.rs`: a little inside where its faces fade out).
+    pub near_from: f32,
+    /// How many times the targets have been made (the near eye's bind group is made again when they are).
+    targets_made: u64,
     pub store: Store,
     lane: Option<Lane>,
     /// The rings round the eye (`far_ring.rs`), the 16s' first, then the 8s' (as many as `INCUS_FAR_RING` says: 0
@@ -579,7 +584,7 @@ impl FarEye {
         let tally_counts = LAYERS.iter().map(|_| device.create_buffer(&wgpu::BufferDescriptor { label: Some("a far layer's longest ray"), size: 4 * TALLY as u64, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false })).collect();
         let tally_back = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the longest rays read back"), size: 4 * (TALLY * (LAYERS.len() + 1)) as u64, usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let tally_state = std::sync::Arc::new(std::sync::atomic::AtomicU8::new(0));
-        Self { store, lane, rings, eye: [0.0; 2], start, march, up, layout, up_layout, sampler, targets: None, look, textures, atlas: None, building: None, stand_ins, light: None, lighting: None, sweeping: None, sun_asked, light_stand_ins, blue, blue_bytes, edge, layers, one, one_loaded, one_loaded_other, faces_asked, one_start, one_join, cut_at, long, loaded_off: std::env::var("INCUS_FAR_LOADED").as_deref() == Ok("0"), loaded_said: std::sync::atomic::AtomicBool::new(false), audit, parity: 0, fresh: false, haze_step, most_steps, tops_making: None, tops_made: None, tops_off: false, reach, begin, tally, tally_counts, tally_back, tally_state, waiting, waiting_counts }
+        Self { near_from: 0.0, targets_made: 0, store, lane, rings, eye: [0.0; 2], start, march, up, layout, up_layout, sampler, targets: None, look, textures, atlas: None, building: None, stand_ins, light: None, lighting: None, sweeping: None, sun_asked, light_stand_ins, blue, blue_bytes, edge, layers, one, one_loaded, one_loaded_other, faces_asked, one_start, one_join, cut_at, long, loaded_off: std::env::var("INCUS_FAR_LOADED").as_deref() == Ok("0"), loaded_said: std::sync::atomic::AtomicBool::new(false), audit, parity: 0, fresh: false, haze_step, most_steps, tops_making: None, tops_made: None, tops_off: false, reach, begin, tally, tally_counts, tally_back, tally_state, waiting, waiting_counts }
     }
 
     /// Whether every region is on the card, the window's regions round the eye too, and the far textures if they're made.
@@ -602,6 +607,16 @@ impl FarEye {
     /// Which blends can be chosen now: the code's, the hardware's (once the far textures are in).
     pub fn blends(&self) -> [bool; 2] {
         [true, self.atlas.is_some()]
+    }
+
+    /// What the near eye reads of the far eye's (`near.wgsl`): the base layer's camera, the levels' table, the light's
+    /// two pictures (the stand-ins till the light is in) and the sampler; and a number that changes when any of them
+    /// is another buffer or picture. None till the targets are made.
+    pub fn near_reads(&self) -> Option<(&wgpu::Buffer, &wgpu::Buffer, &wgpu::TextureView, &wgpu::TextureView, &wgpu::Sampler, u64)> {
+        let targets = self.targets.as_ref()?;
+        let (shadow, sky) = self.light.as_ref().map_or((&self.light_stand_ins[0], &self.light_stand_ins[1]), |l| (&l.shadow_views[l.shown], &l.sky));
+        let light = self.light.as_ref().map_or(0, |l| 1 + l.generation as u64 * 2 + l.shown as u64);
+        Some((&targets.layers.first()?.camera, &self.store.table, shadow, sky, &self.sampler, self.targets_made << 32 | light << 8 | self.store.generation as u64 & 0xFF))
     }
 
     /// Whether the Render page's cover-by-faces switch can do anything now: there's a second program, and the march
@@ -1041,6 +1056,7 @@ impl FarEye {
                 })
             })
         });
+        self.targets_made += 1;
         self.targets = Some(Targets { screen, generation: self.store.generation, atlas_in: self.atlas.is_some(), atlas_generation, light: light_now, tiles, tally_groups, tally_parts, waiting_numbers, waiting_groups, layers, up_numbers, up_group, one, one_starts, long_rays, cut, strip, audit });
         true
     }
@@ -1108,7 +1124,7 @@ impl FarEye {
                 [1.0, if look.shadows && direct > 0.0 { 1.0 } else { 0.0 }, finest_level as f32, if self.edge { 1.0 } else { 0.0 }],
                 [above.map_or(0.0, |a| layer.factor / a.factor), below.map_or(0.0, |b| b.factor / layer.factor), self.most_steps, self.store.tops_at as f32],
                 [fade[0].max(0.1), fade[1].max(0.05), look.hand_over.clamp(0.3, 0.95), look.sky_weight.max(0.0)],
-                [if look.sky_light { 1.0 } else { 0.0 }, look.sky_strength.clamp(0.0, 1.0), look.sky_tint.clamp(0.0, 1.0), self.begin],
+                [if look.sky_light { 1.0 } else { 0.0 }, look.sky_strength.clamp(0.0, 1.0), look.sky_tint.clamp(0.0, 1.0), self.begin.max(self.near_from)],
                 [if look.fog { 3.0 / look.fog_reach.max(10.0) } else { 0.0 }, std::f32::consts::LN_2 / look.fog_height.max(1.0), sea_level, look.fog_warmth.clamp(0.0, 1.0)],
                 [direct, NIGHT_LIGHT + (1.0 - NIGHT_LIGHT) * glow, glow, NIGHT_LIGHT],
                 [water[0], water[1], water[2], 20f32.ln() / WATER_CLARITY],
@@ -1585,7 +1601,9 @@ mod tests {
         let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions { power_preference: wgpu::PowerPreference::HighPerformance, ..Default::default() })).expect("a graphics card");
         let largest = adapter.limits().max_buffer_size.min(adapter.limits().max_storage_buffer_binding_size).min((2 << 30) - 1);
         let required_limits = wgpu::Limits { max_buffer_size: largest, max_storage_buffer_binding_size: largest, ..wgpu::Limits::default() };
-        let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor { label: Some("a test"), required_limits, ..Default::default() })).expect("the card's device");
+        // (The near eye's draws are read from a list: `card.rs` asks the same of the game's card.)
+        let required_features = adapter.features() & wgpu::Features::INDIRECT_FIRST_INSTANCE;
+        let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor { label: Some("a test"), required_features, required_limits, ..Default::default() })).expect("the card's device");
         let errors = device.push_error_scope(wgpu::ErrorFilter::Validation);
         let marks = crate::marks::load().unwrap();
         // From the spawn, or another mark if asked (`FAR_TEST_MARK`, its name, for a look).
@@ -1675,6 +1693,24 @@ mod tests {
             assert!(eye.one_loaded_other.is_some(), "the march's other program is made");
             eye.look.faces = asked != 0;
         }
+        // The near eye over the far picture, if asked (`FAR_TEST_NEAR`: its render radius, chunks): every chunk of the
+        // radius in before a frame is drawn.
+        let mut near = std::env::var("FAR_TEST_NEAR").ok().and_then(|radius| radius.parse::<f32>().ok()).map(|radius| {
+            let mut near = crate::near_eye::NearEye::new(&device, &queue, format, crate::doorway::test_world(), &colours.as_light()).unwrap();
+            near.radius = radius;
+            let began = std::time::Instant::now();
+            loop {
+                near.put(&device, &queue, at, &mut eye).unwrap();
+                queue.submit([]);
+                if near.counts.kept >= near.counts.wanted && near.counts.wanted > 0 {
+                    break;
+                }
+                assert!(began.elapsed().as_secs() < 600, "the near eye's radius fills in ten minutes");
+                std::thread::sleep(std::time::Duration::from_millis(2));
+            }
+            eprintln!("The near eye filled in {:.2} s: {:?}", began.elapsed().as_secs_f32(), near.counts);
+            near
+        });
         // The sky's weight to draw with, if asked (`FAR_TEST_SKY_WEIGHT`, for a look at the skyline).
         if let Some(weight) = std::env::var("FAR_TEST_SKY_WEIGHT").ok().and_then(|w| w.parse().ok()) {
             eye.look.sky_weight = weight;
@@ -1714,6 +1750,9 @@ mod tests {
         // before's, and the first frame makes its own); the last one's picture read back.
         let frames = std::env::var("FAR_TEST_FRAMES").ok().and_then(|n| n.parse::<u32>().ok()).unwrap_or(1).max(1);
         for _ in 1..frames {
+            if let Some(near) = &mut near {
+                near.put(&device, &queue, at, &mut eye).unwrap();
+            }
             eye.prepare(&device, &queue, screen, &camera, doorway.sea_level as f32);
             let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("the far eye's test") });
             eye.start(&mut encoder, None);
@@ -1731,6 +1770,9 @@ mod tests {
         if faces_test == Some(2) {
             eye.look.faces = false;
         }
+        if let Some(near) = &mut near {
+            near.put(&device, &queue, at, &mut eye).unwrap();
+        }
         eye.prepare(&device, &queue, screen, &camera, doorway.sea_level as f32);
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("the far eye's test") });
         eye.start(&mut encoder, None);
@@ -1738,6 +1780,12 @@ mod tests {
             eye.layer(k, &mut encoder, None);
         }
         eye.bring_up(&mut encoder, &view, None);
+        if let Some(near) = &mut near {
+            assert!(near.prepare(&device, &queue, screen, &eye, &camera), "the near eye has what it reads of the far eye's");
+            near.draw_faces(&mut encoder, &view, None);
+            near.draw_water(&mut encoder, &view, None);
+            eprintln!("The near eye drew: {:?}", near.counts);
+        }
         encoder.copy_texture_to_buffer(
             wgpu::TexelCopyTextureInfo { texture: &target, mip_level: 0, origin: wgpu::Origin3d::ZERO, aspect: wgpu::TextureAspect::All },
             wgpu::TexelCopyBufferInfo { buffer: &readback, layout: wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(row), rows_per_image: None } },

@@ -19,6 +19,7 @@ flowchart TB
     pass_going_to_a_mark["going to a mark"]
     pass_flying["flying"]
     pass_putting_the_far_cells_on_the_card["putting the far cells on the card"]
+    pass_putting_the_near_chunks_on_the_card["putting the near chunks on the card"]
     pass_laying_out_the_panel["laying out the panel"]
     pass_getting_the_picture["getting the picture"]
     pass_the_far_start["the far start"]
@@ -26,6 +27,8 @@ flowchart TB
     pass_the_far_4_x_4["the far 4 x 4"]
     pass_the_far_2_x_2["the far 2 x 2"]
     pass_bringing_it_up["bringing it up"]
+    pass_the_near_faces["the near faces"]
+    pass_the_near_water["the near water"]
     pass_the_panel["the panel"]
     pass_handing_the_card_its_work["handing the card its work"]
     pass_showing_it["showing it"]
@@ -34,6 +37,7 @@ flowchart TB
   subgraph lane_loading["loading (as tiles are asked for)"]
     direction LR
     pass_the_doorway["the doorway"]
+    pass_meshing_the_near_chunks["meshing the near chunks"]
     pass_summing_the_far_cells["summing the far cells"]
     pass_making_the_far_textures["making the far textures"]
     pass_making_the_far_light["making the far light"]
@@ -56,6 +60,7 @@ flowchart TB
   store_the_marks[("the marks")]
   store_what_changed[("what changed")]
   store_the_far_cells[("the far cells")]
+  store_the_near_faces[("the near faces")]
   store_the_far_bricks[("the far bricks")]
   store_the_far_layers[("the far layers")]
   store_the_far_eye_s_look[("the far eye's look")]
@@ -78,6 +83,9 @@ flowchart TB
   pass_putting_the_far_cells_on_the_card --> store_the_far_bricks
   pass_putting_the_far_cells_on_the_card --> store_the_far_textures
   pass_putting_the_far_cells_on_the_card --> store_the_window_round_the_eye
+  store_the_camera --> pass_putting_the_near_chunks_on_the_card
+  pass_putting_the_near_chunks_on_the_card --> store_the_near_faces
+  pass_putting_the_near_chunks_on_the_card --> store_the_far_eye_s_look
   store_the_camera --> pass_laying_out_the_panel
   store_the_clocks --> pass_laying_out_the_panel
   store_the_wiring --> pass_laying_out_the_panel
@@ -112,6 +120,14 @@ flowchart TB
   pass_the_far_2_x_2 --> store_the_far_layers
   store_the_far_layers --> pass_bringing_it_up
   pass_bringing_it_up --> store_the_screen_s_picture
+  store_the_near_faces --> pass_the_near_faces
+  store_the_far_light --> pass_the_near_faces
+  store_the_camera --> pass_the_near_faces
+  pass_the_near_faces --> store_the_screen_s_picture
+  store_the_near_faces --> pass_the_near_water
+  store_the_far_light --> pass_the_near_water
+  store_the_camera --> pass_the_near_water
+  pass_the_near_water --> store_the_screen_s_picture
   store_the_panel_s_shapes --> pass_the_panel
   pass_the_panel --> store_the_screen_s_picture
   store_the_screen_s_picture --> pass_showing_it
@@ -122,6 +138,9 @@ flowchart TB
   store_the_export --> pass_the_doorway
   store_what_changed --> pass_the_doorway
   pass_the_doorway --> store_a_tile_s_columns
+  store_a_tile_s_columns --> pass_meshing_the_near_chunks
+  store_what_changed --> pass_meshing_the_near_chunks
+  pass_meshing_the_near_chunks --> store_the_near_faces
   store_a_tile_s_columns --> pass_summing_the_far_cells
   pass_summing_the_far_cells --> store_the_far_cells
   store_the_far_cells --> pass_making_the_far_textures
@@ -147,7 +166,7 @@ flowchart TB
 
 - **Runs:** once a frame.
 - **What it is:** Each frame, its passes in order: the camera goes to a mark if it's time, flies, the panels are laid out, the card draws the picture, and it's handed to the screen.
-- **Its passes, in order:** going to a mark, flying, putting the far cells on the card, laying out the panel, getting the picture, the far start, the far 8 x 8, the far 4 x 4, the far 2 x 2, bringing it up, the panel, handing the card its work, showing it and measuring.
+- **Its passes, in order:** going to a mark, flying, putting the far cells on the card, putting the near chunks on the card, laying out the panel, getting the picture, the far start, the far 8 x 8, the far 4 x 4, the far 2 x 2, bringing it up, the near faces, the near water, the panel, handing the card its work, showing it and measuring.
 - **Switch** `INCUS_FLIGHT`: a measured flight: every mark in data/marks.toml in turn, 5 s settling and 20 s measured at each, uncapped with the panel hidden; a report, then quits.
 - **Switch** `WGPU_ADAPTER_NAME`: the card, by part of its name (intel: the laptop's Intel card).
 - **Switch** `WGPU_POWER_PREF`: the card, by power (low or high).
@@ -160,9 +179,9 @@ flowchart TB
 
 - **Runs:** as tiles are asked for.
 - **What it is:** The world, read a tile at a time through the doorway. Going to a mark asks it for the ground under the eye; the far cells' lane will ask for tiles (2.2).
-- **Its passes, in order:** the doorway, summing the far cells, making the far textures, making the far light and making the far ring.
+- **Its passes, in order:** the doorway, meshing the near chunks, summing the far cells, making the far textures, making the far light and making the far ring.
 - **Switch** `INCUS_SCATTER_STAGE`: 1: the scatter stage is on: test detail the doorway applies as it answers a tile (woods within 10 km of the spawn, towers, a castle, a town, a hall's entrance, cave mouths, posts, a slab, an arch), from a seed and a short list of places, for the far cells, the far light and the near eye to be judged on. An instrument, not world generation; unset, the world as the export has it.
-- **Files:** src/doorway.rs, src/scatter_stage.rs and src/near.rs.
+- **Files:** src/doorway.rs and src/scatter_stage.rs.
 
 ### the temperatures
 
@@ -209,6 +228,16 @@ flowchart TB
 - **Switch** `INCUS_FAR_WINDOW`: the window round the eye: the 32s' radius in regions, the 64s' twice it (unset: 10; 0 the whole world on the card) (2.2, step 4).
 - **Cost, last measured** (`kept logs/flight-1794589790.txt`): on the processor median 0.028, 95th 0.063, 99th 0.166, worst 0.342.
 - **Files:** src/bricks.rs and src/far_eye.rs.
+
+### putting the near chunks on the card
+
+- **A pass** in the frame, on the processor.
+- **What it is:** The near lane asked for the chunks inside the render radius when the eye's chunk or the radius changes; the chunks it has made put on the card, nearest first, as many faces as a frame may; those outside the radius given back. Then how far the near faces reach (to the nearest chunk still to come, or the whole radius), and the far eye told to begin its rays a little inside that.
+- **Reads:** the camera. **Writes:** the near faces and the far eye's look.
+- **Switch** `INCUS_NEAR`: 0: no near eye at all (the game as build 194, for measuring against); unset, the blocks inside the render radius drawn as triangles (plan 2.3).
+- **Switch** `INCUS_NEAR_RADIUS`: the render radius the game starts with, in chunks of 32 blocks, 1 to 64 (unset: 4); the Render page's slider moves it.
+- **Cost, last measured** (`kept logs/flight-1794589790.txt`): not measured.
+- **Files:** src/near_eye.rs and src/near.rs.
 
 ### laying out the panel
 
@@ -284,6 +313,22 @@ flowchart TB
 - **Cost, last measured** (`kept logs/flight-1794589790.txt`): recording it on the processor median 0.004, 95th 0.008, 99th 0.010, worst 0.188; on the card median 0.101, 95th 0.103, 99th 0.105, worst 0.328.
 - **Files:** src/far_eye.rs and src/far_up.wgsl.
 
+### the near faces
+
+- **A pass** in the frame, on the card.
+- **What it is:** The chunks in view inside the near faces' reach, their merged faces drawn as triangles over the far picture, with depth: each face its block's colour from far, lit as the far eye lights (the sun on the way it looks, the far light's shadow and sky at its place). Fading out over the last stretch before their reach, onto the far picture behind.
+- **Reads:** the near faces, the far light and the camera. **Writes:** the screen's picture.
+- **Cost, last measured** (`kept logs/flight-1794589790.txt`): not measured.
+- **Files:** src/near_eye.rs and src/near.wgsl.
+
+### the near water
+
+- **A pass** in the frame, on the card.
+- **What it is:** The water's top inside the near faces' reach, drawn over them: the far eye's water (its colour, and how fast it dims what's seen through it) by how much water the eye looks through to the face behind, read from the near faces' depth.
+- **Reads:** the near faces, the far light and the camera. **Writes:** the screen's picture.
+- **Cost, last measured** (`kept logs/flight-1794589790.txt`): not measured.
+- **Files:** src/near_eye.rs and src/near.wgsl.
+
 ### the panel
 
 - **A pass** in the frame, on the card.
@@ -323,6 +368,14 @@ flowchart TB
 - **Reads:** the export and what changed. **Writes:** a tile's columns.
 - **Cost, last measured** (`kept logs/flight-1794589790.txt`): on the processor not run.
 - **Files:** src/doorway.rs.
+
+### meshing the near chunks
+
+- **A pass** in loading, on the processor.
+- **What it is:** A chunk's faces made on the near lane's own threads (32 x 32 columns, the world's height): every side of a solid block that looks into air or water, merged where they make a rectangle in one plane (greedy meshing), and the water's top. Timed a chunk; not in the frame.
+- **Reads:** a tile's columns and what changed. **Writes:** the near faces.
+- **Cost, last measured** (`kept logs/flight-1794589790.txt`): not measured.
+- **Files:** src/near.rs.
 
 ### summing the far cells
 
@@ -379,7 +432,7 @@ flowchart TB
 
 - **A store** on the processor.
 - **What it is:** Where the eye is (north, east, up, in blocks) and where it looks (facing from north toward east, pitch up from level).
-- **Written by:** hearing the window, going to a mark, flying and laying out the panel. **Read by:** putting the far cells on the card, laying out the panel and the far start.
+- **Written by:** hearing the window, going to a mark, flying and laying out the panel. **Read by:** putting the far cells on the card, putting the near chunks on the card, laying out the panel, the far start, the near faces and the near water.
 - **Files:** src/camera.rs.
 
 ### the clocks
@@ -409,7 +462,7 @@ flowchart TB
 
 - **A store** on the card.
 - **What it is:** The picture the card draws on and the screen shows, the window's size.
-- **Written by:** bringing it up and the panel. **Read by:** showing it.
+- **Written by:** bringing it up, the near faces, the near water and the panel. **Read by:** showing it.
 - **Files:** src/card.rs.
 
 ### the flight's report
@@ -437,7 +490,7 @@ flowchart TB
 
 - **A store** on the processor.
 - **What it is:** A tile's answer: each column's ground, water and profile as the export holds them, its runs made when asked.
-- **Written by:** the doorway. **Read by:** going to a mark, summing the far cells and making the far ring.
+- **Written by:** the doorway. **Read by:** going to a mark, meshing the near chunks, summing the far cells and making the far ring.
 - **Files:** src/doorway.rs.
 
 ### the marks
@@ -451,7 +504,7 @@ flowchart TB
 
 - **A store** on the processor.
 - **What it is:** The changes made through the doorway, by tile: whole blocks and bars, in the order they were made. A mark's are taken back when the flight moves on.
-- **Written by:** going to a mark. **Read by:** the doorway.
+- **Written by:** going to a mark. **Read by:** the doorway and meshing the near chunks.
 - **Files:** src/doorway.rs.
 
 ### the far cells
@@ -462,6 +515,15 @@ flowchart TB
 - **Limit:** blocks a side of the first level's cells, 32.
 - **Limit:** blocks a side of a region, made at once, 1024.
 - **Files:** src/far.rs.
+
+### the near faces
+
+- **A store** on the card.
+- **What it is:** The chunks inside the render radius as merged faces, 12 bytes a face (its place in its chunk, the way it looks, its size, its block; its chunk), in pages of one buffer each; a chunk's water's tops after its blocks' sides.
+- **Written by:** putting the near chunks on the card and meshing the near chunks. **Read by:** the near faces and the near water.
+- **Limit:** columns a side of a chunk, 32.
+- **Limit:** chunks the render radius goes to, 64.
+- **Files:** src/near_eye.rs and src/near.rs.
 
 ### the far bricks
 
@@ -485,7 +547,7 @@ flowchart TB
 
 - **A store** on the processor.
 - **What it is:** What David tunes on the Render page (F3): where the levels hand over, where the 4 x 4 and the 2 x 2 fade in, and the sky's weight at a skyline; each with its default (Default puts them all back).
-- **Written by:** laying out the panel. **Read by:** the far start.
+- **Written by:** putting the near chunks on the card and laying out the panel. **Read by:** the far start.
 - **Files:** src/far_eye.rs and src/panel.rs.
 
 ### the far textures
@@ -500,7 +562,7 @@ flowchart TB
 
 - **A store** on the card.
 - **What it is:** The far eye's light, read from the cell: two pictures of the whole world, every level's columns side by side in each (the first level at the left, the others down a column to its right; each level's place is the last of its numbers in the levels' table): the height the sun's shadow reaches at each column (16-bit floats, kept twice so a new sweep is swapped in whole) and how much sky its top sees (8-bit). The tops they're made from are kept on the processor.
-- **Written by:** making the far light. **Read by:** the far 8 x 8, the far 4 x 4 and the far 2 x 2.
+- **Written by:** making the far light. **Read by:** the far 8 x 8, the far 4 x 4, the far 2 x 2, the near faces and the near water.
 - **Limit:** columns out the sky's horizon is looked for, 16.
 - **Files:** src/far_light.rs.
 

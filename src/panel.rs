@@ -36,6 +36,8 @@ pub struct Readings<'a> {
     pub blends: [bool; 2],
     /// Whether the cover-by-faces switch can do anything now (`FarEye::faces_switch`).
     pub faces_switch: bool,
+    /// The near eye's counts (none: no near eye).
+    pub near: Option<crate::near_eye::Counts>,
     pub far: String,
 }
 
@@ -46,7 +48,7 @@ impl Panel {
 
     /// The panel, its Camera page changing the camera's speed and its Render page the far eye's look (`look`: none
     /// without a far eye).
-    pub fn show(&mut self, ctx: &egui::Context, readings: &Readings, look: Option<&mut FarLook>, pace: &mut Pace) {
+    pub fn show(&mut self, ctx: &egui::Context, readings: &Readings, look: Option<&mut FarLook>, radius: Option<&mut f32>, pace: &mut Pace) {
         if !self.visible {
             return;
         }
@@ -62,7 +64,7 @@ impl Panel {
             match self.page {
                 0 => overview(ui, readings),
                 1 => camera(ui, readings, pace),
-                _ => render(ui, readings, look),
+                _ => render(ui, readings, look, radius),
             }
         });
     }
@@ -125,7 +127,7 @@ fn section_default(ui: &mut egui::Ui, look: &mut FarLook, differs: bool, reset: 
 /// very simple crossover slider set for the transitions ... i can watch the card time as i adjust it ... and include a
 /// default button"; "please expose any interesting or valuable parameters that may be worth adjusting live, with
 /// default switches so i can get back to normal"].
-fn render(ui: &mut egui::Ui, readings: &Readings, look: Option<&mut FarLook>) {
+fn render(ui: &mut egui::Ui, readings: &Readings, look: Option<&mut FarLook>, radius: Option<&mut f32>) {
     let card = |id: PassId| readings.passes[id as usize].card.unwrap_or_default();
     let median: f32 = FAR_PASSES.iter().map(|id| card(*id).median).sum();
     let p99: f32 = FAR_PASSES.iter().map(|id| card(*id).p99).sum();
@@ -138,6 +140,31 @@ fn render(ui: &mut egui::Ui, readings: &Readings, look: Option<&mut FarLook>) {
     ui.label(format!("The far cells: {}", readings.far));
     ui.label(format!("The frame: {:.2} ms, {fps:.0} a second", frame.median));
     ui.label(FAR_PASSES.iter().map(|id| format!("{} {:.2}", crate::wiring::pass(*id).name.trim_start_matches("the far "), card(*id).median)).collect::<Vec<_>>().join(" · "));
+    // The near eye: its time on the card, what it holds and draws, and its radius [David, 2026-11-16: "lets just make
+    // a radius slider and get started. the render radius set there will determine where the triangles start and rays
+    // fade"; its place and name here: "yes thats fine"]. Greyed where there's no near eye.
+    let near_ms: f32 = [PassId::TheNearFaces, PassId::TheNearWater].iter().map(|id| card(*id).median).sum();
+    match &readings.near {
+        Some(near) => {
+            ui.strong(format!("The near eye on the card: {near_ms:.2} ms"));
+            ui.label(format!(
+                "{} of {} chunks in, {} drawn; {:.2} million triangles drawn of {:.2} kept, {:.0} MB",
+                near.kept,
+                near.wanted,
+                near.drawn,
+                near.faces_drawn as f64 * 2.0 / 1e6,
+                near.faces as f64 * 2.0 / 1e6,
+                near.megabytes
+            ));
+            ui.label(format!("its faces reach {:.0} blocks; the far rays begin at {:.0}; a chunk meshed in {:.1} ms on {} threads", near.reach, near.far_from, near.chunk_ms, near.threads));
+        }
+        None => {
+            ui.label("No near eye (INCUS_NEAR=0, or no far eye).");
+        }
+    }
+    let mut none = crate::near_eye::RADIUS;
+    let there = radius.is_some();
+    ui.add_enabled(there, egui::Slider::new(radius.unwrap_or(&mut none), 1.0..=crate::near_eye::MOST_RADIUS).step_by(1.0).text("Render radius (chunks)"));
     ui.separator();
     let Some(look) = look else {
         ui.label("No far eye (the doorway couldn't open the world).");

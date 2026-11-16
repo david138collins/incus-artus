@@ -40,6 +40,7 @@ mod memory;
 mod panel;
 mod runner;
 mod near;
+mod near_eye;
 mod scatter_stage;
 mod session;
 mod temperatures;

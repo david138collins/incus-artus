@@ -88,8 +88,12 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** where the near eye's slider goes and what it's called (asked: the Render page,
-  "Render radius (chunks)", 1 to 64); nothing else yet. **The near eye (2.3) is begun, by triangles, his word**
+- **Waiting on David:** his word to launch build 195 for a first look at the near eye (its first run in the
+  game itself; the slider is on the Render page, "Render radius (chunks)", his "yes thats fine"). Build 195 is
+  built and checked off the screen (`journal/docs/experiments.md`): the blocks inside the radius drawn as merged
+  faces over the far picture, crisp, the same colour and light as the far eye's, no gap between the two at radius
+  1, 4, 16 or 64; at 64 chunks 13,100 chunks are kept (14.4 million faces, 168 MB), 10 million triangles drawn in
+  view from the spawn, the radius filled in 5 s. Not yet: its flights, its row, its counts in a flight's report. **The near eye (2.3) is begun, by triangles, his word**
   (2026-11-16, `journal/docs/experiments.md`): "I believe we should try to accomplish the rest of the graphics
   engine with triangles. rays may come in later for different cases"; "lets just make a radius slider and get
   started. the render radius set there will determine where the triangles start and rays fade"; his goal, "64

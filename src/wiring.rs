@@ -59,6 +59,7 @@ pub enum PassId {
     GoingToAMark,
     Flying,
     PuttingTheFarCellsOnTheCard,
+    PuttingTheNearChunksOnTheCard,
     LayingOutThePanel,
     GettingThePicture,
     TheFarStart,
@@ -66,11 +67,14 @@ pub enum PassId {
     TheFar4,
     TheFar2,
     BringingItUp,
+    TheNearFaces,
+    TheNearWater,
     ThePanel,
     HandingTheCardItsWork,
     ShowingIt,
     Measuring,
     TheDoorway,
+    MeshingTheNearChunks,
     SummingTheFarCells,
     MakingTheFarTextures,
     MakingTheFarLight,
@@ -105,6 +109,7 @@ pub enum StoreId {
     Marks,
     Changes,
     FarCells,
+    NearFaces,
     FarBricks,
     FarLayers,
     FarLook,
@@ -155,7 +160,7 @@ pub const LANES: [Lane; 4] = [
         runs: "as tiles are asked for",
         what: "The world, read a tile at a time through the doorway. Going to a mark asks it for the ground under the eye; the far cells' lane will ask for tiles (2.2).",
         switches: &[("INCUS_SCATTER_STAGE", "1: the scatter stage is on: test detail the doorway applies as it answers a tile (woods within 10 km of the spawn, towers, a castle, a town, a hall's entrance, cave mouths, posts, a slab, an arch), from a seed and a short list of places, for the far cells, the far light and the near eye to be judged on. An instrument, not world generation; unset, the world as the export has it")],
-        files: &["src/doorway.rs", "src/scatter_stage.rs", "src/near.rs"],
+        files: &["src/doorway.rs", "src/scatter_stage.rs"],
     },
     Lane {
         id: LaneId::Temperatures,
@@ -167,7 +172,7 @@ pub const LANES: [Lane; 4] = [
     },
 ];
 
-pub const PASSES: [Pass; 21] = [
+pub const PASSES: [Pass; 25] = [
     Pass {
         id: PassId::HearingTheWindow,
         name: "hearing the window",
@@ -215,6 +220,20 @@ pub const PASSES: [Pass; 21] = [
             ("INCUS_FAR_WINDOW", "the window round the eye: the 32s' radius in regions, the 64s' twice it (unset: 10; 0 the whole world on the card) (2.2, step 4)"),
         ],
         files: &["src/bricks.rs", "src/far_eye.rs"],
+    },
+    Pass {
+        id: PassId::PuttingTheNearChunksOnTheCard,
+        name: "putting the near chunks on the card",
+        lane: LaneId::Frame,
+        on: Where::Processor,
+        what: "The near lane asked for the chunks inside the render radius when the eye's chunk or the radius changes; the chunks it has made put on the card, nearest first, as many faces as a frame may; those outside the radius given back. Then how far the near faces reach (to the nearest chunk still to come, or the whole radius), and the far eye told to begin its rays a little inside that.",
+        reads: &[StoreId::Camera],
+        writes: &[StoreId::NearFaces, StoreId::FarLook],
+        switches: &[
+            ("INCUS_NEAR", "0: no near eye at all (the game as build 194, for measuring against); unset, the blocks inside the render radius drawn as triangles (plan 2.3)"),
+            ("INCUS_NEAR_RADIUS", "the render radius the game starts with, in chunks of 32 blocks, 1 to 64 (unset: 4); the Render page's slider moves it"),
+        ],
+        files: &["src/near_eye.rs", "src/near.rs"],
     },
     Pass {
         id: PassId::LayingOutThePanel,
@@ -313,6 +332,28 @@ pub const PASSES: [Pass; 21] = [
         files: &["src/far_eye.rs", "src/far_up.wgsl"],
     },
     Pass {
+        id: PassId::TheNearFaces,
+        name: "the near faces",
+        lane: LaneId::Frame,
+        on: Where::Card,
+        what: "The chunks in view inside the near faces' reach, their merged faces drawn as triangles over the far picture, with depth: each face its block's colour from far, lit as the far eye lights (the sun on the way it looks, the far light's shadow and sky at its place). Fading out over the last stretch before their reach, onto the far picture behind.",
+        reads: &[StoreId::NearFaces, StoreId::FarLight, StoreId::Camera],
+        writes: &[StoreId::ScreenPicture],
+        switches: &[],
+        files: &["src/near_eye.rs", "src/near.wgsl"],
+    },
+    Pass {
+        id: PassId::TheNearWater,
+        name: "the near water",
+        lane: LaneId::Frame,
+        on: Where::Card,
+        what: "The water's top inside the near faces' reach, drawn over them: the far eye's water (its colour, and how fast it dims what's seen through it) by how much water the eye looks through to the face behind, read from the near faces' depth.",
+        reads: &[StoreId::NearFaces, StoreId::FarLight, StoreId::Camera],
+        writes: &[StoreId::ScreenPicture],
+        switches: &[],
+        files: &["src/near_eye.rs", "src/near.wgsl"],
+    },
+    Pass {
         id: PassId::ThePanel,
         name: "the panel",
         lane: LaneId::Frame,
@@ -368,6 +409,17 @@ pub const PASSES: [Pass; 21] = [
         writes: &[StoreId::TileColumns],
         switches: &[],
         files: &["src/doorway.rs"],
+    },
+    Pass {
+        id: PassId::MeshingTheNearChunks,
+        name: "meshing the near chunks",
+        lane: LaneId::Loading,
+        on: Where::Processor,
+        what: "A chunk's faces made on the near lane's own threads (32 x 32 columns, the world's height): every side of a solid block that looks into air or water, merged where they make a rectangle in one plane (greedy meshing), and the water's top. Timed a chunk; not in the frame.",
+        reads: &[StoreId::TileColumns, StoreId::Changes],
+        writes: &[StoreId::NearFaces],
+        switches: &[],
+        files: &["src/near.rs"],
     },
     Pass {
         id: PassId::SummingTheFarCells,
@@ -426,7 +478,7 @@ pub const PASSES: [Pass; 21] = [
     },
 ];
 
-pub const STORES: [Store; 21] = [
+pub const STORES: [Store; 22] = [
     Store {
         id: StoreId::KeysHeld,
         name: "the keys held",
@@ -530,6 +582,14 @@ pub const STORES: [Store; 21] = [
         what: "The world as the far eye sees it: cubes of 32 blocks and every level above, 16 bytes a cell (old's form: how solid, how wet, which ways its faces look, their colour, how their light and height spread, how much surface shows), only each column's surface band kept. Colours from data/far colours.toml, old's, until the Registrar.",
         limits: &[("blocks a side of the first level's cells", 1 << crate::far::FIRST), ("blocks a side of a region, made at once", 1 << crate::far::REGION)],
         files: &["src/far.rs"],
+    },
+    Store {
+        id: StoreId::NearFaces,
+        name: "the near faces",
+        on: Where::Card,
+        what: "The chunks inside the render radius as merged faces, 12 bytes a face (its place in its chunk, the way it looks, its size, its block; its chunk), in pages of one buffer each; a chunk's water's tops after its blocks' sides.",
+        limits: &[("columns a side of a chunk", crate::near::CHUNK as u64), ("chunks the render radius goes to", crate::near_eye::MOST_RADIUS as u64)],
+        files: &["src/near_eye.rs", "src/near.rs"],
     },
     Store {
         id: StoreId::FarBricks,
