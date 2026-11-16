@@ -6893,3 +6893,25 @@ first, into a picture and depth of its own, serves three things at once: the far
 (the miss above, and the far eye cheaper wherever blocks fill the view), his x-fader (the two pictures joined by
 a curve a pixel at a time, with no fading faces hiding the ones behind them), and each pixel of the near picture
 shaded once instead of once for every face behind it.
+
+### Build 198's pass mark (2026-11-16): the debug panel's pages scroll and fold
+
+**David's words:** "hey btw, we gotta do something about that debug panel, it runs off the screen its so long. we
+should add collapsing sections to it and a scrollbar." Put to him: the whole page scrolling and never taller
+than the screen; sections by the headings already on the panel (Render: "The far eye", "The near eye" with the
+render radius slider, "The picture", "Ray start", "Crossovers", "Light", "Fog", each Default staying beside its
+section's name; Overview: "The frame", "Each pass"); open at the start the far eye, the near eye and the picture,
+the rest folded. **His answer:** "your way of folding the content of the debug pages is fine".
+
+**The mark** (written before the code; the panel alone, nothing either eye draws):
+
+1. **Each page scrolls under its tabs,** and the panel is never taller than the room from where it sits to the
+   screen's bottom. (The Render page's own scrolling box of settings goes: the page scrolls instead.)
+2. **The sections fold,** by a click on a heading's arrow or its name; those named above, those open at the
+   start as said. A folded section's heading still says what it said (the far eye's time, the near eye's, the
+   frame's rate) and keeps its Default beside it. Folded or open is kept while the game runs.
+3. **Nothing else changes:** every readout and control as it was, under its heading; a control that can't do
+   anything greyed, as before.
+
+No flight: the panel is hidden on one. **Builder can't see the panel off the screen: the look is David's,** and
+this is launched for it as build 198.
