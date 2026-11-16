@@ -2365,6 +2365,23 @@ Reference: `Art/quartile minecraft illustration.png`
   views 6.995 ms for 6.663; high over the spawn **1.210** (+11%, woods under it: 6.87 million steps for 6.04), the
   run +32%; the stage's own six marks 0.27 to 1.04 ms. So detail raises the dearest view, a world with woods
   standing about a tenth over a bare one, still well under 2 ms.
+  - *The plain's miss explained, and build 190* (mark 63a735f, code d1fe13c): one ray nearly covered where its first
+    length ended (1.3% let through) was barred from a new length by build 183's guard (none begun under a
+    twentieth), so its next length marched 205 steps past the ray's true end, cut and uncut every other frame; it
+    showed after build 189 because the hand-over's mend lets a little more through. Build 190: a length begins as the
+    ray truly stood (down to a hundredth), and the moving view's guard moves into the join (nothing in the march's
+    loop changed). Off the screen: that ray steady (56 and 77 steps), the plain's longest thread 127; the cut's
+    still picture nearer the uncut one everywhere (the plain's 3,072 pixels off by 4 of 255 or more, now none); the
+    first frame after a 2° turn high over the spawn 9 of 255 out at worst, for 51 (the ground's own colour where
+    sky showed through for a frame). Also written down, not mended: with the stage on, the run's march is 39%
+    dearer because more rays turn long than the list holds (4,686 for 4,096 places).
+  - *Build 190 flown* (on "go"; 18:31 to 18:38, `logs/flight-1794789487`, as launched, checked by Counsel). **The
+    mark met:** the bare plain 0.448 ms (186: 0.450; 189: 0.502), the sea nodding 0.518 (0.561; 0.583), the plain
+    nodding 0.451; the card's whole over the nine views 6.548 ms, the least yet (186: 6.582; 189: 6.663); no mark
+    over build 189's by more than 2%. The two working marks a little dearer (the mountain top's march 0.923 for 0.913,
+    high over the spawn 0.980 for 0.963; the dearest view 1.109 ms for 1.091) with the same steps to the thousand;
+    Builder reads it as the session (the card's least clock 2,625 MHz at the mountain top for 2,700, after an hour of
+    picture tests), not proven by one flight; the next flight flown for any reason will say. Next: the skyline talk.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
