@@ -6915,3 +6915,17 @@ the rest folded. **His answer:** "your way of folding the content of the debug p
 
 No flight: the panel is hidden on one. **Builder can't see the panel off the screen: the look is David's,** and
 this is launched for it as build 198.
+
+### Build 198 built (unlaunched, unseen): the debug panel's pages scroll and fold
+
+**Built as the mark says** (`panel.rs` alone): the page under the tabs is in one scrolling box no taller than the
+room from where it begins to the screen's bottom (the Render page's own box of 560 is gone); a `section` folds by
+its arrow or its name, its Default beside the name, folded or open kept by the panel's own memory while the game
+runs. Render: "The far eye on the card: ... ms" and "The near eye on the card: ... ms" (the render radius slider
+in it) and "The picture" open at the start; "Ray start", "Crossovers", "Light", "Fog" folded. Overview: "The
+frame: ... a second" and "Each pass" folded at the start, as the words put to David had it ("the rest folded");
+if he'd rather the Overview's two were open, that's one word each. The Camera page scrolls, and has no sections.
+"All to default" stays at the Render page's foot.
+
+**Not seen by anyone:** it compiles and the tests pass; there's no way to draw the panel off the screen yet. The
+look is David's.
