@@ -279,8 +279,7 @@ impl Runner {
                 PassId::TheFar4 => self.the_far_layer(&mut work, 1, PassId::TheFar4),
                 PassId::TheFar2 => self.the_far_layer(&mut work, 2, PassId::TheFar2),
                 PassId::BringingItUp => self.bringing_it_up(&mut work),
-                PassId::TheNearFaces => self.the_near(&mut work, false),
-                PassId::TheNearWater => self.the_near(&mut work, true),
+                PassId::TheNearFaces | PassId::TheNearWater | PassId::TheXFader => self.the_near(&mut work, pass.id),
                 PassId::ThePanel => self.the_panel(&mut work),
                 PassId::HandingTheCardItsWork => self.handing_the_card_its_work(&mut work),
                 PassId::ShowingIt => self.showing_it(&mut work),
@@ -415,23 +414,22 @@ impl Runner {
         true
     }
 
-    /// The near eye's faces over the far picture, then (its second pass) its water over them.
-    fn the_near(&mut self, work: &mut FrameWork, water: bool) -> bool {
+    /// The near eye's faces into its own picture, then (its second pass) its water over them, then (its third, the
+    /// x-fader) that picture laid over the far picture.
+    fn the_near(&mut self, work: &mut FrameWork, id: PassId) -> bool {
         let Some(running) = &mut self.running else { return false };
         let (Some(near), Some(far), Some(texture), Some(encoder)) = (&mut running.near, &running.far, &work.texture, &mut work.encoder) else { return true };
         if !work.far_drew {
             return true;
         }
-        let view = texture.texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let id = if water { PassId::TheNearWater } else { PassId::TheNearFaces };
-        if !water && !near.prepare(&running.card.device, &running.card.queue, (running.card.config.width, running.card.config.height), far, &self.camera) {
+        if id == PassId::TheNearFaces && !near.prepare(&running.card.device, &running.card.queue, (running.card.config.width, running.card.config.height), far, &self.camera) {
             return true;
         }
         let timestamps = wiring::card_slot(id).and_then(|slot| running.card_clock.as_ref().and_then(|clock| clock.render_pass(slot)));
-        if water {
-            near.draw_water(encoder, &view, timestamps);
-        } else {
-            near.draw_faces(encoder, &view, timestamps);
+        match id {
+            PassId::TheNearFaces => near.draw_faces(encoder, timestamps),
+            PassId::TheNearWater => near.draw_water(encoder, timestamps),
+            _ => near.join(encoder, &texture.texture.create_view(&wgpu::TextureViewDescriptor::default()), timestamps),
         }
         true
     }
@@ -522,7 +520,7 @@ impl Runner {
             near: running.near.as_ref().map(|near| near.counts),
             far: running.far.as_ref().map_or("none".to_string(), FarEye::state),
         };
-        self.panel.show(&ctx, &readings, running.far.as_mut().map(|far| &mut far.look), running.near.as_mut().map(|near| &mut near.radius), &mut self.camera.pace);
+        self.panel.show(&ctx, &readings, running.far.as_mut().map(|far| &mut far.look), running.near.as_mut().map(|near| &mut near.look), &mut self.camera.pace);
         // The temperatures, top right, always, flights too [David: "while you are running tests, i am sitting here
         // watching, and id like to know what the temps are at while watching"].
         if let Some(watch) = &self.temperatures {

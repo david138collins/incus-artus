@@ -69,6 +69,7 @@ pub enum PassId {
     BringingItUp,
     TheNearFaces,
     TheNearWater,
+    TheXFader,
     ThePanel,
     HandingTheCardItsWork,
     ShowingIt,
@@ -110,6 +111,7 @@ pub enum StoreId {
     Changes,
     FarCells,
     NearFaces,
+    NearPicture,
     FarBricks,
     FarLayers,
     FarLook,
@@ -172,7 +174,7 @@ pub const LANES: [Lane; 4] = [
     },
 ];
 
-pub const PASSES: [Pass; 25] = [
+pub const PASSES: [Pass; 26] = [
     Pass {
         id: PassId::HearingTheWindow,
         name: "hearing the window",
@@ -337,9 +339,9 @@ pub const PASSES: [Pass; 25] = [
         name: "the near faces",
         lane: LaneId::Frame,
         on: Where::Card,
-        what: "The chunks in view inside the near faces' reach, their merged faces drawn as triangles over the far picture, with depth: each face its block's colour from far, lit as the far eye lights (the sun on the way it looks, the far light's shadow and sky at its place). Fading out over the last stretch before their reach, onto the far picture behind.",
+        what: "The chunks in view inside the near faces' reach, their merged faces drawn as triangles into the near eye's own picture, with depth, every face whole and the nearest winning a pixel: each face its block's colour from far, lit as the far eye lights (the sun on the way it looks, the far light's shadow and sky at its place), and multiplied by how much of it shows by the x-fader (all of it before the band, none at the faces' reach, along the curve between).",
         reads: &[StoreId::NearFaces, StoreId::FarLight, StoreId::Camera],
-        writes: &[StoreId::ScreenPicture],
+        writes: &[StoreId::NearPicture],
         switches: &[],
         files: &["src/near_eye.rs", "src/near.wgsl"],
     },
@@ -348,11 +350,22 @@ pub const PASSES: [Pass; 25] = [
         name: "the near water",
         lane: LaneId::Frame,
         on: Where::Card,
-        what: "The water's top inside the near faces' reach, drawn over them: the far eye's water (its colour, and how fast it dims what's seen through it) by how much water the eye looks through to the face behind, read from the near faces' depth.",
-        reads: &[StoreId::NearFaces, StoreId::FarLight, StoreId::Camera],
-        writes: &[StoreId::ScreenPicture],
+        what: "The water's top inside the near faces' reach, drawn over them: the far eye's water (its colour, and how fast it dims what's seen through it) by how much water the eye looks through to the face behind, read from the near faces' depth; laid over them in the near eye's picture.",
+        reads: &[StoreId::NearFaces, StoreId::NearPicture, StoreId::FarLight, StoreId::Camera],
+        writes: &[StoreId::NearPicture],
         switches: &[],
         files: &["src/near_eye.rs", "src/near.wgsl"],
+    },
+    Pass {
+        id: PassId::TheXFader,
+        name: "the x-fader",
+        lane: LaneId::Frame,
+        on: Where::Card,
+        what: "The near eye's picture laid over the far picture, a pixel at a time: where blocks hand over to rays. How much of a block's pixel shows is in the near picture already (the Render page's x-fader width and curve).",
+        reads: &[StoreId::NearPicture],
+        writes: &[StoreId::ScreenPicture],
+        switches: &[],
+        files: &["src/near_eye.rs", "src/near_join.wgsl"],
     },
     Pass {
         id: PassId::ThePanel,
@@ -479,7 +492,7 @@ pub const PASSES: [Pass; 25] = [
     },
 ];
 
-pub const STORES: [Store; 22] = [
+pub const STORES: [Store; 23] = [
     Store {
         id: StoreId::KeysHeld,
         name: "the keys held",
@@ -591,6 +604,14 @@ pub const STORES: [Store; 22] = [
         what: "The chunks inside the render radius as merged faces, 12 bytes a face (its place in its chunk, the way it looks, its size, its block; its chunk), in pages of one buffer each; a chunk's water's tops after its blocks' sides.",
         limits: &[("columns a side of a chunk", crate::near::CHUNK as u64), ("chunks the render radius goes to", crate::near_eye::MOST_RADIUS as u64)],
         files: &["src/near_eye.rs", "src/near.rs"],
+    },
+    Store {
+        id: StoreId::NearPicture,
+        name: "the near picture",
+        on: Where::Card,
+        what: "The near eye's own picture and depth, the screen's size: every face whole, the nearest winning a pixel, the water over them; each pixel multiplied by how much of it shows, for the x-fader to lay over the far picture.",
+        limits: &[("blocks the x-fader's band goes to", crate::near_eye::MOST_FADER_WIDTH as u64)],
+        files: &["src/near_eye.rs"],
     },
     Store {
         id: StoreId::FarBricks,

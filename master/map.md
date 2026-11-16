@@ -29,6 +29,7 @@ flowchart TB
     pass_bringing_it_up["bringing it up"]
     pass_the_near_faces["the near faces"]
     pass_the_near_water["the near water"]
+    pass_the_x_fader["the x-fader"]
     pass_the_panel["the panel"]
     pass_handing_the_card_its_work["handing the card its work"]
     pass_showing_it["showing it"]
@@ -61,6 +62,7 @@ flowchart TB
   store_what_changed[("what changed")]
   store_the_far_cells[("the far cells")]
   store_the_near_faces[("the near faces")]
+  store_the_near_picture[("the near picture")]
   store_the_far_bricks[("the far bricks")]
   store_the_far_layers[("the far layers")]
   store_the_far_eye_s_look[("the far eye's look")]
@@ -123,11 +125,14 @@ flowchart TB
   store_the_near_faces --> pass_the_near_faces
   store_the_far_light --> pass_the_near_faces
   store_the_camera --> pass_the_near_faces
-  pass_the_near_faces --> store_the_screen_s_picture
+  pass_the_near_faces --> store_the_near_picture
   store_the_near_faces --> pass_the_near_water
+  store_the_near_picture --> pass_the_near_water
   store_the_far_light --> pass_the_near_water
   store_the_camera --> pass_the_near_water
-  pass_the_near_water --> store_the_screen_s_picture
+  pass_the_near_water --> store_the_near_picture
+  store_the_near_picture --> pass_the_x_fader
+  pass_the_x_fader --> store_the_screen_s_picture
   store_the_panel_s_shapes --> pass_the_panel
   pass_the_panel --> store_the_screen_s_picture
   store_the_screen_s_picture --> pass_showing_it
@@ -166,7 +171,7 @@ flowchart TB
 
 - **Runs:** once a frame.
 - **What it is:** Each frame, its passes in order: the camera goes to a mark if it's time, flies, the panels are laid out, the card draws the picture, and it's handed to the screen.
-- **Its passes, in order:** going to a mark, flying, putting the far cells on the card, putting the near chunks on the card, laying out the panel, getting the picture, the far start, the far 8 x 8, the far 4 x 4, the far 2 x 2, bringing it up, the near faces, the near water, the panel, handing the card its work, showing it and measuring.
+- **Its passes, in order:** going to a mark, flying, putting the far cells on the card, putting the near chunks on the card, laying out the panel, getting the picture, the far start, the far 8 x 8, the far 4 x 4, the far 2 x 2, bringing it up, the near faces, the near water, the x-fader, the panel, handing the card its work, showing it and measuring.
 - **Switch** `INCUS_FLIGHT`: a measured flight: every mark in data/marks.toml in turn, 5 s settling and 20 s measured at each, uncapped with the panel hidden; a report, then quits.
 - **Switch** `WGPU_ADAPTER_NAME`: the card, by part of its name (intel: the laptop's Intel card).
 - **Switch** `WGPU_POWER_PREF`: the card, by power (low or high).
@@ -317,18 +322,26 @@ flowchart TB
 ### the near faces
 
 - **A pass** in the frame, on the card.
-- **What it is:** The chunks in view inside the near faces' reach, their merged faces drawn as triangles over the far picture, with depth: each face its block's colour from far, lit as the far eye lights (the sun on the way it looks, the far light's shadow and sky at its place). Fading out over the last stretch before their reach, onto the far picture behind.
-- **Reads:** the near faces, the far light and the camera. **Writes:** the screen's picture.
+- **What it is:** The chunks in view inside the near faces' reach, their merged faces drawn as triangles into the near eye's own picture, with depth, every face whole and the nearest winning a pixel: each face its block's colour from far, lit as the far eye lights (the sun on the way it looks, the far light's shadow and sky at its place), and multiplied by how much of it shows by the x-fader (all of it before the band, none at the faces' reach, along the curve between).
+- **Reads:** the near faces, the far light and the camera. **Writes:** the near picture.
 - **Cost, last measured** (`kept logs/flight-1794589790.txt`): not measured.
 - **Files:** src/near_eye.rs and src/near.wgsl.
 
 ### the near water
 
 - **A pass** in the frame, on the card.
-- **What it is:** The water's top inside the near faces' reach, drawn over them: the far eye's water (its colour, and how fast it dims what's seen through it) by how much water the eye looks through to the face behind, read from the near faces' depth.
-- **Reads:** the near faces, the far light and the camera. **Writes:** the screen's picture.
+- **What it is:** The water's top inside the near faces' reach, drawn over them: the far eye's water (its colour, and how fast it dims what's seen through it) by how much water the eye looks through to the face behind, read from the near faces' depth; laid over them in the near eye's picture.
+- **Reads:** the near faces, the near picture, the far light and the camera. **Writes:** the near picture.
 - **Cost, last measured** (`kept logs/flight-1794589790.txt`): not measured.
 - **Files:** src/near_eye.rs and src/near.wgsl.
+
+### the x-fader
+
+- **A pass** in the frame, on the card.
+- **What it is:** The near eye's picture laid over the far picture, a pixel at a time: where blocks hand over to rays. How much of a block's pixel shows is in the near picture already (the Render page's x-fader width and curve).
+- **Reads:** the near picture. **Writes:** the screen's picture.
+- **Cost, last measured** (`kept logs/flight-1794589790.txt`): not measured.
+- **Files:** src/near_eye.rs and src/near_join.wgsl.
 
 ### the panel
 
@@ -463,7 +476,7 @@ flowchart TB
 
 - **A store** on the card.
 - **What it is:** The picture the card draws on and the screen shows, the window's size.
-- **Written by:** bringing it up, the near faces, the near water and the panel. **Read by:** showing it.
+- **Written by:** bringing it up, the x-fader and the panel. **Read by:** showing it.
 - **Files:** src/card.rs.
 
 ### the flight's report
@@ -525,6 +538,14 @@ flowchart TB
 - **Limit:** columns a side of a chunk, 32.
 - **Limit:** chunks the render radius goes to, 64.
 - **Files:** src/near_eye.rs and src/near.rs.
+
+### the near picture
+
+- **A store** on the card.
+- **What it is:** The near eye's own picture and depth, the screen's size: every face whole, the nearest winning a pixel, the water over them; each pixel multiplied by how much of it shows, for the x-fader to lay over the far picture.
+- **Written by:** the near faces and the near water. **Read by:** the near water and the x-fader.
+- **Limit:** blocks the x-fader's band goes to, 512.
+- **Files:** src/near_eye.rs.
 
 ### the far bricks
 

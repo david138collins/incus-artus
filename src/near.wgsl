@@ -17,9 +17,10 @@ struct Near {
     // The eye's block (north, east, up), and how far into it the eye is: a face's place is taken from the eye in whole
     // blocks first, so far from the map's middle nothing wobbles.
     cell: vec4<i32>,
+    // (w: the x-fader's curve, 1 a straight fade.)
     part: vec4<f32>,
-    // x: how far out the near faces reach now (blocks, level); y: over how many blocks before that they fade out onto
-    // the far picture; z, w: the nearest and farthest depth kept.
+    // x: how far out the near faces reach now (blocks, level); y: the x-fader's band, how many blocks before that
+    // they hand over to the far picture across; z, w: the nearest and farthest depth kept.
     reach: vec4<f32>,
 }
 
@@ -110,10 +111,16 @@ fn near_lit(colour: vec3<f32>, light: f32, from_eye: vec3<f32>) -> vec3<f32> {
     return whole + skyish * (sky * tint - 1.0);
 }
 
-// How much of a near surface shows at a place: all of it, fading to none over the last stretch before the near
-// faces' reach, where the far picture behind takes over.
+// The x-fader [David, 2026-11-16: "i think a x-fader with curves could hide it almost completely so blocks smoothly
+// fade into rays"]. How much of a near surface shows at a place: all of it before the band, none at the near faces'
+// reach, and across the band along the curve: straight at 1; higher, an S that holds each side longer and crosses
+// quicker in the middle (half and half at the band's middle whatever the curve). A band of no width is a hard edge.
 fn near_shows(from_eye: vec3<f32>) -> f32 {
-    return clamp((near.reach.x - length(from_eye.xy)) / max(near.reach.y, 1.0), 0.0, 1.0);
+    let across = clamp(1.0 - (near.reach.x - length(from_eye.xy)) / max(near.reach.y, 0.001), 0.0, 1.0);
+    let curve = max(near.part.w, 1.0);
+    let rays = pow(across, curve);
+    let blocks = pow(1.0 - across, curve);
+    return blocks / max(blocks + rays, 1e-9);
 }
 
 @fragment
@@ -126,7 +133,9 @@ fn near_face(corner: Corner) -> @location(0) vec4<f32> {
     let way = looks(facing);
     let colour = colours[corner.what.y * 2u + select(1u, 0u, facing == 4u)].rgb;
     let light = max(dot(way, camera.sun.xyz), 0.0);
-    return vec4<f32>(to_srgb(clamp(near_lit(colour, light, corner.from_eye), vec3<f32>(0.0), vec3<f32>(1.0))), shows);
+    // (Into the near eye's own picture, whole: the nearest face wins a pixel, whatever order the chunks come in.
+    // Kept multiplied by how much of it shows, for the x-fader to lay over the far picture.)
+    return vec4<f32>(to_srgb(clamp(near_lit(colour, light, corner.from_eye), vec3<f32>(0.0), vec3<f32>(1.0))) * shows, shows);
 }
 
 // The water's top, over the faces already drawn: the far eye's water (its colour, and how fast it dims what's seen
@@ -146,5 +155,6 @@ fn near_water(corner: Corner) -> @location(0) vec4<f32> {
     let ahead_behind = select(near.reach.z * span / max(span - behind, 1e-6), near.reach.w, behind >= 1.0);
     let through = max(ahead_behind - corner.ahead, 0.0) * length(corner.from_eye) / max(corner.ahead, 0.01);
     let dimmed = 1.0 - exp(-camera.water.w * through);
-    return vec4<f32>(to_srgb(clamp(near_lit(camera.water.rgb, 1.0, corner.from_eye), vec3<f32>(0.0), vec3<f32>(1.0))), dimmed * shows);
+    let covers = dimmed * shows;
+    return vec4<f32>(to_srgb(clamp(near_lit(camera.water.rgb, 1.0, corner.from_eye), vec3<f32>(0.0), vec3<f32>(1.0))) * covers, covers);
 }

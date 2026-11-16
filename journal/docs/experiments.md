@@ -6985,3 +6985,52 @@ back to him at the look, since a name is a moment to change.
 
 **Not in this build:** far rays skipped under blocks (the build after, with the near eye drawn before the far
 eye marches); faces turned away left out; the listing of chunks each frame.
+
+### Build 198 looked at (no word yet); build 199 built (unflown): the near eye's own picture and the x-fader, checked off the screen
+
+**Build 198's look:** launched on his "launch", 134 s, closed by him (`logs/session-1794853385.log`: no error or
+warning). He hasn't said anything of the panel yet; asked.
+
+**Build 199, built as the mark says:**
+
+- **The near eye's own picture** (`near_eye.rs`): a colour picture and the depth, the screen's size. The faces are
+  written whole into it with depth (no blending: the nearest face wins a pixel), the water laid over them, and
+  every pixel is kept multiplied by how much of it shows. A third pass, **"the x-fader"** (`near_join.wgsl`,
+  new: one triangle over the screen), lays that picture over the far picture. The wiring has the pass and a
+  store, "the near picture"; the map is redrawn.
+- **The x-fader's rule** (`near.wgsl`, `near_shows`): across the band before the faces' reach, the blocks' share
+  falls from all to none; with `t` how far across the band, the share is `(1-t)^c / ((1-t)^c + t^c)`, `c` the
+  curve: straight at 1, an S above it, half and half at the middle whatever `c`. The band is as wide as its
+  slider says and never more than half the reach; the far rays begin 24 blocks before it.
+- **The panel:** "The near eye" has, under the render radius, "x-fader width (blocks)" (0 to 512, 64 to start
+  with) and "x-fader curve" (1 to 8, 2 to start with), and a Default beside its heading that puts all three
+  back (the radius to 4), as the far eye's sections have.
+
+**Off the screen** (2,560 x 1,600):
+
+1. **The same from run to run: met, to the pixel.** The spawn at 4 chunks drawn twice: no pixel differs (build
+   197: up to 639, by up to 9). So the guess was right: it was the fading faces' order.
+2. **No gap:** no black or clear pixel at 1, 4, 16 or 64 chunks.
+3. **The x-fader, read off pictures** from 60 blocks over the plain looking down, the far eye in its levels'
+   colours so the two pictures differ. With no band the blocks end at a clean edge at 64, 96 and 128 blocks (2, 3
+   and 4 chunks). With a band of 64 at 4 chunks, the blocks' share of a pixel, in three columns:
+
+   | blocks out | 128 | 120 | 112 | 96 | 80 | 72 | 64 |
+   |---|---|---|---|---|---|---|---|
+   | curve 1 | 0.00 | 0.10 | 0.20 to 0.23 | 0.49 to 0.51 | 0.68 to 0.73 | 0.83 to 0.87 | 1.00 |
+   | curve 2 | 0.00 | 0.01 | 0.05 to 0.08 | 0.49 to 0.51 | 0.82 to 0.89 | 0.96 to 0.98 | 1.00 |
+   | curve 8 | 0.00 | 0.00 | 0.00 | 0.51 to 0.53 | 0.99 to 1.00 | 1.00 | 1.00 |
+
+   **Met:** a hard edge at no width; half and half at the middle; no step at either end (the largest change from
+   one row to the next 0.02 to 0.04 at curves 1 and 2).
+
+**Two slips of Builder's on the way, said.** The first try at reading the band stood on the plain, where a crest
+64 blocks out hid the ground behind it: every edge fell on the same rows and the reading said nothing; taken
+again from above. And one edit of a helper script went through a shell here-document, against the standing
+habit (it held no Rust and worked; not to be repeated).
+
+**Seen on the way, written down:** on the plain the far eye alone draws a soft band of ground colour some 50
+pixels deep over the true horizon (its near cells' haze). With its rays begun farther out, as they are with the
+near eye on, that band is gone and the horizon is a clean line.
+
+**Not flown:** what the own picture and the extra pass cost. All 40 tests pass.

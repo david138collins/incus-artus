@@ -1697,7 +1697,12 @@ mod tests {
         // radius in before a frame is drawn.
         let mut near = std::env::var("FAR_TEST_NEAR").ok().and_then(|radius| radius.parse::<f32>().ok()).map(|radius| {
             let mut near = crate::near_eye::NearEye::new(&device, &queue, format, crate::doorway::test_world(), &colours.as_light()).unwrap();
-            near.radius = radius;
+            near.look.radius = radius;
+            // The x-fader, if asked (`FAR_TEST_FADER`: its width in blocks, then its curve).
+            let fader: Vec<f32> = std::env::var("FAR_TEST_FADER").ok().map(|v| v.split(',').filter_map(|n| n.trim().parse().ok()).collect()).unwrap_or_default();
+            if fader.len() == 2 {
+                (near.look.fader_width, near.look.fader_curve) = (fader[0], fader[1]);
+            }
             // The mark's own changes (David's build; a scatter at `FAR_TEST_SCATTER`, its count), told to the near eye
             // as the game tells it on going to the mark.
             let mut changed = Doorway::open(&crate::doorway::test_world()).unwrap();
@@ -1793,8 +1798,9 @@ mod tests {
         eye.bring_up(&mut encoder, &view, None);
         if let Some(near) = &mut near {
             assert!(near.prepare(&device, &queue, screen, &eye, &camera), "the near eye has what it reads of the far eye's");
-            near.draw_faces(&mut encoder, &view, None);
-            near.draw_water(&mut encoder, &view, None);
+            near.draw_faces(&mut encoder, None);
+            near.draw_water(&mut encoder, None);
+            near.join(&mut encoder, &view, None);
             eprintln!("The near eye drew: {:?}", near.counts);
         }
         encoder.copy_texture_to_buffer(

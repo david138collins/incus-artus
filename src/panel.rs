@@ -5,6 +5,7 @@
 use crate::camera::{Camera, Pace};
 use crate::clocks::{PassTimes, Spread};
 use crate::far_eye::FarLook;
+use crate::near_eye::NearLook;
 use crate::wiring::PassId;
 
 /// The pages, in order (old's names; the Render page holds the far eye's look, David 2026-11-12).
@@ -48,7 +49,7 @@ impl Panel {
 
     /// The panel, its Camera page changing the camera's speed and its Render page the far eye's look (`look`: none
     /// without a far eye).
-    pub fn show(&mut self, ctx: &egui::Context, readings: &Readings, look: Option<&mut FarLook>, radius: Option<&mut f32>, pace: &mut Pace) {
+    pub fn show(&mut self, ctx: &egui::Context, readings: &Readings, look: Option<&mut FarLook>, near_look: Option<&mut NearLook>, pace: &mut Pace) {
         if !self.visible {
             return;
         }
@@ -68,7 +69,7 @@ impl Panel {
             egui::ScrollArea::vertical().max_height(room).show(ui, |ui| match self.page {
                 0 => overview(ui, readings),
                 1 => camera(ui, readings, pace),
-                _ => render(ui, readings, look, radius),
+                _ => render(ui, readings, look, near_look),
             });
         });
     }
@@ -153,7 +154,7 @@ fn section_default(ui: &mut egui::Ui, look: &mut FarLook, differs: bool, reset: 
 /// time as i adjust it ... and include a default button"; "please expose any interesting or valuable parameters that
 /// may be worth adjusting live, with default switches so i can get back to normal"]. Every section folds (`section`);
 /// the far eye, the near eye and the picture are open at the start.
-fn render(ui: &mut egui::Ui, readings: &Readings, look: Option<&mut FarLook>, radius: Option<&mut f32>) {
+fn render(ui: &mut egui::Ui, readings: &Readings, look: Option<&mut FarLook>, near_look: Option<&mut NearLook>) {
     let card = |id: PassId| readings.passes[id as usize].card.unwrap_or_default();
     let median: f32 = FAR_PASSES.iter().map(|id| card(*id).median).sum();
     let p99: f32 = FAR_PASSES.iter().map(|id| card(*id).p99).sum();
@@ -169,12 +170,20 @@ fn render(ui: &mut egui::Ui, readings: &Readings, look: Option<&mut FarLook>, ra
     });
     // The near eye: its time on the card, what it holds and draws, and its radius [David, 2026-11-16: "lets just make
     // a radius slider and get started. the render radius set there will determine where the triangles start and rays
-    // fade"; its place and name here: "yes thats fine"]. Greyed where there's no near eye.
-    let near_ms: f32 = [PassId::TheNearFaces, PassId::TheNearWater].iter().map(|id| card(*id).median).sum();
+    // fade"; its place and name here: "yes thats fine"]. And the x-fader, how blocks hand over to rays [David,
+    // 2026-11-16: "i think a x-fader with curves could hide it almost completely so blocks smoothly fade into rays";
+    // its two sliders' place and names were put to him with the step, and his answer was "go ahead with the next
+    // step"]. Greyed where there's no near eye. The section's Default puts all three back, like the far eye's.
+    let near_ms: f32 = [PassId::TheNearFaces, PassId::TheNearWater, PassId::TheXFader].iter().map(|id| card(*id).median).sum();
     let near_title = if readings.near.is_some() { format!("The near eye on the card: {near_ms:.2} ms") } else { "The near eye".to_string() };
-    let mut none = crate::near_eye::RADIUS;
-    let there = radius.is_some();
-    section(ui, "render: the near eye", &near_title, true, radius.unwrap_or(&mut none), |_, _| {}, |ui, radius| {
+    let mut none = NearLook::DEFAULT;
+    let there = near_look.is_some();
+    let beside = |ui: &mut egui::Ui, look: &mut NearLook| {
+        if ui.add_enabled(there && *look != NearLook::DEFAULT, egui::Button::new("Default").small()).clicked() {
+            *look = NearLook::DEFAULT;
+        }
+    };
+    section(ui, "render: the near eye", &near_title, true, near_look.unwrap_or(&mut none), beside, |ui, look| {
         match &readings.near {
             Some(near) => {
                 ui.label(format!(
@@ -192,7 +201,9 @@ fn render(ui: &mut egui::Ui, readings: &Readings, look: Option<&mut FarLook>, ra
                 ui.label("No near eye (INCUS_NEAR=0, or no far eye).");
             }
         }
-        ui.add_enabled(there, egui::Slider::new(radius, 1.0..=crate::near_eye::MOST_RADIUS).step_by(1.0).text("Render radius (chunks)"));
+        ui.add_enabled(there, egui::Slider::new(&mut look.radius, 1.0..=crate::near_eye::MOST_RADIUS).step_by(1.0).text("Render radius (chunks)"));
+        ui.add_enabled(there, egui::Slider::new(&mut look.fader_width, 0.0..=crate::near_eye::MOST_FADER_WIDTH).step_by(1.0).text("x-fader width (blocks)"));
+        ui.add_enabled(there, egui::Slider::new(&mut look.fader_curve, 1.0..=crate::near_eye::MOST_FADER_CURVE).text("x-fader curve"));
     });
     ui.separator();
     let Some(look) = look else {
