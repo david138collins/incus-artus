@@ -12,8 +12,10 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
 
 - **Working on:** Phase 2, *Restart*, step 2.3, the near eye (experiment 6), from 2026-11-16. Builder is reading
   old's near walk, the Oracle's near eye and near light (third part, sections 3 and 6; second part 4.2) and the
-  doorway's answers, to bring David its first step and its pass mark before any code. Both near drawers, rays and
-  triangles, are flown before the fork ("Yes, fly both"). Two of the Oracle's questions to him
+  doorway's answers, to bring David its first step and its pass mark before any code. The near eye is triangles, the
+  pieces too, drawn first so their depth spares the far rays they cover (his word, 2026-11-16: "I believe we should
+  try to accomplish the rest of the graphics engine with triangles. rays may come in later for different cases";
+  his "Yes, fly both" gives way, near rays not now). Two of the Oracle's questions to him
   (`journal/vision/oracle-prompt-2026-11-14.md`) bear on it now: what the far eye should show between the blocks'
   edge (about 340 blocks) and a kilometre, and whether the near eye still draws blocks out to about 336; the 4s' and
   2s' rings are decided on those.

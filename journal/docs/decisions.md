@@ -2536,6 +2536,27 @@ Reference: `Art/quartile minecraft illustration.png`
   height and the sheet, room in the march, the Intel flight with the checked and unchecked pricing, his weights by
   kind, the long rays' list, the small flaws). Next: 2.3, the near eye, its first step and pass mark brought to him
   before any code.
+- **[DECIDED 2026-11-16] The near eye in triangles** (David, to Builder): "I believe we should try to accomplish the
+  rest of the graphics engine with triangles. rays may come in later for different cases, but i don't believe
+  quarter/oct blocks will present any difficulty in terms of triangle count. it will still have less polygons than
+  half life 1. i'd like to hear how you think we could gracefully add the triangles in, and make sure they cooperate
+  nicely with the march."
+  - Before it, his four questions and Builder's answers (all unbuilt and unmeasured, said so): "how would the near
+    rays pack with the far rays in the march? do we have room in the march, or would it run concurrently, ideally as
+    a quite short rays?" (a program of its own, the near pass first, the far march only where still needed); "how do
+    you think it will compare with triangles?" (her lean: triangles faster and steadier for whole blocks, rays better
+    inside a block's pieces); "is there any way that triangles help the far march at all? will screen triangles
+    cancel screen rays since they occlude?" (yes: their depth says which far squares are covered, a lot at ground
+    level and indoors, little from high up); "so in a cave, the march would be totally silent" (as near as makes no
+    difference).
+  - **What it changes:** his "Yes, fly both" (2026-11-12: near rays first, then triangles, both flown before the
+    fork) gives way: the near eye is built with triangles, the pieces too; near rays not now. The fork's comparison
+    of two near drawers falls away (put to the Oracle in her brief). Builder's correction to him, his conclusion
+    standing: a block world's near field is far more polygons than Half-Life's scenes, but still no load on the card.
+  - Her "how", being answered to him: triangles drawn first, their depth cancelling far rays; the hand-over at the
+    near field's edge the place to get right; one light and one set of colours for both drawers at first; a step a
+    build. *Counsel:* this matches Counsel's lean when he asked (triangles for everything near, rays far), and
+    David's "it seems wasteful to hit a single triangle a hundred times".
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its

@@ -543,6 +543,16 @@ the answers.
   set up to look back into the graphics engine at a later date, we can proceed." The near eye (2.3) begins
   2026-11-16; your questions 1 and 5 to David (what shows from the blocks' edge to a kilometre; blocks drawn to about
   336) bear on it first.
+- **The near eye in triangles** (David, 2026-11-16): "I believe we should try to accomplish the rest of the graphics
+  engine with triangles. rays may come in later for different cases, but i don't believe quarter/oct blocks will
+  present any difficulty in terms of triangle count." His "Yes, fly both" gives way: near rays first, then
+  triangles, both flown before the fork, becomes triangles only, quarter and eighth blocks too. So the fork's
+  comparison of two near drawers, which your third part set up, falls away. Builder's plan for how they meet the
+  march: triangles drawn first, their depth telling which far squares are covered (much at ground level and indoors,
+  little from high up; in a cave the march nearly silent); the hand-over at the near field's edge the place to get
+  right; one light and one set of colours for both at first. Is anything in your design for the near field (light
+  kept in the air cell before each face, pieces walked by their octants) lost by drawing it, and what should the
+  fork read now in place of the comparison?
   Does the cut by a list still beat yours (every ray cut) on a card that's full at the marks that work, and is it the
   footing for lazy rays (a far length kept, not re-marched every frame)?
 
