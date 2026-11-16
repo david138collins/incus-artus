@@ -17,7 +17,9 @@ tunes; Claude writes all the code.
 - **David** holds the vision, makes the calls, the art and the tuning.
 - **Builder** writes all the code, and ticks the plan with the commit or log that proved each line.
 - **Counsel** keeps the plan and the decisions with David, and carries messages between him and Builder.
-- **The Oracle** reads and never edits (except `journal/vision/oracle-review.md`); it's called at the big forks.
+- **The Oracle** is any outside advisor, a fresh agent each time, on a prompt David writes. It reads and never
+  edits (except its own review file in `journal/vision/`); it's called at the big forks, or whenever David wants an
+  outside look. Counsel's brief for it is `journal/vision/oracle-return.md`.
 
 ## Where things are kept
 
