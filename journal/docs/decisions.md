@@ -2473,6 +2473,23 @@ Reference: `Art/quartile minecraft illustration.png`
     rays (a talk first, his choice of far squares fixed to the world or the screen, with a measurement of how much
     of the two working marks' work is far enough to be lazy), the land's edge by a height table weighed, the Intel
     card's flight, then the far eye's gate and the near eye.
+  - **His row, build 194 on:** 12 groups, 168 registers, 165 live, nothing put by: build 192's to the number (the
+    trim changed nothing in size). Cover by faces closed in the journal: "looks good"; one register; about half a
+    percent of the march.
+- **[OPEN 2026-11-16] Lazy rays: the talk opened** (Builder to David, on his "what do we move on to next?"). Her
+  measurement, off the screen, no code changed: thread-steps held beyond a distance, at most (ceilings), at the
+  mountain top and high over the spawn: beyond 1 km 71% and 38%; 2 km 43% and 28%; 4 km 26% and 15%; 8 km 14% and
+  7%. Her proposal, after the Oracle's section 3: rays marched every frame up to a lazy line; beyond it a picture all
+  round the eye, fixed to the world, refreshed a share a frame and re-made as the eye travels, laid behind the near
+  picture each frame with light and fog fresh; the march's program not grown (near rays end at the line; a separate
+  compiled copy makes the far picture). One step a build: the line at about 4 km first, then 2 km and 1 km, each with
+  his three looks (turning, a ridge sliding across far land, the sun's step) and a flight on the moving marks. Asked
+  of him: far squares fixed to the world or the screen (she recommends the world), refreshed all at once or piece by
+  piece (she recommends all at once, by his "even beats irregular").
+  - *Counsel:* agrees on both. Fixed to the world, turning costs nothing to keep right, only travel and time age the
+    picture; and it's his own idea in the spec, "a world-anchored dome for far pixels". All at once keeps every far
+    square the same age, so a sun step or a stretch of travel never shows as a seam between fresh and stale pieces.
+    It's the first lever aimed at the working marks themselves, the dearest views.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
