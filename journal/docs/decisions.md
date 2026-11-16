@@ -2575,6 +2575,18 @@ Reference: `Art/quartile minecraft illustration.png`
     "true" there would be an exception to that rule (his to make), and triangles smaller than a pixel shimmer as the
     eye moves and cost the card more per pixel than larger ones. The second choice keeps the rule for ground; for
     built things past a pixel, the far eye's cover by faces already holds walls and towers.
+  - **[DECIDED 2026-11-16] One radius slider, and begin** (David, to Builder, on that choice): "well lets just make a
+    radius slider and get started. the render radius set there will determine where the triangles start and rays
+    fade. if that becomes intensive we can add a slider that seperates built things from the land render so they can
+    be adjusted seperately until it hits a nice balance with the march. and, for combining faces, i thought that was
+    called greedy meshing and kind of an automatic part of any block game triangle mesh geometry". So: one radius
+    slider now; a second (built things apart from the land) only if it gets heavy, written down, not built; faces
+    merged (greedy meshing, his word for it and the usual one) from the first build. Its place and name asked by his
+    rule for controls (the Render page, "Render radius (chunks)", 1 to 64): not answered yet.
+  - *Build 195's pass mark* (in `journal/docs/experiments.md`, before its code): the near eye's first step, whole
+    blocks as merged faces a chunk of 32 at a time on a lane, drawn after the far picture with depth, lit from the
+    far eye's light, fading at the radius; the far march's program untouched; `INCUS_NEAR=0` is build 194;
+    instruments from the first build; no line set for its time yet, this being the first measurement.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
