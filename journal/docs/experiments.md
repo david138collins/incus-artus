@@ -7364,3 +7364,44 @@ none; looking down at 32, 1,051 and 3,963; the bare plain at 4, 33,866 and 228. 
 All tests pass (the memory test failed once and passed alone, as it has before: written down long since).
 
 **Owed:** the one flight and the on trace.
+
+### Build 203 flown (2026-11-16): the cover's pass halved, the far eye no dearer on open ground; the rule now pays or costs 0.07 ms
+
+**The short window** (NVIDIA only, mains, one screen, hands off, 15:01 to 15:10; the processor's area 57 degrees
+at the start, the flight begun at 67; the card 2 to 4% busy at rest): the on trace at the mountain top at 64
+chunks (`logs/nsight/b203/b203-cover-on/`), and one flight, the rule on at 16 chunks (`flight-1794863432`: build
+203, the code committed, no error), read against build 202's two at 16 an hour before.
+
+**At 16 chunks, ms on the card** (rule off, build 202; rule on, build 202; rule on, build 203):
+
+| view | far: off | 202 on | 203 on | cover: 202 | 203 | whole: off | 202 on | 203 on |
+|---|---|---|---|---|---|---|---|---|
+| the spawn | 0.545 | 0.485 | 0.446 | 0.153 | 0.072 | 0.821 | 0.903 | 0.787 |
+| the mountain top | 1.275 | 0.881 | 0.855 | 0.137 | 0.065 | 1.520 | 1.260 | 1.172 |
+| the bare plain | 0.709 | 0.738 | 0.705 | 0.146 | 0.070 | 0.814 | 0.992 | 0.882 |
+| the scatter at 10,000 | 0.740 | 0.638 | 0.620 | 0.154 | 0.080 | 0.989 | 1.018 | 0.923 |
+| the scatter at 100,000 | 0.736 | 0.261 | 0.196 | 0.162 | 0.079 | 1.273 | 0.893 | 0.729 |
+| high over the spawn | 1.137 | 1.113 | 1.054 | 0.138 | 0.064 | 1.380 | 1.497 | 1.362 |
+| low over the sea | 0.684 | 0.711 | 0.679 | 0.147 | 0.070 | 0.811 | 0.988 | 0.876 |
+
+The far eye marched the same rays as build 202 at every standing mark (to the ray at the still ones).
+
+**Against the mark:**
+
+- **The cover's pass: halved, 0.062 to 0.080 ms** (it was 0.137 to 0.162). The mark said under 0.07: met at some
+  standings, 0.07 to 0.08 at the rest. Said as it is: about 0.07.
+- **On open ground the far eye is no dearer with the rule on than off: met.** The plain 0.705 against 0.709 off;
+  the sea 0.679 against 0.684. (Build 202 on: 0.738, 0.711: the needless reads were that.)
+- **The far eye's floor** where blocks fill the view (the scatter at 100,000): 0.196 ms, its march 0.086 with no
+  ray marched (build 202: 0.261 and 0.143).
+
+**So where the rule stands, at 16 chunks:** the card's whole frame is cheaper with it at the working marks (the
+mountain top 0.35 ms, the scatter at 100,000 0.54, at 10,000 0.07, the spawn 0.03) and **0.05 to 0.08 ms dearer
+on open flat ground** (the plain, the sea, the moving marks): there the far eye waits on its longest rays at the
+horizon whatever is skipped, and the cover's pass is what's paid. Left there: done enough to go on. What could
+take the rest off, written down for the later look back: making the cover while the near faces are drawn, or
+not making it on frames where little was covered the frame before.
+
+**For David to read when he likes, the march's row** (the mark: no more than 168 registers, Smem 0, 12 groups),
+the rule on: `logs/nsight/b203/b203-cover-on/incus_artus_2026_11_16_15_03_42.ngfx-gputrace`; and off (the rule
+compiled out): `logs/nsight/b202/b202-cover-off/incus_artus_2026_11_16_13_52_35.ngfx-gputrace`.

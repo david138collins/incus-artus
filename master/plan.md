@@ -119,8 +119,11 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   and wherever blocks fill the view: there the far eye falls to 0.25 ms), but its own new pass, the near cover,
   costs 0.145 ms a frame, so the card's whole frame is 0.06 to 0.19 ms dearer on open ground. 240 a second at 64
   chunks still holds at every standing mark (the slowest 284). Two faults of Builder's own found in the new code
-  (the march asks the cover before asking whether a pixel is wanted; the cover's pass reads a pixel at a time):
-  build 203 mends them, then a short flight. And the plain is dearer with the near eye on whatever the rule: the
+  (the march asked the cover before asking whether a pixel is wanted; the cover's pass read a pixel at a time)
+  **are mended in build 203, flown at 16 chunks:** the cover's pass halved to 0.07 ms, the far eye no dearer on
+  open ground with the rule than without, its floor where blocks fill the view 0.20 ms. The rule now makes the
+  card's whole frame cheaper at the working marks (the mountain top 0.35 ms, built-up views up to 0.54) and 0.05
+  to 0.08 ms dearer on open flat ground (the cover's pass); left there, done enough to go on. And the plain is dearer with the near eye on whatever the rule: the
   far eye now draws a crisper horizon there with its finer layer (its near haze no longer hides it), which the
   Crossovers' sliders govern. **Waiting on David:** nothing; the trace's row is his to read when he likes. After the window, 2.3's next step by his word: quarter and eighth
   blocks, scattered at random to test them. Before the flights (his "go
