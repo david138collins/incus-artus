@@ -7405,3 +7405,41 @@ not making it on frames where little was covered the frame before.
 **For David to read when he likes, the march's row** (the mark: no more than 168 registers, Smem 0, 12 groups),
 the rule on: `logs/nsight/b203/b203-cover-on/incus_artus_2026_11_16_15_03_42.ngfx-gputrace`; and off (the rule
 compiled out): `logs/nsight/b202/b202-cover-off/incus_artus_2026_11_16_13_52_35.ngfx-gputrace`.
+
+### Build 204's pass mark (2026-11-16): quarter and eighth blocks in the near eye
+
+**His word** (2026-11-16, to Counsel): 2.3's next step is quarter and eighth blocks, "builder can just scatter
+random quarters and octs to test it", since he needn't be a player "until we get up to the point of cutting down
+a tree".
+
+**What a piece is** (`master/spec.md`, the quartile system): a cell is eight octants, each half a block a side. A
+quarter block is a bar, 1 x 1/2 x 1/2, along any axis; it may lie across two cells. A lone octant is an eighth.
+Where two pieces would share an octant the first placed keeps it.
+
+**What's built** (written before the code):
+
+1. **The doorway takes an eighth** (an octant by its place in half blocks), beside a whole block and a bar.
+2. **The marks' scatter can scatter pieces:** a scatter says which kinds it makes (whole blocks as now; quarters,
+   each along a random axis at a random half-block place; eighths). A new mark at the plain, **"the scatter of
+   pieces"**: quarters and eighths at random, at 1,000, 10,000 and 100,000, last in a flight.
+3. **The near eye's mesher:** a chunk with any piece in it (or beside it) is meshed in half blocks, the whole
+   chunk: every octant's open sides, merged as whole blocks' are. A piece fills only empty octants (it doesn't
+   displace ground, or a piece placed before it). A face says whether it's measured in half blocks.
+4. **The corners' program** reads a half-block face.
+
+**The mark:**
+
+- **Tests.** In chunks with bars and eighths, the merged faces cover every open side of every octant once and
+  nothing else (the check whole blocks have, in half blocks). A bar in the air is six faces (two ends half by
+  half, four sides one by a half); an eighth six; a bar across two chunks is in both, each with its half, and
+  only the chunks it touches change. A packed half-block face unpacks.
+- **Pictures, off the screen:** the scatter of pieces at 10,000 over the plain, bars and eighths half a block
+  thick, each side lit as a block's is; **David's build whole for the first time, its 146 bars with its 23
+  blocks**; no gap; no lone pixel of sky looking down on the scatter.
+- **Said as it is:** how long a chunk with pieces takes to mesh beside a plain one (the lane's time; several
+  times, expected), and its faces.
+- **One flight at his starting radius** (32 chunks), under his word for the tests: the three standings of
+  pieces beside the three of whole blocks, and every standing mark's frame. Nothing promised.
+
+**Not in this build:** the far eye sees no piece and no placed block, as before (past the render radius a build
+isn't drawn); textures; the rule that only blocks marked in the Registrar can be bars.
