@@ -280,6 +280,7 @@ impl Runner {
                 PassId::LayingOutThePanel => self.laying_out_the_panel(&mut work),
                 PassId::GettingThePicture => self.getting_the_picture(&mut work),
                 PassId::TheFarStart => self.the_far_start(&mut work),
+                PassId::ListingTheNearChunks => self.listing_the_near_chunks(&mut work),
                 PassId::TheFar8 => self.the_far_layer(&mut work, 0, PassId::TheFar8),
                 PassId::TheFar4 => self.the_far_layer(&mut work, 1, PassId::TheFar4),
                 PassId::TheFar2 => self.the_far_layer(&mut work, 2, PassId::TheFar2),
@@ -422,6 +423,17 @@ impl Runner {
         true
     }
 
+    /// The near eye's chunks in view listed for the card, and its numbers for the frame: once the far eye's numbers
+    /// are the frame's. Whether it has a picture to draw this frame is said to the passes after it.
+    fn listing_the_near_chunks(&mut self, work: &mut FrameWork) -> bool {
+        let Some(running) = &mut self.running else { return false };
+        let (Some(near), Some(far)) = (&mut running.near, &running.far) else { return true };
+        if work.far_ready {
+            work.near_drew = near.prepare(&running.card.device, &running.card.queue, (running.card.config.width, running.card.config.height), far, &self.camera);
+        }
+        true
+    }
+
     /// The near eye's faces into its own picture, then (its second pass) its water over them, then (its third) its
     /// cover for the far eye, all before the march; and after the far picture is brought up (its fourth, the
     /// x-fader) its picture laid over it.
@@ -431,9 +443,6 @@ impl Runner {
         // (Its own picture once the far eye's numbers are the frame's; the x-fader once the far picture is brought up.)
         if !(if id == PassId::TheXFader { work.far_drew } else { work.far_ready }) {
             return true;
-        }
-        if id == PassId::TheNearFaces {
-            work.near_drew = near.prepare(&running.card.device, &running.card.queue, (running.card.config.width, running.card.config.height), far, &self.camera);
         }
         if !work.near_drew {
             return true;

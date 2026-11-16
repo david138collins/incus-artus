@@ -63,6 +63,7 @@ pub enum PassId {
     LayingOutThePanel,
     GettingThePicture,
     TheFarStart,
+    ListingTheNearChunks,
     TheNearFaces,
     TheNearWater,
     TheNearCover,
@@ -176,7 +177,7 @@ pub const LANES: [Lane; 4] = [
     },
 ];
 
-pub const PASSES: [Pass; 27] = [
+pub const PASSES: [Pass; 28] = [
     Pass {
         id: PassId::HearingTheWindow,
         name: "hearing the window",
@@ -294,6 +295,17 @@ pub const PASSES: [Pass; 27] = [
             ("INCUS_FAR_DETAIL", "the detail at launch, levels finer than a pixel's size (the Render page's; default 0, old's)"),
         ],
         files: &["src/far_eye.rs", "src/far.wgsl"],
+    },
+    Pass {
+        id: PassId::ListingTheNearChunks,
+        name: "listing the near chunks",
+        lane: LaneId::Frame,
+        on: Where::Processor,
+        what: "The chunks in view inside the near faces' reach found (each kept chunk's box against the view's four sides) and their draws listed for the card, a page after another; with them the near eye's numbers for the frame, and its own pictures made at the screen's size. Timed apart from the faces' pass since build 206.",
+        reads: &[StoreId::NearFaces, StoreId::Camera],
+        writes: &[StoreId::NearFaces],
+        switches: &[],
+        files: &["src/near_eye.rs", "src/runner.rs"],
     },
     Pass {
         id: PassId::TheNearFaces,

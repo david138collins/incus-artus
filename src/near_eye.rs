@@ -275,19 +275,24 @@ impl NearEye {
         // The blocks' pictures (build 205): one texture, a layer a picture (a block's top, then its sides), each size
         // of it as `textures.rs` shrank it; read with its own pixels crisp up close and its shrunk sizes blended as
         // it gets small, a block at a time across a merged face. Kept as stored, so the card reads them as light.
-        let layers = textures.pictures.max(1);
+        // (`INCUS_NEAR_TEXTURES=0`: the faces flat in their far colours, as to build 204, to measure against. Then no
+        // picture is put on the card either, only a one-pixel stand-in: so the card's library has no more to keep
+        // account of than it had before there were pictures.)
+        let textured = std::env::var("INCUS_NEAR_TEXTURES").as_deref() != Ok("0");
+        log::info!("The near eye's faces: {}", if textured { "wearing their blocks' pictures" } else { "flat in their far colours (INCUS_NEAR_TEXTURES=0)" });
+        let (picture_side, layers, sizes): (u32, u32, &[Vec<u8>]) = if textured { (crate::textures::SIDE, textures.pictures.max(1), &textures.sizes) } else { (1, 1, &[]) };
         let blocks_texture = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("the blocks' pictures"),
-            size: wgpu::Extent3d { width: crate::textures::SIDE, height: crate::textures::SIDE, depth_or_array_layers: layers },
-            mip_level_count: textures.sizes.len().max(1) as u32,
+            size: wgpu::Extent3d { width: picture_side, height: picture_side, depth_or_array_layers: layers },
+            mip_level_count: sizes.len().max(1) as u32,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: wgpu::TextureFormat::Rgba8UnormSrgb,
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
             view_formats: &[],
         });
-        for (level, pixels) in textures.sizes.iter().enumerate() {
-            let side = crate::textures::SIDE >> level;
+        for (level, pixels) in sizes.iter().enumerate() {
+            let side = picture_side >> level;
             queue.write_texture(
                 wgpu::TexelCopyTextureInfo { texture: &blocks_texture, mip_level: level as u32, origin: wgpu::Origin3d::ZERO, aspect: wgpu::TextureAspect::All },
                 pixels,
@@ -305,9 +310,6 @@ impl NearEye {
             mipmap_filter: wgpu::MipmapFilterMode::Linear,
             ..Default::default()
         });
-        // (`INCUS_NEAR_TEXTURES=0`: the faces flat in their far colours, as to build 204, to measure against.)
-        let textured = std::env::var("INCUS_NEAR_TEXTURES").as_deref() != Ok("0");
-        log::info!("The near eye's faces: {}", if textured { "wearing their blocks' pictures" } else { "flat in their far colours (INCUS_NEAR_TEXTURES=0)" });
         let radius = std::env::var("INCUS_NEAR_RADIUS").ok().and_then(|r| r.parse::<f32>().ok()).map_or(RADIUS, |r| r.clamp(1.0, MOST_RADIUS));
         log::info!("The near eye: faces as triangles within a render radius of {radius} chunks ({} blocks), its lane on {threads} threads", radius * CHUNK as f32);
         Ok(Self { lane, look: NearLook { radius, ..NearLook::DEFAULT }, chunks: HashMap::new(), pages: Vec::new(), asked: None, want: Vec::new(), first_to_come: 0, touched: HashSet::new(), need: HashMap::new(), remake: HashSet::new(), waiting: Default::default(), recent_ms: Default::default(), faces, water, layout, depth_layout, group: None, numbers, colours, blocks_view, crisp, textured, join, join_layout, format, pictures: None, cover_pass, cover_layout, cover_sizes, cover_sampler, cover_group: None, draws, drawn: Vec::new(), drawn_water: Vec::new(), counts: Counts { threads, ..Default::default() } })

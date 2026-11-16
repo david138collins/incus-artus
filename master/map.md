@@ -23,6 +23,7 @@ flowchart TB
     pass_laying_out_the_panel["laying out the panel"]
     pass_getting_the_picture["getting the picture"]
     pass_the_far_start["the far start"]
+    pass_listing_the_near_chunks["listing the near chunks"]
     pass_the_near_faces["the near faces"]
     pass_the_near_water["the near water"]
     pass_the_near_cover["the near cover"]
@@ -101,6 +102,9 @@ flowchart TB
   store_the_far_bricks --> pass_the_far_start
   store_the_far_eye_s_look --> pass_the_far_start
   pass_the_far_start --> store_the_far_layers
+  store_the_near_faces --> pass_listing_the_near_chunks
+  store_the_camera --> pass_listing_the_near_chunks
+  pass_listing_the_near_chunks --> store_the_near_faces
   store_the_near_faces --> pass_the_near_faces
   store_the_far_light --> pass_the_near_faces
   store_the_camera --> pass_the_near_faces
@@ -176,7 +180,7 @@ flowchart TB
 
 - **Runs:** once a frame.
 - **What it is:** Each frame, its passes in order: the camera goes to a mark if it's time, flies, the panels are laid out, the card draws the picture, and it's handed to the screen.
-- **Its passes, in order:** going to a mark, flying, putting the far cells on the card, putting the near chunks on the card, laying out the panel, getting the picture, the far start, the near faces, the near water, the near cover, the far 8 x 8, the far 4 x 4, the far 2 x 2, bringing it up, the x-fader, the panel, handing the card its work, showing it and measuring.
+- **Its passes, in order:** going to a mark, flying, putting the far cells on the card, putting the near chunks on the card, laying out the panel, getting the picture, the far start, listing the near chunks, the near faces, the near water, the near cover, the far 8 x 8, the far 4 x 4, the far 2 x 2, bringing it up, the x-fader, the panel, handing the card its work, showing it and measuring.
 - **Switch** `INCUS_FLIGHT`: a measured flight: every mark in data/marks.toml in turn, 5 s settling and 20 s measured at each, uncapped with the panel hidden; a report, then quits.
 - **Switch** `WGPU_ADAPTER_NAME`: the card, by part of its name (intel: the laptop's Intel card).
 - **Switch** `WGPU_POWER_PREF`: the card, by power (low or high).
@@ -292,6 +296,14 @@ flowchart TB
 - **Switch** `INCUS_FAR_DETAIL`: the detail at launch, levels finer than a pixel's size (the Render page's; default 0, old's).
 - **Cost, last measured** (`kept logs/flight-1794589790.txt`): recording it on the processor median 0.049, 95th 0.090, 99th 0.171, worst 0.353; on the card median 0.004, 95th 0.005, 99th 0.005, worst 0.027.
 - **Files:** src/far_eye.rs and src/far.wgsl.
+
+### listing the near chunks
+
+- **A pass** in the frame, on the processor.
+- **What it is:** The chunks in view inside the near faces' reach found (each kept chunk's box against the view's four sides) and their draws listed for the card, a page after another; with them the near eye's numbers for the frame, and its own pictures made at the screen's size. Timed apart from the faces' pass since build 206.
+- **Reads:** the near faces and the camera. **Writes:** the near faces.
+- **Cost, last measured** (`kept logs/flight-1794589790.txt`): not measured.
+- **Files:** src/near_eye.rs and src/runner.rs.
 
 ### the near faces
 
@@ -462,7 +474,7 @@ flowchart TB
 
 - **A store** on the processor.
 - **What it is:** Where the eye is (north, east, up, in blocks) and where it looks (facing from north toward east, pitch up from level).
-- **Written by:** hearing the window, going to a mark, flying and laying out the panel. **Read by:** putting the far cells on the card, putting the near chunks on the card, laying out the panel, the far start, the near faces and the near water.
+- **Written by:** hearing the window, going to a mark, flying and laying out the panel. **Read by:** putting the far cells on the card, putting the near chunks on the card, laying out the panel, the far start, listing the near chunks, the near faces and the near water.
 - **Files:** src/camera.rs.
 
 ### the clocks
@@ -550,7 +562,7 @@ flowchart TB
 
 - **A store** on the card.
 - **What it is:** The chunks inside the render radius as merged faces, 12 bytes a face (its place in its chunk, the way it looks, its size, its block; its chunk), in pages of one buffer each; a chunk's water's tops after its blocks' sides.
-- **Written by:** putting the near chunks on the card and meshing the near chunks. **Read by:** the near faces and the near water.
+- **Written by:** putting the near chunks on the card, listing the near chunks and meshing the near chunks. **Read by:** listing the near chunks, the near faces and the near water.
 - **Limit:** columns a side of a chunk, 32.
 - **Limit:** chunks the render radius goes to, 64.
 - **Files:** src/near_eye.rs and src/near.rs.
