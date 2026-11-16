@@ -62,7 +62,11 @@ Practical things learned the hard way. Each has its reason, so a later session c
   picture is the same before trusting a part timed alone.
 - **Compare within one session, alternating.** Two builds flown back to back, A B A B, agreed to about 1%; the same
   builds compared across sessions (other heat, other runs) differed by up to about 5%, and once showed a 7.5% "cost"
-  that wasn't there. Small differences are only real inside one session.
+  that wasn't there. Small differences are only real inside one session. This holds for whoever checks the
+  numbers too: a figure can match its log exactly and still be a difference between two sessions. Before writing
+  "checked", ask what each number is being compared with, and whether both were flown in one session. And the
+  processor's own passes swing with its heat (one program's pass read 0.29 ms at 84 °C and 0.5 at 104): cool
+  down before each flight, or read processor times only inside a bracket.
 
 ## Windows and tools
 

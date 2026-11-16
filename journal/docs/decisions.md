@@ -2849,6 +2849,27 @@ Reference: `Art/quartile minecraft illustration.png`
     apart, so it wants a bracket in one session (pictures off, on, off) before anything is changed; flown after his
     look.
   - Waiting on him: his look at the textures ("launch"), then what of 2.4 comes next.
+  - **His look** (asked of Builder: "can you launch with your scattered details like castles and forests?"; build
+    205 at the spawn with the scatter stage on, 466 s, `logs/session-1794866918.log`, no error or warning; the near
+    eye's first run in the game with the stage on and with textures): "its looking really good." In view near the
+    spawn: a village (houses 290 to 340 blocks west), a tower about 540 blocks off, the woods; the castle stands on
+    the plain about 4,900 blocks off, past his 32 chunks (Builder's slip about its place, said to him; a launch at
+    the plain mark offered). The stage's own blocks have no pictures yet and stay flat in their far colours.
+  - **Corrected, in the open: the pictures cost nothing that can be shown** (build 206, 581fb86, an instrument only:
+    listing the near chunks in view timed as a pass of its own; three flights in one session, each begun cooled,
+    pictures off, on, off, `logs/flight-1794868466`, `-1794869099`, `-1794869687`, down at 16:54; checked by
+    Counsel). The card's whole summed over all sixteen marks: 16.99 ms off, 16.66 on, 17.16 off again. Listing the
+    near chunks over the standing marks, by Builder's sum, 2.78, 2.99 and 2.47 ms: the two offs further apart than on
+    is from the first. So build 205's "0.04 to 0.09 ms dearer on the processor" and the card's "0.01 to 0.1 ms"
+    above were the difference between two sessions, read from two single flights against the standing habit
+    (the team kit: "compare within one session"). Builder's, said by her with what it cost (a build and an hour of
+    his hands-off time); **Counsel's too:** the card's figures above were written down as checked, and told to David
+    as the textures' cost, when the check was only that the two logs said so. Checking a number against its log
+    doesn't check what the number is compared with.
+  - What the instrument did find: all of the near eye's processor time is listing the chunks in view (0.15 to 0.27
+    ms a frame at 32 chunks; handing the pass over 0.004), and the processor's passes swing with its heat far more
+    than with anything built that day (handing the card its work 0.29 ms at 84 °C, about 0.5 at 104, one program).
+  - Nothing waits on him but his word for what of 2.4 comes next.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
