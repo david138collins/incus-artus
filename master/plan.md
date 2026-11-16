@@ -66,15 +66,17 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** two rows to read in Nsight's window (`march_all`, the rule off and on: the program's
-  size on the card), and his look on the stage. Build 191 is built, traced and flown (2026-11-16,
-  `journal/docs/experiments.md`): the skyline talk's first step, cover by faces (a far cell stops a ray by the
-  face it shows it as well as by its bulk). Off the screen: walls solid, roofs their own colour, the arch and far
-  spires read; woods become solid masses (the largest change); steep land's edge a little fuller; level skylines
-  and shallow water as they were. Flown off, on, off: it costs about 2% of the march at every mark (the two working
-  marks 1.6 and 1.9%; the spawn 2.8% and the run 2.5%, over its line), read as the rule's own arithmetic at every
-  step. Build 192, in hand: the same rule where a step is gathered, reusing what the march works out for light, so
-  steps through air do nothing new; then one more window (a trace and three flights). His words (2026-11-15): "i do like the crisper line of the
+- **Waiting on David:** his go for one more hands-off window (two short Nsight traces and three flights, off,
+  on, off: about 30 minutes), then one row to read, and his look on the stage. Where it stands (2026-11-16,
+  `journal/docs/experiments.md`): the skyline talk's first step is cover by faces (a far cell stops a ray by the
+  face it shows it as well as by its bulk): walls solid, roofs their own colour, the arch and far spires read;
+  woods become solid masses (the largest change); steep land's edge a little fuller; level skylines and shallow
+  water as they were. Build 191, its first form, cost about 2% of the march at every mark, and David's reading of
+  its rows showed it pressing on the program's size on the card (168 registers and two values put by, for 167 and
+  none: onto the line; still 12 groups). His reading of the off row: the march is build 178's size, register for
+  register: the cut added nothing. Build 192 (built, checked off the screen) is the same rule where a step is
+  gathered, reusing what the march works out for light: the same look, the five places gone, steps through air
+  doing nothing new. His words (2026-11-15): "i do like the crisper line of the
   'cover' ... against the skyline, and other things against other things, hopefully; but pay careful attention to
   the weight of the shader", by which he means "its size on the card". Owed to him when it's built: two Nsight rows
   to read (the rule off and on), his look on the stage, his word for one flight session. After it: his weights by

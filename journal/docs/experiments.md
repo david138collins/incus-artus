@@ -5980,3 +5980,73 @@ to read. The mark as build 191's: 12 groups still fit, nothing more put by than 
 By flights (on David's word; off, on, off again in one session): every mark's march within 1% of the two offs'
 mean, or at least under build 191's cost at every mark. If it isn't cheaper than build 191, said, and build 191's
 form stays the one David looks at.
+
+### Build 191's two rows, read by David off Nsight's window (2026-11-16): the program hasn't grown since build 178; build 191's rule put two values by
+
+`march_all` at the mountain top, from his screenshots of the two traces:
+
+| | the rule off (build 190's program) | on (build 191) | build 178, for comparison |
+|---|---|---|---|
+| groups that fit (# Warp) | 12 | 12 | 12 |
+| registers (# Reg) | 167 | 168 | 167 |
+| live registers | 163 | 164 | 164 |
+| put by (Smem) | 0 | 512 | 0 |
+| instruction mix | 3.94K | 4.06K | |
+| share of the samples | 86% | 86% | 86% |
+| top waits | WAIT 35%, LGSB 17%, SELECT 16% | WAIT 35%, LGSB 16%, SELECT 16% | Wait 35%, Long Scoreboard 16%, Selected 15% |
+
+(Also in the off trace: `join_pass` 28 groups, 72 registers, 1,024 put by, 1.4% of the samples; `start_pass` 40
+groups, 46 registers, 256 put by; `brought_up` 11% of the samples.)
+
+- **The cut added nothing to the march's size on the card:** the row is build 178's, register for register, with
+  builds 183 to 190 in it. Three under the line of about 170 where 12 groups stop fitting.
+- **Build 191's rule did press on it:** one more register and two values a ray put by in memory (512 bytes is two
+  words for 64 rays). By the measure of build 178's rows (registers and what's put by) the need went from 167 to
+  170, onto the line. The 12 groups still fit.
+- **Build 191's mark said "nothing more is put by than with it off": missed.** And Builder's reading of its flights
+  (the rule's own arithmetic at every step, not the program's size) was partly wrong; said to David, whose worry it
+  was ("pay careful attention to the weight of the shader ... its size on the card").
+
+### Build 192 built (untraced, unflown, unlooked): cover by faces where a step is gathered; what was built and what was checked off the screen
+
+**Built as the mark says** (`far.wgsl`): `faces_light` gives back how much of a look's faces the ray sees beside
+their light; where a step gathers, its solid share is the greater of its bulk and the mean of what its two ends
+show (`shown_share`: the faces over the floor area times what's seen, none where the cell holds a 64th of water),
+with one more power; `by_finer_cell` turns a coarser look's faces into the finer cell's as it does its bulk. The
+five places where build 191 worked the rule out at every look are gone, and a look's solid share is its bulk
+again: a ray's steps go by bulk as build 190's.
+
+**Off, it's build 190:** the five marks (2,560 x 1,600, the whole world loaded) against build 190's: the plain's
+and the sea's the same to the pixel, the others 128 to 848 pixels differing, the most 6 (the test's own noise).
+Against build 191's off pictures of the stage's views: the same to the pixel.
+
+**On, it's build 191's look.** Build 192 on against build 191 on, pixels by 8 of 255 or more (of 4,096,000) and
+the most: the spawn 256 and 23; the mountain top 816 and 22; the plain none and 6; the sea 976 and 36; high over
+the spawn 4,704 and 83; the castle from above 7,664 and 12; the plain's group 736 and 49; the town from above
+11,216 and 161 (a few pixels at a far corner); the shelf 3,712 and 11. Side by side the castle from above can't
+be told apart; the arch, the slab and the far spire read as in build 191; the woods are solid as in build 191.
+
+**No bands over shallow water:** the shelf's sea, on against off, is the same to the pixel (2,457,600 pixels,
+none differing): the steps go by bulk and the rule keeps out of water.
+
+**The five marks, on against off:**
+
+| mark | differ at all | by 4 of 255 or more | by 8 or more | by 16 or more | the most | build 191's by 8 or more |
+|---|---|---|---|---|---|---|
+| on the ground at the spawn | 20% | 166,800 | 67,872 | 42,688 | 80 | 70,144 |
+| the mountain top | 28% | 123,456 | 40,960 | 8,464 | 57 | 44,000 |
+| the bare plain | 3% | 17,408 | 5,824 | 384 | 31 | 7,168 |
+| low over the sea | 29% | 362,704 | 18,128 | 1,376 | 108 | 39,200 |
+| high over the spawn | 57% | 343,888 | 54,080 | 9,472 | 110 | 64,928 |
+
+The same changes as build 191's, a little less of each.
+
+**The steps, on against off** (both layers summed): the spawn 0.6% more; the mountain top 0.5% fewer; the plain
+0.1% fewer; the sea 0.1% fewer; high over the spawn 0.8% fewer. The mark's line (no more than off's by over 1% at
+any mark) is met by each mark's sum; by layer the spawn's 4 x 4 is 2.4% more, said: more of its rays are marched
+(13,628 for 13,268: more of the screen is worth the finer layer where edges are firmer), not longer ones.
+
+**All 34 tests pass.**
+
+**Owed:** its size on the card (a trace with it on, and one off again to see the off program is the one David
+read: its hash was 0x63fca007acf1f0c6); the flights, off, on, off; David's look on the stage.

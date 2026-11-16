@@ -211,7 +211,7 @@ const SKY_TINT: vec3<f32> = vec3<f32>(0.84, 1.01, 1.40);
 // takes it; rays march 32 to a group in step, and a slow path one of them takes, the other 31 wait for.]
 const LOADED: bool = false;
 
-// Whether a cell stops a ray by the face it shows it as well as by its bulk (`by_faces`), fixed when the program is
+// Whether a cell stops a ray by the face it shows it as well as by its bulk (`shown_share`), fixed when the program is
 // built (`far_eye.rs` changes this one line, `INCUS_FAR_FACES=0`: build 190's program, for measuring against).
 const FACES: bool = true;
 
@@ -673,35 +673,38 @@ fn far_blend_kept(k: ptr<function, Kept>, place: Place, level: i32, p: vec3<f32>
 // a flat shelf: "two square rings that move with me ... bright square seams ... more saturated yellow": through each
 // ring's hand-over the ground stood too dense from too high, a ray was stopped before it had crossed the water, and
 // the bed showed brighter. Over dry ground the same was there and couldn't be seen.]
-fn by_finer_cell(look: Look, up: i32) -> Look {
+// The face it shows a ray going `d` (`shown_share`) likewise, by its faces' weight: cover by faces is each level's own
+// rule, as the bulk's is.
+fn by_finer_cell(look: Look, up: i32, d: vec3<f32>) -> Look {
     var out = look;
     if (up > 0) {
-        out.solid = 1.0 - pow(1.0 - min(look.solid, 0.9999), exp2(-f32(up)));
+        let finer = exp2(-f32(up));
+        out.solid = 1.0 - pow(1.0 - min(look.solid, 0.9999), finer);
+        if (FACES) {
+            let shown = min(look.surface * faces_light(look, d).y, 0.9999);
+            out.surface = look.surface * (1.0 - pow(1.0 - shown, finer)) / max(shown, 1e-6);
+        }
     }
     return out;
 }
 
-// A look's solid share made the greater of its bulk and the face it shows a ray going `d`. A step is covered by the
-// cell's solid share (`1 - (1 - share) ^ (length / size)`), and by bulk alone that's right only for a thing as deep
-// along the ray as its cell: a wall one block thick, face-on in a cell of 8, is an eighth full and stopped an eighth
-// of a ray it hides everything behind; a post one block square stopped a 64th of the rays it covers an eighth of
-// [the scatter stage, build 188: a castle's walls seen through at their foot, an arch's piers a faint ring, posts a
-// pale band]. The cell's faces over its floor area (`surface`), by the ways they look (`plus`, `minus`), times the
-// ray's own way, is the share of the cell's cross-section its faces show the ray: the true share of the rays crossing
-// the cell that it stops. Gentle ground shows a skimming ray next to no face, so a skyline of land is as it was. Not
-// where the cell holds water, any to speak of (a 64th of it; two blocks of sea are only an eighth of a cell of 16):
-// a bed lies at one height in its cell, and its face counted through the whole cell would bring it up through the
-// water over it [ground counted too high through water was build 188's bright bands; kept out here by reasoning,
-// no band was seen with the rule on]. Each level's own look, before a hand-over turns it into
-// the finer cell's (`by_finer_cell`) and mixes it. From what the look already holds: nothing more is fetched, and
-// nothing is carried on through the march.
-fn by_faces(look: Look, d: vec3<f32>) -> Look {
-    var out = look;
-    if (FACES) {
-        let shown = look.surface * dot(look.plus * max(-d, vec3<f32>(0.0)) + look.minus * max(d, vec3<f32>(0.0)), vec3<f32>(1.0));
-        out.solid = max(look.solid, min(shown * (1.0 - min(look.water * 64.0, 1.0)), 1.0));
-    }
-    return out;
+// Cover by faces: the share of a ray a look stops by the face it shows it, where a step is gathered (`seen` from
+// `faces_light`, worked out there for the light). A step is covered by the cell's solid share (`1 - (1 - share) ^
+// (length / size)`), and by bulk alone that's right only for a thing as deep along the ray as its cell: a wall one
+// block thick, face-on in a cell of 8, is an eighth full and stopped an eighth of a ray it hides everything behind;
+// a post one block square stopped a 64th of the rays it covers an eighth of [the scatter stage, build 188: a
+// castle's walls seen through at their foot, an arch's piers a faint ring, posts a pale band]. The cell's faces over
+// its floor area (`surface`), by the ways they look, times the ray's own way, is the share of the cell's
+// cross-section its faces show the ray: the true share of the rays crossing the cell that it stops; a step's solid
+// share is the greater of that and its bulk. Gentle ground shows a skimming ray next to no face, so a skyline of
+// land is as it was. Not where the cell holds water, any to speak of (a 64th of it; two blocks of sea are only an
+// eighth of a cell of 16): a bed lies at one height in its cell, and its face counted through the whole cell would
+// bring it up through the water over it [ground counted too high through water was build 188's bright bands; kept
+// out here by reasoning, no band was seen with the rule on]. [Build 191 worked this out at every look, in five
+// places, and raised the look's solid share itself: about 2% on the march at every mark, flown. Here a step through
+// air does nothing new, and a ray's steps go by bulk as they did.]
+fn shown_share(look: Look, seen: f32) -> f32 {
+    return look.surface * seen * (1.0 - min(look.water * 64.0, 1.0));
 }
 
 // Two looks mixed: `w` of the second.
@@ -786,9 +789,10 @@ fn sunlit(colour: vec3<f32>, light: f32) -> vec3<f32> {
     return colour * (1.0 - camera.sun.w) * camera.daylight.x * light;
 }
 
-// How much sun a cell's faces get, seen along `d`: each way's faces lit as themselves, and weighted by how much of
-// that way the eye sees. A cell whose faces all look away (the eye inside it) is lit by all of them.
-fn faces_light(look: Look, d: vec3<f32>) -> f32 {
+// How much sun a cell's faces get, seen along `d` (`x`): each way's faces lit as themselves, and weighted by how much
+// of that way the eye sees. A cell whose faces all look away (the eye inside it) is lit by all of them. And how much
+// of its faces the eye sees at all, by the ways they look (`y`, a share of them all: cover by faces).
+fn faces_light(look: Look, d: vec3<f32>) -> vec2<f32> {
     let sun = camera.sun.xyz;
     let seen_plus = look.plus * max(-d, vec3<f32>(0.0));
     let seen_minus = look.minus * max(d, vec3<f32>(0.0));
@@ -801,7 +805,7 @@ fn faces_light(look: Look, d: vec3<f32>) -> f32 {
     } else {
         light = dot(look.plus, sunny_plus) + dot(look.minus, sunny_minus);
     }
-    return light;
+    return vec2<f32>(light, seen);
 }
 
 // The highest anything stands in what's on the card so far: over it, a ray that isn't coming down meets nothing more.
@@ -1068,21 +1072,19 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32, end: f32, stop: f32
             if (here.kind == 2 && there.kind == 2) {
                 let got = fetch_together(here.at);
                 let got_next = fetch_together(there.at);
-                look = by_faces(look_of(got), d);
-                look = mix_looks(look, by_finer_cell(by_faces(look_of(got_next), d), there.level - here.level), mixed);
+                look = look_of(got);
+                look = mix_looks(look, by_finer_cell(look_of(got_next), there.level - here.level, d), mixed);
             } else {
                 look = look_at(here, p);
-                look = by_faces(look, d);
                 if (look.known) {
                     let next = look_at(there, p);
                     if (next.known) {
-                        look = mix_looks(look, by_finer_cell(by_faces(next, d), there.level - here.level), mixed);
+                        look = mix_looks(look, by_finer_cell(next, there.level - here.level, d), mixed);
                     }
                 }
             }
         } else {
             look = far_blend_kept(&kept, place, level, p);
-            look = by_faces(look, d);
         }
         let size = f32(1 << u32(level));
         let thick = select(0.0, max(look.solid, look.water), look.known);
@@ -1120,13 +1122,22 @@ fn march(o: vec3<f32>, d: vec3<f32>, phase: f32, begin: f32, end: f32, stop: f32
             let length = min(t, stop) - before_t;
             let solid_share = 0.5 * (before.solid + look.solid);
             let water_share = 0.5 * (before.water + look.water);
-            let solid = 1.0 - pow(1.0 - min(solid_share, 0.999), length / size);
+            var solid = 1.0 - pow(1.0 - min(solid_share, 0.999), length / size);
             let water = 1.0 - exp(-camera.water.w * water_share * length);
-            let covered = 1.0 - (1.0 - solid) * (1.0 - water);
+            var covered = 1.0 - (1.0 - solid) * (1.0 - water);
             if (covered > 0.0) {
                 touched = min(touched, before_t);
-                let light_before = faces_light(before, d);
-                let light_now = faces_light(look, d);
+                let faces_before = faces_light(before, d);
+                let faces_now = faces_light(look, d);
+                if (FACES) {
+                    // Cover by faces (`shown_share`): the step's solid share is the greater of its bulk and the face
+                    // its two ends show the ray.
+                    let shown = 0.5 * (shown_share(before, faces_before.y) + shown_share(look, faces_now.y));
+                    solid = 1.0 - pow(1.0 - min(max(solid_share, shown), 0.999), length / size);
+                    covered = 1.0 - (1.0 - solid) * (1.0 - water);
+                }
+                let light_before = faces_before.x;
+                let light_now = faces_now.x;
                 let solids = max(before.solid + look.solid, 1e-6);
                 let ground = (lit(before.colour, light_before) * before.solid + lit(look.colour, light_now) * look.solid) / solids;
                 let ground_sun = (sunlit(before.colour, light_before) * before.solid + sunlit(look.colour, light_now) * look.solid) / solids;
