@@ -20,7 +20,8 @@ const PAGE: u32 = 1 << 20;
 const FACE: u64 = 12;
 /// The most chunks drawn in a frame (a 64-chunk radius is 13,150).
 const MOST_DRAWN: u64 = 16_384;
-/// The nearest and farthest depth kept (blocks ahead of the eye).
+/// The nearest kept (blocks ahead of the eye), and how far ahead "nothing behind" is taken to be for the water. The
+/// depth is kept turned round (the nearest 1, falling towards 0 far out: `near.wgsl`), so nothing is cut off far out.
 const DEPTHS: [f32; 2] = [0.2, 8192.0];
 /// The most faces put on the card in a frame (4 MB), so a radius filling doesn't hold a frame.
 const FACES_A_FRAME: usize = 350_000;
@@ -209,7 +210,7 @@ impl NearEye {
             vertex: wgpu::VertexState { module: &module, entry_point: Some("near_corner"), compilation_options: Default::default(), buffers: &buffers },
             fragment: Some(wgpu::FragmentState { module: &module, entry_point: Some("near_face"), compilation_options: Default::default(), targets: &[Some(wgpu::ColorTargetState { format, blend: None, write_mask: wgpu::ColorWrites::ALL })] }),
             primitive: strip,
-            depth_stencil: Some(wgpu::DepthStencilState { format: wgpu::TextureFormat::Depth32Float, depth_write_enabled: Some(true), depth_compare: Some(wgpu::CompareFunction::Less), stencil: Default::default(), bias: Default::default() }),
+            depth_stencil: Some(wgpu::DepthStencilState { format: wgpu::TextureFormat::Depth32Float, depth_write_enabled: Some(true), depth_compare: Some(wgpu::CompareFunction::Greater), stencil: Default::default(), bias: Default::default() }),
             multisample: wgpu::MultisampleState::default(),
             multiview_mask: None,
             cache: None,
@@ -533,7 +534,7 @@ impl NearEye {
     pub fn draw_faces(&self, encoder: &mut wgpu::CommandEncoder, timestamps: Option<wgpu::RenderPassTimestampWrites<'_>>) {
         let (Some((group, _)), Some(pictures)) = (&self.group, &self.pictures) else { return };
         let attachment = wgpu::RenderPassColorAttachment { view: &pictures.colour, depth_slice: None, resolve_target: None, ops: wgpu::Operations { load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT), store: wgpu::StoreOp::Store } };
-        let depth = wgpu::RenderPassDepthStencilAttachment { view: &pictures.depth, depth_ops: Some(wgpu::Operations { load: wgpu::LoadOp::Clear(1.0), store: wgpu::StoreOp::Store }), stencil_ops: None };
+        let depth = wgpu::RenderPassDepthStencilAttachment { view: &pictures.depth, depth_ops: Some(wgpu::Operations { load: wgpu::LoadOp::Clear(0.0), store: wgpu::StoreOp::Store }), stencil_ops: None };
         let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor { label: Some("the near faces"), color_attachments: &[Some(attachment)], depth_stencil_attachment: Some(depth), timestamp_writes: timestamps, ..Default::default() });
         pass.set_pipeline(&self.faces);
         pass.set_bind_group(0, group, &[]);

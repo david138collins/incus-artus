@@ -20,7 +20,11 @@ struct Near {
     // (w: the x-fader's curve, 1 a straight fade.)
     part: vec4<f32>,
     // x: how far out the near faces reach now (blocks, level); y: the x-fader's band, how many blocks before that
-    // they hand over to the far picture across; z, w: the nearest and farthest depth kept.
+    // they hand over to the far picture across; z: the nearest kept, blocks ahead of the eye (the depth is that over
+    // how far ahead a place is: kept turned round, 1 the nearest and falling towards 0 far out, so it's as fine at
+    // 2,000 blocks as at 2 [the common way round, to build 201, couldn't tell faces a block apart out there: a
+    // hidden face won a pixel now and then, and which one differed from run to run]); w: how far ahead "nothing
+    // behind" is taken to be, for the water.
     reach: vec4<f32>,
 }
 
@@ -81,9 +85,8 @@ fn near_corner(@builtin(vertex_index) corner: u32, @location(0) face: vec3<u32>)
     let ahead = dot(from_eye, camera.forward.xyz);
     let x = dot(from_eye, camera.right.xyz) / dot(camera.right.xyz, camera.right.xyz);
     let y = dot(from_eye, camera.up.xyz) / dot(camera.up.xyz, camera.up.xyz);
-    let span = near.reach.w / (near.reach.w - near.reach.z);
     var corner_out: Corner;
-    corner_out.clip = vec4<f32>(x, y, (ahead - near.reach.z) * span, ahead);
+    corner_out.clip = vec4<f32>(x, y, near.reach.z, ahead);
     corner_out.from_eye = from_eye;
     corner_out.what = vec2<u32>(facing, face.y >> 10u);
     corner_out.ahead = ahead;
@@ -157,12 +160,12 @@ fn near_water(corner: Corner) -> @location(0) vec4<f32> {
         discard;
     }
     let behind = textureLoad(t_depth, vec2<i32>(corner.clip.xy), 0);
-    if (corner.clip.z > behind) {
+    // (A face nearer than the water has the greater depth: it hides it.)
+    if (corner.clip.z < behind) {
         discard;
     }
     // How far ahead the face behind is, from its depth; nothing behind (the near faces end): deep water.
-    let span = near.reach.w / (near.reach.w - near.reach.z);
-    let ahead_behind = select(near.reach.z * span / max(span - behind, 1e-6), near.reach.w, behind >= 1.0);
+    let ahead_behind = select(near.reach.z / max(behind, 1e-12), near.reach.w, behind <= 0.0);
     let through = max(ahead_behind - corner.ahead, 0.0) * length(corner.from_eye) / max(corner.ahead, 0.01);
     let dimmed = 1.0 - exp(-camera.water.w * through);
     let covers = dimmed * shows;

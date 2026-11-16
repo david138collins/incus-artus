@@ -7227,3 +7227,22 @@ answered by it. A flight still gets its take-off told to him and a hands-off ask
 
 **Then the window, on build 202** (its mark is build 201's: the march's row by an off and an on trace; a bracket
 of flights). Flown after a cool-down: the script waits for the processor's area to read under 70 degrees.
+
+### Build 202 built (unlaunched, unflown): the near eye's depth turned round; checked off the screen
+
+**Built as the mark says** (`near.wgsl`, `near_eye.rs`): a place's depth is the nearest kept (0.2 blocks) over
+how far ahead it is, 1 nearest and falling towards 0; the faces' test takes the greater, the depth is cleared to
+0, and the water finds the face behind as 0.2 over its depth (and hides where a face is nearer: greater).
+
+**Against the mark, off the screen:**
+
+- **Run to run, looking down at 32 chunks: met.** Two runs differ at 16 pixels, none by 16 or more (build 201:
+  422, 103 of them by 32 or more).
+- **Run to run, the spawn at 64 chunks: missed by two pixels.** 24 pixels differ (the mark: under 30), but two of
+  them by over 32 (the most 86, at the same pixel of a far hill as before: a block's dark side one run, a light
+  top the other). Not chased: two pixels of four million.
+- **No gap** at 1, 4, 16 or 64 chunks; **no lone pixel of sky** looking down.
+- **The water as it was:** low over the sea at 16 chunks, against build 201's: the same picture to the eye (looked
+  at side by side); 23,900 pixels differ by under 4 (the water's dimming is worked from a finer depth), 95 by 16
+  or more, all single pixels of land (a top against a side: the depth's own gain).
+- All 40 tests pass.
