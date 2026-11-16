@@ -7197,3 +7197,33 @@ partly this.
 
 **Owed, on his word:** the off and on traces for the march's row (the mark: 168 registers, Smem 0, 12 groups, no
 more), and the bracket of flights after a cool-down.
+
+### David's word for the tests and basic fixes (2026-11-16, to Counsel, relayed whole); build 202's mark (the near eye's depth)
+
+**His words, as Counsel sent them:** "Builder can proceed with the tests and basic fixes, i'll bring it up if i
+see undesirable graphics behaviors." And of the road: "we can drop any homework or questions that are hanging on,
+and kind of reorganize a little going forward, since i'm pretty happy and confident with our graphics engine now.
+i think it'll be able to handle anything we throw at it at this point and i've had builder set up documents for
+when it gets reviewed again in the polishing pass, so it should be easy to work on when we need to." For 2.3's
+next step, earlier the same day: quarter and eighth blocks, "builder can just scatter random quarters and octs to
+test it".
+
+**Taken as:** his go for build 201's traces and flights and for the near depth's mend, without waiting on a look
+of his; he raises what he sees. The questions Builder had hanging with him (a launch of build 201, the depth) are
+answered by it. A flight still gets its take-off told to him and a hands-off asked: that isn't a question.
+
+**Build 202's pass mark** (the near eye's own programs; written before the code):
+
+- **The near eye's depth kept turned round** (the nearest 1, the farthest 0, nothing clipped far out): fine at
+  every distance, where the common way spends nearly all its fineness within a few blocks of the eye and at
+  2,000 blocks can't tell faces a block apart. The faces' test, the depth's clearing and the water's reading of
+  the face behind turned to match.
+- *Mark:* **the near picture the same from run to run at a distance:** looking down at 32 chunks, two runs
+  differ at under 30 pixels and none by 16 or more (build 201: 422 pixels, 103 of them by 32 or more); the spawn
+  at 64 chunks likewise. (Not none: two faces of one plane still overlap by the hair where they meet.)
+- No gap at 1, 4, 16 or 64 chunks; no lone pixel of sky looking down; the water as it was (low over the sea at 16
+  chunks against build 201's, but for the near picture's own pixels); all tests pass.
+- Its cost isn't expected to be anything; the window's flights say what the near faces cost beside build 197's.
+
+**Then the window, on build 202** (its mark is build 201's: the march's row by an off and an on trace; a bracket
+of flights). Flown after a cool-down: the script waits for the processor's area to read under 70 degrees.

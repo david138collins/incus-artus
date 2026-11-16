@@ -111,9 +111,12 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   march; "the near cover" says which far pixels blocks wholly cover; the march marches none of those), and his
   starting numbers, said to Counsel ("yes, and 32 chunk radius": 32 chunks, the x-fader 128 wide, curve 1). Off
   the screen the far eye's groups are held 7 to 87% fewer thread-steps and the far picture is unchanged.
-  **Waiting on David:** his word to launch build 201 (the dots gone, his starting numbers); his word for the
-  window (an off and an on trace for the march's row, then a bracket of flights, after a cool-down); and whether
-  to mend the near eye's depth, found too coarse at a distance (written down, not built). Before the flights (his "go
+  **His word for the rest** (2026-11-16, to Counsel): "Builder can proceed with the tests and basic fixes, i'll
+  bring it up if i see undesirable graphics behaviors." So Builder goes on without waiting on a look: build 202
+  (the near eye's depth, found too coarse at a distance: its mark written), then the window on it (an off and an
+  on trace for the march's row, a bracket of flights, after a cool-down). **Waiting on David:** nothing; the
+  trace's row is his to read when he likes. After the window, 2.3's next step by his word: quarter and eighth
+  blocks, scattered at random to test them. Before the flights (his "go
   ahead with the tests", 2026-11-16) he looked at build 195: "holds 240fps at 64 chunks, once its loaded in"; flying very fast,
   90 to 120 a second while chunks are made ("i don't think a player could experience a hiccup. off to a good
   start"); "there is a seam, but, its not very bad, and i think a x-fader with curves could hide it almost
