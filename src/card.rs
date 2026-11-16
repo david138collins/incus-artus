@@ -115,7 +115,7 @@ fn present_mode(allowed: &[wgpu::PresentMode], uncapped: bool) -> wgpu::PresentM
 
 /// The Windows SDK's `dxcompiler.dll`, if it's installed with its `dxil.dll` beside it; the validator is loaded first, by
 /// its path, so DXC gets the one made with it.
-fn windows_sdk_dxc() -> Option<String> {
+pub(crate) fn windows_sdk_dxc() -> Option<String> {
     let folder = std::path::Path::new(r"C:\Program Files (x86)\Windows Kits\10\Redist\D3D\x64");
     let (dxc, dxil) = (folder.join("dxcompiler.dll"), folder.join("dxil.dll"));
     if !(dxc.is_file() && dxil.is_file()) {

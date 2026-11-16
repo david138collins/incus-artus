@@ -6341,3 +6341,56 @@ instructions and your output there into a lazy rays doc to resume with if we eve
 Done: `journal/docs/lazy-rays.md` (the Oracle's rules and tests; the three measurements, with how to take the
 last again; the proposal and what it would stand on in the code; his two questions, unanswered; what isn't known;
 how to resume). Nothing of it is built. The plan's item is marked shelved, not dropped.
+
+### Cover by height shelved beside lazy rays, and the march scanned by its parts (2026-11-16, David's word)
+
+Builder had asked whether the land's own edge by a height table should go in the back pocket or be built. David
+first asked: "would the lands own edge by a height table work with mountains in front of mountains as well as in
+front of sky". Builder: yes by its design (the edge is worked out at the near ridge, whatever is behind), where
+today's sky weight sharpens only land against sky; with what it wouldn't change (a far ridge's sideways steps,
+anything that isn't plain ground) and that none of it is built. **His answer:** "please pack it up next to lazy
+rays, along with scanning the march and noting in a file anything that can later be removed from the march to free
+up room on it; i would like for a sort of 'windirtree' view of the march by its components, and the size of those
+components inside the march, if possible, so that later review could identify ways to further improve it by
+removing sections that do little and replace them with something else. if i become dissatissfied with some views
+in a fuller game i'll come back to cover by height and lazy rays and there may be a final check pass against the
+engine later anyways."
+
+**Done:**
+
+- `journal/docs/cover-by-height.md`: shelved, not dropped; what it is, the Oracle's description, what the march
+  already has, what isn't known, how to resume.
+- `journal/docs/march-by-parts.md`: the march at build 194 by its parts, with what could later come out.
+- **An instrument for it** (no change to the game): the picture test keeps each program's text as the card's
+  compiler is given it (`FAR_TEST_SHADER_TEXT`, a folder; made for the game's own compiler), and
+  `kept logs/march/march_parts.py` compiles that text as the game does and again with debug marks, checks the two
+  are the same program instruction for instruction, and counts every instruction in the part of the text it came
+  from (and, for a function drawn into another, where it was called from). Build 194's texts and trees are kept
+  in `kept logs/march/b194/`.
+
+**What the scan found** (the whole of it is in the document):
+
+- `march_all` is 4,548 instructions (4,436 with cover by faces off). The march's own steps are 56% of it, the
+  finish 10%, the joins 16%.
+- **A third of the program is finding where a read lands in the bricks' textures,** three quarters of that its
+  edge cases; the hand-over's second read is a quarter of the program; the gather, where the picture is made, a
+  twentieth. Fog is in the program though it's off (84 instructions), and all four ray-start patterns (92).
+- **The march carries 98 values round its loop** for every ray (97 with cover by faces off: the one more is the
+  register David's rows showed, 167 to 168, so this count follows the registers): the numbers of two levels kept
+  in hand 30, the height table's three rows 15, the last step's look 13, the floor's cells 9, what's gathered 7,
+  and the rest; 2 are a guard naga adds to every loop.
+- **Eleven candidates** for making room, ranked, each marked measured or not: first the loop guard (wgpu lets a
+  trusted shader be made without it), fog compiled in only when on, one ray-start pattern; then the two levels'
+  numbers and the three rows kept in hand (45 of the 98, unmeasured); the edge cases of placing a read; the
+  hand-over's second read (14 registers, measured, and a look); the last step's look; the finish in its own pass;
+  the floor's cells; the sky worked out at the finish.
+
+**A check on the instrument:** the program with debug marks is the game's, instruction for instruction (4,548 of
+4,548 in order); cover by faces reads as 112 instructions and one held value, as David's rows read one register.
+What it can't say: a part's time, or its registers (only a trace and his reading of the row do).
+
+**Something noticed on the way, written down, not acted on:** the picture test's own device leaves the choice
+of DirectX compiler to wgpu (DXC if it finds one, else the old FXC), where the game names the Windows SDK's DXC
+(`card.rs`); the test now names the game's only when it's asked to keep the text. Which compiler the pictures
+checked off the screen have been made by isn't known. No difference has ever shown against the game; it isn't
+known that there's none.

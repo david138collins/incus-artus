@@ -1532,6 +1532,36 @@ mod tests {
     use crate::doorway::Doorway;
     use crate::far::{FarColours, region, regions_of};
 
+    /// Each shader's text as the card's compiler is given it, kept in a folder (`FAR_TEST_SHADER_TEXT`), a file a
+    /// program (a name met again gets a number): for the march's size by its parts, taken off the screen
+    /// (`journal/docs/march-by-parts.md`). The game's own way to the same text is `INCUS_SHADER_TEXT`, into the
+    /// session's log.
+    struct ShaderText {
+        folder: std::path::PathBuf,
+        seen: std::sync::Mutex<std::collections::HashMap<String, u32>>,
+    }
+
+    impl log::Log for ShaderText {
+        fn enabled(&self, metadata: &log::Metadata) -> bool {
+            metadata.target().starts_with("wgpu_hal")
+        }
+
+        fn log(&self, record: &log::Record) {
+            let text = record.args().to_string();
+            let Some(rest) = text.strip_prefix("Naga generated shader for \"") else { return };
+            let Some((name, rest)) = rest.split_once("\" at ") else { return };
+            let Some((stage, source)) = rest.split_once(":\n") else { return };
+            let mut seen = self.seen.lock().unwrap();
+            let met = seen.entry(name.to_string()).or_insert(0);
+            let file = if *met == 0 { format!("{name}.{}.hlsl", stage.to_lowercase()) } else { format!("{name}_{met}.{}.hlsl", stage.to_lowercase()) };
+            *met += 1;
+            let _ = std::fs::create_dir_all(&self.folder);
+            let _ = std::fs::write(self.folder.join(file), source);
+        }
+
+        fn flush(&self) {}
+    }
+
     /// The far eye draws (plan 2.2, step 2a): its passes made and run with no error from the card, off the screen, from
     /// the spawn looking north, with the regions round the spawn on the card: the picture has ground below and sky above.
     #[test]
@@ -1540,6 +1570,17 @@ mod tests {
         let colours = FarColours::load(&mut doorway).unwrap();
         let mut descriptor = wgpu::InstanceDescriptor::new_without_display_handle();
         descriptor.backends = wgpu::Backends::DX12;
+        // The shaders' text kept, if asked (`FAR_TEST_SHADER_TEXT`: a folder), and made as the game makes it: for
+        // the game's own compiler (`card.rs`), which the text depends on.
+        if let Some(folder) = std::env::var_os("FAR_TEST_SHADER_TEXT") {
+            let kept: &'static ShaderText = Box::leak(Box::new(ShaderText { folder: folder.into(), seen: Default::default() }));
+            if log::set_logger(kept).is_ok() {
+                log::set_max_level(log::LevelFilter::Debug);
+            }
+            if let Some(dxc) = crate::card::windows_sdk_dxc() {
+                descriptor.backend_options.dx12.shader_compiler = wgpu::Dx12Compiler::DynamicDxc { dxc_path: dxc };
+            }
+        }
         let instance = wgpu::Instance::new(descriptor);
         let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions { power_preference: wgpu::PowerPreference::HighPerformance, ..Default::default() })).expect("a graphics card");
         let largest = adapter.limits().max_buffer_size.min(adapter.limits().max_storage_buffer_binding_size).min((2 << 30) - 1);

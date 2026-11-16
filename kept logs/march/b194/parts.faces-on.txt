@@ -1,0 +1,239 @@
+march_all.faces-on.hlsl: 4548 instructions as the game's compiler makes it; with debug marks 4548, the same in order: True
+
+The program by its parts (instructions; share of the whole):
+
+march_all                                                                       4548  100.0%  ########################################
+  march_pixel                                                                   3658   80.4%  ################################
+    march                                                                       2537   55.8%  ######################
+      the look: the hand-over's two reads and their mix                         1138   25.0%  ##########
+        spot_kept                                                                792   17.4%  #######
+          spot_soft                                                              613   13.5%  #####
+            (its own lines)                                                      295    6.5%  ###
+            rock_share                                                           268    5.9%  ##
+              (its own lines)                                                    204    4.5%  ##
+              entry_in                                                            64    1.4%  #
+            entry_in                                                              32    0.7%  #
+            naga_f2i32                                                            18    0.4%  
+          keep_level                                                              80    1.8%  #
+            table                                                                 76    1.7%  #
+            (smaller parts together)                                               4    0.1%
+          (its own lines)                                                         53    1.2%  #
+          ring_level                                                              40    0.9%  #
+            in_ring                                                               27    0.6%  #
+            (its own lines)                                                       13    0.3%  
+          (smaller parts together)                                                 6    0.1%
+        look_at                                                                  109    2.4%  #
+          (its own lines)                                                         57    1.3%  #
+          fetch_together                                                          42    0.9%  #
+          (smaller parts together)                                                10    0.2%
+        by_finer_cell                                                             82    1.8%  #
+          (its own lines)                                                         44    1.0%  #
+          faces_light                                                             38    0.8%  #
+        mix_looks                                                                 76    1.7%  #
+        fetch_together                                                            58    1.3%  #
+        (smaller parts together)                                                  21    0.5%
+      the look: its own level's read                                             448    9.9%  ####
+        far_blend_kept                                                           448    9.9%  ####
+          spot_kept                                                              399    8.8%  ####
+            spot_soft                                                            307    6.8%  ###
+              (its own lines)                                                    148    3.3%  #
+              rock_share                                                         134    2.9%  #
+                (its own lines)                                                  102    2.2%  #
+                entry_in                                                          32    0.7%  #
+              entry_in                                                            16    0.4%  
+              (smaller parts together)                                             9    0.2%
+            keep_level                                                            43    0.9%  #
+              table                                                               38    0.8%  #
+              (smaller parts together)                                             5    0.1%
+            (its own lines)                                                       25    0.5%  #
+            ring_level                                                            21    0.5%  
+              in_ring                                                             13    0.3%  
+              (smaller parts together)                                             8    0.2%
+            (smaller parts together)                                               3    0.1%
+          look_at                                                                 46    1.0%  #
+            fetch_together                                                        21    0.5%  
+            (its own lines)                                                       20    0.4%  
+            (smaller parts together)                                               5    0.1%
+          (smaller parts together)                                                 3    0.1%
+      the skip over clear air (the height table's three rows)                    234    5.1%  ##
+        (its own lines)                                                           83    1.8%  #
+        top_in                                                                    66    1.5%  #
+          (its own lines)                                                         57    1.3%  #
+          (smaller parts together)                                                 9    0.2%
+        keep_row                                                                  48    1.1%  #
+          table                                                                   42    0.9%  #
+          (smaller parts together)                                                 6    0.1%
+        leave2_                                                                   19    0.4%  
+        naga_f2i32                                                                18    0.4%  
+      each step: its region, summed or not                                       171    3.8%  ##
+        keep_place                                                               101    2.2%  #
+          (its own lines)                                                         56    1.2%  #
+          entry_at                                                                22    0.5%  
+            (its own lines)                                                       16    0.4%  
+            (smaller parts together)                                               6    0.1%
+          naga_f2i32                                                              18    0.4%  
+          (smaller parts together)                                                 5    0.1%
+        entry_at                                                                  27    0.6%  #
+          (its own lines)                                                         16    0.4%  
+          (smaller parts together)                                                11    0.2%
+        leave2_                                                                   19    0.4%  
+        (its own lines)                                                           18    0.4%  
+        (smaller parts together)                                                   6    0.1%
+      after the last step: the floor's ground, the sky behind, what's handed b   138    3.0%  #
+        sky                                                                       84    1.8%  #
+          sky_tone                                                                72    1.6%  #
+          (its own lines)                                                         12    0.3%  
+        (its own lines)                                                           40    0.9%  #
+        shadow_wide                                                               14    0.3%  
+      the gather: what covers the step (bulk, water, faces)                      105    2.3%  #
+        faces_light                                                               63    1.4%  #
+        (its own lines)                                                           32    0.7%  #
+        (smaller parts together)                                                  10    0.2%
+      the gather: its light and colour                                            84    1.8%  #
+        (its own lines)                                                           65    1.4%  #
+        lit_                                                                      16    0.4%  
+        (smaller parts together)                                                   3    0.1%
+      each step: the level for this distance                                      68    1.5%  #
+        ring_level                                                                23    0.5%  #
+          in_ring                                                                 14    0.3%  
+          (smaller parts together)                                                 9    0.2%
+        (its own lines)                                                           23    0.5%  #
+        level_at                                                                  22    0.5%  
+          (its own lines)                                                         13    0.3%  
+          (smaller parts together)                                                 9    0.2%
+      the hand-over: how much of the next level to mix in                         43    0.9%  #
+        (its own lines)                                                           30    0.7%  #
+        in_ring                                                                   13    0.3%  
+      the step's length: surface, thin haze or air; the walk back in              40    0.9%  #
+      each step: its stops (the ray's end, covered, a cut's stop, the world's     32    0.7%  #
+      its start: what a ray sets out with                                         26    0.6%  #
+        (its own lines)                                                           20    0.4%  
+        (smaller parts together)                                                   6    0.1%
+      (smaller parts together)                                                    10    0.2%
+    finish                                                                       475   10.4%  ####
+      shaded                                                                     162    3.6%  #
+        cell_light                                                               118    2.6%  #
+          light_of                                                               100    2.2%  #
+            (its own lines)                                                       68    1.5%  #
+            table                                                                 28    0.6%  #
+            (smaller parts together)                                               4    0.1%
+          (its own lines)                                                         15    0.3%  
+          (smaller parts together)                                                 3    0.1%
+        (its own lines)                                                           44    1.0%  #
+      fogged                                                                      84    1.8%  #
+        (its own lines)                                                           57    1.3%  #
+        sky_tone                                                                  27    0.6%  #
+      worth_of                                                                    60    1.3%  #
+      (its own lines)                                                             60    1.3%  #
+      list_long                                                                   35    0.8%  #
+        (its own lines)                                                           27    0.6%  #
+        (smaller parts together)                                                   8    0.2%
+      to_srgb                                                                     24    0.5%  #
+      put_far                                                                     19    0.4%  
+        far_left                                                                  16    0.4%  
+          (smaller parts together)                                                16    0.4%
+        (smaller parts together)                                                   3    0.1%
+      put_worth                                                                   16    0.4%  
+        (smaller parts together)                                                  16    0.4%
+      (smaller parts together)                                                    15    0.3%
+    (its own lines)                                                              124    2.7%  #
+    ray_start                                                                     92    2.0%  #
+      weave                                                                       28    0.6%  #
+      blue                                                                        28    0.6%  #
+        naga_mod                                                                  12    0.3%  
+        (smaller parts together)                                                  16    0.4%
+      (its own lines)                                                             19    0.4%  
+      (smaller parts together)                                                    17    0.4%
+    map_end                                                                       76    1.7%  #
+      (its own lines)                                                             27    0.6%  #
+      leaves                                                                      26    0.6%  #
+      level_at                                                                    19    0.4%  
+        (smaller parts together)                                                  19    0.4%
+      (smaller parts together)                                                     4    0.1%
+    put_stack                                                                     52    1.1%  #
+      (its own lines)                                                             49    1.1%  #
+      (smaller parts together)                                                     3    0.1%
+    ray_through                                                                   38    0.8%  #
+    cut_slot                                                                      29    0.6%  #
+      far_left                                                                    16    0.4%  
+        (smaller parts together)                                                  16    0.4%
+      (smaller parts together)                                                    13    0.3%
+    parent_of                                                                     25    0.5%  #
+      (its own lines)                                                             16    0.4%  
+      (smaller parts together)                                                     9    0.2%
+    cut_place                                                                     23    0.5%  #
+    get_far_above                                                                 21    0.5%  
+      far_left                                                                    16    0.4%  
+        (smaller parts together)                                                  16    0.4%
+      (smaller parts together)                                                     5    0.1%
+    cut_first                                                                     21    0.5%  
+      (its own lines)                                                             12    0.3%  
+      (smaller parts together)                                                     9    0.2%
+    cut_before                                                                    21    0.5%  
+      (smaller parts together)                                                    21    0.5%
+    put_far                                                                       19    0.4%  
+      far_left                                                                    16    0.4%  
+        (smaller parts together)                                                  16    0.4%
+      (smaller parts together)                                                     3    0.1%
+    put_worth                                                                     16    0.4%  
+      (smaller parts together)                                                    16    0.4%
+    naga_f2u32                                                                    15    0.3%  
+    far_above_edge                                                                14    0.3%  
+      (smaller parts together)                                                    14    0.3%
+    get_worth                                                                     12    0.3%  
+      (smaller parts together)                                                    12    0.3%
+    (smaller parts together)                                                      48    1.1%
+  (joins, where values from different paths meet; no line of their own)          717   15.8%  ######
+  (its own lines)                                                                 85    1.9%  #
+  listed_pixel                                                                    53    1.2%  #
+    (its own lines)                                                               30    0.7%  #
+    far_left                                                                      12    0.3%  
+      (smaller parts together)                                                    12    0.3%
+    (smaller parts together)                                                      11    0.2%
+  naga_f2u32                                                                      18    0.4%  
+  (smaller parts together)                                                        17    0.4%
+
+What the march carries round its loop (the block where the most values meet: each is a number held for
+every ray, every step, whether the step uses it or not):
+
+  98 values
+     10  k_2 (keep_level)
+      6  k_6 (far_blend_kept)
+      6  kept_next
+      6  look_2 (faces_light)
+      5  _e747
+      4  kept
+      4  row_far
+      4  row_own
+      4  row_up
+      3  _e3 (keep_row)
+      3  _e860
+      3  _e866
+      3  bottom_here
+      3  bottom_sun
+      3  ret (ConstructPlace)
+      2  _e13 (keep_place)
+      2  _e21
+      2  _e4 (keep_level)
+      2  k_3 (spot_soft)
+      2  loop_bound_8
+      2  t_2
+      1  (no name)
+      1  _e141
+      1  _e172
+      1  _e178
+      1  _e651
+      1  _e689
+      1  _e696
+      1  bottom
+      1  bottom_level
+      1  bottom_t
+      1  chained
+      1  first_level_1
+      1  in_air
+      1  lv
+      1  lv_hand
+      1  n_2
+      1  steps_1
+      1  through0_1 (march_pixel)
+      1  walking

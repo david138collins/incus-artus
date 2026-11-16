@@ -72,12 +72,16 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   (`journal/docs/decisions.md`, "Before the first line").
 - **Why:** we can't size the rebuild on guesses. The last outside guesses were off by ten times both ways, so a
   handful of cheap experiments in old settle what paper can't before anything new is written.
-- **Waiting on David:** two answers on what's left of the far eye (2.2) before the near eye: whether the
-  land's own edge by a height table goes in the back pocket with lazy rays or is built now, and when the Intel
-  card's flight is flown (it needs the laptop switched to "Optimus" and restarted). **Lazy rays are shelved by
-  his word** (2026-11-16: "lets hold off on lazy rays for now. we can keep that in our back pocket if we ever get
-  a performance squeeze limited by long rays. i think we can move on"), packed into `journal/docs/lazy-rays.md`
-  to resume from. Cover by faces is in and done enough to go on (`journal/docs/experiments.md`): his look at
+- **Waiting on David:** when the Intel card's flight is flown (the last thing in the far eye's part of the
+  plan before its gate is read: it needs the laptop switched to "Optimus" and restarted, which ends the sessions);
+  then the near eye (2.3). **Shelved by his word, 2026-11-16, both packed to resume from:** lazy rays ("lets hold
+  off on lazy rays for now. we can keep that in our back pocket if we ever get a performance squeeze limited by
+  long rays. i think we can move on"; `journal/docs/lazy-rays.md`) and the land's own edge by a height table
+  ("pack it up next to lazy rays ... if i become dissatissfied with some views in a fuller game i'll come back to
+  cover by height and lazy rays and there may be a final check pass against the engine later anyways";
+  `journal/docs/cover-by-height.md`). At his word the march is scanned by its parts for that later review
+  (`journal/docs/march-by-parts.md`: its program as a tree by size, the 98 values it holds in hand, eleven
+  candidates for making room). Cover by faces is in and done enough to go on (`journal/docs/experiments.md`): his look at
   build 193, the live switch in his hand (the Render page's "Cover by faces" tick box swaps the march's two
   compiled programs, nothing switched inside either): **"looks good"**. As flown in build 194 (one power where a
   step gathers; off, on, off) it costs the march about half a percent, the card's whole over the nine views 0.4%
@@ -449,9 +453,15 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
         weights like the sky's feather, by kind of far hit, to pull thin things (posts, towers, trunks) up in the
         picture. *The talk, his word* (2026-11-15: "i do like the crisper line of the 'cover' ... but pay careful
         attention to the weight of the shader"), in three steps: (1) cover by faces, a ray stopped by the face a
-        far cell shows it as well as by its bulk, from what the cells already carry (build 191, now); (2) his
-        weights on top if he still wants things pulled up, the 26 classes that could carry one sent him; (3) the
-        land's own edge by a height table (the Oracle's cover), weighed after lazy rays
+        far cell shows it as well as by its bulk, from what the cells already carry (builds 191 to 194: in, his
+        look "looks good", one register and about half a percent); (2) his weights on top if he still wants
+        things pulled up, the 26 classes that could carry one sent him (not asked for at his look); (3) the
+        land's own edge by a height table (the Oracle's cover). **(3) shelved by David, 2026-11-16, not
+        dropped,** with the sheet that hangs on it: "pack it up next to lazy rays ... if i become dissatissfied
+        with some views in a fuller game i'll come back to cover by height and lazy rays and there may be a final
+        check pass against the engine later anyways." To resume from: `journal/docs/cover-by-height.md`. At his
+        word the march was scanned by its parts for that later review: `journal/docs/march-by-parts.md` (a tree
+        of its program by size, the 98 values it holds in hand, eleven candidates for making room)
   - [ ] Lazy rays (David's lead: "spread out any rays that can be lazy"), by lengths of distance, under the Oracle's
         nine rules (a ray in flight always finishes; light and fog put on every frame; the gate read moving); its
         tests amended (the store, once whole, equals a full march of its own directions; the lag; card time moving,

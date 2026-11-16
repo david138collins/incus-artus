@@ -35,6 +35,8 @@ Until 2026-11-11 this was the record of what's decided and built; since then `ma
 | `map-plan.md` | Counsel's plan for `master/map.md`, the map of what exists and how it's wired. |
 | `experiments.md` | The experiments flown in old (plan phase 1) and the pack's check flight: each pass mark written before it flew, then the results and the logs that hold them. |
 | `lazy-rays.md` | Lazy rays, shelved by David on 2026-11-16 ("keep that in our back pocket"): the Oracle's rules, what's been measured, the design Builder proposed, the decisions left with him, and how to pick it up. |
+| `cover-by-height.md` | The land's own edge by a height table (crisp land against land and sky), shelved by David on 2026-11-16 beside lazy rays: what it is, the Oracle's description, what the march already has, what isn't known, and how to pick it up. |
+| `march-by-parts.md` | The far march at build 194 by its parts: a tree of its program with each part's size, the 98 values it holds in hand (its size on the card), what the audits measured, and what could later come out to make room. How to take it again is at its end; the script and the kept trees are in `kept logs/march/`. |
 
 **The engine, in old**
 
