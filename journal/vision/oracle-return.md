@@ -525,6 +525,18 @@ the answers.
   after build 189: "i like the way cover works", with an idea of his: weights like the sky's feather, by kind of far
   hit, "to balance/tune the strength of different types of hits in the distance and pull them up in the picture a
   bit" (Counsel: done where the cells are summed, a weight a level and a kind, as far foliage keeps its coverage).
+- **The skyline's first step, and lazy rays shelved** (builds 191 to 194, 2026-11-16). Cover by faces: a ray stopped
+  by the face a far cell shows it as well as by its bulk, from what the cells already carry (their faces, kept for
+  light). Walls, towers, spires and woods hold at a distance; gentle ground at a skyline barely changes. Its first
+  form put a register's worth and 512 bytes by (Nsight, read by David); moved to where a step gathers, reusing light's
+  number, it fits with nothing put by at one register more (168 of about 170), about half a percent of the march.
+  David: "looks good"; kept, on a Render-page tick box. His weights by kind and your cover of the land's own edge
+  (the height table) wait. Then lazy rays, measured before any code: thread-steps beyond 1 km at most 71% of the
+  mountain top's work and 38% of high over the spawn's; beyond 4 km 26% and 15%. Builder's proposal followed your
+  section 3 (a world-fixed picture beyond a lazy line, refreshed a share a frame, light and fog fresh). David shelved
+  it: "we can keep that in our back pocket if we ever get a performance squeeze limited by long rays"
+  (`journal/docs/lazy-rays.md`). Is that the right call at this card's numbers, and does anything in your design
+  lean on lazy rays being in before the fork?
   Does the cut by a list still beat yours (every ray cut) on a card that's full at the marks that work, and is it the
   footing for lazy rays (a far length kept, not re-marched every frame)?
 

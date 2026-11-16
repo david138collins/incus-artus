@@ -2490,6 +2490,15 @@ Reference: `Art/quartile minecraft illustration.png`
     picture; and it's his own idea in the spec, "a world-anchored dome for far pixels". All at once keeps every far
     square the same age, so a sun step or a stretch of travel never shows as a seam between fresh and stale pieces.
     It's the first lever aimed at the working marks themselves, the dearest views.
+  - **[DECIDED 2026-11-16] Lazy rays shelved, kept in the back pocket** (David, to Builder): "lets hold off on lazy
+    rays for now. we can keep that in our back pocket if we ever get a performance squeeze limited by long rays. i
+    think we can move on. just pack the instructions and your output there into a lazy rays doc to resume with if we
+    ever need it." Shelved, not dropped; his two questions (the world or the screen; all at once or piece by piece)
+    stay open. Packed in `journal/docs/lazy-rays.md` (the Oracle's rules and tests, the three measurements and how
+    to take the last again, Builder's proposal and what it stands on in the code, his open questions, what isn't
+    known, how to resume). Next asked of him: whether the land's own edge by a height table goes in the same pocket
+    or is built now, and when the Intel card's flight is flown (Optimus and a restart, which ends the sessions: notes
+    written first); then the far eye's gate and the near eye.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
