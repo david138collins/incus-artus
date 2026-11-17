@@ -1115,6 +1115,14 @@ what novel ways i could create the fire that the ray sees so that it looks organ
   - *Counsel, for building:* the grass's wear is a count kept with the column (a few steps of it choosing the
     picture), and wet is the weather's, read when drawn and when a foot lands; neither changes a block, so neither
     makes a chunk again. It fits the seasons' question in the plan ("a re-texture, a named field the look reads").
+- **Dirt is dug and placed as slabs** (the same day): "dirt digs and places as slabs, with a shovel, thatd be for all
+  types of dirt, there would be mud bricks and packed dirt type blocks that can be crafted for going beyond just
+  piling dirt."
+  - So: every kind of dirt comes up and goes down a slab at a time, with a shovel; loose dirt is for piling; mud
+    bricks and packed dirt are crafted blocks for building past that.
+  - *Counsel:* it makes the wearing and the digging one thing (a dirt block is two slabs either way), and gives the
+    spec's "one slot holds a material in every size, counted by volume" its first plain case. For him to say when
+    it's built: whether a whole dirt block in the ground takes two digs, and whether sand and gravel go the same way.
 
 ## Figures  [IDEA, David 2026-11-09]
 
