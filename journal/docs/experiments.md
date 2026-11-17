@@ -8215,3 +8215,40 @@ narrow band at the seam, not wide rings.
 - He turned workflows on in his own settings ("we'll wait to use ultracode until we're ready to say, 'are we
   finished with the graphics engine generally?' and confirm we've got it pretty much set-and-forget and can be
   creative with FX").
+
+### David's look at build 211, and the near eye at half size priced off the screen (2026-11-17)
+
+**His look** (build 211 launched at the spawn with the stage, the 16s 256 a side and the 8s 320: 2,245 and 4,253
+bricks, on the card 27 s and 14 s after the start): "it looks really good and i seem to have what i want but i
+can't help thinking that the crossovers run backwards somehow, like i can fly up and make the land under me
+chunkier than the land around that in a ring; but it works... im not asking to really look into it, maybe just
+explain it." Explained: cells get coarser with distance in steps, and within a step the finer rays come in only
+once a ray's pixel is as big as the cell it reads (`worth_of`; his own finding, "2 looks worse than 4, up close"),
+so the rays go coarse, fine, coarse, fine outward; flown up, the land nearest is at the start of its step. Cells
+at the grain at the seam (a band of 4s) would make it run finest at the seam and coarser outward.
+
+**Then:** "what could go into making it run the way my eye expects, or the proper version as you call it, and
+could it be leaner in the march than what we have? how much space can we get from the obvious cuts we have tagged
+in it? something to think about waiting to look at 2x2 all over." Answered from `march-by-parts.md`, nothing built:
+the proper version is all in what's kept (a narrow band of 4s under the x-fader and a little past, hollow, sized
+by the grain, following the radius, the rings made quicker, one control for its width); the march has slots for
+four rings and uses two, so its program needn't change (the frame withholds a hollow ring from the march while
+chunks fill). The tagged cuts (blue noise and weave, fog only when on, the sky behind the ray at the finish) free
+about 260 of 4,548 instructions and probably none of its size on the card; room is in the hand-over's second read
+(14 registers), the two levels' numbers in hand (up to 30 held values, unmeasured), the finish, the floor and the
+rows (6 each); a third of the program is finding where a read lands in the textures, three quarters of that edge
+cases the textures could be made to answer.
+
+**The near eye's passes alone at full and half size** (his question: "do you think we can save anything with the
+near field angle space at half resolution"; `FAR_TEST_LISTING` now also times the near faces and water alone, 300
+frames to the card's finish; the stage on, 32 chunks; full, half, full, half; ms a frame):
+
+| | 2,560 x 1,600 | 1,280 x 800 | 2,560 x 1,600 | 1,280 x 800 |
+|---|---|---|---|---|
+| on the ground at the spawn | 1.07, 1.08 | 0.73, 0.72 | 1.20, 1.32 | 0.77, 0.75 |
+| high over the spawn, looking down | 0.89, 0.85 | 0.48, 0.51 | 1.04, 0.84 | 0.48, 0.49 |
+
+**A third to nearly a half less: 0.35 to 0.5 ms a frame at these two views.** So the faces' pixels are now about
+half of the near passes' time (a quarter of the pixels saved three quarters of it), where his trace of build 199
+had them at 15%: the corners sent were halved since (build 209) and each pixel does more (pictures, the light
+looked up). The full-size readings wander (1.07 to 1.32 at the spawn); the half-size ones don't.

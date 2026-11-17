@@ -2052,6 +2052,18 @@ mod tests {
                     handing += handed.elapsed().as_secs_f64();
                 }
                 device.poll(wgpu::PollType::wait_indefinitely()).expect("the card finished");
+                // And the near eye's own two passes alone (its faces and its water into its own picture), to the
+                // card's finish: at two sizes of picture the difference is its pixels' work, its corners' the same.
+                let alone = std::time::Instant::now();
+                for _ in 0..frames_timed {
+                    let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("the near eye alone") });
+                    near.prepare(&device, &queue, screen, &eye, &camera);
+                    near.draw_faces(&mut encoder, None);
+                    near.draw_water(&mut encoder, None);
+                    queue.submit([encoder.finish()]);
+                }
+                device.poll(wgpu::PollType::wait_indefinitely()).expect("the card finished");
+                eprintln!("The near eye's passes alone at {} x {}, groups turned away {}: {:.0} millionths of a second a frame", screen.0, screen.1, if on { "left out" } else { "listed" }, alone.elapsed().as_secs_f64() * 1e6 / frames_timed as f64);
                 eprintln!("Whole frames, groups turned away {}: handing a frame over {:.0} millionths of a second on the processor; a frame {:.0} millionths, start to the card's finish", if on { "left out" } else { "listed" }, handing * 1e6 / frames_timed as f64, whole.elapsed().as_secs_f64() * 1e6 / frames_timed as f64);
                 eprintln!("The listing, groups turned away {}: {each:.0} millionths of a second a frame; {} chunks, {} draws, {} faces sent of {} kept", if on { "left out" } else { "listed" }, near.counts.drawn, near.counts.draws, near.counts.faces_drawn, near.counts.faces);
             }
