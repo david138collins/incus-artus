@@ -3048,6 +3048,16 @@ Reference: `Art/quartile minecraft illustration.png`
       specified: snapping things and the camera to the macropixel grid against crawl (for a flat, no-perspective
       camera; it doesn't hold in perspective), outlines from depth and normals, and a pixel size per object; the
       rest is the colour work he does at the asset.
+    - The whole style, with where each part sits in the frame's passes, is noted at his asking in
+      `journal/docs/graphics-style.md`.
+- *Read from the plan and the journal at builds 209's commits* (David now the go-between; Builder's records):
+  **where light is kept, his word** "proceed with C", of three ways put to him with counts: light kept only where it
+  isn't plain daylight, in one table on the card a face's pixel looks its cell up in (no entry: plain daylight), so
+  faces carry no light and merge whatever it is; a small light picture round the eye later, for moving lights only
+  (734acf1). Build 209, faces turned away (ff0c6b2, unflown): the near faces' pass had never culled at all; now the
+  card drops turned-away faces and a chunk's groups that all look away aren't listed: half as many faces sent at 32
+  chunks off the screen, the listing 0.02 to 0.03 ms dearer; dark dots on roofs and slopes gone. Build 210 is the
+  light's table.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
