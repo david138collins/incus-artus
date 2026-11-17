@@ -1917,6 +1917,11 @@ mod tests {
             if fader.len() == 2 {
                 (near.look.fader_width, near.look.fader_curve) = (fader[0], fader[1]);
             }
+            // (`FAR_TEST_GROUPS=0`: every group of a chunk's faces listed, the card's own dropping of faces turned away
+            // left as it is: to see the listing's rule alone change nothing.)
+            if std::env::var("FAR_TEST_GROUPS").as_deref() == Ok("0") {
+                near.turned = false;
+            }
             near.changed(changed.changes());
             let began = std::time::Instant::now();
             loop {
@@ -1993,6 +1998,22 @@ mod tests {
                 eye.layer(k, &mut encoder, None);
             }
             queue.submit([encoder.finish()]);
+        }
+        // The near eye's listing timed, if asked (`FAR_TEST_LISTING`): with every group listed, with those turned away
+        // left out, and again, in this one run.
+        if let (Some(near), true) = (&mut near, std::env::var_os("FAR_TEST_LISTING").is_some()) {
+            let as_it_was = near.turned;
+            for on in [false, true, false, true, false] {
+                near.turned = on;
+                let began = std::time::Instant::now();
+                for _ in 0..400 {
+                    near.prepare(&device, &queue, screen, &eye, &camera);
+                }
+                let each = began.elapsed().as_secs_f64() * 1e6 / 400.0;
+                queue.submit([]);
+                eprintln!("The listing, groups turned away {}: {each:.0} millionths of a second a frame; {} chunks, {} draws, {} faces sent of {} kept", if on { "left out" } else { "listed" }, near.counts.drawn, near.counts.draws, near.counts.faces_drawn, near.counts.faces);
+            }
+            near.turned = as_it_was;
         }
         // The last frame drawn with the eye turned, if asked (`FAR_TEST_TURN`: degrees of facing, then of pitch): a
         // moving view's first frame, where every ray is led by another ray's frame before (the cut's lengths begin

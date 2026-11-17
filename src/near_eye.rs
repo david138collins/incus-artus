@@ -56,12 +56,14 @@ struct Pictures {
     size: (u32, u32),
 }
 
-/// A chunk on the card: its page, where its faces begin there and how many (the last `water` of them the water's
-/// tops), and the lowest and highest block they touch.
+/// A chunk on the card: its page, where its faces begin there and how many (the blocks' sides in their groups by the
+/// way they look, `groups` of each in `near::GROUPS`' order; the last `water` of them the water's tops), and the
+/// lowest and highest block they touch.
 struct Kept {
     page: usize,
     first: u32,
     count: u32,
+    groups: [u32; 6],
     water: u32,
     low: i32,
     high: i32,
@@ -76,11 +78,13 @@ struct Page {
 /// What the near eye says of itself, for the panel and a flight's report.
 #[derive(Clone, Copy, Default, Debug)]
 pub struct Counts {
-    /// Chunks wanted inside the radius, kept on the card, and drawn this frame.
+    /// Chunks wanted inside the radius, kept on the card, and drawn this frame; and the frame's draws (a chunk's
+    /// groups that show and lie together are one; its water's tops another).
     pub wanted: usize,
     pub kept: usize,
     pub drawn: usize,
-    /// Faces kept on the card, and drawn this frame (two triangles each).
+    pub draws: usize,
+    /// Faces kept on the card, and sent to it this frame (two triangles each).
     pub faces: u64,
     pub faces_drawn: u64,
     /// The pages' memory on the card, MB.
@@ -129,6 +133,9 @@ pub struct NearEye {
     blocks_view: wgpu::TextureView,
     crisp: wgpu::Sampler,
     textured: bool,
+    /// Whether a chunk's groups of faces that all look away from the eye are left out of the frame's draws (build
+    /// 209; `INCUS_NEAR_TURNED=0`: not, and the card doesn't drop faces turned away either, as to build 208).
+    pub turned: bool,
     /// The x-fader's pass, and what its group is made by; the picture's format; the near eye's own pictures.
     join: wgpu::RenderPipeline,
     join_layout: wgpu::BindGroupLayout,
@@ -211,12 +218,18 @@ impl NearEye {
         // a pixel; the water, and then the whole picture over the far one, laid over what's there.)
         let over = Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING);
         let strip = wgpu::PrimitiveState { topology: wgpu::PrimitiveTopology::TriangleStrip, ..Default::default() };
+        // Faces turned away (build 209): the card drops them before filling them (every face is wound one way seen from
+        // the side it looks out of: clockwise), and a chunk's groups of them aren't listed at all (`prepare`). Not the
+        // water's tops: they're seen from under too. (`INCUS_NEAR_TURNED=0`: neither, as to build 208.)
+        let turned = std::env::var("INCUS_NEAR_TURNED").as_deref() != Ok("0");
+        let sides = wgpu::PrimitiveState { front_face: wgpu::FrontFace::Cw, cull_mode: turned.then_some(wgpu::Face::Back), ..strip };
+        log::info!("The near eye's faces turned away: {}", if turned { "dropped by the card, their groups not listed" } else { "drawn like the rest (INCUS_NEAR_TURNED=0)" });
         let faces = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("the near faces"),
             layout: Some(&faces_layout),
             vertex: wgpu::VertexState { module: &module, entry_point: Some("near_corner"), compilation_options: Default::default(), buffers: &buffers },
             fragment: Some(wgpu::FragmentState { module: &module, entry_point: Some("near_face"), compilation_options: Default::default(), targets: &[Some(wgpu::ColorTargetState { format, blend: None, write_mask: wgpu::ColorWrites::ALL })] }),
-            primitive: strip,
+            primitive: sides,
             depth_stencil: Some(wgpu::DepthStencilState { format: wgpu::TextureFormat::Depth32Float, depth_write_enabled: Some(true), depth_compare: Some(wgpu::CompareFunction::Greater), stencil: Default::default(), bias: Default::default() }),
             multisample: wgpu::MultisampleState::default(),
             multiview_mask: None,
@@ -271,7 +284,7 @@ impl NearEye {
         let colour_bytes: Vec<u8> = colours.iter().flatten().flat_map(|v| v.to_le_bytes()).collect();
         let colours = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the blocks' colours from far"), size: colour_bytes.len().max(32) as u64, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         queue.write_buffer(&colours, 0, &colour_bytes);
-        let draws = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the near eye's draws"), size: MOST_DRAWN * 2 * 16, usage: wgpu::BufferUsages::INDIRECT | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
+        let draws = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the near eye's draws"), size: MOST_DRAWN * 4 * 16, usage: wgpu::BufferUsages::INDIRECT | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         // The blocks' pictures (build 205): one texture, a layer a picture (a block's top, then its sides), each size
         // of it as `textures.rs` shrank it; read with its own pixels crisp up close and its shrunk sizes blended as
         // it gets small, a block at a time across a merged face. Kept as stored, so the card reads them as light.
@@ -312,7 +325,7 @@ impl NearEye {
         });
         let radius = std::env::var("INCUS_NEAR_RADIUS").ok().and_then(|r| r.parse::<f32>().ok()).map_or(RADIUS, |r| r.clamp(1.0, MOST_RADIUS));
         log::info!("The near eye: faces as triangles within a render radius of {radius} chunks ({} blocks), its lane on {threads} threads", radius * CHUNK as f32);
-        Ok(Self { lane, look: NearLook { radius, ..NearLook::DEFAULT }, chunks: HashMap::new(), pages: Vec::new(), asked: None, want: Vec::new(), first_to_come: 0, touched: HashSet::new(), need: HashMap::new(), remake: HashSet::new(), waiting: Default::default(), recent_ms: Default::default(), faces, water, layout, depth_layout, group: None, numbers, colours, blocks_view, crisp, textured, join, join_layout, format, pictures: None, cover_pass, cover_layout, cover_sizes, cover_sampler, cover_group: None, draws, drawn: Vec::new(), drawn_water: Vec::new(), counts: Counts { threads, ..Default::default() } })
+        Ok(Self { lane, look: NearLook { radius, ..NearLook::DEFAULT }, chunks: HashMap::new(), pages: Vec::new(), asked: None, want: Vec::new(), first_to_come: 0, touched: HashSet::new(), need: HashMap::new(), remake: HashSet::new(), waiting: Default::default(), recent_ms: Default::default(), faces, water, layout, depth_layout, group: None, numbers, colours, blocks_view, crisp, textured, turned, join, join_layout, format, pictures: None, cover_pass, cover_layout, cover_sizes, cover_sampler, cover_group: None, draws, drawn: Vec::new(), drawn_water: Vec::new(), counts: Counts { threads, ..Default::default() } })
     }
 
     /// Room for `count` faces: a page and where in it (a free stretch that holds them, the first found; a new page
@@ -409,7 +422,7 @@ impl NearEye {
                 let bytes: Vec<u8> = made.faces.iter().flatten().flat_map(|word| word.to_le_bytes()).collect();
                 queue.write_buffer(&self.pages[page].buffer, first as u64 * FACE, &bytes);
             }
-            self.chunks.insert(made.chunk, Kept { page, first, count, water: made.water, low: made.low, high: made.high });
+            self.chunks.insert(made.chunk, Kept { page, first, count, groups: made.groups, water: made.water, low: made.low, high: made.high });
             self.remake.remove(&made.chunk);
         }
         while self.first_to_come < self.want.len() && self.chunks.contains_key(&self.want[self.first_to_come]) {
@@ -441,6 +454,7 @@ impl NearEye {
             chunk_ms: if self.recent_ms.is_empty() { 0.0 } else { self.recent_ms.iter().sum::<f32>() / self.recent_ms.len() as f32 },
             threads: self.counts.threads,
             drawn: self.counts.drawn,
+            draws: self.counts.draws,
             faces_drawn: self.counts.faces_drawn,
             radius,
             whole: self.first_to_come >= self.want.len() && self.remake.is_empty(),
@@ -545,16 +559,42 @@ impl NearEye {
             if drawn as u64 >= MOST_DRAWN {
                 break;
             }
-            // A face is four corners (a strip), once for each of the chunk's faces of the kind.
+            // A face is four corners (a strip), once for each of the chunk's faces of the kind. Of the blocks' sides,
+            // only the groups a face of which could look at the eye (build 209), those that lie together as one draw.
             let sides = kept.count - kept.water;
-            if sides > 0 {
+            if sides > 0 && self.turned {
+                let shown = crate::near::groups_shown(*chunk, kept.low, kept.high, eye);
+                let mut first = kept.first;
+                let mut run: Option<(u32, u32)> = None;
+                for (k, &count) in kept.groups.iter().enumerate() {
+                    if count == 0 {
+                        continue;
+                    }
+                    if shown[k] {
+                        run = match run {
+                            Some((from, n)) if from + n == first => Some((from, n + count)),
+                            Some((from, n)) => {
+                                by_page[kept.page].push([4, n, 0, from]);
+                                Some((first, count))
+                            }
+                            None => Some((first, count)),
+                        };
+                        faces_drawn += count as u64;
+                    }
+                    first += count;
+                }
+                if let Some((from, n)) = run {
+                    by_page[kept.page].push([4, n, 0, from]);
+                }
+            } else if sides > 0 {
                 by_page[kept.page].push([4, sides, 0, kept.first]);
+                faces_drawn += sides as u64;
             }
             if kept.water > 0 {
                 water_by_page[kept.page].push([4, kept.water, 0, kept.first + sides]);
+                faces_drawn += kept.water as u64;
             }
             drawn += 1;
-            faces_drawn += kept.count as u64;
         }
         self.drawn.clear();
         self.drawn_water.clear();
@@ -571,6 +611,7 @@ impl NearEye {
             queue.write_buffer(&self.draws, 0, &words);
         }
         self.counts.drawn = drawn;
+        self.counts.draws = by_page.iter().chain(&water_by_page).map(Vec::len).sum();
         self.counts.faces_drawn = faces_drawn;
         true
     }

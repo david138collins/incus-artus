@@ -7932,3 +7932,42 @@ get drawn before the face in front of them.
 - **Counts, off the screen:** faces sent to the card in a frame and draws listed, off and on, at 16 and 32 chunks;
   the listing's own time on the processor, off, on and off in one run.
 - **The card's time:** a bracket of flights in one session (off, on, off), the TV in, read only against each other.
+
+### Build 209 built (unlaunched, unflown): faces turned away; checked off the screen
+
+**Built as the mark says** (`near.rs`, `near_eye.rs`): the near faces' pass drops faces turned away (clockwise is
+the front; the water's pass doesn't); the lane hands a chunk's faces over in six groups (`GROUPS`: north, east, up,
+west, south, down) with how many each has; each frame `groups_shown` says which of a chunk's groups could have a
+face looking at the eye, and only those are listed, groups lying together as one draw. `INCUS_NEAR_TURNED=0`: as
+build 208.
+
+**Against the mark, off the screen** (the stage on unless said; 1600 by 1000):
+
+- **Tests: met.** `groups_left_out_are_turned_away`: over four chunks of the stage and 125 eyes each, 886,850 of
+  2,217,125 faces fell in groups left out, every one with the eye behind it; the groups' counts add up and each
+  holds only its own way. All 46 tests pass.
+- **Faces sent to the card in a frame, from the spawn:**
+
+  | | sent before | sent now | draws before | draws now |
+  |---|---|---|---|---|
+  | 16 chunks, the stage | 1,243,557 | 713,684 (43% fewer) | 355 | 522 |
+  | 32 chunks, the stage | 3,488,818 | 1,737,295 (50% fewer) | 1,243 | 1,771 |
+  | 32 chunks, bare land | 1,590,845 | 725,530 (54% fewer) | 1,243 | 1,720 |
+
+- **The listing's own time** (off, on, off, on, off in one run, 32 chunks): 0.16, 0.20, 0.16, 0.19, 0.17 ms with
+  the stage; bare land 0.14 against 0.15 to 0.17 (its first reading, 0.62, was the run warming up). About 0.02 to
+  0.03 ms dearer for half again as many draws.
+- **Pictures: the mark's "to the pixel" not met as written, and why.** The listing's rule alone (the card dropping
+  them either way; every group listed against groups left out) differs in 3, 5 and 15 pixels of 1.6 million at the
+  three views; the very same setting drawn twice differs in 15 and 53 (the near picture's own run-to-run flips,
+  written down at build 197: chunks come from the lane in a different order each run). So the rule changes nothing
+  that can be told from the picture's own noise. **The card's dropping does change the picture, for the better:**
+  317 to 2,398 pixels differ from build 208's, and looked at up close they are dark dots scattered over roofs and
+  slopes in build 208's picture that are gone now: a face turned away, grown by its hair (build 200), winning a
+  stray pixel past the edge of the face in front. A flaw nobody had reported, removed.
+- **A slip of Builder's found here:** build 208's "town" view (north -104, east -384, 421 up) had the eye inside
+  the ground: what was read there as "the town's walls in shade where overhung" was the ground's faces seen from
+  inside. The cave and the trees' shade in build 208's entry stand; the town's walls weren't shown. This build's
+  town view is from 450 up, over it.
+- **Said, not fixed:** with the eye inside solid ground there's now nothing to see of it from inside (before, the
+  faces' backs).

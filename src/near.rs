@@ -58,6 +58,41 @@ impl Facing {
     }
 }
 
+/// The order a chunk's faces are kept in on the card (build 209): in six groups by the way they look, so a group no
+/// face of which could look at the eye is left out of a frame's draws. In this order groups that show together mostly
+/// lie together (up with north and east, or with west and south), and go as one draw.
+pub const GROUPS: [Facing; 6] = [Facing::North, Facing::East, Facing::Up, Facing::West, Facing::South, Facing::Down];
+
+/// Which of a chunk's groups (in `GROUPS`' order) could have a face that looks at `eye` (north, east, up; blocks): a
+/// face shows only from the side it looks out of, so one that looks north shows only to an eye north of it, and none
+/// of a chunk's does to an eye south of the chunk's south edge. `low` and `high`: the lowest and highest block the
+/// chunk's faces touch. Exact the safe way: a group left out has no face the eye could see.
+pub fn groups_shown(chunk: [i32; 2], low: i32, high: i32, eye: [f32; 3]) -> [bool; 6] {
+    let (north, east) = ((chunk[0] * CHUNK) as f32, (chunk[1] * CHUNK) as f32);
+    [eye[0] > north, eye[1] > east, eye[2] > low as f32, eye[1] < east + CHUNK as f32, eye[0] < north + CHUNK as f32, eye[2] < high as f32]
+}
+
+/// A chunk's faces in the order the card keeps them: the blocks' sides in their groups (`GROUPS`' order), then the
+/// water's tops; with how many each group has, how many water's tops, and the lowest and highest block any face
+/// touches (a face's own numbers are in half blocks where the chunk is).
+pub fn grouped(blocks: &Blocks) -> (Vec<Face>, [u32; 6], u32, i32, i32) {
+    let group_of = |facing: Facing| GROUPS.iter().position(|g| *g == facing).unwrap();
+    let mut faces = blocks.faces();
+    // (A sort that keeps each kind's own order.)
+    faces.sort_by_key(|face| (face.water, group_of(face.facing)));
+    let mut groups = [0u32; 6];
+    for face in faces.iter().filter(|face| !face.water) {
+        groups[group_of(face.facing)] += 1;
+    }
+    let water = faces.iter().filter(|face| face.water).count() as u32;
+    let unit = blocks.unit;
+    let (low, high) = faces.iter().fold((blocks.high, blocks.low), |(low, high), face| {
+        let top = face.at[2] + if matches!(face.facing, Facing::Up | Facing::Down) { 1 } else { face.high };
+        (low.min(face.at[2].div_euclid(unit)), high.max((top + unit - 1).div_euclid(unit)))
+    });
+    (faces, groups, water, low, high)
+}
+
 /// A face: a rectangle of one block's sides that look one way, all in one plane. `at` is its least cell in the chunk
 /// (north and east from the chunk's least corner, 0 to 31; up from bedrock); it's `wide` cells along the first of
 /// its facing's axes and `high` along the second. `water`: the water's top, not a block's side. In a chunk meshed in
@@ -491,13 +526,15 @@ pub fn packed(face: &Face, chunk: [i32; 2], unit: i32) -> [u32; 3] {
     [a, b, c]
 }
 
-/// A chunk as the lane hands it over: its packed faces, the blocks' sides first and then the water's tops (`water`
-/// of them, so each kind is drawn by its own pass with no word of the other's), the lowest and highest block any of
-/// them touches (for leaving it out when it's out of view), how long it took to make (ms), and which telling of the
-/// changes it was made from (`Lane::changed`'s count; 0 before any).
+/// A chunk as the lane hands it over: its packed faces, the blocks' sides first (in their groups by the way they look,
+/// `groups` of each in `GROUPS`' order) and then the water's tops (`water` of them, so each kind is drawn by its own
+/// pass with no word of the other's), the lowest and highest block any of them touches (for leaving it out when it's
+/// out of view), how long it took to make (ms), and which telling of the changes it was made from (`Lane::changed`'s
+/// count; 0 before any).
 pub struct Made {
     pub chunk: [i32; 2],
     pub faces: Vec<[u32; 3]>,
+    pub groups: [u32; 6],
     pub water: u32,
     pub low: i32,
     pub high: i32,
@@ -597,18 +634,9 @@ impl Lane {
                             tiles.clear();
                         }
                         let made = Blocks::read(&doorway, &mut tiles, chunk).map(|blocks| {
-                            let mut faces = blocks.faces();
-                            // (A sort that keeps each kind's own order: the blocks' sides, then the water's tops.)
-                            faces.sort_by_key(|face| face.water);
-                            let water = faces.iter().filter(|face| face.water).count() as u32;
-                            // (The lowest and highest block the faces touch: a face's own numbers are in half
-                            // blocks where the chunk is.)
+                            let (faces, groups, water, low, high) = grouped(&blocks);
                             let unit = blocks.unit;
-                            let (low, high) = faces.iter().fold((blocks.high, blocks.low), |(low, high), face| {
-                                let top = face.at[2] + if matches!(face.facing, Facing::Up | Facing::Down) { 1 } else { face.high };
-                                (low.min(face.at[2].div_euclid(unit)), high.max((top + unit - 1).div_euclid(unit)))
-                            });
-                            Made { chunk, faces: faces.iter().map(|face| packed(face, chunk, unit)).collect(), water, low, high, ms: began.elapsed().as_secs_f32() * 1000.0, told }
+                            Made { chunk, faces: faces.iter().map(|face| packed(face, chunk, unit)).collect(), groups, water, low, high, ms: began.elapsed().as_secs_f32() * 1000.0, told }
                         });
                         if sender.send(made).is_err() {
                             return;
@@ -915,14 +943,15 @@ mod tests {
         let chunks = wanted(place, radius);
         let threads = std::thread::available_parallelism().map_or(2, |n| n.get()).saturating_sub(2).max(1);
         let next = std::sync::atomic::AtomicUsize::new(0);
-        // faces, sides, sides shaded, air cells, air cells shaded; in view: faces, faces turned away, their sides.
-        let totals = std::sync::Mutex::new([0u64; 8]);
+        // faces, sides, sides shaded, air cells, air cells shaded; in view: faces, faces turned away, their sides, and
+        // the faces in groups the frame's listing leaves out (`groups_shown`).
+        let totals = std::sync::Mutex::new([0u64; 9]);
         std::thread::scope(|scope| {
             for _ in 0..threads {
                 scope.spawn(|| {
                     let doorway = Doorway::open_with(&crate::doorway::test_world(), staged).unwrap();
                     let mut tiles = HashMap::new();
-                    let mut mine = [0u64; 8];
+                    let mut mine = [0u64; 9];
                     loop {
                         let k = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                         let Some(&chunk) = chunks.get(k) else { break };
@@ -946,7 +975,12 @@ mod tests {
                         // Is the chunk in the view (its middle within 50 degrees either side of north)?
                         let middle = [(chunk[0] as f32 + 0.5) * CHUNK as f32 - eye[0], (chunk[1] as f32 + 0.5) * CHUNK as f32 - eye[1]];
                         let in_view = middle[0] > 0.0 && middle[1].abs() <= middle[0] * 50f32.to_radians().tan() + CHUNK as f32;
-                        for face in blocks.faces() {
+                        let (faces, _, _, low, high) = grouped(&blocks);
+                        let shown = groups_shown(chunk, low, high, eye);
+                        for face in faces {
+                            if in_view && !face.water && !shown[GROUPS.iter().position(|g| *g == face.facing).unwrap()] {
+                                mine[8] += 1;
+                            }
                             let ([a, b], along) = face.facing.axes();
                             let step = face.facing.step();
                             let sides = (face.wide * face.high) as u64;
@@ -986,7 +1020,7 @@ mod tests {
                         }
                     }
                     let mut totals = totals.lock().unwrap();
-                    for k in 0..8 {
+                    for k in 0..9 {
                         totals[k] += mine[k];
                     }
                 });
@@ -994,7 +1028,7 @@ mod tests {
         });
         let t = totals.into_inner().unwrap();
         eprintln!(
-            "Light counts, radius {radius} round {place:?}{} (light {}): {} chunks; {} faces covering {} sides ({:.1} a face), {} sides not in plain daylight ({:.1}%); {} air cells the faces look into, {} not in plain daylight ({:.1}%); in a view north, {} faces, {} turned away ({:.1}%), covering {} sides",
+            "Light counts, radius {radius} round {place:?}{} (light {}): {} chunks; {} faces covering {} sides ({:.1} a face), {} sides not in plain daylight ({:.1}%); {} air cells the faces look into, {} not in plain daylight ({:.1}%); in a view north, {} faces, {} turned away ({:.1}%), covering {} sides; {} in groups left out ({:.1}%)",
             if staged { ", the stage on" } else { "" },
             if light_on() { "on" } else { "off" },
             chunks.len(),
@@ -1009,7 +1043,9 @@ mod tests {
             t[5],
             t[6],
             100.0 * t[6] as f64 / t[5] as f64,
-            t[7]
+            t[7],
+            t[8],
+            100.0 * t[8] as f64 / t[5] as f64
         );
     }
 
@@ -1056,12 +1092,11 @@ mod tests {
             let mut tiles = HashMap::new();
             for chunk in want.iter().step_by((want.len() / 7).max(1)) {
                 let blocks = Blocks::read(&doorway, &mut tiles, *chunk).unwrap();
-                let mut direct = blocks.faces();
-                direct.sort_by_key(|face| face.water);
-                let water = direct.iter().filter(|face| face.water).count() as u32;
+                let (direct, groups, water, _, _) = grouped(&blocks);
                 let direct: Vec<[u32; 3]> = direct.iter().map(|face| packed(face, *chunk, blocks.unit)).collect();
-                assert_eq!(made[chunk].faces, direct, "chunk {chunk:?} from the lane is the mesh made directly, its water's tops last");
+                assert_eq!(made[chunk].faces, direct, "chunk {chunk:?} from the lane is the mesh made directly, in its groups, its water's tops last");
                 assert_eq!(made[chunk].water, water, "and it says how many of them are water's");
+                assert_eq!(made[chunk].groups, groups, "and how many each group has");
                 assert!(made[chunk].faces.is_empty() || made[chunk].low < made[chunk].high, "a chunk with faces has a height");
             }
         }
@@ -1088,8 +1123,7 @@ mod tests {
             }
         };
         let direct = |doorway: &Doorway| {
-            let mut faces = Blocks::read(doorway, &mut HashMap::new(), [0, 0]).unwrap().faces();
-            faces.sort_by_key(|face| face.water);
+            let (faces, ..) = grouped(&Blocks::read(doorway, &mut HashMap::new(), [0, 0]).unwrap());
             faces.iter().map(|face| packed(face, [0, 0], 1)).collect::<Vec<_>>()
         };
         let before = from_lane(0);
@@ -1157,6 +1191,51 @@ mod tests {
         let light = blocks.sky_light();
         let under = at(&blocks, &light, 16, 16, ground);
         assert!(under >= LIGHT_FLOOR, "outdoors under a roof is never darker than the floor: {under}");
+    }
+
+    /// Faces turned away (build 209): a chunk's faces come in the groups' order, their counts adding up; and for eyes
+    /// inside, beside, over and under chunks of the stage (its town, a wood, the spawn), every face of a group left
+    /// out has the eye behind it.
+    #[test]
+    fn groups_left_out_are_turned_away() {
+        let doorway = Doorway::open_with(&crate::doorway::test_world(), true).unwrap();
+        let mut tiles = HashMap::new();
+        let (mut out, mut all) = (0u64, 0u64);
+        for chunk in [[0, 0], [-4, -12], [12, 8], [14, 4]] {
+            let blocks = Blocks::read(&doorway, &mut tiles, chunk).unwrap();
+            let (faces, groups, water, low, high) = grouped(&blocks);
+            assert_eq!(groups.iter().sum::<u32>() + water, faces.len() as u32, "the groups and the water's tops are every face");
+            let mut k = 0;
+            for (g, &count) in groups.iter().enumerate() {
+                assert!(faces[k..k + count as usize].iter().all(|face| face.facing == GROUPS[g] && !face.water), "group {g} holds only faces that look its way");
+                k += count as usize;
+            }
+            assert!(faces[k..].iter().all(|face| face.water), "the water's tops come last");
+            let (u, origin) = (blocks.unit, [chunk[0] * CHUNK, chunk[1] * CHUNK, 0]);
+            let middle = [(chunk[0] as f32 + 0.5) * CHUNK as f32, (chunk[1] as f32 + 0.5) * CHUNK as f32];
+            for dn in [-40.0, -16.0, 0.0, 16.0, 40.0] {
+                for de in [-40.0, -16.0, 0.3, 16.0, 40.0] {
+                    for up in [low as f32 - 5.0, low as f32, (low + high) as f32 * 0.5 + 0.4, high as f32, high as f32 + 5.0] {
+                        let eye = [middle[0] + dn, middle[1] + de, up];
+                        let shown = groups_shown(chunk, low, high, eye);
+                        for face in faces.iter().filter(|face| !face.water) {
+                            all += 1;
+                            let g = GROUPS.iter().position(|g| *g == face.facing).unwrap();
+                            if shown[g] {
+                                continue;
+                            }
+                            out += 1;
+                            let (_, along) = face.facing.axes();
+                            let greater = matches!(face.facing, Facing::North | Facing::East | Facing::Up);
+                            let plane = (origin[along] as f32 * u as f32 + (face.at[along] + greater as i32) as f32) / u as f32;
+                            assert!((eye[along] - plane) * face.facing.step()[along] as f32 <= 0.0, "a face left out is turned away: {face:?} of chunk {chunk:?}, the eye at {eye:?}");
+                        }
+                    }
+                }
+            }
+        }
+        eprintln!("Groups left out: {out} of {all} faces over the eyes tried, every one turned away");
+        assert!(out > all / 4, "the rule leaves out a good share");
     }
 
     /// A face's three words hold what it is.
