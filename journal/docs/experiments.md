@@ -7806,3 +7806,12 @@ measured then); detail finer than the far cells (a fence is one block: at the 8s
   pixel.**
 - **How long:** 0.28 s from the changes to the far eye having them, rings, light and height table included (the
   test's regions round the mark); taking them back the same.
+
+### Build 207 flown (2026-11-16) as the game starts: what's placed reaches the far eye in the game itself
+
+`flight-1794873606` (build 207, the code committed, no error; 32 chunks; began at 62 degrees after a cool-down).
+At each of the eight standings with something placed (his build, the scatter's three, the scatter of pieces'
+three, and the bare plain after his build, taking it back) the log says: **one far region summed again and put on
+the card in 11 to 33 ms, 0.09 to 0.16 s after the changes were made**; each standing waited for it, then
+measured. The built marks' frames as before (medians 1.02 to 1.24 ms, 804 to 985 a second; no single flight read
+against another for anything finer). Item 1 of his checklist done enough to go on; his look when he likes.
