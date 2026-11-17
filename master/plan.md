@@ -652,8 +652,9 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
           "Picture sharpness in the squares" (his name), built: crisp squares off the screen, a speckle in the
           middle distance at 1, no hole, no cost that shows; his look decides their starting places, the stipple's
           width, and whether the curve is on from the start); **(2) lights and nights** (his answers, 2026-11-17:
-          the first light an existing block that glows, which one not yet said; its controls in a new section
-          "Placed lights") (placed and moving lights, glows and far lights,
+          the first lights "red and green blocks", taken as two plain blocks that glow red and green, stood about
+          the stage; their controls in a new section "Placed lights"; build 216, placed lights, its pass mark
+          written) (placed and moving lights, glows and far lights,
           night); **then assess**; (3) the far half after (rings that reach where the curve says, with a band of
           4s at the seam; at g = 2 perhaps 600 MB and the finer rays' time: priced first)
     - [ ] **Listing chunks:** the near eye's processor time is all in listing the chunks in view (0.15 to 0.27 ms a

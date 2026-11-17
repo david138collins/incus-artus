@@ -8574,3 +8574,51 @@ at the spawn, from a low eye, and looking 35 degrees down):**
   either way). **The sharpness costs nothing that shows.**
 - **Said to him before he looks:** at 1 the ground may crawl or sparkle as he moves; with the detail low the coarse
   squares cover little of the screen and save little.
+
+### Build 216's pass mark: placed lights (near light, step 2)
+
+**His words for it** (2026-11-17, asked which existing block should glow): **"hmm just use red and green blocks for
+the glowing blocks"**. No block of the world's is red or green, so Builder takes it as two plain blocks, one that
+glows red and one green, stood about the scatter stage (said to him so; build 215 is still waiting for his look).
+From before: placed light "in 16 clear steps a block, coloured, flooding through air and stopped by walls,
+flickering" (the plan); "i mean like the light from the brazieres, where its very clear steps in brightness"
+(2026-11-06); colour from the first glowing block ("i agree about colors", 2026-11-01); kept apart from the faces
+("proceed with C"); its controls in a new section "Placed lights" (his answer today).
+
+**Built so:**
+
+1. **Which blocks give light is a data file**, `data/lights.toml`: a block's name and its light, red, green and
+   blue, each 0 to 15. Two to begin: `incus:red_lamp` (15, 1, 0) and `incus:green_lamp` (1, 15, 2), plain blocks in
+   those colours, the scatter stage's eighth and ninth.
+2. **The stage stands them** where light can be seen before there are nights: along the floor of each cave and at
+   the feet of the hall's pillars, red and green by turns; and here and there on the ground in the woods within
+   200 blocks of the spawn, in the trees' shade.
+3. **The light spreads on the processor when a chunk is made** (`near.rs`): from each glowing block, a step dimmer
+   each block through air and water, six ways, stopped by whole blocks; red, green and blue each on its own, the
+   brightest reaching a cell kept (so two colours mix where they meet). A chunk with a glowing block within 15
+   columns of it reads its blocks 16 columns out for this (others read 8 as now, and pay nothing but the asking).
+4. **Kept beside the sky's light** in the near light's buffer (build 210's "C"): a chunk's bricks of 8 x 8 x 8
+   cells, a colour brick (12 bits a cell) only where some placed light reaches; no face carries it, none splits.
+5. **Read where the sky's is** (`near.wgsl`): a face's colour by placed light is its picture's colour times the
+   light there, squared a step (clear steps); a pixel shows the brighter, colour by colour, of that and its
+   daylight. So by day a lamp shows only in shade, caves and halls.
+6. **Flicker is a wobble where it's read**: the Render page's new section **"Placed lights"** under The near eye,
+   with **"Flicker (share of brightness)"** and **"Flicker speed (a second)"**.
+7. A block placed or dug within 16 columns of a chunk makes that chunk again (it was 8), so its light is right.
+   Said plainly: the whole chunk is made again, faces and all, where only its light need be; a saving for later.
+
+**Not in this build:** moving lights; lights seen from far (past the near faces' reach a lamp's light isn't
+drawn: glows and far lights, next on his list); night; pieces that glow (whole blocks only).
+
+**The mark:**
+
+- **Tests** all pass, with new ones: light falls a step a block from a lamp, goes round a wall's end and not
+  through it, two colours mix; what's kept for the card reads back as it was spread.
+- **Pictures off the screen** (the stage on): inside the cave by the spawn, black in build 215, now lit red and
+  green in clear steps, the walls stopping it; in the woods by the spawn, the shade round a lamp coloured, the
+  sunlit ground beside it as it was; and with `data/lights.toml` naming no block, build 215's pictures.
+- **Counts:** chunks with a colour brick and the light's megabytes at the spawn, 32 chunks; a chunk's making time
+  with a lamp near and without.
+- **Prices in one run:** a whole frame at the spawn with the lamps and with none.
+- **His look** decides the lamps' reach and brightness by eye, the flicker's two starting places, and whether
+  the steps read as he means them.
