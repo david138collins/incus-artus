@@ -8011,3 +8011,35 @@ then 0.30 between 0.51 and 0.35).
 down for the flights:** back-to-back flights with the TV in run the processor's area to 104 degrees; the cool-down
 before each (under 62) doesn't hold through a flight. A bracket's processor numbers want either longer rests or the
 in-run alternation used here.
+
+### Build 210's pass mark: light kept apart from the faces, only where it isn't plain daylight
+
+David's choice of 2026-11-17 ("proceed with C"). How it's built, then the mark.
+
+1. **Faces carry no light** and merge whatever it is (as with the light off).
+2. **The lane hands a chunk's light over with its faces,** only if some air or water cell of the chunk isn't in
+   plain daylight: bricks of 8 by 8 by 8 cells, 4 bits a cell (the sky's light, 0 to 15), a brick only where one of
+   its cells isn't daylight, behind a short list of which bricks the chunk has. A chunk all in daylight hands over
+   none. (Step 2's placed lights get their own kind of brick, with colour, beside these.)
+3. **On the card, one buffer:** a directory (an entry a chunk, by the chunk's place, 256 chunks a side, wrapping)
+   and the chunks' light after it, in stretches given back with their chunks; grown when it's full.
+4. **Each pixel of a face looks up the cell the face looks into** (the directory, the chunk's list, the brick: four
+   reads; one where the chunk is all daylight), no entry meaning plain daylight; then lit as build 208 lights.
+5. **Switches:** `INCUS_NEAR_LIGHT=0` no near light (build 207); `INCUS_NEAR_LIGHT=faces` build 208's way, each
+   face carrying its light and split by it (for measuring against); unset, this.
+
+**The mark:**
+
+- **Tests:** for chunks of the stage (the town, a wood, the cave), every cell any face looks into inside the
+  chunk, looked up by the card's own arithmetic written again in Rust, is the sky light worked out, exactly; a
+  chunk of bare land hands over no light at all.
+- **Pictures off the screen, this against build 208's way** (the cave mouth, a wood, the town from over it): the
+  same, but for the picture's own run-to-run flips and, along chunks' edges, cells the two chunks work out a step
+  apart (a face used to take its own chunk's working; now the cell's own chunk's): counted and looked at. With the
+  light off: build 207's lighting.
+- **Counts:** faces kept, against build 208's way (the stage, 16 chunks: 2.05 million expected for 2.51); the
+  light's memory at 16 and 32 chunks with the stage; none on bare land; a chunk's making time against 208's way.
+- **The card's time:** a bracket of flights in one session with the stage on (208's way, this, 208's way).
+- **Said beforehand:** to David I put the stage's light at "about 1.6 MB of values per 16-chunk radius, a few MB
+  with its table". That was 16 bits a cell for the cells faces look into only; whole bricks hold the air between
+  too. The count decides, and is said whichever way it falls.
