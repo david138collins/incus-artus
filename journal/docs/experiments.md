@@ -7855,3 +7855,27 @@ and 3):
   off, build 207's picture.
 - **Said as it is:** how much longer a chunk takes to make, and how many more faces (merges split by light).
 - **His look** decides the cut and the floor; they go on the Render page if he wants them there.
+
+### Build 208 built (unlaunched, unflown): the near eye's own sky light; checked off the screen
+
+**Built as the mark says** (`near.rs`, `near.wgsl`): a chunk is now read with 8 columns round it (was 1); its sky
+light worked out with its faces (`Blocks::sky_light`: open cells 15; covered air and water averaged with their six
+neighbours for 48 rounds, solid counting dark; under 0.012 black, over it never under 1); each face carries the light
+of the cell it looks into (4 bits of its second word) and merges only with faces of the same light; on the card the
+sun reaches a face only at 15 and the sky's share is scaled by its light. Placed things make again every chunk
+within 8 blocks of them. `INCUS_NEAR_LIGHT=0` as build 207. The cut was set at 0.012 (the mark's first guess, 0.04,
+gave a tunnel 4 wide only 3 blocks of light, short of his "diameter").
+
+**Against the mark:**
+
+- **Tests: met.** `the_sky_s_light_reaches_in_as_far_as_an_opening_is_wide`: open ground 15; a tunnel 2 wide lit 3
+  blocks in, one 4 wide 5 in (about its width, as he asked); a sealed room black; under an 8 by 8 roof 3 high over
+  open ground, not under the floor. A placed block's chunk still holds its six sides. All 45 tests pass.
+- **Pictures, off the screen, with the scatter stage: met.** The cave mouth near the spawn goes from the far eye's
+  flat grey to dark at its lip and black inside; the woods' trees throw dark shade on the ground under them; the
+  town's walls are in shade where overhung. The open ground's colour is as before. Light off: build 207's.
+- **Said as it is, the cost:** merges split where light changes: **the spawn at 4 chunks keeps 190,000 faces for
+  135,000 (40% more)**, the town 253,000 for 224,000 (13%); a chunk takes about 20% longer to make with the stage
+  on (11.0 ms for 9.1). At 64 chunks, where the near faces' cost goes with how many are sent, that's a real cost: to
+  be priced by a bracket (light off, on, off) when the card is free of the TV, and brought down by the faces-turned-
+  away item of his list if it's too dear. **His look decides the cut and the floor.**

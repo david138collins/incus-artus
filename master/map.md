@@ -416,6 +416,7 @@ flowchart TB
 - **A pass** in loading, on the processor.
 - **What it is:** A chunk's faces made on the near lane's own threads (32 x 32 columns, the world's height): every side of a solid block that looks into air or water, merged where they make a rectangle in one plane (greedy meshing), and the water's top; with the whole blocks placed through the game's doorway, as the lane was last told of them (a chunk they touch is made again). Timed a chunk; not in the frame.
 - **Reads:** a tile's columns and what changed. **Writes:** the near faces.
+- **Switch** `INCUS_NEAR_LIGHT`: 0: the near eye's faces lit by the far eye's light alone, as to build 207 (for measuring against); unset, each face lit by the sky's light in the cell it looks into, spread into openings and black in caves past their mouths (build 208).
 - **Cost, last measured** (`kept logs/flight-1794589790.txt`): not measured.
 - **Files:** src/near.rs.
 

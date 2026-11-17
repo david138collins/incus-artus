@@ -40,8 +40,9 @@ struct Corner {
     @builtin(position) clip: vec4<f32>,
     // From the eye (north, east, up).
     @location(0) from_eye: vec3<f32>,
-    // The facing (0 north, 1 south, 2 east, 3 west, 4 up, 5 down) and the block.
-    @location(1) @interpolate(flat) what: vec2<u32>,
+    // The facing (0 north, 1 south, 2 east, 3 west, 4 up, 5 down), the block, and the sky's light in the cell it
+    // looks into (0 to 15; build 208).
+    @location(1) @interpolate(flat) what: vec3<u32>,
     // How far along the eye's own way.
     @location(2) ahead: f32,
     // Where on its block's picture, in blocks (the picture repeats a block at a time).
@@ -99,7 +100,7 @@ fn near_corner(@builtin(vertex_index) corner: u32, @location(0) face: vec3<u32>)
     var corner_out: Corner;
     corner_out.clip = vec4<f32>(x, y, near.reach.z, ahead);
     corner_out.from_eye = from_eye;
-    corner_out.what = vec2<u32>(facing, (face.y >> 10u) & 0xFFFFu);
+    corner_out.what = vec3<u32>(facing, (face.y >> 10u) & 0xFFFFu, (face.y >> 27u) & 15u);
     // Where the corner is on its block's picture: its place in its chunk along the two ways the face spreads, in
     // blocks. So a merged face wears the picture once a block, in step with every face beside it; a side's picture
     // stands upright (the picture's first row is its top).
@@ -123,7 +124,12 @@ fn looks(facing: u32) -> vec3<f32> {
 // A surface's colour lit as the far eye lights a finished ray (`far.wgsl`'s `lit`, `sunlit` and `shaded`): the sun on
 // the way it looks, the sky's light, and from the far eye's light store at its place the sun's shadow and how much
 // sky it sees.
-fn near_lit(colour: vec3<f32>, light: f32, from_eye: vec3<f32>) -> vec3<f32> {
+//
+// With the near eye's own sky light (build 208; `near.cell.w`'s second bit), `sky_light` is the face's (0 to 15): the
+// sun reaches it only where it's fully open to the sky, and the sky's share is scaled by it (0, a cave past its mouth,
+// is black; outdoor shade never under the floor). The far eye's light store still gives the land's large shadows and
+// how open a valley is, so the two eyes agree at the hand-over.
+fn near_lit(colour: vec3<f32>, light: f32, from_eye: vec3<f32>, sky_light: u32) -> vec3<f32> {
     var whole = lit(colour, light);
     let sunny = sunlit(colour, light);
     let skyish = whole - sunny;
@@ -134,10 +140,15 @@ fn near_lit(colour: vec3<f32>, light: f32, from_eye: vec3<f32>) -> vec3<f32> {
         sun = select(1.0, store.x, camera.follow.y > 0.5);
         sky_open = store.y;
     }
+    var own = 1.0;
+    if ((near.cell.w & 2) != 0) {
+        own = f32(sky_light) / 15.0;
+        sun *= select(0.0, 1.0, sky_light >= 15u);
+    }
     whole -= sunny * (1.0 - sun);
     let sky = select(1.0, mix(1.0, sky_open, camera.sky.y), camera.sky.x > 0.5);
     let tint = mix(vec3<f32>(1.0), SKY_TINT, camera.sky.z);
-    return whole + skyish * (sky * tint - 1.0);
+    return whole + skyish * (sky * tint * own - 1.0);
 }
 
 // The x-fader [David, 2026-11-16: "i think a x-fader with curves could hide it almost completely so blocks smoothly
@@ -168,7 +179,7 @@ fn near_face(corner: Corner) -> @location(0) vec4<f32> {
     // Its picture's colour there; or flat, its far colour (`INCUS_NEAR_TEXTURES=0`). (A block the tables haven't got,
     // one first named after they were made: mid grey, as the far cells have a block with no colour.)
     var colour = vec3<f32>(0.5);
-    if (near.cell.w > 0 && which < pictures) {
+    if ((near.cell.w & 1) != 0 && which < pictures) {
         colour = picture.rgb;
     } else if (which < arrayLength(&colours)) {
         colour = colours[which].rgb;
@@ -176,7 +187,7 @@ fn near_face(corner: Corner) -> @location(0) vec4<f32> {
     let light = max(dot(way, camera.sun.xyz), 0.0);
     // (Into the near eye's own picture, whole: the nearest face wins a pixel, whatever order the chunks come in.
     // Kept multiplied by how much of it shows, for the x-fader to lay over the far picture.)
-    return vec4<f32>(to_srgb(clamp(near_lit(colour, light, corner.from_eye), vec3<f32>(0.0), vec3<f32>(1.0))) * shows, shows);
+    return vec4<f32>(to_srgb(clamp(near_lit(colour, light, corner.from_eye, corner.what.z), vec3<f32>(0.0), vec3<f32>(1.0))) * shows, shows);
 }
 
 // The water's top, over the faces already drawn: the far eye's water (its colour, and how fast it dims what's seen
@@ -197,5 +208,5 @@ fn near_water(corner: Corner) -> @location(0) vec4<f32> {
     let through = max(ahead_behind - corner.ahead, 0.0) * length(corner.from_eye) / max(corner.ahead, 0.01);
     let dimmed = 1.0 - exp(-camera.water.w * through);
     let covers = dimmed * shows;
-    return vec4<f32>(to_srgb(clamp(near_lit(camera.water.rgb, 1.0, corner.from_eye), vec3<f32>(0.0), vec3<f32>(1.0))) * covers, covers);
+    return vec4<f32>(to_srgb(clamp(near_lit(camera.water.rgb, 1.0, corner.from_eye, corner.what.z), vec3<f32>(0.0), vec3<f32>(1.0))) * covers, covers);
 }

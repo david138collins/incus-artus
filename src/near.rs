@@ -70,6 +70,8 @@ pub struct Face {
     pub high: i32,
     pub block: Block,
     pub water: bool,
+    /// The sky's light in the cell it looks into, 0 to 15 (build 208; 15 with `INCUS_NEAR_LIGHT=0`).
+    pub light: u8,
 }
 
 /// A chunk's blocks with a column of its neighbours all round (so a side at the chunk's edge knows what it looks
@@ -87,14 +89,31 @@ pub struct Blocks {
     cells: Vec<u16>,
 }
 
-const WIDE: usize = CHUNK as usize + 2;
+/// Columns read round a chunk on each side: enough for its faces (one) and for the sky's light, which spreads into
+/// openings past a chunk's edge (build 208).
+const MARGIN: i32 = 8;
+const WIDE: usize = (CHUNK + 2 * MARGIN) as usize;
+
+/// The sky's light (build 208), spread into what's covered by averaging: rounds of it; under `CUT` a cell is black;
+/// over it, never darker than `FLOOR` of 15 (David, 2026-11-16: "outdoors should have very very dark as the floor,
+/// but caves should be pitch black past a distance into their mouth that would equal i think the diameter of their
+/// mouth"). Averaging with the walls counting dark, light in a tube falls about a hundredfold over its width: the cut.
+const LIGHT_ROUNDS: usize = 48;
+const LIGHT_CUT: f32 = 0.012;
+const LIGHT_FLOOR: u8 = 1;
+
+/// Whether the near eye works out its own sky light (`INCUS_NEAR_LIGHT=0`: not, every face lit as to build 207).
+pub fn light_on() -> bool {
+    static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *ON.get_or_init(|| std::env::var("INCUS_NEAR_LIGHT").as_deref() != Ok("0"))
+}
 
 impl Blocks {
     /// A chunk's blocks, read through the doorway (the tiles it needs are read once each into `tiles` and kept
     /// there for the next chunk), with the whole blocks placed since (`Change::Block`; bars aren't the near eye's
     /// yet).
     pub fn read(doorway: &Doorway, tiles: &mut HashMap<[i32; 2], Tile>, chunk: [i32; 2]) -> Result<Self, String> {
-        let least = [chunk[0] * CHUNK - 1, chunk[1] * CHUNK - 1];
+        let least = [chunk[0] * CHUNK - MARGIN, chunk[1] * CHUNK - MARGIN];
         let height = doorway.height();
         let mut columns: Vec<Column> = Vec::with_capacity(WIDE * WIDE);
         // (East slowest, north fastest: a column's place here is north + east x 34.)
@@ -219,9 +238,9 @@ impl Blocks {
         Ok(Self { chunk, low, high, unit, cells })
     }
 
-    /// The cell at `north`, `east` from the chunk's least corner (-1 to 32) and `up` from bedrock: 0 air, or its
-    /// block's number and one. Under what's kept, solid stone; over it, air. (In half blocks where `unit` is 2: -2 to
-    /// 65, and `up` in half blocks.)
+    /// The cell at `north`, `east` from the chunk's least corner (-8 to 39) and `up` from bedrock: 0 air, or its
+    /// block's number and one. Under what's kept, solid stone; over it, air. (In half blocks where `unit` is 2: -16 to
+    /// 79, and `up` in half blocks.)
     pub fn cell(&self, north: i32, east: i32, up: i32) -> u16 {
         let u = self.unit;
         if up < self.low * u {
@@ -231,12 +250,75 @@ impl Blocks {
             return 0;
         }
         let tall = ((self.high - self.low) * u) as usize;
-        self.cells[((north + u) as usize + (east + u) as usize * WIDE * u as usize) * tall + (up - self.low * u) as usize]
+        self.cells[((north + MARGIN * u) as usize + (east + MARGIN * u) as usize * WIDE * u as usize) * tall + (up - self.low * u) as usize]
     }
 
     /// Whether a cell stops the eye: a block, not air and not water.
     fn solid(cell: u16) -> bool {
         cell != 0 && cell != WATER + 1
+    }
+
+    /// The sky's light in every cell (build 208), 0 to 15, laid out as the cells are: a cell nothing solid stands over
+    /// is 15; every other air or water cell takes, round after round, the average of its six neighbours (a solid one
+    /// counting dark; over what's kept, the open sky; past the margin, itself), so light spreads into an opening and
+    /// fades with the walls round it, reaching about as far in as the opening is wide. Then in 16 steps: under
+    /// `LIGHT_CUT` black, over it never darker than `LIGHT_FLOOR`. Solid cells are 0.
+    pub fn sky_light(&self) -> Vec<u8> {
+        let u = self.unit as usize;
+        let wide = WIDE * u;
+        let tall = ((self.high - self.low) * self.unit) as usize;
+        let mut light = vec![0f32; self.cells.len()];
+        // Each column, top down to its first solid cell: open; under it, the air and water covered.
+        let mut covered: Vec<usize> = Vec::new();
+        for column in 0..wide * wide {
+            let base = column * tall;
+            let mut z = tall;
+            while z > 0 && !Self::solid(self.cells[base + z - 1]) {
+                z -= 1;
+                light[base + z] = 1.0;
+            }
+            covered.extend((0..z).map(|k| base + k).filter(|&i| !Self::solid(self.cells[i])));
+        }
+        if !covered.is_empty() {
+            // Each covered cell's six neighbours: a cell's place; or the open sky (above what's kept); or itself (past
+            // the margin). Below what's kept is solid, and solid cells stay dark.
+            const SKY: u32 = u32::MAX;
+            let near: Vec<[u32; 6]> = covered
+                .iter()
+                .map(|&i| {
+                    let (z, column) = (i % tall, i / tall);
+                    let (north, east) = (column % wide, column / wide);
+                    let at = |n: usize, e: usize, z: usize| ((n + e * wide) * tall + z) as u32;
+                    [
+                        if north + 1 < wide { at(north + 1, east, z) } else { i as u32 },
+                        if north > 0 { at(north - 1, east, z) } else { i as u32 },
+                        if east + 1 < wide { at(north, east + 1, z) } else { i as u32 },
+                        if east > 0 { at(north, east - 1, z) } else { i as u32 },
+                        if z + 1 < tall { at(north, east, z + 1) } else { SKY },
+                        if z > 0 { at(north, east, z - 1) } else { i as u32 },
+                    ]
+                })
+                .collect();
+            for _ in 0..LIGHT_ROUNDS {
+                for (k, &i) in covered.iter().enumerate() {
+                    let sum: f32 = near[k].iter().map(|&j| if j == SKY { 1.0 } else { light[j as usize] }).sum();
+                    light[i] = sum / 6.0;
+                }
+            }
+        }
+        light
+            .iter()
+            .zip(&self.cells)
+            .map(|(&v, &cell)| {
+                if Self::solid(cell) || v < LIGHT_CUT {
+                    0
+                } else if v >= 1.0 {
+                    15
+                } else {
+                    ((v * 15.0).ceil() as u8).clamp(LIGHT_FLOOR, 15)
+                }
+            })
+            .collect()
     }
 
     /// The chunk's faces, merged: for each facing and each plane across it, the open sides of one block that make a
@@ -247,6 +329,19 @@ impl Blocks {
         let mut faces = Vec::new();
         let unit = self.unit;
         let size = [CHUNK * unit, CHUNK * unit, (self.high - self.low) * unit];
+        // The sky's light in the cell each face looks into (build 208): faces of one block merge only where it's the
+        // same. (Over what's kept, open sky; off, every face as if open.)
+        let lights = if light_on() { self.sky_light() } else { Vec::new() };
+        let tall = ((self.high - self.low) * unit) as usize;
+        let light_at = |north: i32, east: i32, up: i32| -> u32 {
+            if lights.is_empty() || up >= self.high * unit {
+                return 15;
+            }
+            if up < self.low * unit {
+                return 0;
+            }
+            lights[((north + MARGIN * unit) as usize + (east + MARGIN * unit) as usize * WIDE * unit as usize) * tall + (up - self.low * unit) as usize] as u32
+        };
         for facing in Facing::ALL {
             let ([a, b], along) = facing.axes();
             let step = facing.step();
@@ -266,10 +361,11 @@ impl Blocks {
                         let cell = self.cell(north, east, up);
                         let beyond = self.cell(north + step[0], east + step[1], up + step[2]);
                         // (The world's floor shows no underside.)
+                        let lit = || light_at(north + step[0], east + step[1], up + step[2]) << 20;
                         let shows = if Self::solid(cell) {
-                            if !Self::solid(beyond) && !(facing == Facing::Down && up == 0) { cell as u32 } else { 0 }
+                            if !Self::solid(beyond) && !(facing == Facing::Down && up == 0) { cell as u32 | lit() } else { 0 }
                         } else if cell == WATER + 1 && facing == Facing::Up && beyond == 0 {
-                            1 << 31 | cell as u32
+                            1 << 31 | cell as u32 | lit()
                         } else {
                             0
                         };
@@ -308,7 +404,7 @@ impl Blocks {
                         at[b] = v as i32;
                         at[along] = plane;
                         at[2] += self.low * unit;
-                        faces.push(Face { at, facing, wide: across as i32, high: down as i32, block: (shows & 0xFFFF) as Block - 1, water: shows >> 31 == 1 });
+                        faces.push(Face { at, facing, wide: across as i32, high: down as i32, block: (shows & 0xFFFF) as Block - 1, water: shows >> 31 == 1, light: ((shows >> 20) & 15) as u8 });
                         u += across;
                     }
                 }
@@ -322,6 +418,27 @@ impl Blocks {
 /// its chunk it lies on (a face depends only on the cell it's on and the one it looks into).
 pub fn touched(cell: [i32; 3]) -> Vec<[i32; 2]> {
     touched_cell(cell)
+}
+
+/// The chunks a change can alter the faces or the sky's light of (build 208): those `touched_by` has, and every chunk
+/// whose margin the light is read over reaches its cells.
+pub fn touched_by_light(change: &Change) -> Vec<[i32; 2]> {
+    let mut chunks = touched_by(change);
+    let cells = match change.octants() {
+        None => vec![change.cell()],
+        Some((octants, _)) => octants.iter().map(|octant| octant.map(|half| half.div_euclid(2))).collect(),
+    };
+    for cell in cells {
+        for dn in [-MARGIN, 0, MARGIN] {
+            for de in [-MARGIN, 0, MARGIN] {
+                let chunk = [(cell[0] + dn).div_euclid(CHUNK), (cell[1] + de).div_euclid(CHUNK)];
+                if !chunks.contains(&chunk) {
+                    chunks.push(chunk);
+                }
+            }
+        }
+    }
+    chunks
 }
 
 /// The chunks a change can alter the faces of: a whole block's cell's, or each of a piece's octants' cells'.
@@ -369,7 +486,7 @@ pub fn packed(face: &Face, chunk: [i32; 2], unit: i32) -> [u32; 3] {
     let facing = Facing::ALL.iter().position(|f| *f == face.facing).unwrap() as u32;
     let up = face.at[2] as u32;
     let a = face.at[0] as u32 | (face.at[1] as u32) << 6 | (up & 1023) << 12 | facing << 22 | ((face.wide - 1) as u32) << 25 | (face.water as u32) << 30 | ((unit == 2) as u32) << 31;
-    let b = (face.high - 1) as u32 | (face.block as u32) << 10 | (up >> 10 & 1) << 26;
+    let b = (face.high - 1) as u32 | (face.block as u32) << 10 | (up >> 10 & 1) << 26 | (face.light as u32 & 15) << 27;
     let c = (chunk[0] + 32768) as u32 | ((chunk[1] + 32768) as u32) << 16;
     [a, b, c]
 }
@@ -701,7 +818,9 @@ mod tests {
             exact(&blocks);
             let after = blocks.faces();
             if *chunk == [0, 0] {
-                assert_eq!(after.len(), before.len() + 6, "a block in the air shows six sides in its own chunk");
+                // (Its six sides; and, the sky's light under it falling, the ground's faces there split from the rest.)
+                assert!(after.len() >= before.len() + 6, "a block in the air shows six sides in its own chunk");
+                assert_eq!(after.iter().filter(|face| face.at[2] >= cell[2] && face.block == stone).count(), 6, "the block's six sides");
             } else {
                 assert_eq!(&after, before, "chunk {chunk:?} doesn't change (a block in the air hides no side of its neighbour's)");
             }
@@ -873,16 +992,66 @@ mod tests {
         assert_eq!(from_lane(2), before, "told it's taken back, as it was before");
     }
 
+    /// The sky's light (build 208): open ground is 15; a sealed room black; a tunnel into a hillside lit from its mouth
+    /// falls to black past about its width in, and a tunnel twice as wide reaches about twice as far; shade under a slab
+    /// outdoors is never under the floor.
+    #[test]
+    fn the_sky_s_light_reaches_in_as_far_as_an_opening_is_wide() {
+        // A made-up chunk: solid stone to `ground`, a hill over the middle with tunnels into it from the south.
+        let (ground, top) = (10, 40);
+        let blocks_with = |carve: &dyn Fn(i32, i32, i32) -> bool| {
+            let (low, high) = (ground - 1, top + 2);
+            let tall = (high - low) as usize;
+            let mut cells = vec![0u16; WIDE * WIDE * tall];
+            for e in 0..WIDE as i32 {
+                for n in 0..WIDE as i32 {
+                    let (north, east) = (n - MARGIN, e - MARGIN);
+                    for up in low..high {
+                        let hill = (4..28).contains(&north) && up < top;
+                        if (up < ground || hill) && !carve(north, east, up) {
+                            cells[(n as usize + e as usize * WIDE) * tall + (up - low) as usize] = crate::doorway::STONE + 1;
+                        }
+                    }
+                }
+            }
+            Blocks { chunk: [0, 0], low, high, unit: 1, cells }
+        };
+        let at = |blocks: &Blocks, light: &[u8], north: i32, east: i32, up: i32| {
+            let tall = (blocks.high - blocks.low) as usize;
+            light[((north + MARGIN) as usize + (east + MARGIN) as usize * WIDE) * tall + (up - blocks.low) as usize]
+        };
+        // How far into a tunnel `w` wide and high, from the hill's south face, the light reaches.
+        let reach = |w: i32| {
+            let blocks = blocks_with(&|north, east, up| north >= 4 && (16 - w / 2..16 - w / 2 + w).contains(&east) && (ground..ground + w).contains(&up));
+            let light = blocks.sky_light();
+            assert_eq!(at(&blocks, &light, 0, 16, ground), 15, "open ground in front of the hill is fully lit");
+            (4..28).take_while(|&north| at(&blocks, &light, north, 16, ground) > 0).count() as i32
+        };
+        let (narrow, wide) = (reach(2), reach(4));
+        eprintln!("The sky's light reaches {narrow} blocks into a tunnel 2 wide, {wide} into one 4 wide");
+        assert!((1..=4).contains(&narrow), "light reaches into a tunnel about as far as it's wide: {narrow} for 2");
+        assert!(wide > narrow && wide <= 8, "twice as wide, about twice as far: {wide} for 4, {narrow} for 2");
+        // A sealed room inside the hill: black.
+        let blocks = blocks_with(&|north, east, up| (10..14).contains(&north) && (10..14).contains(&east) && (20..24).contains(&up));
+        let light = blocks.sky_light();
+        assert_eq!(at(&blocks, &light, 12, 12, 22), 0, "a sealed room is black");
+        // Shade under a roof outdoors (8 by 8, 3 over open ground, open on every side): dim, never under the floor.
+        let blocks = blocks_with(&|north, east, up| (4..28).contains(&north) && up >= ground && !((12..20).contains(&north) && (12..20).contains(&east) && up == ground + 3));
+        let light = blocks.sky_light();
+        let under = at(&blocks, &light, 16, 16, ground);
+        assert!(under >= LIGHT_FLOOR, "outdoors under a roof is never darker than the floor: {under}");
+    }
+
     /// A face's three words hold what it is.
     #[test]
     fn a_packed_face_unpacks() {
-        let face = Face { at: [31, 7, 1000], facing: Facing::West, wide: 32, high: 1024, block: 513, water: false };
+        let face = Face { at: [31, 7, 1000], facing: Facing::West, wide: 32, high: 1024, block: 513, water: false, light: 9 };
         let [a, b, c] = packed(&face, [-1125, 990], 1);
         assert_eq!([a & 63, (a >> 6) & 63, (a >> 12) & 1023, (a >> 22) & 7, ((a >> 25) & 31) + 1, (a >> 30) & 1, a >> 31], [31, 7, 1000, 3, 32, 0, 0]);
-        assert_eq!([(b & 1023) + 1, (b >> 10) & 0xFFFF, b >> 26], [1024, 513, 0]);
+        assert_eq!([(b & 1023) + 1, (b >> 10) & 0xFFFF, (b >> 26) & 1, b >> 27], [1024, 513, 0, 9]);
         assert_eq!([(c & 0xFFFF) as i32 - 32768, (c >> 16) as i32 - 32768], [-1125, 990]);
         // A face in half blocks: north and east to 63, up to 2,047 (its eleventh bit in the second word).
-        let half = Face { at: [63, 40, 2047], facing: Facing::Up, wide: 2, high: 1, block: 7, water: false };
+        let half = Face { at: [63, 40, 2047], facing: Facing::Up, wide: 2, high: 1, block: 7, water: false, light: 15 };
         let [a, b, _] = packed(&half, [3, -4], 2);
         assert_eq!([a & 63, (a >> 6) & 63, ((a >> 12) & 1023) | ((b >> 26) & 1) << 10, (a >> 22) & 7, ((a >> 25) & 31) + 1, a >> 31], [63, 40, 2047, 4, 2, 1]);
         assert_eq!([(b & 1023) + 1, (b >> 10) & 0xFFFF], [1, 7]);

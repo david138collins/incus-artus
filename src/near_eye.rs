@@ -462,7 +462,7 @@ impl NearEye {
         let now: HashSet<[i32; 2]> = changes
             .values()
             .flatten()
-            .flat_map(crate::near::touched_by)
+            .flat_map(crate::near::touched_by_light)
             .collect();
         if now.is_empty() && self.touched.is_empty() {
             return;
@@ -528,7 +528,7 @@ impl NearEye {
         let eye = [camera.position.x, camera.position.y, camera.position.z];
         let cell = eye.map(|v| v.floor());
         let mut bytes: Vec<u8> = Vec::with_capacity(48);
-        bytes.extend(cell.iter().map(|v| *v as i32).chain([self.textured as i32]).flat_map(|v| v.to_le_bytes()));
+        bytes.extend(cell.iter().map(|v| *v as i32).chain([self.textured as i32 | (crate::near::light_on() as i32) << 1]).flat_map(|v| v.to_le_bytes()));
         bytes.extend((0..3).map(|k| eye[k] - cell[k]).chain([self.look.fader_curve.clamp(1.0, MOST_FADER_CURVE)]).flat_map(|v| v.to_le_bytes()));
         bytes.extend([self.counts.reach, band_of(self.look.fader_width, self.counts.reach), DEPTHS[0], DEPTHS[1]].iter().flat_map(|v| v.to_le_bytes()));
         queue.write_buffer(&self.numbers, 0, &bytes);
