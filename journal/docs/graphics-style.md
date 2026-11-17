@@ -37,6 +37,8 @@ So, three layers and one screen:
 - **Colour crush** stays at the asset (the palette and its splines), not as a screen filter.
 - **One thing bent or pixelated** as an effect (the wraith's end; `journal/docs/vision.md`, "Bending the lens").
 - **Outlines** from depth and surface direction: not asked for; listed because the references lean on them.
+- **Silhouettes in the fog** (his idea, 2026-11-17): with real fog, edges found behind it draw terrain, buildings
+  and actors as silhouettes; `journal/docs/vision.md`, "Silhouettes in the fog".
 
 ## 3. Where it sits in the engine as it is (build 209; `master/map.md`)
 

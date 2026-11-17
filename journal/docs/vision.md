@@ -1085,6 +1085,20 @@ what novel ways i could create the fire that the ray sees so that it looks organ
 - *Counsel:* ship sounds dry and let the game add the space. The sky light's measure of how much sky a
   place sees could also set how much a sound echoes and how muffled it gets in a cave.
 
+## Silhouettes in the fog  [IDEA, David 2026-11-17]
+
+His words: "when we have real fog, as a post effect for weather prettification, we can use edge detection behind it
+to make silhouettes of terrain and buildings and actors".
+
+- So: once fog is real (weather's fog, not today's switch for looks), a pass over the finished picture finds the
+  edges of what stands in the fog, from depth, and draws terrain, buildings and actors as silhouettes in it:
+  shapes looming out of the weather.
+- Counsel's notes for building it: the frame already keeps what it needs (the near picture has its depth; the
+  march knows each ray's distance), and it would be a pass of its own with its own switch, measured alone, as the
+  styles are (`journal/docs/graphics-style.md`, section 2, lists outlines from depth as the same kind of pass).
+  To settle then: whether actors and far lights show through at the same distance as land, and how the edge fades
+  with the fog's thickness. It belongs with weather and the style pass (Phase 4), not the work under way.
+
 ## Paths that wear smooth  [IDEA, David 2026-11-17]
 
 - "we make dirt slabs, but they only appear in the world on their own with a random chance every time someone steps
