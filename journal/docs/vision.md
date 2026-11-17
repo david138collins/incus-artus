@@ -1123,6 +1123,17 @@ what novel ways i could create the fire that the ray sees so that it looks organ
   - *Counsel:* it makes the wearing and the digging one thing (a dirt block is two slabs either way), and gives the
     spec's "one slot holds a material in every size, counted by volume" its first plain case. For him to say when
     it's built: whether a whole dirt block in the ground takes two digs, and whether sand and gravel go the same way.
+- **His answers** (the same day): "yes a whole dirt block takes two digs. sand and gravel do work the same way. grass
+  has to regrow on dirt blocks that get worn down, sand and gravel wear too. i think these will all have gravity,
+  where crafted blocks dont."
+  - So: a whole block of dirt, sand or gravel is two digs, a slab each; sand and gravel dig, place and wear as dirt
+    does; grass regrows on dirt that's been worn down; the loose kinds (dirt, sand, gravel) fall, and crafted
+    blocks (mud brick, packed dirt) don't.
+  - *Counsel, for building:* falling loose blocks are the shared kinematics layer's (the spec: one layer for
+    players, animals, carts and falling trees), and a slab that slides when a path wears is the same fall. Regrowth
+    is a slow clock on the column's wear count running back, so a path nobody walks greens over. To settle then:
+    whether a pile holds a slope or runs out flat (a slab resting on a slab's edge), and whether worn-in slabs fall
+    like dug ones.
 
 ## Figures  [IDEA, David 2026-11-09]
 

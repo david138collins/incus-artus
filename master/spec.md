@@ -754,6 +754,7 @@ Where the sources disagree. Each version is given with its ref; nothing here is 
 - Dirt paths wear smooth: dirt slabs appear in the world only by a random chance each time someone steps off a dirt block or hops up one, the block becoming two slabs and one sliding down, "so over time, dirt paths get smoothed". [idea] (vision.md, Paths that wear smooth, 2026-11-17)
 - Grass walked on a lot becomes dirty grass, in several variations of its picture; animals and carts count; slabs don't wear further; rain only turns dirty grass to muddy grass and changes the walk's sound. [idea] (vision.md, Paths that wear smooth, 2026-11-17)
 - Dirt of every kind digs and places as slabs, with a shovel; mud bricks and packed dirt are crafted blocks "for going beyond just piling dirt". [idea] (vision.md, Paths that wear smooth, 2026-11-17)
+- A whole block of dirt, sand or gravel takes two digs; sand and gravel dig, place and wear as dirt does; grass regrows on worn dirt; the loose kinds have gravity, crafted blocks don't: "these will all have gravity, where crafted blocks dont". [idea] (vision.md, Paths that wear smooth, 2026-11-17)
 - Only blocks marked in the Registrar can be bars; David registers his own. [decided] (quartile.md:178)
 - Every octant is a stick-on, and everything has collision. [decided] (quartile.md:194, 374)
 - Octant items are objects (a cup, a candle); lone octants ("octblocks") exist. [decided] (quartile.md:191; vision.md:822-824)
