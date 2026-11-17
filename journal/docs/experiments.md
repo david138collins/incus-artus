@@ -7815,3 +7815,43 @@ three, and the bare plain after his build, taking it back) the log says: **one f
 the card in 11 to 33 ms, 0.09 to 0.16 s after the changes were made**; each standing waited for it, then
 measured. The built marks' frames as before (medians 1.02 to 1.24 ms, 804 to 985 a second; no single flight read
 against another for anything finer). Item 1 of his checklist done enough to go on; his look when he likes.
+
+### Near light talked through with David (2026-11-16); build 208's pass mark: sky light per block
+
+**Put to him:** near light in three steps (sky and sun light per block, flooding in 16 clear steps, solid blocks
+stopping it; placed lights, coloured, flickering, with a test light scattered; moving lights), and two choices:
+how dark is dark, and the test light's colour. **His words:** "i think you understand what i want for light. i think
+outdoors should have very very dark as the floor, but caves should be pitch black past a distance into their mouth
+that would equal i think the diameter of their mouth or something of that sort."
+
+**Taken as:** step 1 goes ahead. Two rules of his for it: outdoors, shade never falls below a very, very dark floor;
+in a cave, light reaches in about as far as the mouth is wide, and past that it's black. (Minecraft's flood can't
+do the second: its light always reaches 15 blocks in, whatever the mouth's size. So the light here spreads by
+averaging instead: see below.) The test light's colour wasn't answered; step 2 starts with a warm torch orange
+unless he says.
+
+**Build 208's mark** (the near eye's own sky light; the far eye's unchanged; placed and moving lights are steps 2
+and 3):
+
+1. **Sky light per air cell,** worked out on the near lane with the chunk's faces, over the chunk and 8 columns
+   round it: a cell nothing solid stands over is fully lit; every other air (or water) cell takes the average of
+   its six neighbours, a solid one counting dark, over and over, so light spreads into an opening and fades with
+   the walls round it: it reaches about as far in as the opening is wide (in a tube, light falling by a set share
+   every width or so). Then in 16 steps: under a cut, black (0); over it, never less than the floor, very very dark
+   (1 of 15).
+2. **Each face lit by the cell it looks into,** blocky: faces merged only where their light is the same.
+3. **On the face:** the sky's share of its light by its sky light, and the sun's only where it's fully open to the
+   sky (and the far shadow lets it), so the inside of a house, under an overhang and a cave are in shade and dark.
+4. **A switch that leaves it off:** `INCUS_NEAR_LIGHT=0`, the faces lit as now.
+5. **Placed things** make again the chunks within the light's reach of them (it spreads past a chunk's edge).
+
+**The mark:**
+
+- **Tests:** a cell open to the sky is 15; a sealed room is 0; a tunnel into a hillside lit from its mouth is black
+  past about its width in, and a tunnel twice as wide reaches about twice as far; shade under a slab outdoors is at
+  least the floor; the merged faces still cover every open side once.
+- **Pictures, off the screen:** a cave mouth of the stage in the near eye, light falling to black inside; the
+  spawn's open ground as bright as now; the stage's houses' insides and the castle's gate in shade; with the switch
+  off, build 207's picture.
+- **Said as it is:** how much longer a chunk takes to make, and how many more faces (merges split by light).
+- **His look** decides the cut and the floor; they go on the Render page if he wants them there.
