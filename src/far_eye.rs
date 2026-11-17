@@ -2011,6 +2011,25 @@ mod tests {
                 }
                 let each = began.elapsed().as_secs_f64() * 1e6 / 400.0;
                 queue.submit([]);
+                // And whole frames (the march and the near eye's passes, as the game's frame goes): the handing of
+                // each to the card timed on the processor, and all of them until the card has finished the last.
+                device.poll(wgpu::PollType::wait_indefinitely()).expect("the card finished");
+                let (frames_timed, mut handing) = (300, 0.0f64);
+                let whole = std::time::Instant::now();
+                for _ in 0..frames_timed {
+                    eye.prepare(&device, &queue, screen, &camera, doorway.sea_level as f32);
+                    let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("the far eye's test") });
+                    eye.start(&mut encoder, None);
+                    near_first(near, &eye, &mut encoder, &camera);
+                    for k in 0..LAYERS.len() {
+                        eye.layer(k, &mut encoder, None);
+                    }
+                    let handed = std::time::Instant::now();
+                    queue.submit([encoder.finish()]);
+                    handing += handed.elapsed().as_secs_f64();
+                }
+                device.poll(wgpu::PollType::wait_indefinitely()).expect("the card finished");
+                eprintln!("Whole frames, groups turned away {}: handing a frame over {:.0} millionths of a second on the processor; a frame {:.0} millionths, start to the card's finish", if on { "left out" } else { "listed" }, handing * 1e6 / frames_timed as f64, whole.elapsed().as_secs_f64() * 1e6 / frames_timed as f64);
                 eprintln!("The listing, groups turned away {}: {each:.0} millionths of a second a frame; {} chunks, {} draws, {} faces sent of {} kept", if on { "left out" } else { "listed" }, near.counts.drawn, near.counts.draws, near.counts.faces_drawn, near.counts.faces);
             }
             near.turned = as_it_was;

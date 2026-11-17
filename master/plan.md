@@ -615,9 +615,10 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
           radius, its memory and remaking measured; his eye decides whether it stays
     - [ ] **Listing chunks:** the near eye's processor time is all in listing the chunks in view (0.15 to 0.27 ms a
           frame at 32 chunks, about 1 ms at 64)
-    - [ ] **Faces turned away** from the eye left out (still sent to the card): build 209, built: the card drops
-          them and a chunk's groups of them aren't listed; half as many faces sent at 32 chunks off the screen; its
-          flights' bracket to come
+    - [x] **Faces turned away** from the eye left out: build 209 (ff0c6b2), the card drops them and a chunk's
+          groups of them aren't listed: half as many faces sent at 32 chunks; flown in a bracket of five
+          (2026-11-17), the near faces' time on the card a third less over the marks, half at the spawn, the dearest
+          frame 1.89 to 1.62 ms. Done enough to go on
     - [ ] **A chunk with pieces** meshes nine times slower than a plain one (2.8 ms against 0.3): half blocks only
           round the pieces, or another way
     - [ ] **Chunk optimizing where it would show:** what a player would feel (filling 64 chunks took 37 s at the

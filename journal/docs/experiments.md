@@ -7971,3 +7971,43 @@ build 208.
   town view is from 450 up, over it.
 - **Said, not fixed:** with the eye inside solid ground there's now nothing to see of it from inside (before, the
   faces' backs).
+
+### Build 209 flown (2026-11-17): a bracket of five; the card's near faces a third cheaper, half at the spawn
+
+**The flights** (build 209, the code committed, no error; as the game starts, 32 chunks; the TV in, so read only
+against each other): `INCUS_NEAR_TURNED=0` (off), unset (on), off, on, off: `flight-1794922133`, `-1794922654`,
+`-1794923195`, `-1794923730`, `-1794924258`. **David's word as they went: "i was doing stuff when it launched - you
+may have to redo it. ill stay off, with the tv connected so the baseline doesnt change today."** So two flights
+were added behind the first three, and the clean bracket is the last three (off, on, off). The first two are shown
+in brackets; on the card they say the same.
+
+**The near faces on the card, ms (median):**
+
+| | (off) | (on) | off | on | off |
+|---|---|---|---|---|---|
+| on the ground at the spawn | (0.875) | (0.431) | 0.871 | **0.411** | 0.876 |
+| the mountain top | (0.517) | (0.324) | 0.514 | **0.307** | 0.531 |
+| high over the spawn (the dearest frame) | (0.905) | (0.642) | 0.923 | **0.643** | 0.923 |
+| the scatter at 100,000 | (0.668) | (0.501) | 0.657 | **0.550** | 0.750 |
+| the scatter of pieces at 100,000 | (0.643) | (0.419) | 0.639 | **0.424** | 0.709 |
+| the bare plain | (0.080) | (0.066) | 0.078 | **0.068** | 0.081 |
+| summed over the 14 standing marks | (4.677) | (3.117) | 4.675 | **3.164** | 4.877 |
+
+**A third off the near faces' time over the marks, a half at the spawn, 30% at the dearest mark** (whose frame went
+from 1.89 to 1.62 ms). Triangles drawn at the most: 3.18 million to 1.45 at the spawn.
+
+**The processor's side can't be read from these flights, and why.** The processor's area stood at 100 to 104
+degrees through most standings of every flight (back to back, the TV in; each began under 62 and was at 104 within
+three or four marks), and its passes fall into two speeds with it: "handing the card its work" is 0.27 to 0.37 ms or
+0.55 to 0.63 at the same mark, in off and on flights alike. Where the heat matched (the spawn, the mountain, high
+over the spawn), the listing is 0.03 to 0.05 ms dearer on. So it was settled off the screen instead, off and on
+alternating inside one run (`FAR_TEST_LISTING` now also times whole frames, 32 chunks from the spawn at 2560 by
+1600): **a whole frame, start to the card's finish: 2.15, 2.08, 2.16 ms listed against 1.71, 1.70 left out on bare
+land (21% less); 2.65, 2.64, 2.62 against 1.92, 1.81 with the stage (29% less)**; handing a frame over is no dearer
+for the half again as many draws (it fell through the run either way: 0.54 left out between 1.05 and 0.51 listed,
+then 0.30 between 0.51 and 0.35).
+
+**Against the mark:** the card's time, met by the bracket; the processor's, by the run off the screen. **Written
+down for the flights:** back-to-back flights with the TV in run the processor's area to 104 degrees; the cool-down
+before each (under 62) doesn't hold through a flight. A bracket's processor numbers want either longer rests or the
+in-run alternation used here.
