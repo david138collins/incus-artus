@@ -2971,6 +2971,27 @@ Reference: `Art/quartile minecraft illustration.png`
     faces (190 thousand for 135 thousand) and a chunk takes about 20% longer to make; at 64 chunks the near faces'
     cost goes with faces sent, so it wants pricing by a bracket, and may move "faces turned away" up his list. Next:
     his look, then step 2, placed lights.
+- **[DECIDED 2026-11-17] Light kept apart from the faces, and faces turned away, before placed lights; David the
+  go-between** (to Counsel). He asked "why do the face meshes have to split when the light changes? how much would
+  faces turned away help", then "lets talk about light in its own picture. how does this work for all nonsky light?
+  at some point we said rays through dust would be cheap, but that was based on gpu ray light right? and not drawing
+  faces turned away does seem obvious." Then: "please all of this about light into a prompt for builder to boil down
+  between the pros and cons of a light picture only around you or a small strip next to all merged faces, i agree
+  with your suggestions about the order. ill be doing most of the go-between you and builder for now, builder and
+  you will check in on the master map and plan at each committed build".
+  - Counsel's answers, unmeasured and said so: a merged face carries one light value, so merges stop wherever light
+    changes (build 208's 40% more faces). Kept apart (a value a cell: sky, and red, green and blue from placed
+    lights), faces merge whatever the light; a torch placed or moved re-spreads a small patch and rebuilds no chunk;
+    flicker is a wobble at the read. A full light picture of every near chunk is too much memory at 1,024 blocks
+    tall, hence the two forms for Builder to weigh: a light picture only round the eye, or a small strip of light
+    values beside each merged face. Rays through dust were cheap because far rays already marched the air; near,
+    they'd be a pass of their own reading the light picture, outside the march. Faces turned away: the card drops
+    them only after their corners' work (49% of the near faces' cost by his trace); a third to a half of faces sent
+    is Counsel's rough guess, to be counted off the screen.
+  - **The order, agreed:** faces turned away and where light is kept, before step 2 (placed lights), so placed
+    lights are built once and later prices are read against the right baseline.
+  - **The way of working, for now:** David carries most messages between Counsel and Builder; each of them reads
+    `master/map.md` and `master/plan.md` at each committed build.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its

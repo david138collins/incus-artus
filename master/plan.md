@@ -594,6 +594,10 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
     - [ ] **Placed things in the far view:** whatever is placed (a build, a scatter, later a player's work) summed
           into the far cells, so it doesn't stop at the render radius. He called it necessary before graphics are
           done enough to move on from
+    - *Order within near light, his word 2026-11-17* ("i agree with your suggestions about the order"): after step
+      1 (sky light, build 208), **faces turned away** (below) and **where light is kept** (a light picture round
+      the eye, or a strip of light beside each merged face, so faces merge whatever the light; Builder boils the two
+      down first) come before step 2, placed lights, which are built on it
     - [ ] **Near light:** the near eye's own light, per face, blocky and quantised (the spec); placed lights in 16
           clear steps a block, coloured, flooding through air and stopped by walls, flickering; moving lights (a
           held lantern, effects); caves and interiors dark unless lit ("i want light to be precious")
