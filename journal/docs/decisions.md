@@ -2946,6 +2946,17 @@ Reference: `Art/quartile minecraft illustration.png`
   s after it was made; frames as before (medians 1.02 to 1.24 ms at those standings). Done enough to go on; his look
   when he likes. Next: item 2, near light, its plan brought to him before code (how dark caves and interiors go is a
   look of his).
+- **[DECIDED 2026-11-16] Near light: a very dark floor outdoors, caves black past about their mouth's width** (David,
+  to Builder, on her plan for near light): "i think you understand what i want for light. i think outdoors should have
+  very very dark as the floor, but caves should be pitch black past a distance into their mouth that would equal i
+  think the diameter of their mouth or something of that sort."
+  - Taken as: step 1, sky light per block, goes ahead with his two rules: outdoor shade never below a very, very dark
+    floor; light reaches into a cave about as far as its mouth is wide, then black. Minecraft's flood can't do the
+    second (it always reaches 15 blocks), so Builder's light spreads by averaging, walls counting dark, which fades
+    over about an opening's width. Build 208's mark written.
+  - The test light's colour for step 2 (placed lights) wasn't answered: warm torch orange unless he says.
+  - *Counsel:* it keeps his older words: "pitch-black darkness" in caves (the caves stops of 2026-11-01, built in old)
+    and "very dark nights" (the plan's "What every step keeps").
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
