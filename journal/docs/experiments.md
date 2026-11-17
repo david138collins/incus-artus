@@ -8110,3 +8110,60 @@ out on the plain. The processor's passes again can't be read between flights (10
 all three, with the rests); nothing in them is dearer in every standing.
 
 **Against the mark:** met. Where light is kept is done enough to go on; step 2, placed lights, is built on it.
+
+### David's look at build 210 (2026-11-17), and build 211's pass mark: a finer region past the triangles, first look
+
+**His look** (build 210 launched at the spawn with the stage): "this looks really good, builder. the only rough part
+is this. i feel like we should have a finer region between the triangles and the march." (with a picture of trees
+smearing just past the render radius). Told why (the 16s' and 8s' rings reach 1,024 and 512 blocks, both wholly
+under the triangles at 32 chunks; past them the cells are 32s) and offered rings that begin where the triangles end:
+"yeah, i think we need to push the fineness-grossness gradient out to the triangle radius; please check with
+counsel on the things counsel and i have discussed about the end state of graphics re. a 2x2 screen grid
+everything snaps to etc". So the light's cut and floor stand as built, and the checklist's fifth item (the fine
+ring) comes before placed lights.
+
+**Checked with Counsel** (its answer whole in this session; `journal/docs/graphics-style.md` is the note):
+
+- The fixed 2 x 2 screen and half size are his lean for the style pass, not decided: nothing is built to them. But
+  the measure holds anyway: the march's finest rays are 2 x 2 screen pixels, so a far cell is as fine as is any use
+  when it's about one such square wide on the glass. **The grain, in blocks** (100 degrees up and down, 1,600
+  pixels): about 3 at 1,024 blocks out, 6 at 2,048, 12 at 4,096, 24 at 8,192. Past the triangles the cells are 32
+  today: ten times the grain; the 32s match it only from about 10,000 blocks.
+- Sizes picked from the grain are picked from the picture's size and the field of view, never from pixel counts
+  written in ("never welded shut").
+- He asked for a gradient: every step between levels keeps its fade (the rings' outermost 8 cells, as now).
+- The radius is a slider and his goal is 64 chunks: priced there too (the grain at 2,048 is 6 blocks: 8s are at the
+  grain there; at 32 chunks it's 4s that would be).
+- The fine ring lies under the whole x-fader band (128 blocks, which he likes) and its own fade: it begins inside
+  the radius, not at it.
+- A ring with a hole costs nothing in the picture once chunks are in (far rays are skipped under blocks), but the
+  far view is what shows where chunks aren't made yet; he's said not to worry about very fast flight. Said plainly
+  to him if it's taken.
+- The march has nothing put by (167 to 168 registers of about 170): anything needing its program is said first.
+- The remaking time measured includes a placing (build 207's path) and the ring moving as he walks.
+- His picture is trees: an 8-block cell at 1,024 blocks is about 5 pixels, a 4 about 2.6. He's told what a tree
+  looks like at each before he looks.
+
+**Found in the march's program:** it already asks, at every distance, for cells the size of its pixel there
+(`level_at`), and takes a ring's level only inside the ring's box. So past the triangles it asks for 4s and 8s and
+gets 32s; and its finer rays (the 4 x 4 and 2 x 2 layers, which marched nothing in any flight) are waiting on
+exactly these cells. Wider rings need nothing in the march's program.
+
+**Build 211, the first look and the prices** (a second build, after his look, makes it the rule: rings that begin
+at the render radius and follow it, hollow, with a band of 4s if the prices let):
+
+1. **The rings' sizes settable at launch:** `INCUS_FAR_RING_SIDE`, cell columns a side for the 16s' and the 8s'
+   (unset: 128 each, as now). Nothing else changes; the march's program untouched.
+2. **His look at 384 a side:** 8s out to about 1,536 blocks and 16s to about 3,072, against 128 at the same spot.
+
+**The mark:**
+
+- **Tests:** all pass at 128 (nothing changed); the store's layout and a ring made at 384 hold together (a ring's
+  every column has its band, its bricks their places).
+- **Pictures off the screen, 128 against 384, with the stage:** the woods past the render radius from the spawn;
+  the town on the plain from a mile off. Shown side by side; a tree's size in pixels said.
+- **Prices, each said:** bricks and memory (cells and textures) at 128 and 384; a ring made from nothing, and moved
+  a step as he walks; a placing reaching the far eye; the rays the finer layers now march and the march's time, off
+  the screen first (alternating in one run where it can be), then a bracket of flights (128, 384, 128), the dearest
+  mark first. And at 64 chunks: what sizes reach past 2,048 blocks, their memory and making, without a flight.
+- **His eye decides** whether finer cells there are worth their price, and how far out.
