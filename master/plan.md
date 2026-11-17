@@ -26,10 +26,17 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   at 64 chunks; as the game starts (32 chunks) the card's whole is under his 2 ms at every mark (the dearest high
   over the spawn, 1.80), pieces costing about what whole blocks do. Textures are on the near faces (build 205, old's
   placeholder pictures; with the scatter stage on, "its looking really good"; they cost nothing that can be shown,
-  build 206). **Now, 2.4 by his checklist of 2026-11-16** (the list is under 2.4): placed things in the far view
-  first, then near light, glows and far lights, more textures, an assessment of a fine ring past the triangles,
-  and the near eye's own costs (listing chunks, faces turned away, chunks with pieces, chunk optimizing where it
-  would show); "dont worry about very fast flight".
+  build 206). **Now, 2.4 by his checklist of 2026-11-16** (the list is under 2.4). In so far, each done enough to
+  go on: placed things in the far view (build 207); the sky's light on the near faces (build 208); faces turned
+  away left out (build 209: the near faces a third cheaper on the card); light kept apart from the faces, only where
+  it isn't plain daylight (build 210, his "proceed with C": 15% cheaper again with the stage on). His look at build
+  210 (2026-11-17): "this looks really good, builder. the only rough part is this. i feel like we should have a
+  finer region between the triangles and the march." **So next, by his word, the fine region past the triangles**
+  ("push the fineness-grossness gradient out to the triangle radius"), moved ahead of placed lights: Builder is
+  measuring memory and making time and brings him its pass mark first. Then placed and moving lights, glows and far
+  lights, more textures, and the near eye's own costs (listing chunks, chunks with pieces, chunk optimizing where
+  it would show); "dont worry about very fast flight". The graphics style (one fixed screen of 2 x 2 squares, the
+  world at half size) waits for the style pass in Phase 4: `journal/docs/graphics-style.md`.
 - **His word on the road** (2026-11-16): "i'm pretty happy and confident with our graphics engine now"; hanging
   homework and questions are dropped (the kept Oracle's five questions among them; an outside look is his to call,
   no longer a gate); "Builder can proceed with the tests and basic fixes, i'll bring it up if i see undesirable

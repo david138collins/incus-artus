@@ -3061,6 +3061,39 @@ Reference: `Art/quartile minecraft illustration.png`
   card drops turned-away faces and a chunk's groups that all look away aren't listed: half as many faces sent at 32
   chunks off the screen, the listing 0.02 to 0.03 ms dearer; dark dots on roofs and slopes gone. Build 210 is the
   light's table.
+- *Read from the plan and the journal at d3f647e* (Builder's records, checked against the logs): **build 209 flown**
+  in a bracket of five (the clean three: off, on, off; he'd been at the laptop for the first): the near faces' time
+  on the card a third less over the marks, half at the spawn (0.871 / 0.411 / 0.876 ms), the dearest frame 1.89 to
+  1.62 ms. **Build 210 flown** in a bracket with the stage on (`flight-1794926555`, `-1794927683`, `-1794928862`:
+  build 208's way, the light kept, 208's way): the near faces 15% less over 20 marks (10.509 / 8.840 / 10.337 ms
+  summed) and at no mark dearer; even over a wood, where most pixels find a brick; the dearest frame 2.30 to
+  2.17 ms (the stage on and the TV in, so read only against each other). The light 20.0 MB for 1,651 chunks at the
+  spawn. Both done enough to go on.
+- **[DECIDED 2026-11-17] A finer region past the triangles, next; the light looks really good** (David, to Builder,
+  at build 210 launched with the stage; relayed by her whole): "this looks really good, builder. the only rough part
+  is this. i feel like we should have a finer region between the triangles and the march." (with a picture of trees
+  smearing just past the render radius), then: "yeah, i think we need to push the fineness-grossness gradient out to
+  the triangle radius; please check with counsel on the things counsel and i have discussed about the end state of
+  graphics re. a 2x2 screen grid everything snaps to etc".
+  - So his look at builds 208 to 210 is had: the light's cut and floor stand as they are. And the checklist's item
+    5 (the assessment of a fine ring, 2026-11-16) moves ahead of placed lights, and grows: no longer the 16s' and
+    8s' rings "a size wider" but rings that begin at the render radius and follow it. The switch and the A/B at the
+    same radius stay; his eye decides whether it stays.
+  - Builder's reading, put to Counsel: the screen's own grain is a 2 x 2 square, so a far cell is fine enough when
+    it's about one square wide on the glass: about 3 blocks at 1,024 blocks out, 6 at 2,048, 12 at 4,096. Today
+    past the triangles at 32 chunks the cells are 32 blocks, ten times the grain; the 16s and 8s sit wholly under
+    the triangles. A far brick with its textures is about 20 KB, so memory and making time are measured before any
+    size is promised.
+  - *Counsel's answer to her:* the reading holds as a target, but the fixed 2 x 2 screen and half size are his lean
+    for the style pass, nothing decided, so nothing is built to it; the march's finest layer is 2 x 2 pixels
+    already. The squares line up by themselves (the layers share a corner); only keep the picture's size out of
+    the ring's rule ("never welded shut"). Outside the style note and bearing on it: his first words for the ring
+    ("a ring of 2x2 fading from the triangle radius ... a fence half in and half out of the render radius"); a
+    gradient wants a fade at every step; the radius is a slider and his goal is 64 chunks, where the grain is twice
+    as coarse, so the ring is priced there too; the ring lies under the whole x-fader band (128 blocks), so it
+    begins inside the radius; a ring with a hole shows the far view only where near chunks aren't in yet, to be
+    said to him plainly; the march has no registers put by; remaking is measured with a placing and a walk; and
+    what a tree looks like at the cell size memory allows is told to him before he looks.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
