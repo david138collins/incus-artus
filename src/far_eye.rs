@@ -1999,6 +1999,29 @@ mod tests {
             }
             queue.submit([encoder.finish()]);
         }
+        // What the far eye holds, if asked (`FAR_TEST_STATE`): its bricks, its rings, its memory.
+        if std::env::var_os("FAR_TEST_STATE").is_some() {
+            eprintln!("The far eye holds: {}", eye.state());
+        }
+        // The rings moved as a walk moves them, if asked (`FAR_TEST_RING_MOVE`: blocks north, each of four moves): how
+        // long each takes to be on the card whole; then back where they were.
+        if let Some(step) = std::env::var("FAR_TEST_RING_MOVE").ok().and_then(|step| step.parse::<f32>().ok()) {
+            for k in [1.0, 2.0, 3.0, 4.0, 0.0] {
+                let there = [at[0] + step * k, at[1]];
+                let began = std::time::Instant::now();
+                loop {
+                    eye.put(&device, &queue, there);
+                    queue.submit([]);
+                    let _ = device.poll(wgpu::PollType::Poll);
+                    if eye.ring_settled() {
+                        break;
+                    }
+                    assert!(began.elapsed().as_secs() < 300, "the rings follow a move in five minutes");
+                    std::thread::sleep(std::time::Duration::from_millis(2));
+                }
+                eprintln!("The rings moved to {:.0} blocks north of the start in {:.2} s", step * k, began.elapsed().as_secs_f32());
+            }
+        }
         // The near eye's listing timed, if asked (`FAR_TEST_LISTING`): with every group listed, with those turned away
         // left out, and again, in this one run.
         if let (Some(near), true) = (&mut near, std::env::var_os("FAR_TEST_LISTING").is_some()) {

@@ -620,10 +620,16 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
           never snapping off
     - [ ] **Textures:** bars wearing their own side and end pictures along each bar, joins seamless; the grass's
           shared edge; pictures for the blocks that have none (the stage's seven), placeholders or his art
-    - [ ] **An assessment of a fine ring past the triangles** (his idea: "a ring of 2x2 fading from the triangle
-          radius might look better, when you have a fence half in and half out of the render radius"): the 16s' and
-          8s' rings a size wider (16s to about 2,048 blocks, 8s to about 1,024) behind a switch, A/B at the same
-          radius, its memory and remaking measured; his eye decides whether it stays
+    - [ ] **A finer region between the triangles and the march** (his words at build 210, 2026-11-17: "i feel like
+          we should have a finer region between the triangles and the march"; "push the fineness-grossness gradient
+          out to the triangle radius"; and "i don't think we need very much of the finer cells to blend the
+          transition from angles to rays ... i can focus it into the seam at a natural grade"). Moved ahead of
+          placed lights by his word. Today the 16s' and 8s' rings reach 1,024 and 512 blocks, wholly under the
+          triangles at 32 chunks; past them the cells are 32s, ten times the screen's grain (a 2 x 2 square covers
+          about 3 blocks at 1,024). Build 211, a first look: the rings' sizes settable at launch
+          (`INCUS_FAR_RING_SIDE`); three times wider costs about 200 MB, 35 s to make the 16s from nothing, and 0.4
+          to 1.1 ms a frame. Next, after his look: a narrow band at the seam that begins under the x-fader and
+          follows the render radius, hollow, priced at 64 chunks too; his eye decides how much
     - [ ] **Listing chunks:** the near eye's processor time is all in listing the chunks in view (0.15 to 0.27 ms a
           frame at 32 chunks, about 1 ms at 64)
     - [x] **Faces turned away** from the eye left out: build 209 (ff0c6b2), the card drops them and a chunk's

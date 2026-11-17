@@ -33,6 +33,18 @@ pub const RING_LEVELS: [usize; 2] = [4, 3];
 /// 8s 512).
 pub const RING: i32 = 128;
 
+/// A ring's cell columns a side as the game was launched (build 211, for David's look at a finer region past the
+/// triangles): `INCUS_FAR_RING_SIDE`, the 16s' then the 8s' (as "384,384"; each a multiple of 16 from 128 to 1,024);
+/// unset, `RING` for both.
+pub fn ring_across(level: usize) -> i32 {
+    static SIDES: std::sync::OnceLock<[i32; 2]> = std::sync::OnceLock::new();
+    let sides = SIDES.get_or_init(|| {
+        let asked: Vec<i32> = std::env::var("INCUS_FAR_RING_SIDE").ok().map(|v| v.split(',').filter_map(|n| n.trim().parse().ok()).collect()).unwrap_or_default();
+        std::array::from_fn(|k| asked.get(k).map_or(RING, |side| (side.clamp(&RING, &1024) / 16) * 16))
+    });
+    RING_LEVELS.iter().position(|l| *l == level).map_or(RING, |k| sides[k])
+}
+
 /// A level's place among a store's levels and its row in the card's table (`far.wgsl`'s `table`): the levels laid over
 /// the map first, then the rings' (the 16s', then the 8s').
 pub fn row(level: usize) -> usize {
@@ -45,7 +57,8 @@ pub fn ring_level(level: usize, height: i32, side: i32, entries_at: u32, index_a
     let size = 1 << level;
     let up = (height + size - 1) / size;
     let tall = side.min(up);
-    Level { level, from: [0, 0], across: RING, up, wide: side, tall, bricks: RING / side, bricks_up: (up + tall - 1) / tall, entries_at, index_at }
+    let across = ring_across(level);
+    Level { level, from: [0, 0], across, up, wide: side, tall, bricks: across / side, bricks_up: (up + tall - 1) / tall, entries_at, index_at }
 }
 
 /// A column not summed yet.

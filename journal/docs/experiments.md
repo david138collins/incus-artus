@@ -8167,3 +8167,51 @@ at the render radius and follow it, hollow, with a band of 4s if the prices let)
   the screen first (alternating in one run where it can be), then a bracket of flights (128, 384, 128), the dearest
   mark first. And at 64 chunks: what sizes reach past 2,048 blocks, their memory and making, without a flight.
 - **His eye decides** whether finer cells there are worth their price, and how far out.
+
+### Build 211 built (unflown): the rings' sizes settable; prices off the screen; David's words as it went
+
+**Built as the mark says** (`bricks.rs`: `ring_across`; `far_ring.rs` takes a ring's size from its level): a launch
+switch, `INCUS_FAR_RING_SIDE` (the 16s' then the 8s' cell columns a side). Unset, nothing changes. The march's
+program untouched. All 47 tests pass at 128; at 384 the rings settle and the picture draws (off the screen, below).
+
+**Off the screen, 128 against 384 each** (the stage on, the near eye at 32 chunks, 2,560 by 1,600):
+
+- **Pictures:** from 1,400 blocks the town on the plain shows at 384 (red roofs, the tower sharper) where at 128
+  it's a blur; far hills' outlines crisper. A grey mountainside stays a flat grey either way (far cells wear their
+  far colours).
+- **Bricks and memory:** the 16s' ring 631 to 4,548 bricks at one view, 459 to 3,962 at the other; the 8s' 771 to
+  5,541 and 434 to 3,779. The far cells 41 to 112 MB and 34 to 90; the textures 143 MB to 287 at one view (their
+  store grows a step at a time). About 200 MB more, as guessed.
+- **A ring made from nothing: 3.1 s to 34.6 s for the 16s, 0.9 s to 7.4 s for the 8s.** After a start or a jump the
+  far view would stay coarse for half a minute. Too long for a default.
+- **A ring moved as a walk moves it** (four steps of 130 blocks and back): 0.06 to 0.43 s at 128; 0.29 to 1.95 s at
+  384.
+- **A whole frame, start to the card's finish** (300 frames a run; 128, 384, 128, 384): the town view 2.21, 2.36 /
+  **3.39, 3.33** / 2.23, 2.22 / **3.30, 3.38 ms**; the mountain view 2.02, 1.98 / **2.51, 2.50** / 2.04, 2.14 /
+  **2.49, 2.42 ms**. **About 1.1 ms more a frame over the plain (half as much again), 0.4 to 0.5 over the
+  mountains (a quarter):** the finer layers' rays now marching, and finer cells to step through.
+- **Not yet priced:** a placing reaching the wider rings; the rays marched by layer and the bracket of flights; 64
+  chunks.
+
+**David, as these came in (2026-11-17):** "i don't think we need very much of the finer cells to blend the
+transition from angles to rays. i was hoping that yes the crossover would now actually have an effect and i can
+focus it into the seam at a natural grade." So his look is launched with less than the mark's 384: **the 8s 320 a
+side (to about 1,280 blocks: 250 past the triangles) and the 16s 256 (to about 2,048)**, and the second build is a
+narrow band at the seam, not wide rings.
+
+**His other questions, answered, nothing built:**
+
+- "when were we going to check on cover by shape on the terrain like we did for structures and trees?" Told: it's
+  shelved by his word of 2026-11-16 ("if i become dissatissfied with some views in a fuller game i'll come back to
+  cover by height ... there may be a final check pass against the engine later"), packed in
+  `journal/docs/cover-by-height.md`; the march's program has no room for it until something comes out; the natural
+  time is the "are we finished with the graphics engine generally?" pass he named today, or sooner at his word.
+- "do you think we can save anything with the near field angle space at half resolution, like it would be for the
+  whole grid on the glass that the triangles and march share?" Told: some: the faces' pixels' work would be a
+  quarter, their corners' work the same; by his trace of build 199 pixels were 15% of the near faces and corners
+  49%, and since then the corners sent were halved and each pixel does more, so perhaps a third to a half of the
+  near faces' time is pixels now (a guess); the march saves nothing if its squares stay the same on the glass. To
+  be measured off the screen (the near passes alone at full and half size) after his look, before any switch.
+- He turned workflows on in his own settings ("we'll wait to use ultracode until we're ready to say, 'are we
+  finished with the graphics engine generally?' and confirm we've got it pretty much set-and-forget and can be
+  creative with FX").

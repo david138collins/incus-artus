@@ -14,7 +14,7 @@
 //! longest rays, goes on pretty much alongside everything else and doesn't cost much in time"].
 
 use crate::atlas::{Atlas, Bench, Brick, Kept, NO_SLOT};
-use crate::bricks::{Level, NO_BRICK, RING, Store, row};
+use crate::bricks::{Level, NO_BRICK, Store, row};
 use crate::doorway::{Change, Doorway, Tile};
 use crate::far::{Cell, FarColours};
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -126,7 +126,7 @@ impl Ring {
     /// The ring's least column for an eye at `eye` (north, east): the eye's column in the middle, to a step.
     fn wanted(level: &Level, eye: [f32; 2]) -> [i32; 2] {
         let cell = (1 << level.level) as f32;
-        let snap = |e: f32| ((e / cell).floor() as i32 - RING / 2).div_euclid(STEP) * STEP;
+        let snap = |e: f32| ((e / cell).floor() as i32 - level.across / 2).div_euclid(STEP) * STEP;
         [snap(eye[0]), snap(eye[1])]
     }
 
@@ -298,7 +298,7 @@ impl Ring {
     pub fn reach(&self, level: &Level) -> [f32; 4] {
         let cell = (1 << level.level) as f32;
         match self.from {
-            Some(from) => [(from[0] + 1) as f32 * cell, (from[1] + 1) as f32 * cell, (from[0] + RING - 1) as f32 * cell, (from[1] + RING - 1) as f32 * cell],
+            Some(from) => [(from[0] + 1) as f32 * cell, (from[1] + 1) as f32 * cell, (from[0] + level.across - 1) as f32 * cell, (from[1] + level.across - 1) as f32 * cell],
             None => [1.0, 1.0, 0.0, 0.0],
         }
     }
@@ -306,7 +306,7 @@ impl Ring {
     /// The ring in words, for a report.
     pub fn state(&self) -> String {
         match self.from {
-            Some(_) => format!("the {}s in a ring of {RING} round the eye ({} bricks, moved {} times, the last made in {:.3} s)", 1 << self.level, self.on_card.len(), self.moves, self.made_in),
+            Some(_) => format!("the {}s in a ring of {} round the eye ({} bricks, moved {} times, the last made in {:.3} s)", 1 << self.level, crate::bricks::ring_across(self.level), self.on_card.len(), self.moves, self.made_in),
             None => format!("the {}s' ring not on the card yet", 1 << self.level),
         }
     }
@@ -415,7 +415,9 @@ impl Making {
         let started = Instant::now();
         let level = self.level;
         let cell = 1i32 << level.level;
-        let (lo, hi) = ([from[0] - MARGIN, from[1] - MARGIN], [from[0] + RING + MARGIN - 1, from[1] + RING + MARGIN - 1]);
+        // (The ring's cell columns a side.)
+        let ring = level.across;
+        let (lo, hi) = ([from[0] - MARGIN, from[1] - MARGIN], [from[0] + ring + MARGIN - 1, from[1] + ring + MARGIN - 1]);
         let (s0, s1) = ([lo[0].div_euclid(STEP), lo[1].div_euclid(STEP)], [hi[0].div_euclid(STEP), hi[1].div_euclid(STEP)]);
         self.squares.retain(|s, _| s[0] >= s0[0] - 2 && s[0] <= s1[0] + 2 && s[1] >= s0[1] - 2 && s[1] <= s1[1] + 2);
         for sy in s0[1]..=s1[1] {
@@ -440,12 +442,12 @@ impl Making {
         }
         let squares = &self.squares;
         let column = |cx: i32, cy: i32| -> &Column { &squares[&[cx.div_euclid(STEP), cy.div_euclid(STEP)]][(cy.rem_euclid(STEP) * STEP + cx.rem_euclid(STEP)) as usize] };
-        let entries: Vec<u32> = (0..RING * RING).map(|k| column(from[0] + k % RING, from[1] + k / RING).0).collect();
+        let entries: Vec<u32> = (0..ring * ring).map(|k| column(from[0] + k % ring, from[1] + k / ring).0).collect();
         // The height table's numbers: each column's highest thing and its neighbours', worked out over the ring and a
         // column more all round (the margin has them), the ring's own kept.
-        let wide = RING + 2;
+        let wide = ring + 2;
         let round = crate::bricks::tops_round(&(0..wide * wide).map(|k| column(from[0] - 1 + k % wide, from[1] - 1 + k / wide).2).collect::<Vec<u16>>(), wide);
-        let tops: Vec<u32> = (0..RING * RING).map(|k| round[((k / RING + 1) * wide + k % RING + 1) as usize]).collect();
+        let tops: Vec<u32> = (0..ring * ring).map(|k| round[((k / ring + 1) * wide + k % ring + 1) as usize]).collect();
         // The ring's bricks: one wherever a blend may read from it. A blend of the eight cells round a point is read
         // from the brick holding the least of them, so that's every brick with band in its own cells, or in the cells
         // one past it north, east or up. (Made only where a brick has band of its own, as the store's bricks over the
@@ -484,7 +486,7 @@ impl Making {
         // level laid over the ring and its margin.
         let mut new = Vec::with_capacity(wanted.len());
         if !wanted.is_empty() {
-            let across = RING + 2 * MARGIN;
+            let across = ring + 2 * MARGIN;
             let laid = Level { from: lo, across, bricks: across / level.wide, entries_at: 0, index_at: 0, ..level };
             let kept = Kept { levels: vec![laid], columns: vec![(0..across * across).map(|k| column(lo[0] + k % across, lo[1] + k / across)).map(|c| (c.0, c.1.clone())).collect()], tops: Vec::new() };
             for at in wanted {

@@ -505,7 +505,7 @@ pub const PASSES: [Pass; 28] = [
         what: "On threads of their own, as the eye moves: the cells of 16 and of 8, each in a ring round the eye (128 x 128 cell columns, as old kept its live levels), summed from the doorway a square of columns at a time, and each new brick's cells and textures made. The frame only sends what it's handed, a little a frame, and moves a ring over at once when the new one is whole on the card.",
         reads: &[StoreId::TileColumns],
         writes: &[StoreId::FarBricks, StoreId::FarTextures],
-        switches: &[("INCUS_FAR_RING", "how many rings round the eye: 0 none (the far eye as it was till build 168: nothing finer than the 32s), 1 the 16s alone (build 170); unset, all of them (the 16s and the 8s)")],
+        switches: &[("INCUS_FAR_RING_SIDE", "the rings' cell columns a side, the 16s' then the 8s' (as 384,384: the 16s then reach about 3,072 blocks from the eye and the 8s 1,536; multiples of 16 from 128 to 1,024), for David's look at a finer region past the triangles (build 211); unset, 128 each: 1,024 blocks and 512"), ("INCUS_FAR_RING", "how many rings round the eye: 0 none (the far eye as it was till build 168: nothing finer than the 32s), 1 the 16s alone (build 170); unset, all of them (the 16s and the 8s)")],
         files: &["src/far_ring.rs"],
     },
     Pass {
