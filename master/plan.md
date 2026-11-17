@@ -779,6 +779,12 @@ anyways"). Everything set aside on the way, in one place, each with where to pic
   weight of the shader. i hope it doesn't become too much and start squeezing no matter what we do"; "by weight of
   the shader i mean its size on the card" (David, 2026-11-15): the registers the march needs, read in Nsight (167
   at build 178, about 170 the line where fewer groups fit).
+- **The graphics engine is never welded shut:** it's left so it can be come back to often, and looks tried and
+  thrown away once there's enough content to judge them by: "we have to make sure the graphics engine is left in a way
+  that its not welded shut, so that we can come back to it often. i don't think we'll really ever be finished with
+  it until the end, and we're going to probably have to try and throw away some styles" (David, 2026-11-17). So: a
+  look is a pass or a switch of its own, removable; each pass measured alone; the documents for looking back kept
+  current.
 - **Room for modders, later:** David's recipe ships first; nothing is built for modders now, but each system is
   assembled so its parts can be opened to them later (content as data, his own content through the same door a
   pack would use, world gen as stages): "i just want to architecture that later on can be set up for modders at a

@@ -2992,6 +2992,26 @@ Reference: `Art/quartile minecraft illustration.png`
     lights are built once and later prices are read against the right baseline.
   - **The way of working, for now:** David carries most messages between Counsel and Builder; each of them reads
     `master/map.md` and `master/plan.md` at each committed build.
+- **[DECIDED 2026-11-17] The graphics engine is never welded shut** (David, to Counsel, after talking through figures
+  drawn as live pixelized 3D, the Dead Cells and Guilty Gear way): "i see that it would be a development process that
+  impinges on the graphics and kinematics and requires a lot of content to work on correctly; we have to make sure
+  the graphics engine is left in a way that its not welded shut, so that we can come back to it often. i don't think
+  we'll really ever be finished with it until the end, and we're going to probably have to try and throw away some
+  styles once we have enough content and finishedness that i can actually practice with combat in it." Kept in the
+  plan's "What every step keeps".
+  - **[IDEA, open] Figures as live 3D drawn chunky.** His questions: "is it possible to pixelize and crush live 3d
+    triangle models so they look like a hi def sprite, maybe even deinterpolate steps of motion like antismoothing";
+    whether, in the world, "it would be able to have depth", how villagers at a bakery or a carpenter's bench would
+    look, and whether in combat "you [would] be able to target and collide the 3d models and weapons correctly and
+    'collimate' with screenspace". And his doubt, unresolved: "i find it hard to imagine if the 3d table and quantized
+    carpenter would look right, or look like looking at a fish through water and trying to grab it."
+  - *Counsel's answers, unbuilt:* the figure stays real 3D in the world (depth, hiding and hits on its true shapes),
+    only its pixels drawn chunky and its colours crushed, poses held (Quake's snap); a flat sprite only far off. Two
+    risks named: hits worked out between drawn poses (use the held pose for both), and chunkiness close up in first
+    person (ease it off near). His fish-through-water worry is the real one: a chunky figure against a sharp table
+    misreads where the two meet unless both share one pixel grid and one depth; only a test with real content says.
+    References he's looking at: Dead Cells (Vasseur's pipeline article), Guilty Gear Xrd (Motomura, GDC 2015),
+    t3ssel8r's 3D pixel art.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
