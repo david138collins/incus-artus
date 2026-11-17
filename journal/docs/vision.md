@@ -1099,6 +1099,27 @@ to make silhouettes of terrain and buildings and actors".
   To settle then: whether actors and far lights show through at the same distance as land, and how the edge fades
   with the fog's thickness. It belongs with weather and the style pass (Phase 4), not the work under way.
 
+## One effect for fog, clouds, smoke and fire  [IDEA, David 2026-11-17]
+
+His words: "im wondering if theres an effect type that could bridge fog, clouds, smoke, and fire". Counsel answered
+and he said "yes" to noting it; nothing is decided or built.
+
+- **The answer:** to a renderer all four are one thing, a volume of stuff in the air that light passes through
+  (volumetrics), differing in three numbers at each point: how thick, how it's shaped, whether it glows. Fog is
+  thin and everywhere (height and weather); clouds thick, in patches, high up, lit by the sun; smoke thick and
+  local, rising and drifting from a source; fire the same with a glow coloured by heat. So fire cools into its own
+  smoke and smoke thins into haze with no seam.
+- **How it would sit in the engine:** a coarse grid of air cells holding thickness and glow (the same idea as the
+  light's table, build 210; blocky cells suit the look), and a pass of its own stepping a short ray through it for
+  each screen square, laid over the picture using the distances the frame already keeps ("rays through dust").
+  Not inside the far march: its program has no room, and a pass apart has its own switch and is measured alone.
+  The fog's silhouettes (above) come with it: the pass knows how much fog lies in front of each edge.
+- **Where it stops:** small sharp things (sparks, embers, a torch's flame close up) are particles from the fx
+  engine, sharing the volume's colour ramps and the one palette. Movement is the dear part: drifting noise and
+  simple rising are cheap, real swirling flow isn't and likely isn't needed.
+- Counsel's recommendation, his to take or not: one volume for fog, clouds and big smoke and fire; particles for
+  the small bright bits; both from the same palette. It belongs with weather, the fx engine and the style pass.
+
 ## Paths that wear smooth  [IDEA, David 2026-11-17]
 
 - "we make dirt slabs, but they only appear in the world on their own with a random chance every time someone steps
