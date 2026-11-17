@@ -20,7 +20,7 @@ pub fn on() -> bool {
 }
 
 /// The stage's own blocks, in the order the doorway learns them (so every doorway on the world numbers them alike).
-pub const BLOCKS: [&str; 7] = ["incus:oak", "incus:leaves", "incus:dressed_stone", "incus:roof_tiles", "incus:plaster", "incus:planks", "incus:thatch"];
+pub const BLOCKS: [&str; 9] = ["incus:oak", "incus:leaves", "incus:dressed_stone", "incus:roof_tiles", "incus:plaster", "incus:planks", "incus:thatch", "incus:red_lamp", "incus:green_lamp"];
 const OAK: usize = 0;
 const LEAVES: usize = 1;
 const DRESSED: usize = 2;
@@ -122,6 +122,22 @@ impl Staged {
         let (from, to) = (if k == 0 { 0 } else { self.ends[k - 1] } as usize, self.ends[k] as usize);
         (to > from).then(|| &self.runs[from..to])
     }
+
+    /// Every cell of a block `wanted` in the columns the stage changed: its column's place in the tile, and its
+    /// height (build 216, for finding the lamps).
+    pub fn cells_of(&self, wanted: impl Fn(Block) -> bool) -> Vec<(usize, i32)> {
+        let mut cells = Vec::new();
+        let mut from = 0;
+        for (k, end) in self.ends.iter().enumerate() {
+            for run in &self.runs[from..*end as usize] {
+                if wanted(run.block) {
+                    cells.extend((run.from..run.to).map(|up| (k, up)));
+                }
+            }
+            from = *end as usize;
+        }
+        cells
+    }
 }
 
 /// A column being changed: its solid runs, bedrock up.
@@ -182,7 +198,7 @@ impl Edit {
 
 /// The stage, made once for a world: its blocks as the doorway numbers them, and its places.
 pub struct Stage {
-    blocks: [Block; 7],
+    blocks: [Block; 9],
     sites: Vec<Site>,
     /// Its towns' middles, and a place where a wood stands on even ground, for its marks.
     towns: Vec<[i32; 2]>,
@@ -194,7 +210,7 @@ pub struct Stage {
 impl Stage {
     /// The stage for a world: its places chosen, each one's floor read from the world's own ground (`ground_at`: a
     /// column's ground as the export has it, none past the map or under water).
-    pub fn new(blocks: [Block; 7], sea_level: i32, height: i32, mut ground_at: impl FnMut(i32, i32) -> Option<i32>) -> Self {
+    pub fn new(blocks: [Block; 9], sea_level: i32, height: i32, mut ground_at: impl FnMut(i32, i32) -> Option<i32>) -> Self {
         let mut sites: Vec<Site> = Vec::new();
         // A place put at the first of `spots` that is dry land with room over it for `room` blocks.
         let place = |kind: Kind, spots: &[[i32; 2]], room: i32, sites: &mut Vec<Site>, ground_at: &mut dyn FnMut(i32, i32) -> Option<i32>| {
@@ -443,7 +459,11 @@ impl Stage {
             let column = edits.entry(k).or_insert_with(|| Edit { runs: solid(k) });
             change(column, ground);
         };
-        let [oak, leaves, dressed, roof, plaster, planks, thatch] = self.blocks;
+        let [oak, leaves, dressed, roof, plaster, planks, thatch, red, green] = self.blocks;
+        // The lamps (build 216) [David, 2026-11-17: "just use red and green blocks for the glowing blocks"]: two
+        // plain blocks that give light (`data/lights.toml`), stood where light can be seen before there are nights:
+        // along each cave's floor, at the feet of the hall's pillars, and in the woods' shade by the spawn.
+        let lamps = crate::near::lamps_on();
         let _ = (OAK, LEAVES, DRESSED, ROOF, PLASTER, PLANKS, THATCH);
         let sites: Vec<&Site> = self.sites.iter().filter(|site| {
             let reach = site.reach();
@@ -483,6 +503,25 @@ impl Stage {
                             });
                         }
                     }
+                }
+            }
+        }
+        // The lamps in the woods within 200 blocks of the spawn: here and there on the ground, red or green.
+        if lamps {
+            const BY_THE_SPAWN: i32 = 200;
+            for east in least[1].max(-BY_THE_SPAWN)..(least[1] + size).min(BY_THE_SPAWN) {
+                for north in least[0].max(-BY_THE_SPAWN)..(least[0] + size).min(BY_THE_SPAWN) {
+                    if north.rem_euclid(12) != 5 || east.rem_euclid(12) != 5 || chance(north, east, 41) > 0.4 || !Self::wooded(north, east) {
+                        continue;
+                    }
+                    if sites.iter().any(|site| (north - site.at[0]).abs() <= site.reach() + 4 && (east - site.at[1]).abs() <= site.reach() + 4) {
+                        continue;
+                    }
+                    edit(north, east, &mut edits, &mut |column, ground| {
+                        if ground <= 700 {
+                            column.fill(if hash(north, east, 42) % 2 == 0 { red } else { green }, ground + 1, ground + 2);
+                        }
+                    });
                 }
             }
         }
@@ -615,6 +654,10 @@ impl Stage {
                                         column.carve(floor, floor + 50 - (x.abs() / 4));
                                     }
                                 }
+                                // A lamp on the floor inside each pillar, red and green by turns.
+                                if lamps && t >= 44 && x.abs() == 9 && (t - 44).rem_euclid(20) == 1 {
+                                    column.fill(if ((t - 44) / 20 + (x > 0) as i32) % 2 == 0 { red } else { green }, floor, floor + 1);
+                                }
                             });
                         }
                     }
@@ -633,6 +676,10 @@ impl Stage {
                                 let low = floor - t.max(0) / 5;
                                 let rise = ((narrow * narrow - (x * x) as f32).sqrt() * 1.4) as i32 + 2 + (hash(north, east, 30) % 2) as i32;
                                 column.carve(low.max(1), low + rise);
+                                // A lamp on the floor along its middle every ten blocks in, red and green by turns.
+                                if lamps && x == 0 && t >= 4 && t % 10 == 4 {
+                                    column.fill(if (t / 10) % 2 == 0 { red } else { green }, low.max(1), low.max(1) + 1);
+                                }
                             });
                         }
                     }

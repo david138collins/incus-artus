@@ -8622,3 +8622,40 @@ drawn: glows and far lights, next on his list); night; pieces that glow (whole b
 - **Prices in one run:** a whole frame at the spawn with the lamps and with none.
 - **His look** decides the lamps' reach and brightness by eye, the flicker's two starting places, and whether
   the steps read as he means them.
+
+### Build 216 built (unflown): placed lights; checked off the screen
+
+**Built as the mark says** (`near.rs`: `Glows`, `placed_for`, `Blocks::placed_light`, `Placed`, the colour bricks in
+`light_block`, a reading's own margin; `doorway.rs`: `Tile::glowing`; `scatter_stage.rs`: the two lamps and where
+they stand; `near.wgsl`: `kept_at` gives the sky's light and the placed light's three, `placed`, `face_light`;
+`near_eye.rs` and `panel.rs`: the flicker and the section "Placed lights"; `data/lights.toml`, new). One thing not
+in the mark: **a switch, `INCUS_NEAR_LAMPS=0`** (no block gives light and the stage stands no lamps), because with
+the lamps standing as plain blocks "the file naming no block" would not have been build 215's picture.
+
+**Against the mark, off the screen (the stage on):**
+
+- **Tests:** all 49 pass (two new: a step a block from a lamp for 14 blocks, round a wall's end and not through
+  it, red and green mixing, the lamp's own cell none, and what's kept for the card read back cell by cell).
+- **The cave by the spawn, from its mouth looking in:** black inside in build 215; now its floor and walls lit red,
+  then green, then red again down its length, in clear steps a block wide, the lamps themselves plain red and
+  green blocks. The red reaches out of the mouth over the shaded floor in front and stops where daylight is
+  brighter.
+- **The woods at the spawn:** the shade round a red lamp red and round a green one green, falling off in steps;
+  the sunlit ground beside them as it was. 205 thousand pixels of 1.6 million differ from no lamps.
+- **With `INCUS_NEAR_LAMPS=0`, build 215's picture:** at the spawn 1 pixel differs, by 3 of 255 (a flip).
+- **Counts:** within 16 chunks of the spawn, 148 chunks of 860 have a lamp's light, in 4,444 colour bricks, 4.3 MB.
+  At 32 chunks the light kept is 25.5 MB with the lamps for 20.8 without.
+- **A chunk's making time with a lamp near and without: not got like for like.** The count's own figures (7.7 ms a
+  chunk with a lamp near, 27.7 without, one thread) compare the low woods by the spawn with the hills round them,
+  not lamps with none. What stands: the near eye filled 32 chunks in 27.3 s with the lamps and 27.3 and 27.0
+  without, a chunk 54, 56 and 57 ms in the order run.
+- **Prices, three runs and not one** (the lamps are set at launch, so they can't be turned inside a run; the
+  spawn, 32 chunks, 2,560 by 1,600; none, lamps, none in that order; ms a whole frame, five readings each): 1.76 to
+  1.78; **1.85 to 1.90**; 1.91 to 2.04. The runs climb one after another (the processor warming, as before) and the
+  lamps' run lies between the two without. **No cost that shows over that drift**; a flight would say more.
+- **A shader name met twice:** `light_of` is the far eye's too (`far.wgsl`), and the near program is built with
+  it: the card refused the first build. Now `face_light`.
+
+**Said to him before he looks:** by day a lamp shows only in shade, caves and halls; past the near faces' reach
+its light isn't drawn yet; every lamp flickers in step; a block placed now makes again every chunk within 16
+columns of it (it was 8).

@@ -211,7 +211,7 @@ impl Doorway {
     /// their floors read from the export's own ground.
     fn the_stage(&mut self) -> Result<std::sync::Arc<crate::scatter_stage::Stage>, String> {
         use crate::scatter_stage::{BLOCKS, Stage};
-        static MADE: std::sync::Mutex<Vec<(PathBuf, [Block; 7], std::sync::Arc<Stage>)>> = std::sync::Mutex::new(Vec::new());
+        static MADE: std::sync::Mutex<Vec<(PathBuf, [Block; 9], std::sync::Arc<Stage>)>> = std::sync::Mutex::new(Vec::new());
         let blocks = BLOCKS.map(|name| self.block(name));
         let mut made = MADE.lock().map_err(|_| "the scatter stage's list is broken".to_string())?;
         if let Some((_, numbered, stage)) = made.iter().find(|(folder, _, _)| *folder == self.folder) {
@@ -320,6 +320,11 @@ impl Doorway {
         let (n, e) = (north - self.least[0], east - self.least[1]);
         let tile = [n.div_euclid(self.side), e.div_euclid(self.side)];
         (tile, [n.rem_euclid(self.side) as usize, e.rem_euclid(self.side) as usize])
+    }
+
+    /// A tile's least corner (north, east).
+    pub fn tile_least(&self, tile: [i32; 2]) -> [i32; 2] {
+        [self.least[0] + tile[0] * self.side, self.least[1] + tile[1] * self.side]
     }
 
     /// The tile `tx` tiles north and `ty` east of the least corner. Past the map (outside it, or a tile with no file:
@@ -467,6 +472,13 @@ impl Tile {
     /// it (such a column is dry land: it has no water).
     pub fn staged(&self, i: usize, j: usize) -> Option<&[Run]> {
         self.staged.as_ref().and_then(|staged| staged.column(i + j * self.side))
+    }
+
+    /// The cells (north, east, up; the world's) of every block the scatter stage stood in the tile that `glows`
+    /// (build 216), the tile's least corner at `least`: for finding the lamps near a chunk without reading columns.
+    pub fn glowing(&self, least: [i32; 2], glows: impl Fn(Block) -> bool) -> Vec<[i32; 3]> {
+        let Some(staged) = &self.staged else { return Vec::new() };
+        staged.cells_of(glows).into_iter().map(|(k, up)| [least[0] + (k % self.side) as i32, least[1] + (k / self.side) as i32, up]).collect()
     }
 
     /// The column `i` north and `j` east of the tile's least corner.

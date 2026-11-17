@@ -62,6 +62,9 @@ struct Near {
     // hidden face won a pixel now and then, and which one differed from run to run]); w: how far ahead "nothing
     // behind" is taken to be, for the water.
     reach: vec4<f32>,
+    // Placed lights' flicker (build 216): x: the share of a light's brightness that wavers; y: how many times a
+    // second; z: the time, seconds.
+    glow: vec4<f32>,
 }
 
 // How much wider than its cells a face is drawn all round, for each block of its distance from the eye (`near_corner`).
@@ -163,35 +166,55 @@ fn looks(facing: u32) -> vec3<f32> {
     }
 }
 
-// The sky's light kept for a cell (north, east, up; blocks, the world's): 15, plain daylight, where nothing is kept
-// for it (`near.rs`, `LightBlock::at`, is this in Rust, for the tests).
-fn kept_at(place: vec3<i32>) -> u32 {
+// The light kept for a cell (north, east, up; blocks, the world's): x, the sky's, 15, plain daylight, where nothing is
+// kept for it; y, z, w, the placed light's red, green and blue (build 216), each 0 to 15, none where no colour brick
+// is kept (`near.rs`, `LightBlock::at` and `placed_at`, are this in Rust, for the tests).
+fn kept_at(place: vec3<i32>) -> vec4<u32> {
     let chunk = place.xy >> vec2<u32>(5u);
     let entry = (u32(chunk.x & 255) + u32(chunk.y & 255) * 256u) * 2u;
     let first = kept_light[entry];
     if (first == 0xFFFFFFFFu) {
-        return 15u;
+        return vec4<u32>(15u, 0u, 0u, 0u);
     }
     let span = kept_light[entry + 1u];
+    let layers = span >> 16u;
     let layer = (place.z >> 3u) - i32(span & 0xFFFFu);
-    if (layer < 0 || layer >= i32(span >> 16u)) {
-        return 15u;
+    if (layer < 0 || layer >= i32(layers)) {
+        return vec4<u32>(15u, 0u, 0u, 0u);
     }
     let local = place.xy & vec2<i32>(31);
-    let brick = kept_light[first + u32(layer) * 16u + u32(local.x >> 3u) + u32(local.y >> 3u) * 4u];
-    if (brick == 0xFFFFFFFFu) {
-        return 15u;
-    }
+    let which = u32(layer) * 16u + u32(local.x >> 3u) + u32(local.y >> 3u) * 4u;
     let i = u32(local.x & 7) + u32(local.y & 7) * 8u + u32(place.z & 7) * 64u;
-    return (kept_light[first + brick + (i >> 3u)] >> ((i & 7u) * 4u)) & 15u;
+    var sky = 15u;
+    let brick = kept_light[first + which];
+    if (brick != 0xFFFFFFFFu) {
+        sky = (kept_light[first + brick + (i >> 3u)] >> ((i & 7u) * 4u)) & 15u;
+    }
+    var colour = 0u;
+    let tinted = kept_light[first + layers * 16u + which];
+    if (tinted != 0xFFFFFFFFu) {
+        colour = kept_light[first + tinted + (i >> 1u)] >> ((i & 1u) * 16u);
+    }
+    return vec4<u32>(sky, colour & 15u, (colour >> 4u) & 15u, (colour >> 8u) & 15u);
 }
 
-// The sky's light on a face at a pixel: its own (build 208's way); or, kept apart from the faces (build 210), that of
-// the cell the face looks into there: the cell its place on its block's picture falls in, along the two ways the face
-// spreads, and the one it looks into along the third.
-fn sky_of(corner: Corner) -> u32 {
+// A placed light's levels (red, green, blue, each 0 to 15) as light on a surface (build 216): squared, so each step
+// from a lamp is a clear one [David, 2026-11-06: "the light from the brazieres, where its very clear steps in
+// brightness"]; and its flicker, a wobble here where it's read (every lamp in step: two waves, one the main beat).
+fn placed(levels: vec3<u32>) -> vec3<f32> {
+    let level = vec3<f32>(levels) / 15.0;
+    let turn = near.glow.z * near.glow.y * 6.2832;
+    let wave = 0.5 + 0.3 * sin(turn) + 0.2 * sin(turn * 2.7 + 1.3);
+    return level * level * (1.0 - near.glow.x * wave);
+}
+
+// The light on a face at a pixel (x the sky's; y, z, w the placed light's red, green and blue): the sky's its own
+// (build 208's way, and no placed light); or, kept apart from the faces (build 210), that of the cell the face looks
+// into there: the cell its place on its block's picture falls in, along the two ways the face spreads, and the one it
+// looks into along the third.
+fn face_light(corner: Corner) -> vec4<u32> {
     if ((near.cell.w & 4) == 0) {
-        return (corner.what.z >> 16u) & 15u;
+        return vec4<u32>((corner.what.z >> 16u) & 15u, 0u, 0u, 0u);
     }
     let facing = corner.what.x;
     let a = i32(floor(corner.on_picture.x));
@@ -322,7 +345,11 @@ fn near_face(corner: Corner) -> @location(0) vec4<f32> {
     let light = max(dot(way, camera.sun.xyz), 0.0);
     // (Into the near eye's own picture, whole: the nearest face wins a pixel, whatever order the chunks come in.
     // Kept multiplied by how much of it shows, for the x-fader to lay over the far picture.)
-    return vec4<f32>(to_srgb(clamp(near_lit(colour, light, corner.from_eye, sky_of(corner)), vec3<f32>(0.0), vec3<f32>(1.0))) * shows, shows);
+    // By placed light (build 216) a surface is its colour times the light there; a pixel shows the brighter, colour
+    // by colour, of that and its daylight: so by day a lamp shows only in shade, caves and halls.
+    let kept = face_light(corner);
+    let seen = max(near_lit(colour, light, corner.from_eye, kept.x), colour * placed(kept.yzw));
+    return vec4<f32>(to_srgb(clamp(seen, vec3<f32>(0.0), vec3<f32>(1.0))) * shows, shows);
 }
 
 // The water's top, over the faces already drawn: the far eye's water (its colour, and how fast it dims what's seen
@@ -354,5 +381,7 @@ fn near_water(corner: Corner) -> @location(0) vec4<f32> {
     let through = max(ahead_behind - corner.ahead, 0.0) * length(corner.from_eye) / max(corner.ahead, 0.01);
     let dimmed = 1.0 - exp(-camera.water.w * through);
     let covers = dimmed * shows;
-    return vec4<f32>(to_srgb(clamp(near_lit(camera.water.rgb, 1.0, corner.from_eye, sky_of(corner)), vec3<f32>(0.0), vec3<f32>(1.0))) * covers, covers);
+    let kept = face_light(corner);
+    let seen = max(near_lit(camera.water.rgb, 1.0, corner.from_eye, kept.x), camera.water.rgb * placed(kept.yzw));
+    return vec4<f32>(to_srgb(clamp(seen, vec3<f32>(0.0), vec3<f32>(1.0))) * covers, covers);
 }

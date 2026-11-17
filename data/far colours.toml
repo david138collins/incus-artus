@@ -85,3 +85,15 @@ side = [230, 180, 70]
 name = "incus:stone_brick"
 top = [59, 61, 55]
 side = [59, 61, 55]
+
+# The lamps (build 216; `data/lights.toml`) [David, 2026-11-17: "just use red and green blocks for the glowing
+# blocks"]: plain blocks in their light's colour, Builder's picks, to be set again with everything else.
+[[block]]
+name = "incus:red_lamp"
+top = [820, 60, 40]
+side = [820, 60, 40]
+
+[[block]]
+name = "incus:green_lamp"
+top = [60, 760, 90]
+side = [60, 760, 90]

@@ -1,0 +1,11 @@
+# The blocks that give light (build 216): a block's name and its light, red, green and blue, each 0 to 15. The light
+# is brightest beside the block and a step dimmer each block away, through air and water, stopped by whole blocks; so
+# 15 reaches 14 blocks. [David, 2026-11-17: "just use red and green blocks for the glowing blocks".]
+
+[[light]]
+block = "incus:red_lamp"
+light = [15, 1, 0]
+
+[[light]]
+block = "incus:green_lamp"
+light = [1, 15, 2]

@@ -314,6 +314,7 @@ flowchart TB
 - **A pass** in the frame, on the card.
 - **What it is:** The chunks in view inside the near faces' reach, their merged faces drawn as triangles into the near eye's own picture, with depth, every face whole and the nearest winning a pixel: each face its block's colour from far, lit as the far eye lights (the sun on the way it looks, the far light's shadow and sky at its place), and multiplied by how much of it shows by the x-fader (all of it before the band, none at the faces' reach, along the curve between).
 - **Reads:** the near faces, the near light, the far light and the camera. **Writes:** the near picture.
+- **Switch** `INCUS_NEAR_LAMPS`: 0: no block gives light and the scatter stage stands no lamps, as to build 215 (for measuring against); unset, the blocks data/lights.toml names light what's round them.
 - **Switch** `INCUS_NEAR_TEXTURES`: 0: the near faces flat in their blocks' far colours, as to build 204 (for measuring against); unset, each wears its block's picture from data/textures, crisp up close and shrunk to its far colour far off.
 - **Switch** `INCUS_NEAR_TURNED`: 0: faces turned away from the eye drawn like the rest, as to build 208 (for measuring against); unset, the card drops them before filling them, and a chunk's groups of faces that all look away aren't listed for the frame at all (build 209).
 - **Cost, last measured** (`kept logs/flight-1794589790.txt`): not measured.

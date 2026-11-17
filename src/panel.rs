@@ -183,7 +183,8 @@ fn render(ui: &mut egui::Ui, readings: &Readings, look: Option<&mut FarLook>, ne
             *look = NearLook::DEFAULT;
         }
     };
-    section(ui, "render: the near eye", &near_title, true, near_look.unwrap_or(&mut none), beside, |ui, look| {
+    let near_look = near_look.unwrap_or(&mut none);
+    section(ui, "render: the near eye", &near_title, true, &mut *near_look, beside, |ui, look| {
         match &readings.near {
             Some(near) => {
                 ui.label(format!(
@@ -220,6 +221,19 @@ fn render(ui: &mut egui::Ui, readings: &Readings, look: Option<&mut FarLook>, ne
         ui.add_enabled(there && look.pixel > 1, egui::Slider::new(&mut look.detail, details.0..=details.1).logarithmic(true).text("Detail up close (blocks)"));
         ui.add_enabled(there && look.pixel > 1, egui::Slider::new(&mut look.stipple, 0.0..=crate::near_eye::MOST_STIPPLE).text("Stipple width (share of the band)"));
         ui.add_enabled(there && look.pixel > 1, egui::Slider::new(&mut look.sharp, 0.0..=1.0).text("Picture sharpness in the squares"));
+    });
+    // Placed lights (build 216), a section of their own [David, 2026-11-17, asked where their controls go: "A new
+    // section \"Placed lights\""]: the flicker, a wobble where the light is read. Its Default puts the two back.
+    let lamps_beside = |ui: &mut egui::Ui, look: &mut NearLook| {
+        let d = NearLook::DEFAULT;
+        if ui.add_enabled(there && (look.flicker != d.flicker || look.flicker_speed != d.flicker_speed), egui::Button::new("Default").small()).clicked() {
+            look.flicker = d.flicker;
+            look.flicker_speed = d.flicker_speed;
+        }
+    };
+    section(ui, "render: placed lights", "Placed lights", true, &mut *near_look, lamps_beside, |ui, look| {
+        ui.add_enabled(there, egui::Slider::new(&mut look.flicker, 0.0..=1.0).text("Flicker (share of brightness)"));
+        ui.add_enabled(there, egui::Slider::new(&mut look.flicker_speed, 0.25..=8.0).logarithmic(true).text("Flicker speed (a second)"));
     });
     ui.separator();
     let Some(look) = look else {

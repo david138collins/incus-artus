@@ -90,12 +90,17 @@ pub struct NearLook {
     /// [David, 2026-11-17, of build 214 at 4: "the blocks become blurry after like 5 block radius around me"; both
     /// this and a lower detail by his choice, the slider's name his].
     pub sharp: f32,
+    /// Placed lights' flicker (the Render page's "Placed lights", build 216): how much of a light's brightness wavers
+    /// ("Flicker (share of brightness)"), and how many times a second ("Flicker speed (a second)"). A wobble where
+    /// the light is read, so nothing kept changes [the section's place David's choice, 2026-11-17].
+    pub flicker: f32,
+    pub flicker_speed: f32,
 }
 
 impl NearLook {
     /// [David, 2026-11-16, asked by Counsel "Make your crossfade settings, 128 wide and curve 1, the defaults?":
     /// "yes, and 32 chunk radius."]
-    pub const DEFAULT: Self = Self { radius: RADIUS, fader_width: 128.0, fader_curve: 1.0, pixel: 1, detail: 0.25, stipple: 0.25, sharp: 0.0 };
+    pub const DEFAULT: Self = Self { radius: RADIUS, fader_width: 128.0, fader_curve: 1.0, pixel: 1, detail: 0.25, stipple: 0.25, sharp: 0.0, flicker: 0.15, flicker_speed: 2.0 };
 }
 
 /// One of the near eye's pictures (build 213): a band of distance from the eye, drawn in squares of `pixel` screen
@@ -404,7 +409,7 @@ impl NearEye {
         let cover_pass = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("near_cover"), layout: Some(&cover_pipeline_layout), module: &cover_module, entry_point: Some("near_cover"), compilation_options: Default::default(), cache: None });
         let cover_sampler = device.create_sampler(&wgpu::SamplerDescriptor { label: Some("the near cover's four at a time"), ..Default::default() });
         let cover_sizes = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the near cover's numbers"), size: 80, usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
-        let numbers = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the near eye's numbers"), size: 48, usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
+        let numbers = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the near eye's numbers"), size: 64, usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let colour_bytes: Vec<u8> = colours.iter().flatten().flat_map(|v| v.to_le_bytes()).collect();
         let colours = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the blocks' colours from far"), size: colour_bytes.len().max(32) as u64, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         queue.write_buffer(&colours, 0, &colour_bytes);
@@ -816,13 +821,17 @@ impl NearEye {
             queue.write_buffer(&band.numbers, 0, &numbers.iter().flatten().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
         }
         // The numbers: the eye's block and how far into it the eye is (and the x-fader's curve); the reach, the
-        // x-fader's band and the depths.
+        // x-fader's band and the depths; and the placed lights' flicker, with the time (seconds, turned over each
+        // hour so it stays fine).
         let eye = [camera.position.x, camera.position.y, camera.position.z];
         let cell = eye.map(|v| v.floor());
-        let mut bytes: Vec<u8> = Vec::with_capacity(48);
+        let mut bytes: Vec<u8> = Vec::with_capacity(64);
         bytes.extend(cell.iter().map(|v| *v as i32).chain([self.textured as i32 | (crate::near::light_on() as i32) << 1 | ((crate::near::lit() == crate::near::Lit::Kept) as i32) << 2]).flat_map(|v| v.to_le_bytes()));
         bytes.extend((0..3).map(|k| eye[k] - cell[k]).chain([self.look.fader_curve.clamp(1.0, MOST_FADER_CURVE)]).flat_map(|v| v.to_le_bytes()));
         bytes.extend([self.counts.reach, band_of(self.look.fader_width, self.counts.reach), DEPTHS[0], DEPTHS[1]].iter().flat_map(|v| v.to_le_bytes()));
+        static BEGAN: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
+        let seconds = BEGAN.get_or_init(std::time::Instant::now).elapsed().as_secs_f32() % 3600.0;
+        bytes.extend([self.look.flicker.clamp(0.0, 1.0), self.look.flicker_speed.max(0.0), seconds, 0.0].iter().flat_map(|v| v.to_le_bytes()));
         queue.write_buffer(&self.numbers, 0, &bytes);
         // The chunks in view, for each band it lies in, a page after another: each a draw of its faces.
         let view = View::of(camera, screen);
