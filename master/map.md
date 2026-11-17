@@ -66,6 +66,7 @@ flowchart TB
   store_the_near_faces[("the near faces")]
   store_the_near_picture[("the near picture")]
   store_the_near_cover[("the near cover")]
+  store_the_near_light[("the near light")]
   store_the_far_bricks[("the far bricks")]
   store_the_far_layers[("the far layers")]
   store_the_far_eye_s_look[("the far eye's look")]
@@ -90,6 +91,7 @@ flowchart TB
   pass_putting_the_far_cells_on_the_card --> store_the_window_round_the_eye
   store_the_camera --> pass_putting_the_near_chunks_on_the_card
   pass_putting_the_near_chunks_on_the_card --> store_the_near_faces
+  pass_putting_the_near_chunks_on_the_card --> store_the_near_light
   pass_putting_the_near_chunks_on_the_card --> store_the_far_eye_s_look
   store_the_camera --> pass_laying_out_the_panel
   store_the_clocks --> pass_laying_out_the_panel
@@ -106,10 +108,12 @@ flowchart TB
   store_the_camera --> pass_listing_the_near_chunks
   pass_listing_the_near_chunks --> store_the_near_faces
   store_the_near_faces --> pass_the_near_faces
+  store_the_near_light --> pass_the_near_faces
   store_the_far_light --> pass_the_near_faces
   store_the_camera --> pass_the_near_faces
   pass_the_near_faces --> store_the_near_picture
   store_the_near_faces --> pass_the_near_water
+  store_the_near_light --> pass_the_near_water
   store_the_near_picture --> pass_the_near_water
   store_the_far_light --> pass_the_near_water
   store_the_camera --> pass_the_near_water
@@ -248,7 +252,7 @@ flowchart TB
 
 - **A pass** in the frame, on the processor.
 - **What it is:** The near lane asked for the chunks inside the render radius when the eye's chunk or the radius changes; the chunks it has made put on the card, nearest first, as many faces as a frame may; those outside the radius given back. Then how far the near faces reach (to the nearest chunk still to come, or the whole radius), and the far eye told to begin its rays a little inside that.
-- **Reads:** the camera. **Writes:** the near faces and the far eye's look.
+- **Reads:** the camera. **Writes:** the near faces, the near light and the far eye's look.
 - **Switch** `INCUS_NEAR`: 0: no near eye at all (the game as build 194, for measuring against); unset, the blocks inside the render radius drawn as triangles (plan 2.3).
 - **Switch** `INCUS_NEAR_RADIUS`: the render radius the game starts with, in chunks of 32 blocks, 1 to 64 (unset: 32); the Render page's slider moves it.
 - **Switch** `INCUS_NEAR_THREADS`: how many threads the near lane meshes chunks on (unset: a quarter of the processor's, 2 to 6).
@@ -309,7 +313,7 @@ flowchart TB
 
 - **A pass** in the frame, on the card.
 - **What it is:** The chunks in view inside the near faces' reach, their merged faces drawn as triangles into the near eye's own picture, with depth, every face whole and the nearest winning a pixel: each face its block's colour from far, lit as the far eye lights (the sun on the way it looks, the far light's shadow and sky at its place), and multiplied by how much of it shows by the x-fader (all of it before the band, none at the faces' reach, along the curve between).
-- **Reads:** the near faces, the far light and the camera. **Writes:** the near picture.
+- **Reads:** the near faces, the near light, the far light and the camera. **Writes:** the near picture.
 - **Switch** `INCUS_NEAR_TEXTURES`: 0: the near faces flat in their blocks' far colours, as to build 204 (for measuring against); unset, each wears its block's picture from data/textures, crisp up close and shrunk to its far colour far off.
 - **Switch** `INCUS_NEAR_TURNED`: 0: faces turned away from the eye drawn like the rest, as to build 208 (for measuring against); unset, the card drops them before filling them, and a chunk's groups of faces that all look away aren't listed for the frame at all (build 209).
 - **Cost, last measured** (`kept logs/flight-1794589790.txt`): not measured.
@@ -319,7 +323,7 @@ flowchart TB
 
 - **A pass** in the frame, on the card.
 - **What it is:** The water's top inside the near faces' reach, drawn over them: the far eye's water (its colour, and how fast it dims what's seen through it) by how much water the eye looks through to the face behind, read from the near faces' depth; laid over them in the near eye's picture.
-- **Reads:** the near faces, the near picture, the far light and the camera. **Writes:** the near picture.
+- **Reads:** the near faces, the near light, the near picture, the far light and the camera. **Writes:** the near picture.
 - **Cost, last measured** (`kept logs/flight-1794589790.txt`): not measured.
 - **Files:** src/near_eye.rs and src/near.wgsl.
 
@@ -417,7 +421,7 @@ flowchart TB
 - **A pass** in loading, on the processor.
 - **What it is:** A chunk's faces made on the near lane's own threads (32 x 32 columns, the world's height): every side of a solid block that looks into air or water, merged where they make a rectangle in one plane (greedy meshing), and the water's top; with the whole blocks placed through the game's doorway, as the lane was last told of them (a chunk they touch is made again). Timed a chunk; not in the frame.
 - **Reads:** a tile's columns and what changed. **Writes:** the near faces.
-- **Switch** `INCUS_NEAR_LIGHT`: 0: the near eye's faces lit by the far eye's light alone, as to build 207 (for measuring against); unset, each face lit by the sky's light in the cell it looks into, spread into openings and black in caves past their mouths (build 208).
+- **Switch** `INCUS_NEAR_LIGHT`: 0: the near eye's faces lit by the far eye's light alone, as to build 207; faces: each face carrying the sky's light of the cell it looks into, and split from its neighbours by it, build 208's way (both for measuring against); unset, the light kept apart from the faces, only where it isn't plain daylight, and looked up by each pixel (build 210).
 - **Cost, last measured** (`kept logs/flight-1794589790.txt`): not measured.
 - **Files:** src/near.rs.
 
@@ -583,6 +587,15 @@ flowchart TB
 - **What it is:** A pixel for every pixel of each of the far eye's three layers, the layers side by side: 1 where the near eye's blocks wholly cover it this frame. Kept with the far eye's layers (made again when they are).
 - **Written by:** the near cover. **Read by:** the far 8 x 8.
 - **Files:** src/far_eye.rs and src/near_eye.rs.
+
+### the near light
+
+- **A store** on the card.
+- **What it is:** The near eye's light, kept apart from its faces and only where it isn't plain daylight [David, 2026-11-17]: one buffer, first a directory (an entry a chunk, at the chunk's place wrapped), then each lit chunk's bricks of 8 x 8 x 8 cells, 4 bits a cell (the sky's light, 0 to 15), a brick only where one of its cells isn't in daylight. A face's pixel looks up the cell the face looks into; no entry is plain daylight. Open land takes none.
+- **Written by:** putting the near chunks on the card. **Read by:** the near faces and the near water.
+- **Limit:** chunks a side of the directory, 256.
+- **Limit:** cells a side of a brick, 8.
+- **Files:** src/near_eye.rs, src/near.rs and src/near.wgsl.
 
 ### the far bricks
 

@@ -14,13 +14,17 @@
 // read with its own pixels crisp up close, its shrunk sizes blended as it gets small.
 @group(0) @binding(7) var t_blocks: texture_2d_array<f32>;
 @group(0) @binding(8) var crisp: sampler;
+// The near light (build 210): kept apart from the faces, only where it isn't plain daylight (`near_eye.rs`, `Light`;
+// `near.rs`, `LightBlock`): a directory, an entry a chunk, then the chunks' bricks of 8 x 8 x 8 cells, 4 bits a cell.
+@group(0) @binding(9) var<storage, read> kept_light: array<u32>;
 // The faces' depth, for the water (its pass alone).
 @group(1) @binding(0) var t_depth: texture_depth_2d;
 
 struct Near {
     // The eye's block (north, east, up), and how far into it the eye is: a face's place is taken from the eye in whole
-    // blocks first, so far from the map's middle nothing wobbles. (w: 1 if the faces wear their blocks' pictures; 0,
-    // flat in their far colours.)
+    // blocks first, so far from the map's middle nothing wobbles. (w's bits: 1 if the faces wear their blocks'
+    // pictures, not flat in their far colours; 2 if the near eye has a light of its own; 4 if that light is the one
+    // kept apart from the faces, not each face's own.)
     cell: vec4<i32>,
     // (w: the x-fader's curve, 1 a straight fade.)
     part: vec4<f32>,
@@ -35,14 +39,19 @@ struct Near {
 
 // How much wider than its cells a face is drawn all round, for each block of its distance from the eye (`near_corner`).
 const HAIR: f32 = 0.00002;
+// How far inside its face a corner says it is on its block's picture, blocks: so every pixel of a face, the hair's
+// too, falls in a cell the face covers, whatever the rounding (the light's looked up by that cell). A hundredth of a
+// picture's pixel.
+const INSIDE: f32 = 0.000244140625;
 
 struct Corner {
     @builtin(position) clip: vec4<f32>,
     // From the eye (north, east, up).
     @location(0) from_eye: vec3<f32>,
-    // The facing (0 north, 1 south, 2 east, 3 west, 4 up, 5 down), the block, and the sky's light in the cell it
-    // looks into (0 to 15; build 208).
-    @location(1) @interpolate(flat) what: vec3<u32>,
+    // The facing (0 north, 1 south, 2 east, 3 west, 4 up, 5 down); the block; the cell it looks into along the way it
+    // looks, in its chunk, in whole blocks and one added (north or east -1 to 32, or up), with its own sky light
+    // (`<< 16`, 0 to 15: build 208's way, `INCUS_NEAR_LIGHT=faces`); its chunk, as the face's third word has it.
+    @location(1) @interpolate(flat) what: vec4<u32>,
     // How far along the eye's own way.
     @location(2) ahead: f32,
     // Where on its block's picture, in blocks (the picture repeats a block at a time).
@@ -100,11 +109,15 @@ fn near_corner(@builtin(vertex_index) corner: u32, @location(0) face: vec3<u32>)
     var corner_out: Corner;
     corner_out.clip = vec4<f32>(x, y, near.reach.z, ahead);
     corner_out.from_eye = from_eye;
-    corner_out.what = vec3<u32>(facing, (face.y >> 10u) & 0xFFFFu, (face.y >> 27u) & 15u);
+    // The cell it looks into, along the way it looks: the next past its own (in half blocks, the block that holds it).
+    let own = vec3<i32>(i32(face.x & 63u), i32((face.x >> 6u) & 63u), i32(((face.x >> 12u) & 1023u) | (((face.y >> 26u) & 1u) << 10u)));
+    let along = select(select(own.z, own.y, facing < 4u), own.x, facing < 2u);
+    let into = (along + select(-1, 1, greater)) >> (face.x >> 31u);
+    corner_out.what = vec4<u32>(facing, (face.y >> 10u) & 0xFFFFu, u32(into + 1) | (((face.y >> 27u) & 15u) << 16u), face.z);
     // Where the corner is on its block's picture: its place in its chunk along the two ways the face spreads, in
     // blocks. So a merged face wears the picture once a block, in step with every face beside it; a side's picture
     // stands upright (the picture's first row is its top).
-    let place = in_chunk + spread_a * u * wide + spread_b * v * high;
+    let place = in_chunk + spread_a * (u * wide + (1.0 - 2.0 * u) * INSIDE) + spread_b * (v * high + (1.0 - 2.0 * v) * INSIDE);
     corner_out.on_picture = vec2<f32>(dot(place, spread_a), dot(place, spread_b) * select(1.0, -1.0, facing < 4u));
     corner_out.ahead = ahead;
     return corner_out;
@@ -119,6 +132,50 @@ fn looks(facing: u32) -> vec3<f32> {
         case 4u: { return vec3<f32>(0.0, 0.0, 1.0); }
         default: { return vec3<f32>(0.0, 0.0, -1.0); }
     }
+}
+
+// The sky's light kept for a cell (north, east, up; blocks, the world's): 15, plain daylight, where nothing is kept
+// for it (`near.rs`, `LightBlock::at`, is this in Rust, for the tests).
+fn kept_at(place: vec3<i32>) -> u32 {
+    let chunk = place.xy >> vec2<u32>(5u);
+    let entry = (u32(chunk.x & 255) + u32(chunk.y & 255) * 256u) * 2u;
+    let first = kept_light[entry];
+    if (first == 0xFFFFFFFFu) {
+        return 15u;
+    }
+    let span = kept_light[entry + 1u];
+    let layer = (place.z >> 3u) - i32(span & 0xFFFFu);
+    if (layer < 0 || layer >= i32(span >> 16u)) {
+        return 15u;
+    }
+    let local = place.xy & vec2<i32>(31);
+    let brick = kept_light[first + u32(layer) * 16u + u32(local.x >> 3u) + u32(local.y >> 3u) * 4u];
+    if (brick == 0xFFFFFFFFu) {
+        return 15u;
+    }
+    let i = u32(local.x & 7) + u32(local.y & 7) * 8u + u32(place.z & 7) * 64u;
+    return (kept_light[first + brick + (i >> 3u)] >> ((i & 7u) * 4u)) & 15u;
+}
+
+// The sky's light on a face at a pixel: its own (build 208's way); or, kept apart from the faces (build 210), that of
+// the cell the face looks into there: the cell its place on its block's picture falls in, along the two ways the face
+// spreads, and the one it looks into along the third.
+fn sky_of(corner: Corner) -> u32 {
+    if ((near.cell.w & 4) == 0) {
+        return (corner.what.z >> 16u) & 15u;
+    }
+    let facing = corner.what.x;
+    let a = i32(floor(corner.on_picture.x));
+    let b = i32(floor(corner.on_picture.y * select(1.0, -1.0, facing < 4u)));
+    let into = i32(corner.what.z & 0xFFFFu) - 1;
+    var cell = vec3<i32>(a, b, into);
+    if (facing < 2u) {
+        cell = vec3<i32>(into, a, b);
+    } else if (facing < 4u) {
+        cell = vec3<i32>(a, into, b);
+    }
+    let chunk = vec2<i32>(i32(corner.what.w & 0xFFFFu) - 32768, i32(corner.what.w >> 16u) - 32768);
+    return kept_at(vec3<i32>(chunk * 32, 0) + cell);
 }
 
 // A surface's colour lit as the far eye lights a finished ray (`far.wgsl`'s `lit`, `sunlit` and `shaded`): the sun on
@@ -187,7 +244,7 @@ fn near_face(corner: Corner) -> @location(0) vec4<f32> {
     let light = max(dot(way, camera.sun.xyz), 0.0);
     // (Into the near eye's own picture, whole: the nearest face wins a pixel, whatever order the chunks come in.
     // Kept multiplied by how much of it shows, for the x-fader to lay over the far picture.)
-    return vec4<f32>(to_srgb(clamp(near_lit(colour, light, corner.from_eye, corner.what.z), vec3<f32>(0.0), vec3<f32>(1.0))) * shows, shows);
+    return vec4<f32>(to_srgb(clamp(near_lit(colour, light, corner.from_eye, sky_of(corner)), vec3<f32>(0.0), vec3<f32>(1.0))) * shows, shows);
 }
 
 // The water's top, over the faces already drawn: the far eye's water (its colour, and how fast it dims what's seen
@@ -208,5 +265,5 @@ fn near_water(corner: Corner) -> @location(0) vec4<f32> {
     let through = max(ahead_behind - corner.ahead, 0.0) * length(corner.from_eye) / max(corner.ahead, 0.01);
     let dimmed = 1.0 - exp(-camera.water.w * through);
     let covers = dimmed * shows;
-    return vec4<f32>(to_srgb(clamp(near_lit(camera.water.rgb, 1.0, corner.from_eye, corner.what.z), vec3<f32>(0.0), vec3<f32>(1.0))) * covers, covers);
+    return vec4<f32>(to_srgb(clamp(near_lit(camera.water.rgb, 1.0, corner.from_eye, sky_of(corner)), vec3<f32>(0.0), vec3<f32>(1.0))) * covers, covers);
 }

@@ -8043,3 +8043,41 @@ David's choice of 2026-11-17 ("proceed with C"). How it's built, then the mark.
 - **Said beforehand:** to David I put the stage's light at "about 1.6 MB of values per 16-chunk radius, a few MB
   with its table". That was 16 bits a cell for the cells faces look into only; whole bricks hold the air between
   too. The count decides, and is said whichever way it falls.
+
+### Build 210 built (unlaunched, unflown): the light kept apart from the faces; checked off the screen
+
+**Built as the mark says** (`near.rs`: `Lit`, `LightBlock`, `Blocks::light_of` and `light_block`; `near_eye.rs`:
+`Light`, `light_room`, `give_light_back`; `near.wgsl`: `kept_at`, `sky_of`). One thing added to make the look-up
+safe: a face's corners say they're a hair inside the face on its block's picture (`INSIDE`, a 4,096th of a block),
+so every pixel of a face, the grown hair's too, falls in a cell the face covers whatever the rounding.
+
+**Against the mark, off the screen (the stage on):**
+
+- **Tests: met.** `the_light_kept_is_the_sky_s_light`: over five chunks (the town's, a wood's, the cave's three),
+  24,274 cells looked into, 9,359 of them not in plain daylight, each looked up as the card looks it up and exactly
+  the light worked out; a chunk of bare land hands over none. All 47 tests pass.
+- **Pictures, this against build 208's way: met.** Of 1.6 million pixels, 105, 124 and 39 differ by 4 or more of
+  255 at the cave, the wood and the town (run-to-run flips alone are 15 to 53; the rest are single cells along
+  chunks' edges a step apart, as the mark said). Seen whole they're the same picture: the cave black inside, the
+  trees' shade under them. (Thousands more pixels differ by 1 to 3 of 255: bigger merged faces carry their
+  pictures' places a rounding apart.) With no near light the cave's picture differs in 9.5% of pixels, as it
+  should.
+- **Counts:**
+
+  | the stage, from the spawn | faces kept, 208's way | faces kept now | the light's memory |
+  |---|---|---|---|
+  | 16 chunks | 2,508,151 | 2,045,732 (18% fewer: 5.3 MB of faces) | 5.6 MB, 22,258 bricks in 479 of 860 chunks |
+  | 32 chunks | 10,046,572 | 8,478,869 (16% fewer: 18 MB of faces) | 20 MB in 1,651 chunks (its buffer 32 MB) |
+
+  Bare land: no light kept at all, at any radius (the buffer's first 4 MB, its directory, is all there is).
+- **The memory against what David was told: more.** He was told "about 1.6 MB of values per 16-chunk radius, a
+  few MB with its table". It's 5.6 MB per 16-chunk radius of the stage, 20 MB at 32 chunks: whole bricks hold the
+  air between the surfaces too (which is what dust rays would read later). About what the faces no longer split
+  give back (5.3 and 18 MB). Smaller bricks (4 a side) would be 3.1 MB for 5.6 and a longer list: not taken.
+- **A chunk's making** (the five chunks, one thread, timed apart): its faces 1.58 ms, its sky light 1.36, its
+  light put in bricks 0.14: 3.08 ms for 208's way's 2.97 (4% more). The sky light itself is as dear as the faces;
+  that stands from build 208.
+- **The card's time:** the bracket of flights with the stage on, next.
+
+**For step 2, as built here:** a placed light's reach gets bricks of its own kind (colour) in the same buffer and
+directory; putting or moving one rewrites its chunks' light, no faces.

@@ -25,6 +25,11 @@ const MOST_DRAWN: u64 = 16_384;
 const DEPTHS: [f32; 2] = [0.2, 8192.0];
 /// The most faces put on the card in a frame (4 MB), so a radius filling doesn't hold a frame.
 const FACES_A_FRAME: usize = 350_000;
+/// The near light's directory (build 210): chunks a side (a chunk's entry is at its place wrapped; the chunks kept
+/// are never 256 apart), two words a chunk; and the buffer's first size, words (4 MB; doubled when it's full).
+const LIGHT_SIDE: i32 = 256;
+const LIGHT_DIRECTORY: u64 = (LIGHT_SIDE * LIGHT_SIDE * 2) as u64;
+const LIGHT_FIRST: u64 = 1 << 20;
 /// The most the x-fader's sliders go to: its band's width (blocks) and its curve.
 pub const MOST_FADER_WIDTH: f32 = 512.0;
 pub const MOST_FADER_CURVE: f32 = 8.0;
@@ -63,10 +68,26 @@ struct Kept {
     page: usize,
     first: u32,
     count: u32,
+    /// Its light on the card, if some of it isn't plain daylight: where it begins in the light's buffer and how many
+    /// words.
+    light: Option<(u64, u64)>,
     groups: [u32; 6],
     water: u32,
     low: i32,
     high: i32,
+}
+
+/// The near light on the card (build 210, David's choice of 2026-11-17): one buffer of words. First the directory, an
+/// entry a chunk at (north wrapped) + (east wrapped) * 256: where the chunk's light begins in the buffer (or
+/// `NO_BRICK`: all plain daylight, or no chunk), and its first layer of bricks with how many layers (`<< 16`). Then
+/// the chunks' light (`near::LightBlock`'s words), each in a stretch given back with its chunk. `free`: the free
+/// stretches after the directory (where they begin, how many words), in order; `used`: words in chunks' light.
+struct Light {
+    buffer: wgpu::Buffer,
+    free: Vec<(u64, u64)>,
+    used: u64,
+    /// Whether the buffer couldn't be grown when it was full (said once; chunks after are lit as plain daylight).
+    full: bool,
 }
 
 /// A page: a buffer of faces, and its free stretches (where they begin, how many faces), in order.
@@ -98,6 +119,11 @@ pub struct Counts {
     /// The render radius these are for (chunks), and whether every wanted chunk is in, as its changes have it now.
     pub radius: f32,
     pub whole: bool,
+    /// The near light (build 210): the chunks kept that have some, the memory their light takes, and the whole
+    /// buffer's with its directory, MB.
+    pub lit_chunks: usize,
+    pub light_kept: f32,
+    pub light_megabytes: f32,
 }
 
 pub struct NearEye {
@@ -133,6 +159,7 @@ pub struct NearEye {
     blocks_view: wgpu::TextureView,
     crisp: wgpu::Sampler,
     textured: bool,
+    light: Light,
     /// Whether a chunk's groups of faces that all look away from the eye are left out of the frame's draws (build
     /// 209; `INCUS_NEAR_TURNED=0`: not, and the card doesn't drop faces turned away either, as to build 208).
     pub turned: bool,
@@ -202,8 +229,14 @@ impl NearEye {
                 uniform(6, both),
                 wgpu::BindGroupLayoutEntry { binding: 7, visibility: fragment, ty: wgpu::BindingType::Texture { sample_type: wgpu::TextureSampleType::Float { filterable: true }, view_dimension: wgpu::TextureViewDimension::D2Array, multisampled: false }, count: None },
                 wgpu::BindGroupLayoutEntry { binding: 8, visibility: fragment, ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering), count: None },
+                wgpu::BindGroupLayoutEntry { binding: 9, visibility: fragment, ty: wgpu::BindingType::Buffer { ty: wgpu::BufferBindingType::Storage { read_only: true }, has_dynamic_offset: false, min_binding_size: None }, count: None },
             ],
         });
+        // The near light: its directory all "no chunk", and the rest free.
+        let light_buffer = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the near light"), size: LIGHT_FIRST * 4, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::COPY_SRC, mapped_at_creation: false });
+        queue.write_buffer(&light_buffer, 0, &vec![0xFFu8; LIGHT_DIRECTORY as usize * 4]);
+        let light = Light { buffer: light_buffer, free: vec![(LIGHT_DIRECTORY, LIGHT_FIRST - LIGHT_DIRECTORY)], used: 0, full: false };
+        log::info!("The near eye's light: {:?}", crate::near::lit());
         let depth_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("the near eye's depth, for its water"),
             entries: &[wgpu::BindGroupLayoutEntry { binding: 0, visibility: fragment, ty: wgpu::BindingType::Texture { sample_type: wgpu::TextureSampleType::Depth, view_dimension: wgpu::TextureViewDimension::D2, multisampled: false }, count: None }],
@@ -325,7 +358,7 @@ impl NearEye {
         });
         let radius = std::env::var("INCUS_NEAR_RADIUS").ok().and_then(|r| r.parse::<f32>().ok()).map_or(RADIUS, |r| r.clamp(1.0, MOST_RADIUS));
         log::info!("The near eye: faces as triangles within a render radius of {radius} chunks ({} blocks), its lane on {threads} threads", radius * CHUNK as f32);
-        Ok(Self { lane, look: NearLook { radius, ..NearLook::DEFAULT }, chunks: HashMap::new(), pages: Vec::new(), asked: None, want: Vec::new(), first_to_come: 0, touched: HashSet::new(), need: HashMap::new(), remake: HashSet::new(), waiting: Default::default(), recent_ms: Default::default(), faces, water, layout, depth_layout, group: None, numbers, colours, blocks_view, crisp, textured, turned, join, join_layout, format, pictures: None, cover_pass, cover_layout, cover_sizes, cover_sampler, cover_group: None, draws, drawn: Vec::new(), drawn_water: Vec::new(), counts: Counts { threads, ..Default::default() } })
+        Ok(Self { lane, look: NearLook { radius, ..NearLook::DEFAULT }, chunks: HashMap::new(), pages: Vec::new(), asked: None, want: Vec::new(), first_to_come: 0, touched: HashSet::new(), need: HashMap::new(), remake: HashSet::new(), waiting: Default::default(), recent_ms: Default::default(), faces, water, layout, depth_layout, group: None, numbers, colours, blocks_view, crisp, textured, light, turned, join, join_layout, format, pictures: None, cover_pass, cover_layout, cover_sizes, cover_sampler, cover_group: None, draws, drawn: Vec::new(), drawn_water: Vec::new(), counts: Counts { threads, ..Default::default() } })
     }
 
     /// Room for `count` faces: a page and where in it (a free stretch that holds them, the first found; a new page
@@ -346,6 +379,69 @@ impl NearEye {
         let buffer = device.create_buffer(&wgpu::BufferDescriptor { label: Some("a page of near faces"), size: size as u64 * FACE, usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         self.pages.push(Page { buffer, free: if size > count { vec![(count, size - count)] } else { Vec::new() } });
         (self.pages.len() - 1, 0)
+    }
+
+    /// Room for `words` of a chunk's light: where in the light's buffer (a free stretch that holds them, the first
+    /// found). None left: the buffer made twice the size (and what it held copied over), unless the card won't have
+    /// one so big: then none, said once.
+    fn light_room(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, words: u64) -> Option<u64> {
+        loop {
+            let free = &mut self.light.free;
+            if let Some(at) = free.iter().position(|(_, room)| *room >= words) {
+                let (first, room) = free[at];
+                if room == words {
+                    free.remove(at);
+                } else {
+                    free[at] = (first + words, room - words);
+                }
+                self.light.used += words;
+                return Some(first);
+            }
+            let old = self.light.buffer.size() / 4;
+            let size = (old * 2).max(old + words);
+            if size * 4 > device.limits().max_storage_buffer_binding_size as u64 {
+                if !self.light.full {
+                    log::error!("The near light is full at {} MB and the card won't have a buffer twice the size: chunks from here on are lit as plain daylight", old * 4 >> 20);
+                    self.light.full = true;
+                }
+                return None;
+            }
+            let buffer = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the near light"), size: size * 4, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::COPY_SRC, mapped_at_creation: false });
+            // (What's been written to the old buffer this frame goes with this handing over, before the copy.)
+            let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("the near light grown") });
+            encoder.copy_buffer_to_buffer(&self.light.buffer, 0, &buffer, 0, old * 4);
+            queue.submit([encoder.finish()]);
+            match self.light.free.last_mut() {
+                Some((first, room)) if *first + *room == old => *room += size - old,
+                _ => self.light.free.push((old, size - old)),
+            }
+            self.light.buffer = buffer;
+            self.group = None;
+            log::info!("The near light: its buffer grown to {} MB", size * 4 >> 20);
+        }
+    }
+
+    /// Where a chunk's entry is in the light's directory, bytes.
+    fn light_entry(chunk: [i32; 2]) -> u64 {
+        (chunk[0].rem_euclid(LIGHT_SIDE) + chunk[1].rem_euclid(LIGHT_SIDE) * LIGHT_SIDE) as u64 * 8
+    }
+
+    /// A chunk's light given back, and its entry in the directory made "no chunk".
+    fn give_light_back(&mut self, queue: &wgpu::Queue, chunk: [i32; 2], kept: &Kept) {
+        let Some((first, words)) = kept.light else { return };
+        queue.write_buffer(&self.light.buffer, Self::light_entry(chunk), &[0xFFu8; 8]);
+        self.light.used -= words;
+        let free = &mut self.light.free;
+        let at = free.partition_point(|(from, _)| *from < first);
+        free.insert(at, (first, words));
+        if at + 1 < free.len() && free[at].0 + free[at].1 == free[at + 1].0 {
+            free[at].1 += free[at + 1].1;
+            free.remove(at + 1);
+        }
+        if at > 0 && free[at - 1].0 + free[at - 1].1 == free[at].0 {
+            free[at - 1].1 += free[at].1;
+            free.remove(at);
+        }
     }
 
     /// A chunk's faces given back to its page.
@@ -388,6 +484,7 @@ impl NearEye {
             for chunk in gone {
                 if let Some(kept) = self.chunks.remove(&chunk) {
                     self.give_back(&kept);
+                    self.give_light_back(queue, chunk, &kept);
                 }
                 self.remake.remove(&chunk);
             }
@@ -415,14 +512,25 @@ impl NearEye {
             }
             if let Some(old) = self.chunks.remove(&made.chunk) {
                 self.give_back(&old);
+                self.give_light_back(queue, made.chunk, &old);
             }
+            // Its light, where some of it isn't plain daylight: put in the light's buffer, and its entry written.
+            let light = made.light.as_ref().and_then(|block| {
+                let words = block.words.len() as u64;
+                let first = self.light_room(device, queue, words)?;
+                let bytes: Vec<u8> = block.words.iter().flat_map(|word| word.to_le_bytes()).collect();
+                queue.write_buffer(&self.light.buffer, first * 4, &bytes);
+                let entry: Vec<u8> = [first as u32, block.low | block.layers << 16].iter().flat_map(|word| word.to_le_bytes()).collect();
+                queue.write_buffer(&self.light.buffer, Self::light_entry(made.chunk), &entry);
+                Some((first, words))
+            });
             let count = made.faces.len() as u32;
             let (page, first) = if count > 0 { self.room(device, count) } else { (0, 0) };
             if count > 0 {
                 let bytes: Vec<u8> = made.faces.iter().flatten().flat_map(|word| word.to_le_bytes()).collect();
                 queue.write_buffer(&self.pages[page].buffer, first as u64 * FACE, &bytes);
             }
-            self.chunks.insert(made.chunk, Kept { page, first, count, groups: made.groups, water: made.water, low: made.low, high: made.high });
+            self.chunks.insert(made.chunk, Kept { page, first, count, light, groups: made.groups, water: made.water, low: made.low, high: made.high });
             self.remake.remove(&made.chunk);
         }
         while self.first_to_come < self.want.len() && self.chunks.contains_key(&self.want[self.first_to_come]) {
@@ -458,6 +566,9 @@ impl NearEye {
             faces_drawn: self.counts.faces_drawn,
             radius,
             whole: self.first_to_come >= self.want.len() && self.remake.is_empty(),
+            lit_chunks: self.chunks.values().filter(|kept| kept.light.is_some()).count(),
+            light_kept: self.light.used as f32 * 4.0 / 1048576.0,
+            light_megabytes: self.light.buffer.size() as f32 / 1048576.0,
         };
         Ok(())
     }
@@ -513,6 +624,7 @@ impl NearEye {
                     wgpu::BindGroupEntry { binding: 6, resource: self.numbers.as_entire_binding() },
                     wgpu::BindGroupEntry { binding: 7, resource: wgpu::BindingResource::TextureView(&self.blocks_view) },
                     wgpu::BindGroupEntry { binding: 8, resource: wgpu::BindingResource::Sampler(&self.crisp) },
+                    wgpu::BindGroupEntry { binding: 9, resource: self.light.buffer.as_entire_binding() },
                 ],
             });
             self.group = Some((group, made_from));
@@ -542,7 +654,7 @@ impl NearEye {
         let eye = [camera.position.x, camera.position.y, camera.position.z];
         let cell = eye.map(|v| v.floor());
         let mut bytes: Vec<u8> = Vec::with_capacity(48);
-        bytes.extend(cell.iter().map(|v| *v as i32).chain([self.textured as i32 | (crate::near::light_on() as i32) << 1]).flat_map(|v| v.to_le_bytes()));
+        bytes.extend(cell.iter().map(|v| *v as i32).chain([self.textured as i32 | (crate::near::light_on() as i32) << 1 | ((crate::near::lit() == crate::near::Lit::Kept) as i32) << 2]).flat_map(|v| v.to_le_bytes()));
         bytes.extend((0..3).map(|k| eye[k] - cell[k]).chain([self.look.fader_curve.clamp(1.0, MOST_FADER_CURVE)]).flat_map(|v| v.to_le_bytes()));
         bytes.extend([self.counts.reach, band_of(self.look.fader_width, self.counts.reach), DEPTHS[0], DEPTHS[1]].iter().flat_map(|v| v.to_le_bytes()));
         queue.write_buffer(&self.numbers, 0, &bytes);

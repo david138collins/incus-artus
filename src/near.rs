@@ -137,10 +137,64 @@ const LIGHT_ROUNDS: usize = 48;
 const LIGHT_CUT: f32 = 0.012;
 const LIGHT_FLOOR: u8 = 1;
 
-/// Whether the near eye works out its own sky light (`INCUS_NEAR_LIGHT=0`: not, every face lit as to build 207).
+/// How the near eye is lit (`INCUS_NEAR_LIGHT`): not by a light of its own (`0`: every face as to build 207); each
+/// face carrying its light, and split from its neighbours by it (`faces`: build 208's way, to measure against); or
+/// its light kept apart from the faces, only where it isn't plain daylight (unset: build 210, David's choice of
+/// 2026-11-17, "proceed with C").
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Lit {
+    Off,
+    Faces,
+    Kept,
+}
+
+pub fn lit() -> Lit {
+    static LIT: std::sync::OnceLock<Lit> = std::sync::OnceLock::new();
+    *LIT.get_or_init(|| match std::env::var("INCUS_NEAR_LIGHT").as_deref() {
+        Ok("0") => Lit::Off,
+        Ok("faces") => Lit::Faces,
+        _ => Lit::Kept,
+    })
+}
+
+/// Whether the near eye works out its own sky light at all.
 pub fn light_on() -> bool {
-    static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-    *ON.get_or_init(|| std::env::var("INCUS_NEAR_LIGHT").as_deref() != Ok("0"))
+    lit() != Lit::Off
+}
+
+/// A side of a brick of light, cells; its words on the card (512 cells of 4 bits); and no brick (plain daylight).
+pub const LIGHT_BRICK: i32 = 8;
+pub const LIGHT_BRICK_WORDS: usize = 64;
+pub const NO_BRICK: u32 = u32::MAX;
+
+/// A chunk's light as the card keeps it (build 210): only where it isn't plain daylight. Bricks of 8 by 8 by 8 cells
+/// (whole blocks), 4 bits a cell (the sky's light, 0 to 15; a solid cell 0), a brick only where some cell of it that
+/// isn't solid isn't in plain daylight. `words`: first a list, for each layer of bricks from `low` (a layer is 8
+/// blocks of height; `layers` of them) its 4 by 4 bricks (north fastest), each where its brick begins in `words` or
+/// `NO_BRICK`; then the bricks, a cell at north + east * 8 + up * 64 within its brick, eight cells a word from the
+/// low bits. (A placed light's colour gets a brick of its own kind, in step 2.)
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct LightBlock {
+    pub low: u32,
+    pub layers: u32,
+    pub words: Vec<u32>,
+}
+
+impl LightBlock {
+    /// The sky's light in a cell of the chunk (north and east 0 to 31 from its least corner, up from bedrock), read
+    /// as the card reads it (`near.wgsl`, `kept_at`): 15 where there's no brick.
+    pub fn at(&self, cell: [i32; 3]) -> u8 {
+        let layer = (cell[2] >> 3) - self.low as i32;
+        if layer < 0 || layer >= self.layers as i32 {
+            return 15;
+        }
+        let brick = self.words[(layer * 16 + (cell[0] >> 3) + (cell[1] >> 3) * 4) as usize];
+        if brick == NO_BRICK {
+            return 15;
+        }
+        let i = ((cell[0] & 7) + (cell[1] & 7) * 8 + (cell[2] & 7) * 64) as usize;
+        (self.words[brick as usize + (i >> 3)] >> ((i & 7) * 4) & 15) as u8
+    }
 }
 
 impl Blocks {
@@ -356,6 +410,79 @@ impl Blocks {
             .collect()
     }
 
+    /// The sky's light in a block of the chunk's own columns (north and east 0 to 31, up from bedrock) from
+    /// `sky_light`'s cells: its cell's; where the chunk is in half blocks, the brightest of its octants that aren't
+    /// solid. None where it's solid through. (Under what's kept, solid; over it, plain daylight.)
+    pub fn light_of(&self, lights: &[u8], north: i32, east: i32, up: i32) -> Option<u8> {
+        if up < self.low {
+            return None;
+        }
+        if up >= self.high {
+            return Some(15);
+        }
+        let u = self.unit;
+        let wide = WIDE * u as usize;
+        let tall = ((self.high - self.low) * u) as usize;
+        let mut most: Option<u8> = None;
+        for k in 0..u * u * u {
+            let (n, e, z) = (north * u + k % u, east * u + k / u % u, (up - self.low) * u + k / (u * u));
+            let at = ((n + MARGIN * u) as usize + (e + MARGIN * u) as usize * wide) * tall + z as usize;
+            if !Self::solid(self.cells[at]) {
+                most = Some(most.map_or(lights[at], |m| m.max(lights[at])));
+            }
+        }
+        most
+    }
+
+    /// The chunk's light as the card keeps it (build 210), from `sky_light`'s cells: none if every cell of its own
+    /// columns that isn't solid is in plain daylight.
+    pub fn light_block(&self, lights: &[u8]) -> Option<LightBlock> {
+        // The bricks with a cell that isn't in plain daylight: for each layer from the lowest kept, which of its 16.
+        let base = self.low >> 3;
+        let mut wanted = vec![false; (((self.high - 1) >> 3) - base + 1) as usize * 16];
+        if self.unit == 1 {
+            // (Whole blocks: straight down each column's cells.)
+            let tall = (self.high - self.low) as usize;
+            for east in 0..CHUNK {
+                for north in 0..CHUNK {
+                    let column = ((north + MARGIN) as usize + (east + MARGIN) as usize * WIDE) * tall;
+                    let brick = ((north >> 3) + (east >> 3) * 4) as usize;
+                    for z in 0..tall {
+                        if lights[column + z] < 15 && !Self::solid(self.cells[column + z]) {
+                            wanted[(((self.low + z as i32) >> 3) - base) as usize * 16 + brick] = true;
+                        }
+                    }
+                }
+            }
+        } else {
+            for east in 0..CHUNK {
+                for north in 0..CHUNK {
+                    for up in self.low..self.high {
+                        if self.light_of(lights, north, east, up).is_some_and(|light| light < 15) {
+                            wanted[((up >> 3) - base) as usize * 16 + ((north >> 3) + (east >> 3) * 4) as usize] = true;
+                        }
+                    }
+                }
+            }
+        }
+        let low = base + (wanted.iter().position(|w| *w)? / 16) as i32;
+        let high = base + (wanted.iter().rposition(|w| *w)? / 16) as i32;
+        let layers = (high - low + 1) as usize;
+        let mut words = vec![NO_BRICK; layers * 16];
+        let wanted: Vec<(i32, i32)> = wanted.iter().enumerate().filter(|(_, w)| **w).map(|(k, _)| (base + (k / 16) as i32, (k % 16) as i32)).collect();
+        for (layer, brick) in wanted {
+            let first = words.len();
+            words[(layer - low) as usize * 16 + brick as usize] = first as u32;
+            words.resize(first + LIGHT_BRICK_WORDS, 0);
+            let (north, east, up) = ((brick % 4) * LIGHT_BRICK, (brick / 4) * LIGHT_BRICK, layer * LIGHT_BRICK);
+            for i in 0..512 {
+                let light = self.light_of(lights, north + i % 8, east + i / 8 % 8, up + i / 64).unwrap_or(0) as u32;
+                words[first + (i >> 3) as usize] |= light << ((i & 7) * 4);
+            }
+        }
+        Some(LightBlock { low: low as u32, layers: layers as u32, words })
+    }
+
     /// The chunk's faces, merged: for each facing and each plane across it, the open sides of one block that make a
     /// rectangle become one face (the rectangle grown along its first axis, then its second: greedy meshing). A
     /// block's side is open where the cell it looks into isn't solid (air or water); the water's top is where water
@@ -366,7 +493,7 @@ impl Blocks {
         let size = [CHUNK * unit, CHUNK * unit, (self.high - self.low) * unit];
         // The sky's light in the cell each face looks into (build 208): faces of one block merge only where it's the
         // same. (Over what's kept, open sky; off, every face as if open.)
-        let lights = if light_on() { self.sky_light() } else { Vec::new() };
+        let lights = if lit() == Lit::Faces { self.sky_light() } else { Vec::new() };
         let tall = ((self.high - self.low) * unit) as usize;
         let light_at = |north: i32, east: i32, up: i32| -> u32 {
             if lights.is_empty() || up >= self.high * unit {
@@ -530,9 +657,10 @@ pub fn packed(face: &Face, chunk: [i32; 2], unit: i32) -> [u32; 3] {
 /// `groups` of each in `GROUPS`' order) and then the water's tops (`water` of them, so each kind is drawn by its own
 /// pass with no word of the other's), the lowest and highest block any of them touches (for leaving it out when it's
 /// out of view), how long it took to make (ms), and which telling of the changes it was made from (`Lane::changed`'s
-/// count; 0 before any).
+/// count; 0 before any). And its light, where some of it isn't plain daylight (build 210).
 pub struct Made {
     pub chunk: [i32; 2],
+    pub light: Option<LightBlock>,
     pub faces: Vec<[u32; 3]>,
     pub groups: [u32; 6],
     pub water: u32,
@@ -636,7 +764,8 @@ impl Lane {
                         let made = Blocks::read(&doorway, &mut tiles, chunk).map(|blocks| {
                             let (faces, groups, water, low, high) = grouped(&blocks);
                             let unit = blocks.unit;
-                            Made { chunk, faces: faces.iter().map(|face| packed(face, chunk, unit)).collect(), groups, water, low, high, ms: began.elapsed().as_secs_f32() * 1000.0, told }
+                            let light = if lit() == Lit::Kept { blocks.light_block(&blocks.sky_light()) } else { None };
+                            Made { chunk, light, faces: faces.iter().map(|face| packed(face, chunk, unit)).collect(), groups, water, low, high, ms: began.elapsed().as_secs_f32() * 1000.0, told }
                         });
                         if sender.send(made).is_err() {
                             return;
@@ -944,14 +1073,15 @@ mod tests {
         let threads = std::thread::available_parallelism().map_or(2, |n| n.get()).saturating_sub(2).max(1);
         let next = std::sync::atomic::AtomicUsize::new(0);
         // faces, sides, sides shaded, air cells, air cells shaded; in view: faces, faces turned away, their sides, and
-        // the faces in groups the frame's listing leaves out (`groups_shown`).
-        let totals = std::sync::Mutex::new([0u64; 9]);
+        // the faces in groups the frame's listing leaves out (`groups_shown`); the light kept: chunks with any, its
+        // bricks, its words; and what bricks of 4 a side would be.
+        let totals = std::sync::Mutex::new([0u64; 13]);
         std::thread::scope(|scope| {
             for _ in 0..threads {
                 scope.spawn(|| {
                     let doorway = Doorway::open_with(&crate::doorway::test_world(), staged).unwrap();
                     let mut tiles = HashMap::new();
-                    let mut mine = [0u64; 9];
+                    let mut mine = [0u64; 13];
                     loop {
                         let k = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                         let Some(&chunk) = chunks.get(k) else { break };
@@ -975,6 +1105,22 @@ mod tests {
                         // Is the chunk in the view (its middle within 50 degrees either side of north)?
                         let middle = [(chunk[0] as f32 + 0.5) * CHUNK as f32 - eye[0], (chunk[1] as f32 + 0.5) * CHUNK as f32 - eye[1]];
                         let in_view = middle[0] > 0.0 && middle[1].abs() <= middle[0] * 50f32.to_radians().tan() + CHUNK as f32;
+                        if let Some(block) = blocks.light_block(&lights) {
+                            mine[9] += 1;
+                            mine[10] += ((block.words.len() - block.layers as usize * 16) / LIGHT_BRICK_WORDS) as u64;
+                            mine[11] += block.words.len() as u64;
+                            let mut small = HashSet::new();
+                            for east in 0..CHUNK {
+                                for north in 0..CHUNK {
+                                    for up in blocks.low..blocks.high {
+                                        if blocks.light_of(&lights, north, east, up).is_some_and(|light| light < 15) {
+                                            small.insert([north >> 2, east >> 2, up >> 2]);
+                                        }
+                                    }
+                                }
+                            }
+                            mine[12] += small.len() as u64;
+                        }
                         let (faces, _, _, low, high) = grouped(&blocks);
                         let shown = groups_shown(chunk, low, high, eye);
                         for face in faces {
@@ -1020,7 +1166,7 @@ mod tests {
                         }
                     }
                     let mut totals = totals.lock().unwrap();
-                    for k in 0..9 {
+                    for k in 0..13 {
                         totals[k] += mine[k];
                     }
                 });
@@ -1028,7 +1174,7 @@ mod tests {
         });
         let t = totals.into_inner().unwrap();
         eprintln!(
-            "Light counts, radius {radius} round {place:?}{} (light {}): {} chunks; {} faces covering {} sides ({:.1} a face), {} sides not in plain daylight ({:.1}%); {} air cells the faces look into, {} not in plain daylight ({:.1}%); in a view north, {} faces, {} turned away ({:.1}%), covering {} sides; {} in groups left out ({:.1}%)",
+            "Light counts, radius {radius} round {place:?}{} (light {}): {} chunks; {} faces covering {} sides ({:.1} a face), {} sides not in plain daylight ({:.1}%); {} air cells the faces look into, {} not in plain daylight ({:.1}%); in a view north, {} faces, {} turned away ({:.1}%), covering {} sides; {} in groups left out ({:.1}%); the light kept: {} chunks have some, {} bricks, {:.2} MB (bricks of 4 a side would be {}: {:.2} MB at 4 bits a cell)",
             if staged { ", the stage on" } else { "" },
             if light_on() { "on" } else { "off" },
             chunks.len(),
@@ -1045,7 +1191,12 @@ mod tests {
             100.0 * t[6] as f64 / t[5] as f64,
             t[7],
             t[8],
-            100.0 * t[8] as f64 / t[5] as f64
+            100.0 * t[8] as f64 / t[5] as f64,
+            t[9],
+            t[10],
+            t[11] as f64 * 4.0 / 1048576.0,
+            t[12],
+            t[12] as f64 * 32.0 / 1048576.0
         );
     }
 
@@ -1191,6 +1342,66 @@ mod tests {
         let light = blocks.sky_light();
         let under = at(&blocks, &light, 16, 16, ground);
         assert!(under >= LIGHT_FLOOR, "outdoors under a roof is never darker than the floor: {under}");
+    }
+
+    /// The light kept (build 210): for chunks of the stage (the town, a wood, the cave's), every cell any face looks
+    /// into inside the chunk, looked up as the card looks it up, is the sky's light worked out, exactly; some of it
+    /// is shade; and a chunk of bare land hands over no light at all.
+    #[test]
+    fn the_light_kept_is_the_sky_s_light() {
+        let doorway = Doorway::open_with(&crate::doorway::test_world(), true).unwrap();
+        let mut tiles = HashMap::new();
+        let (mut looked, mut shaded, mut words) = (0u64, 0u64, 0usize);
+        for chunk in [[-4, -12], [12, 8], [14, 4], [15, 4], [16, 4]] {
+            let blocks = Blocks::read(&doorway, &mut tiles, chunk).unwrap();
+            let lights = blocks.sky_light();
+            let block = blocks.light_block(&lights);
+            words += block.as_ref().map_or(0, |block| block.words.len());
+            let u = blocks.unit;
+            for face in blocks.faces() {
+                let ([a, b], _) = face.facing.axes();
+                let step = face.facing.step();
+                for dv in 0..face.high {
+                    for du in 0..face.wide {
+                        let mut cell = face.at;
+                        cell[a] += du;
+                        cell[b] += dv;
+                        let into: [i32; 3] = std::array::from_fn(|k| (cell[k] + step[k]).div_euclid(u));
+                        if into[0] < 0 || into[1] < 0 || into[0] >= CHUNK || into[1] >= CHUNK {
+                            continue;
+                        }
+                        let worked = blocks.light_of(&lights, into[0], into[1], into[2]).expect("a face looks into a cell that isn't solid");
+                        let kept = block.as_ref().map_or(15, |block| block.at(into));
+                        assert_eq!(kept, worked, "the light kept in {into:?} of chunk {chunk:?}");
+                        looked += 1;
+                        shaded += (worked < 15) as u64;
+                    }
+                }
+            }
+        }
+        eprintln!("The light kept: {looked} cells looked into over five chunks of the stage, {shaded} of them not in plain daylight, in {} KB", words * 4 / 1024);
+        // What each part of a chunk's making takes (the five chunks, twenty times over; one thread).
+        let chunks: Vec<Blocks> = [[-4, -12], [12, 8], [14, 4], [15, 4], [16, 4]].iter().map(|chunk| Blocks::read(&doorway, &mut tiles, *chunk).unwrap()).collect();
+        let timed = |work: &dyn Fn(&Blocks)| {
+            let began = std::time::Instant::now();
+            for _ in 0..20 {
+                chunks.iter().for_each(work);
+            }
+            began.elapsed().as_secs_f64() * 1000.0 / 100.0
+        };
+        let lights: Vec<Vec<u8>> = chunks.iter().map(Blocks::sky_light).collect();
+        let (faces, sky) = (timed(&|blocks| drop(blocks.faces())), timed(&|blocks| drop(blocks.sky_light())));
+        let began = std::time::Instant::now();
+        for _ in 0..20 {
+            for (blocks, lights) in chunks.iter().zip(&lights) {
+                drop(blocks.light_block(lights));
+            }
+        }
+        eprintln!("A chunk of these, ms: its faces {faces:.2}, its sky light {sky:.2}, its light put in bricks {:.2}", began.elapsed().as_secs_f64() * 1000.0 / 100.0);
+        assert!(shaded > 1000, "the stage's town, wood and cave have shade: {shaded}");
+        let bare = Doorway::open_with(&crate::doorway::test_world(), false).unwrap();
+        let blocks = Blocks::read(&bare, &mut HashMap::new(), [0, 0]).unwrap();
+        assert_eq!(blocks.light_block(&blocks.sky_light()), None, "bare land is all in plain daylight: no light kept");
     }
 
     /// Faces turned away (build 209): a chunk's faces come in the groups' order, their counts adding up; and for eyes

@@ -375,7 +375,7 @@ impl Flight {
                     None => "its chunks not waited for".to_string(),
                 };
                 text += &format!(
-                    "  the near eye: a render radius of {:.0} chunks; {} chunks in of {} wanted at the end, {} drawn at the most; {:.2} million triangles drawn in a frame at the most, of {:.2} million kept, {:.0} MB; its faces reached {:.0} blocks at the least, the far rays beginning at {:.0} at the end; a chunk meshed in {:.1} ms on {} threads; {came}; chunks still to come in {} of {} measured frames\n",
+                    "  the near eye: a render radius of {:.0} chunks; {} chunks in of {} wanted at the end, {} drawn at the most; {:.2} million triangles drawn in a frame at the most, of {:.2} million kept, {:.0} MB, and {:.1} MB of light kept for {} chunks (its buffer {:.0} MB); its faces reached {:.0} blocks at the least, the far rays beginning at {:.0} at the end; a chunk meshed in {:.1} ms on {} threads; {came}; chunks still to come in {} of {} measured frames\n",
                     c.radius,
                     c.kept,
                     c.wanted,
@@ -383,6 +383,9 @@ impl Flight {
                     near.most_faces as f64 * 2.0 / 1e6,
                     c.faces as f64 * 2.0 / 1e6,
                     c.megabytes,
+                    c.light_kept,
+                    c.lit_chunks,
+                    c.light_megabytes,
                     near.least_reach,
                     c.far_from,
                     c.chunk_ms,

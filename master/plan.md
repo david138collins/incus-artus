@@ -601,7 +601,9 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
     - *Where light is kept, his word 2026-11-17* ("proceed with C", of three ways put to him with counts): **light
       kept only where it isn't plain daylight**, in one table on the card a face's pixel looks its cell up in (no
       entry: plain daylight), so faces carry no light and merge whatever it is; a small light picture round the eye
-      later, for moving lights only. Build 209 is faces turned away; build 210 this
+      later, for moving lights only. Build 209 is faces turned away; build 210 this, built: bricks of 8 x 8 x 8
+      cells behind a directory, in one buffer; off the screen the same picture as build 208's, 16 to 18% fewer faces
+      with the stage, the light 20 MB at 32 chunks of it and nothing on bare land; its flights' bracket to come
     - [ ] **Near light:** the near eye's own light, per face, blocky and quantised (the spec); placed lights in 16
           clear steps a block, coloured, flooding through air and stopped by walls, flickering; moving lights (a
           held lantern, effects); caves and interiors dark unless lit ("i want light to be precious")
