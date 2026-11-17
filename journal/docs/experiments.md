@@ -7898,3 +7898,37 @@ player's eye there, the view 100 degrees across facing north:
   on, and wasn't said. **On bare land the sky light splits nothing** (the land has no overhangs: every side is in
   plain daylight). With the stage, light splits make 23% more faces over 16 chunks (2.51 million for 2.05).
 - **Shade is where things are built or grown:** none of bare land's surface; a third of the stage's.
+
+### How light is kept: David chose the third way (2026-11-17); build 209's pass mark: faces turned away
+
+**Put to him** (the two ways Counsel named and a third of Builder's, with the counts above): A, a light picture
+round the eye; B, a strip of light beside each merged face; **C, light kept only where it isn't plain daylight**, in
+one table on the card that any face's pixel looks its cell up in (no entry: plain daylight), so faces carry no light
+and merge whatever it is, open land costs nothing, a torch rewrites a small patch and no chunk; with a small picture
+round the eye later for moving lights only. **His word: "proceed with C".** By the order he agreed, faces turned
+away comes first (this build), then C (build 210), then placed lights on it.
+
+**Found on reading the code for this build:** the near faces' pass has never dropped faces turned away at all (no
+culling was set on it): the card does their corners' work, then fills and tests their pixels too, shading any that
+get drawn before the face in front of them.
+
+**Build 209's mark:**
+
+1. **The card drops faces turned away** before filling them (the pass's own culling; the faces are already wound
+   one way). Not the water's tops: they're seen from under too.
+2. **A chunk's faces kept in six groups by the way they look** (north, east, up, west, south, down, in that order
+   on the card so groups that show together mostly lie together). **Each frame a group is listed only if some face
+   of it could look at the eye:** north-looking faces only where the eye is north of the chunk's south edge, and so
+   on; up-looking only where the eye is over the chunk's lowest face, down-looking under its highest. Exact: no face
+   that could show is ever left out. Groups that lie together go as one draw.
+3. **A switch that leaves both off:** `INCUS_NEAR_TURNED=0`, as build 208.
+
+**The mark:**
+
+- **Tests:** a chunk's faces come from the lane in the groups' order and their counts add up; for eyes inside,
+  beside, over and under chunks of the stage, every face in a group left out has the eye behind it.
+- **Pictures off the screen, the switch off against on, to the pixel** (the spawn, the stage's town, from high
+  looking down): nothing seen changes. (Only with the eye inside solid ground would it: said, not fixed.)
+- **Counts, off the screen:** faces sent to the card in a frame and draws listed, off and on, at 16 and 32 chunks;
+  the listing's own time on the processor, off, on and off in one run.
+- **The card's time:** a bracket of flights in one session (off, on, off), the TV in, read only against each other.

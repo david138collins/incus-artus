@@ -598,6 +598,10 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
       1 (sky light, build 208), **faces turned away** (below) and **where light is kept** (a light picture round
       the eye, or a strip of light beside each merged face, so faces merge whatever the light; Builder boils the two
       down first) come before step 2, placed lights, which are built on it
+    - *Where light is kept, his word 2026-11-17* ("proceed with C", of three ways put to him with counts): **light
+      kept only where it isn't plain daylight**, in one table on the card a face's pixel looks its cell up in (no
+      entry: plain daylight), so faces carry no light and merge whatever it is; a small light picture round the eye
+      later, for moving lights only. Build 209 is faces turned away; build 210 this
     - [ ] **Near light:** the near eye's own light, per face, blocky and quantised (the spec); placed lights in 16
           clear steps a block, coloured, flooding through air and stopped by walls, flickering; moving lights (a
           held lantern, effects); caves and interiors dark unless lit ("i want light to be precious")
