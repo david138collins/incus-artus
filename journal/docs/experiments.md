@@ -8441,3 +8441,35 @@ pictures to the pixel count, and a saving.
   saved (0.3 ms, build 212), because the far strip is at full size again, which is the point of the curve.
 - **Said to him before he looks:** the joins are hard edges in this build; squares fixed to the screen crawl; a
   near thing's edge against the sky is in its band's squares.
+
+### Build 214's pass mark: the bands fade into each other by a stipple
+
+**David's look at build 213** (launched at his "launch"; about three minutes; the log clean): no words on it yet
+but his answer to the next build's question. Put to him: the fades between bands as a dissolve (the coarse squares
+going see-through over the finer picture: smooth, a slight blur where two sizes overlap) or a stipple (the coarse
+squares switching off one by one in a fixed pattern, more the farther out: every pixel crisp, a little shimmer at
+the join as he moves, exact on water), with Builder leaning to the stipple. **His word: "lets try stippling".** The
+slider's name, his choice: **"Stipple width (share of the band)"**, in The near eye under "Detail up close".
+
+**Built so:**
+
+1. Over the last stretch of a coarse band's reach (the slider's share of it, a quarter to begin, none to a half) a
+   pixel of that band is drawn or left out by an ordered pattern of 4 x 4 of its own pixels (Bayer's): all of them
+   at the stretch's start, none at the band's end. Its faces and its water by the same rule.
+2. The band behind draws what's left out, as it does past the band's end (its faces by the mask, its water where
+   the nearer picture has nothing). A band behind now begins at half of where the stipple begins, so the margin
+   that keeps the join free of holes is as it was.
+3. The x-fader's hand-over to the far picture stays the dissolve he likes.
+4. At a width of 0 the frame is build 213's.
+
+**The mark:**
+
+- **Tests** all pass.
+- **Pictures off the screen:** at width 0, build 213's picture (but for run-to-run flips). At a quarter: no hole
+  on the ground (the near picture alone over magenta, against the whole picture: only the slivers at near edges
+  against the sky, as build 213); the stipple seen across each join, thinning outward; the sea the same across the
+  joins.
+- **Prices in one run** (width 0, a quarter, 0, a half, 0 at largest squares 4): the near passes and whole frames.
+- **Said to him before he looks:** the pattern is fixed to the screen, so it shimmers along a join as he moves.
+- **His look** decides whether the stipple stays, its width, and (still owed from build 213) the starting detail
+  and whether the curve is on from the start.
