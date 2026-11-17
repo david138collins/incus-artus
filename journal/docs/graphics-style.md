@@ -71,7 +71,29 @@ program isn't touched by any of it.
 - **The spec's "the 3D world at native resolution"** changes if he settles on half size. His older words point the
   same way: "a beautiful world, squinted" at about 640 × 480; "a DOS-game resolution where everything is there".
 
-## 5. To take it up
+## 5. Where it sits in the plan (as of 2026-11-17, build 209)
+
+David: "we'll probably have to keep moving after step six there, and come back to this when we have enough content
+to work on style."
+
+So the style changes nothing in the work under way. Graphics finish by his checklist of 2026-11-16 (`master/plan.md`,
+under 2.4), which stands as it is:
+
+1. Placed things in the far view: in (build 207).
+2. Near light: the sky's light in (build 208); faces turned away built, unflown (build 209: half as many faces sent
+   at 32 chunks); next, light kept only where it isn't plain daylight (build 210, his "proceed with C"); then placed
+   and moving lights.
+3. Glows and far lights.
+4. More textures (the bars' own pictures, the grass's edge, the stage's seven blocks).
+5. An assessment of a fine ring past the triangles.
+6. The near eye's own costs: listing chunks, a chunk with pieces, chunk optimizing where it would show.
+
+After step six we keep moving: Phase 3 in his order (tectonics; world generation, topography then water; the
+Registrar and the placer; ecology), then players, items and animals through the editor. The style pass comes after
+that, in Phase 4, once there's a healthy amount of content for a small slice of gameplay. Until then this note
+waits; the engine is kept so it can be come back to ("never welded shut", the plan's "What every step keeps").
+
+## 6. To take it up
 
 1. The smallest look, any time he asks: one switch, the world drawn at half size and enlarged crisp (the new last
    pass above), A/B on the Render page; its place and name asked first.

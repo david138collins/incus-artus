@@ -3050,6 +3050,9 @@ Reference: `Art/quartile minecraft illustration.png`
       rest is the colour work he does at the asset.
     - The whole style, with where each part sits in the frame's passes, is noted at his asking in
       `journal/docs/graphics-style.md`.
+    - **When it's taken up** (David, asking for the plan's place to be put in the note too): "we'll probably have to
+      keep moving after step six there, and come back to this when we have enough content to work on style." So
+      after his checklist's sixth item graphics are left, Phase 3 begins, and the style waits for the style pass.
 - *Read from the plan and the journal at builds 209's commits* (David now the go-between; Builder's records):
   **where light is kept, his word** "proceed with C", of three ways put to him with counts: light kept only where it
   isn't plain daylight, in one table on the card a face's pixel looks its cell up in (no entry: plain daylight), so
