@@ -2935,6 +2935,17 @@ Reference: `Art/quartile minecraft illustration.png`
   "blue noise" and "woven + blue noise" go with their controls, and the blue-noise picture if nothing else reads it;
   up to 92 instructions out of the march. In `journal/docs/march-by-parts.md` (candidate 3) and the plan's later
   look back.
+- *Build 207, item 1 of his checklist: placed things in the far view* (mark d04b382, code 3719fad; one flight down at
+  18:00, `logs/flight-1794873606`, `logs/session-1794873113.log`; checked by Counsel). A mark's whole blocks and
+  pieces are summed into the far cells (a cell of pieces as its main material, never air, old's rule), the regions
+  they touch summed again on a thread and put over what's on the card, the far textures, height table, light and the
+  16s' and 8s' rings made again. Off the screen: his build stands in the far picture (a small dark patch in the 8s'
+  cells from 290 blocks; mostly air, smaller than a cell there); the scatter of 10,000 a dark field; taken back, the
+  bare plain's picture to the pixel. 44 tests pass. In the game, at each of the eight standings with something placed,
+  the session log has "What's placed: 1 far regions summed again and put on the card" in 10.8 to 33.2 ms, 0.09 to 0.16
+  s after it was made; frames as before (medians 1.02 to 1.24 ms at those standings). Done enough to go on; his look
+  when he likes. Next: item 2, near light, its plan brought to him before code (how dark caves and interiors go is a
+  look of his).
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
