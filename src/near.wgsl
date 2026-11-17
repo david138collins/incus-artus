@@ -41,6 +41,7 @@ struct Band {
     // its pixels a side a pixel of the band just nearer than it is, and of the one before that (0: no such band).
     span: vec4<f32>,
     // x, y: how many pixels of the next band behind it a side a pixel of its own is, and of the one after (0: none).
+    // z: the share of its reach, at its far end, it thins out over by a stipple (build 214; 0: a hard edge).
     behind: vec4<f32>,
 }
 
@@ -254,6 +255,26 @@ fn out_of_band(corner: Corner) -> bool {
     return off > band.span.y || off < band.span.x;
 }
 
+// The stipple (build 214) [David, 2026-11-17: "lets try stippling"]: over the last stretch of a band's reach its
+// pixels are drawn or left out by an ordered pattern of 4 x 4 of its own pixels (Bayer's), all of them at the
+// stretch's start and none at the band's end, so the band thins out into the one behind it with every pixel crisp.
+// Whether this pixel is one left out.
+fn stippled_out(corner: Corner) -> bool {
+    if (band.behind.z <= 0.0) {
+        return false;
+    }
+    let left = (band.span.y - length(corner.from_eye)) / (band.span.y * band.behind.z);
+    if (left >= 1.0) {
+        return false;
+    }
+    // (Bayer's 4 x 4 from his 2 x 2, twice: 0, 2 / 3, 1.)
+    let at = vec2<u32>(corner.clip.xy);
+    let fine = at & vec2<u32>(1u);
+    let coarse = (at >> vec2<u32>(1u)) & vec2<u32>(1u);
+    let order = 4u * (((fine.x ^ fine.y) << 1u) | fine.y) + (((coarse.x ^ coarse.y) << 1u) | coarse.y);
+    return left <= (f32(order) + 0.5) / 16.0;
+}
+
 // Whether a nearer band's picture already has at least `covered` of this pixel (the water's test: any of it, so the
 // same water isn't laid on twice; a block's side under a nearer band's water is still drawn, and seen through it:
 // `near_mask.wgsl` leaves those out only where a nearer picture has all of the pixel).
@@ -277,7 +298,7 @@ fn near_face(corner: Corner) -> @location(0) vec4<f32> {
     let pictures = textureNumLayers(t_blocks);
     let picture = textureSample(t_blocks, crisp, corner.on_picture, min(which, pictures - 1u));
     // (What a nearer band's picture covers never gets here: the mask in the band's depth drops it first.)
-    if (out_of_band(corner)) {
+    if (out_of_band(corner) || stippled_out(corner)) {
         discard;
     }
     let shows = near_shows(corner.from_eye);
@@ -303,7 +324,7 @@ fn near_face(corner: Corner) -> @location(0) vec4<f32> {
 // through it), by how much water the eye looks through to the face behind.
 @fragment
 fn near_water(corner: Corner) -> @location(0) vec4<f32> {
-    if (out_of_band(corner) || nearer_has(corner, 0.001)) {
+    if (out_of_band(corner) || stippled_out(corner) || nearer_has(corner, 0.001)) {
         discard;
     }
     let shows = near_shows(corner.from_eye);

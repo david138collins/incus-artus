@@ -1927,6 +1927,10 @@ mod tests {
             if let Some(detail) = std::env::var("FAR_TEST_DETAIL").ok().and_then(|detail| detail.parse::<f32>().ok()) {
                 near.look.detail = detail;
             }
+            // (And the stipple's width, `FAR_TEST_STIPPLE`.)
+            if let Some(stipple) = std::env::var("FAR_TEST_STIPPLE").ok().and_then(|stipple| stipple.parse::<f32>().ok()) {
+                near.look.stipple = stipple;
+            }
             // (`FAR_TEST_GROUPS=0`: every group of a chunk's faces listed, the card's own dropping of faces turned away
             // left as it is: to see the listing's rule alone change nothing.)
             if std::env::var("FAR_TEST_GROUPS").as_deref() == Ok("0") {
@@ -2083,8 +2087,11 @@ mod tests {
         // pixels a side; the near eye's passes alone, and whole frames, each to the card's finish.
         if let (Some(near), true) = (&mut near, std::env::var_os("FAR_TEST_PIXELS").is_some()) {
             let as_it_was = near.look.pixel;
-            for pixel in [1, 4, 1, 2, 1] {
+            // (`FAR_TEST_PIXELS=stipple`: the stipple's widths priced instead, at the largest squares as set.)
+            let stipples = std::env::var("FAR_TEST_PIXELS").as_deref() == Ok("stipple");
+            for (pixel, stipple) in if stipples { [0.0, 0.25, 0.0, 0.5, 0.0].map(|width| (as_it_was, width)) } else { [1, 4, 1, 2, 1].map(|pixel| (pixel, near.look.stipple)) } {
                 near.look.pixel = pixel;
+                near.look.stipple = stipple;
                 let frames_timed = 300;
                 device.poll(wgpu::PollType::wait_indefinitely()).expect("the card finished");
                 let alone = std::time::Instant::now();
@@ -2109,7 +2116,7 @@ mod tests {
                     queue.submit([encoder.finish()]);
                 }
                 device.poll(wgpu::PollType::wait_indefinitely()).expect("the card finished");
-                eprintln!("Near pixel size {pixel}: the near passes alone {alone:.0} millionths of a second a frame; a whole frame {:.0}", whole.elapsed().as_secs_f64() * 1e6 / frames_timed as f64);
+                eprintln!("Near pixel size {pixel}, stipple {stipple}: the near passes alone {alone:.0} millionths of a second a frame; a whole frame {:.0}", whole.elapsed().as_secs_f64() * 1e6 / frames_timed as f64);
             }
             near.look.pixel = as_it_was;
         }

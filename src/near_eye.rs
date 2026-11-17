@@ -30,8 +30,9 @@ const FACES_A_FRAME: usize = 350_000;
 const LIGHT_SIDE: i32 = 256;
 const LIGHT_DIRECTORY: u64 = (LIGHT_SIDE * LIGHT_SIDE * 2) as u64;
 const LIGHT_FIRST: u64 = 1 << 20;
-/// The least and most of the detail curve's near number, blocks.
+/// The least and most of the detail curve's near number, blocks; and the most of a band's reach its stipple takes.
 pub const DETAILS: (f32, f32) = (0.0625, 1.0);
+pub const MOST_STIPPLE: f32 = 0.5;
 
 /// The near eye's bands by the detail curve (build 213), the nearest first: each its squares' side in screen pixels,
 /// the distance from the eye (true, not level) nearer than which it draws nothing, and the distance it draws to.
@@ -40,15 +41,17 @@ pub const DETAILS: (f32, f32) = (0.0625, 1.0);
 /// are the power of two nearest that (4 down to where it's 2.83, 2 to 1.41, then 1): so 4 x 4 squares reach to
 /// a P / sqrt(7), 2 x 2 to a P. `largest`: 1 (one band, as before the curve), 2 or 4; `a`: the curve's near number,
 /// blocks; `p`: the pixels a block one block away is tall (the picture's height over twice the tangent of half the
-/// field of view). A band begins at half the reach of the band nearer than it, so the two overlap and the farther
+/// field of view). `stipple`: the share of a coarse band's reach, at its far end, it thins out over (build 214). A
+/// band begins at half of where the stipple of the band nearer than it begins, so the two overlap and the farther
 /// one can leave out what the nearer one's picture covers without a gap.
-pub fn bands_of(largest: u32, a: f32, p: f32) -> Vec<(u32, f32, f32)> {
+pub fn bands_of(largest: u32, a: f32, p: f32, stipple: f32) -> Vec<(u32, f32, f32)> {
     let a = a.clamp(DETAILS.0, DETAILS.1);
     let reach = |square: f32| a * p / (square * square / 2.0 - 1.0).sqrt();
+    let behind = |square: f32| reach(square) * (1.0 - stipple.clamp(0.0, MOST_STIPPLE)) / 2.0;
     match largest {
         0 | 1 => vec![(1, 0.0, f32::MAX)],
-        2 | 3 => vec![(2, 0.0, reach(2.0)), (1, reach(2.0) / 2.0, f32::MAX)],
-        _ => vec![(4, 0.0, reach(4.0)), (2, reach(4.0) / 2.0, reach(2.0)), (1, reach(2.0) / 2.0, f32::MAX)],
+        2 | 3 => vec![(2, 0.0, reach(2.0)), (1, behind(2.0), f32::MAX)],
+        _ => vec![(4, 0.0, reach(4.0)), (2, behind(4.0), reach(2.0)), (1, behind(2.0), f32::MAX)],
     }
 }
 
@@ -75,12 +78,16 @@ pub struct NearLook {
     /// the smallest thing drawn up close, a fraction of a block [David, 2026-11-17: "a sort of linear equivalence of
     /// detail from the back if your hand towards infinity ... a formula with a single flexture"].
     pub detail: f32,
+    /// How much of a coarse band's reach, at its far end, it thins out over by a stipple, so it fades into the band
+    /// behind (the Render page's "Stipple width (share of the band)", build 214; 0 a hard edge, to a half) [David,
+    /// 2026-11-17, of a dissolve or a stipple: "lets try stippling"; the slider's name his choice].
+    pub stipple: f32,
 }
 
 impl NearLook {
     /// [David, 2026-11-16, asked by Counsel "Make your crossfade settings, 128 wide and curve 1, the defaults?":
     /// "yes, and 32 chunk radius."]
-    pub const DEFAULT: Self = Self { radius: RADIUS, fader_width: 128.0, fader_curve: 1.0, pixel: 1, detail: 0.25 };
+    pub const DEFAULT: Self = Self { radius: RADIUS, fader_width: 128.0, fader_curve: 1.0, pixel: 1, detail: 0.25, stipple: 0.25 };
 }
 
 /// One of the near eye's pictures (build 213): a band of distance from the eye, drawn in squares of `pixel` screen
@@ -708,7 +715,7 @@ impl NearEye {
         // The bands by the detail curve: their squares' sizes, and where each begins and ends this frame (from the
         // slider's a, the picture's height and the field of view).
         let per_block = screen.1.max(1) as f32 / (2.0 * camera.tan_half());
-        let spans = bands_of(self.look.pixel, self.look.detail, per_block);
+        let spans = bands_of(self.look.pixel, self.look.detail, per_block, self.look.stipple);
         let pixels: Vec<u32> = spans.iter().map(|span| span.0).collect();
         if self.bands_for.as_ref().is_none_or(|(made, size)| *made != pixels || *size != screen) {
             // Each band's picture and depth, a half or a quarter of the screen each way where its squares are 2 or 4
@@ -786,7 +793,8 @@ impl NearEye {
         // pixel is bigger, and as the field of view is wider than the 100 degrees the hair was sized at, so it
         // stays the same share of a pixel); where it begins and ends, and how many of its pixels a side a pixel of
         // each of the two bands nearer than it is; and how many of each of the two bands behind it's a pixel of
-        // its own is.
+        // its own is, with the share of its reach its stipple takes (none for the farthest band, which the x-fader
+        // hands over to the far picture).
         let wide = camera.tan_half() / (crate::camera::FIELD_OF_VIEW.to_radians() / 2.0).tan();
         for (k, band) in self.bands.iter().enumerate() {
             let pixel = band.pixel as f32;
@@ -794,7 +802,7 @@ impl NearEye {
             let numbers = [
                 [screen.0.max(1) as f32 / (band.size.0 * band.pixel) as f32, screen.1.max(1) as f32 / (band.size.1 * band.pixel) as f32, pixel, pixel * wide],
                 [spans[k].1, spans[k].2.min(1e30), ratio(k.checked_sub(1).and_then(|at| pixels.get(at)), true), ratio(k.checked_sub(2).and_then(|at| pixels.get(at)), true)],
-                [ratio(pixels.get(k + 1), false), ratio(pixels.get(k + 2), false), 0.0, 0.0],
+                [ratio(pixels.get(k + 1), false), ratio(pixels.get(k + 2), false), if k + 1 < pixels.len() { self.look.stipple.clamp(0.0, MOST_STIPPLE) } else { 0.0 }, 0.0],
             ];
             queue.write_buffer(&band.numbers, 0, &numbers.iter().flatten().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
         }

@@ -8473,3 +8473,26 @@ slider's name, his choice: **"Stipple width (share of the band)"**, in The near 
 - **Said to him before he looks:** the pattern is fixed to the screen, so it shimmers along a join as he moves.
 - **His look** decides whether the stipple stays, its width, and (still owed from build 213) the starting detail
   and whether the curve is on from the start.
+
+### Build 214 built (unflown): the bands' stipple; checked off the screen
+
+**Built as the mark says** (`near.wgsl`: `stippled_out`; `near_eye.rs`: `bands_of` takes the stipple's width,
+`NearLook::stipple`; `panel.rs`: "Stipple width (share of the band)"): over the last stretch of a coarse band's
+reach a pixel of it is drawn if what's left of the stretch there is more than its place in Bayer's 4 x 4 pattern
+(of the band's own pixels), its faces and its water alike; the band behind begins at half of where the stipple
+begins.
+
+**Against the mark, off the screen (largest squares 4, a = 1/4):**
+
+- **Tests:** all 47 pass.
+- **At width 0, build 213's picture:** to the pixel on the ground at the spawn and from a low eye (0 pixels of 1.6
+  million); low over the sea 619 pixels by 1 of 255 (flips).
+- **At a quarter, no hole on the ground:** the near picture alone over magenta against the whole picture: 751
+  pixels on the ground, 794 from a low eye (fewer than the hard edges' 833 and 863), all on near edges against
+  the sky as before; low over the sea 0.
+- **The look:** across each join the squares thin out into the finer ones behind with no line; the sea and its
+  shore the same across the joins.
+- **Prices in one run** (the spawn, 32 chunks, 2,560 by 1,600; width 0, a quarter, 0, a half, 0; ms a frame): a
+  whole frame 1.56, **1.57**, 1.60, **1.58**, 1.57; the near passes alone 1.02, 1.03, 0.90, 0.90, 0.89 (falling
+  through the run either way). **The stipple costs nothing that shows.**
+- **Said to him before he looks:** the pattern is fixed to the screen, so it shimmers along a join as he moves.
