@@ -35,6 +35,10 @@ struct Near {
     // hidden face won a pixel now and then, and which one differed from run to run]); w: how far ahead "nothing
     // behind" is taken to be, for the water.
     reach: vec4<f32>,
+    // The near picture (build 212): x, y how much of it the screen takes, across and down (1, or a little less where
+    // a half or a quarter of the screen was rounded up); z its pixel's side in screen pixels (1, 2 or 4); w how much
+    // a face's hair is grown by (1 at the screen's own size and 100 degrees of view).
+    picture: vec4<f32>,
 }
 
 // How much wider than its cells a face is drawn all round, for each block of its distance from the eye (`near_corner`).
@@ -99,7 +103,8 @@ fn near_corner(@builtin(vertex_index) corner: u32, @location(0) face: vec3<u32>)
     // corners on its fine grid, can leave a pixel between them that neither covers: with the far eye's sky behind,
     // white dots that flicker as the eye moves [David, 2026-11-16, build 199: "i notice speckling white dots of sky
     // when looking down and moving"]. So neighbours overlap by that hair.
-    let hair = length(exact) * HAIR;
+    // (As much wider again on a coarser picture or a wider view, so the overlap stays the same share of its pixel.)
+    let hair = length(exact) * HAIR * near.picture.w;
     let from_eye = exact + spread_a * (u * 2.0 - 1.0) * hair + spread_b * (v * 2.0 - 1.0) * hair;
     // The far eye's own view: a pixel's ray is forward + x right + y up, so a place's x and y are its share of right
     // and up over how far ahead it is.
@@ -107,7 +112,8 @@ fn near_corner(@builtin(vertex_index) corner: u32, @location(0) face: vec3<u32>)
     let x = dot(from_eye, camera.right.xyz) / dot(camera.right.xyz, camera.right.xyz);
     let y = dot(from_eye, camera.up.xyz) / dot(camera.up.xyz, camera.up.xyz);
     var corner_out: Corner;
-    corner_out.clip = vec4<f32>(x, y, near.reach.z, ahead);
+    // (On a picture a little bigger than the screen, the screen is its top left part.)
+    corner_out.clip = vec4<f32>(x * near.picture.x + ahead * (near.picture.x - 1.0), y * near.picture.y + ahead * (1.0 - near.picture.y), near.reach.z, ahead);
     corner_out.from_eye = from_eye;
     // The cell it looks into, along the way it looks: the next past its own (in half blocks, the block that holds it).
     let own = vec3<i32>(i32(face.x & 63u), i32((face.x >> 6u) & 63u), i32(((face.x >> 12u) & 1023u) | (((face.y >> 26u) & 1u) << 10u)));

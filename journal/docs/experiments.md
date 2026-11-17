@@ -8280,3 +8280,46 @@ measured (a third to nearly a half off the near passes at half size).
 - **Said to him before he looks:** squares fixed to the screen crawl over near surfaces as the eye moves, worst
   close up; whether that reads as style or as a flaw is his eye's.
 - **His look decides** whether it stays, and at what size.
+
+### Build 212 built (unflown): "Near pixel size", and the field of view on the Camera page; checked off the screen
+
+**Added to the mark as it was being built, David's words (2026-11-17):** "ah btw, i think we need to add FOV and
+Panini under camera again. it helps for me to be able to set low FOV and zoom into seams to inspect". Told the field
+of view could go into this build and that Panini wants a talk first (old's was a pass over the finished picture,
+which re-samples it and pulls against a fixed grid of squares; the other way bends the far rays and warps only the
+near picture, and the march has no room): "ok, fov for now, we can talk about some kind of panini or donut flex
+that compensates for higher fov. it was good last time." So: **the field of view on the Camera page, "Field of
+view (degrees, up and down)", 5 to 130, 100 at the start, the page's Default putting it back; its mark: at 100 the
+picture unchanged, at 20 and 130 the faces reach the picture's edges and nothing is missing.** Panini is kept for
+that talk (the spec has it decided: 100 degrees with Panini on).
+
+**Built** (`near_eye.rs`, `near.wgsl`, `near_join.wgsl`, `near_cover.wgsl`, `panel.rs`, `camera.rs`): the near
+picture and its depth made at the screen's size over the slider's 1, 2 or 4 (rounded up; the corners placed so the
+screen is the picture's top left part); the x-fader reads it at a pixel over that size; the cover reads the near
+pixels under each far pixel at their own size; a face's hair grown by the pixel's size and by the field of view,
+so it stays the same share of a pixel. The camera carries its field of view; the far eye's view and the near
+eye's listing take it from there.
+
+**Against the mark, off the screen (the stage on):**
+
+- **Tests:** all 47 pass.
+- **Squares, counted** (the picture's lowest third, on the screen's own grid): at 1, 71% and 43% of 2 x 2 squares
+  are one colour at the two views; **at 2, every one of 133,600; at 4, every 4 x 4 square of 33,600.**
+- **Pictures:** at 2 the view from high is the same scene in squares, the far view and the x-fader's band as at 1,
+  no patch of sky, no white dots. At 4 the near ground's pictures come out soft, not noisy (the card reads a
+  shrunk size of each block's picture for a bigger pixel). At 1 with the field of view at 100, the picture as
+  before the slider (81 pixels of 1.6 million, the run-to-run flips); at 20 a zoom, at 130 wide, faces to the
+  edges.
+- **Prices in one run each** (32 chunks, 2,560 by 1,600; sizes 1, 2, 1, 4, 1; ms a frame):
+
+  | | the near passes alone | a whole frame |
+  |---|---|---|
+  | the spawn, size 1 | 1.39, 1.05, 1.03 | 1.75, 1.71, 1.66 |
+  | the spawn, size 2 | **0.87** | **1.40** |
+  | the spawn, size 4 | 0.72 | 1.34 |
+  | high over the spawn, size 1 | 1.28, 0.92, 0.90 | 1.12, 1.13, 1.07 |
+  | high over the spawn, size 2 | **0.60** | **0.82** |
+  | high over the spawn, size 4 | 0.46 | 0.59 |
+
+  **At 2 a whole frame is about 0.3 ms shorter at both views** (a fifth to a quarter); at 4, 0.35 to 0.5.
+- **Said to him before he looks:** squares fixed to the screen crawl over near surfaces as the eye moves.

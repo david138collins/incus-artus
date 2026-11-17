@@ -43,12 +43,18 @@ pub struct NearLook {
     pub radius: f32,
     pub fader_width: f32,
     pub fader_curve: f32,
+    /// The near picture's pixel's side in screen pixels (the Render page's "Near pixel size", build 212): 1, the
+    /// screen's own; 2 or 4, the near eye drawn at a half or a quarter of the screen each way and laid over the far
+    /// picture in squares, on the far eye's tiles' grid [David, 2026-11-17, of the near view at half size "like it
+    /// would be for the whole grid on the glass that the triangles and march share"; the control's place and name
+    /// his choices].
+    pub pixel: u32,
 }
 
 impl NearLook {
     /// [David, 2026-11-16, asked by Counsel "Make your crossfade settings, 128 wide and curve 1, the defaults?":
     /// "yes, and 32 chunk radius."]
-    pub const DEFAULT: Self = Self { radius: RADIUS, fader_width: 128.0, fader_curve: 1.0 };
+    pub const DEFAULT: Self = Self { radius: RADIUS, fader_width: 128.0, fader_curve: 1.0, pixel: 1 };
 }
 
 /// The near eye's own pictures, the screen's size: its colour (each pixel multiplied by how much of it shows) and its
@@ -58,7 +64,9 @@ struct Pictures {
     depth: wgpu::TextureView,
     depth_group: wgpu::BindGroup,
     join_group: wgpu::BindGroup,
+    /// Its size in its own pixels, and its pixel's side in screen pixels (1, 2 or 4).
     size: (u32, u32),
+    pixel: u32,
 }
 
 /// A chunk on the card: its page, where its faces begin there and how many (the blocks' sides in their groups by the
@@ -166,6 +174,8 @@ pub struct NearEye {
     /// The x-fader's pass, and what its group is made by; the picture's format; the near eye's own pictures.
     join: wgpu::RenderPipeline,
     join_layout: wgpu::BindGroupLayout,
+    /// The x-fader's number: the near picture's pixel's side in screen pixels.
+    join_numbers: wgpu::Buffer,
     format: wgpu::TextureFormat,
     pictures: Option<Pictures>,
     /// The cover pass (build 201): its program, what its group is made by, its numbers (the far layers' sizes), and
@@ -283,8 +293,9 @@ impl NearEye {
         let join_module = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some("the x-fader"), source: wgpu::ShaderSource::Wgsl(include_str!("near_join.wgsl").into()) });
         let join_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("the x-fader"),
-            entries: &[wgpu::BindGroupLayoutEntry { binding: 0, visibility: fragment, ty: wgpu::BindingType::Texture { sample_type: wgpu::TextureSampleType::Float { filterable: false }, view_dimension: wgpu::TextureViewDimension::D2, multisampled: false }, count: None }],
+            entries: &[wgpu::BindGroupLayoutEntry { binding: 0, visibility: fragment, ty: wgpu::BindingType::Texture { sample_type: wgpu::TextureSampleType::Float { filterable: false }, view_dimension: wgpu::TextureViewDimension::D2, multisampled: false }, count: None }, uniform(1, fragment)],
         });
+        let join_numbers = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the x-fader's number"), size: 16, usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let join_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor { label: Some("the x-fader"), bind_group_layouts: &[Some(&join_layout)], immediate_size: 0 });
         let join = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("the x-fader"),
@@ -313,7 +324,7 @@ impl NearEye {
         let cover_pass = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("near_cover"), layout: Some(&cover_pipeline_layout), module: &cover_module, entry_point: Some("near_cover"), compilation_options: Default::default(), cache: None });
         let cover_sampler = device.create_sampler(&wgpu::SamplerDescriptor { label: Some("the near cover's four at a time"), ..Default::default() });
         let cover_sizes = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the near cover's numbers"), size: 64, usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
-        let numbers = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the near eye's numbers"), size: 48, usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
+        let numbers = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the near eye's numbers"), size: 64, usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let colour_bytes: Vec<u8> = colours.iter().flatten().flat_map(|v| v.to_le_bytes()).collect();
         let colours = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the blocks' colours from far"), size: colour_bytes.len().max(32) as u64, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         queue.write_buffer(&colours, 0, &colour_bytes);
@@ -358,7 +369,7 @@ impl NearEye {
         });
         let radius = std::env::var("INCUS_NEAR_RADIUS").ok().and_then(|r| r.parse::<f32>().ok()).map_or(RADIUS, |r| r.clamp(1.0, MOST_RADIUS));
         log::info!("The near eye: faces as triangles within a render radius of {radius} chunks ({} blocks), its lane on {threads} threads", radius * CHUNK as f32);
-        Ok(Self { lane, look: NearLook { radius, ..NearLook::DEFAULT }, chunks: HashMap::new(), pages: Vec::new(), asked: None, want: Vec::new(), first_to_come: 0, touched: HashSet::new(), need: HashMap::new(), remake: HashSet::new(), waiting: Default::default(), recent_ms: Default::default(), faces, water, layout, depth_layout, group: None, numbers, colours, blocks_view, crisp, textured, light, turned, join, join_layout, format, pictures: None, cover_pass, cover_layout, cover_sizes, cover_sampler, cover_group: None, draws, drawn: Vec::new(), drawn_water: Vec::new(), counts: Counts { threads, ..Default::default() } })
+        Ok(Self { lane, look: NearLook { radius, ..NearLook::DEFAULT }, chunks: HashMap::new(), pages: Vec::new(), asked: None, want: Vec::new(), first_to_come: 0, touched: HashSet::new(), need: HashMap::new(), remake: HashSet::new(), waiting: Default::default(), recent_ms: Default::default(), faces, water, layout, depth_layout, group: None, numbers, colours, blocks_view, crisp, textured, light, turned, join, join_layout, join_numbers, format, pictures: None, cover_pass, cover_layout, cover_sizes, cover_sampler, cover_group: None, draws, drawn: Vec::new(), drawn_water: Vec::new(), counts: Counts { threads, ..Default::default() } })
     }
 
     /// Room for `count` faces: a page and where in it (a free stretch that holds them, the first found; a new page
@@ -629,11 +640,19 @@ impl NearEye {
             });
             self.group = Some((group, made_from));
         }
-        if self.pictures.as_ref().is_none_or(|pictures| pictures.size != screen) {
+        // The near picture's size: the screen's, or a half or a quarter of it each way (rounded up, so the picture
+        // covers the screen; its pixels are squares of screen pixels counted from the screen's top left corner).
+        let pixel = match self.look.pixel {
+            0 | 1 => 1,
+            2 | 3 => 2,
+            _ => 4,
+        };
+        let size = (screen.0.max(1).div_ceil(pixel), screen.1.max(1).div_ceil(pixel));
+        if self.pictures.as_ref().is_none_or(|pictures| pictures.size != size || pictures.pixel != pixel) {
             let made = |label: &'static str, format: wgpu::TextureFormat| {
                 let texture = device.create_texture(&wgpu::TextureDescriptor {
                     label: Some(label),
-                    size: wgpu::Extent3d { width: screen.0.max(1), height: screen.1.max(1), depth_or_array_layers: 1 },
+                    size: wgpu::Extent3d { width: size.0, height: size.1, depth_or_array_layers: 1 },
                     mip_level_count: 1,
                     sample_count: 1,
                     dimension: wgpu::TextureDimension::D2,
@@ -646,17 +665,29 @@ impl NearEye {
             let colour = made("the near picture", self.format);
             let depth = made("the near eye's depth", wgpu::TextureFormat::Depth32Float);
             let depth_group = device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("the near eye's depth, for its water"), layout: &self.depth_layout, entries: &[wgpu::BindGroupEntry { binding: 0, resource: wgpu::BindingResource::TextureView(&depth) }] });
-            let join_group = device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("the x-fader"), layout: &self.join_layout, entries: &[wgpu::BindGroupEntry { binding: 0, resource: wgpu::BindingResource::TextureView(&colour) }] });
-            self.pictures = Some(Pictures { colour, depth, depth_group, join_group, size: screen });
+            let join_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("the x-fader"),
+                layout: &self.join_layout,
+                entries: &[wgpu::BindGroupEntry { binding: 0, resource: wgpu::BindingResource::TextureView(&colour) }, wgpu::BindGroupEntry { binding: 1, resource: self.join_numbers.as_entire_binding() }],
+            });
+            queue.write_buffer(&self.join_numbers, 0, &[pixel, 0, 0, 0].iter().flat_map(|v: &u32| v.to_le_bytes()).collect::<Vec<u8>>());
+            self.pictures = Some(Pictures { colour, depth, depth_group, join_group, size, pixel });
+            // (The cover reads the picture: its group is made again.)
+            self.cover_group = None;
         }
         // The numbers: the eye's block and how far into it the eye is (and the x-fader's curve); the reach, the
         // x-fader's band and the depths.
         let eye = [camera.position.x, camera.position.y, camera.position.z];
         let cell = eye.map(|v| v.floor());
-        let mut bytes: Vec<u8> = Vec::with_capacity(48);
+        let mut bytes: Vec<u8> = Vec::with_capacity(64);
         bytes.extend(cell.iter().map(|v| *v as i32).chain([self.textured as i32 | (crate::near::light_on() as i32) << 1 | ((crate::near::lit() == crate::near::Lit::Kept) as i32) << 2]).flat_map(|v| v.to_le_bytes()));
         bytes.extend((0..3).map(|k| eye[k] - cell[k]).chain([self.look.fader_curve.clamp(1.0, MOST_FADER_CURVE)]).flat_map(|v| v.to_le_bytes()));
         bytes.extend([self.counts.reach, band_of(self.look.fader_width, self.counts.reach), DEPTHS[0], DEPTHS[1]].iter().flat_map(|v| v.to_le_bytes()));
+        // The near picture: how much of it the screen takes, across and down (all of it but for a rounding up); its
+        // pixel's side in screen pixels; and how much a face's hair is grown by: as much as its pixel is bigger, and as
+        // the field of view is wider than the 100 degrees the hair was sized at (so it stays the same share of a pixel).
+        let hair = pixel as f32 * camera.tan_half() / (crate::camera::FIELD_OF_VIEW.to_radians() / 2.0).tan();
+        bytes.extend([screen.0.max(1) as f32 / (size.0 * pixel) as f32, screen.1.max(1) as f32 / (size.1 * pixel) as f32, pixel as f32, hair].iter().flat_map(|v| v.to_le_bytes()));
         queue.write_buffer(&self.numbers, 0, &bytes);
         // The chunks in view, a page after another: each a draw of its faces.
         let view = View::of(camera, screen);
@@ -762,7 +793,7 @@ impl NearEye {
     pub fn cover(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, encoder: &mut wgpu::CommandEncoder, far: &FarEye, timestamps: Option<wgpu::ComputePassTimestampWrites<'_>>) -> bool {
         let (Some(pictures), Some((words, sizes, side, made))) = (&self.pictures, far.cover_writes()) else { return false };
         if self.cover_group.as_ref().is_none_or(|(_, from, size)| *from != made || *size != pictures.size) {
-            let numbers: Vec<u8> = [[sizes[0].0, sizes[0].1, side, 0], [sizes[1].0, sizes[1].1, 0, 0], [sizes[2].0, sizes[2].1, 0, 0], [pictures.size.0, pictures.size.1, 0, 0]].iter().flatten().flat_map(|v| v.to_le_bytes()).collect();
+            let numbers: Vec<u8> = [[sizes[0].0, sizes[0].1, side, 0], [sizes[1].0, sizes[1].1, 0, 0], [sizes[2].0, sizes[2].1, 0, 0], [pictures.size.0, pictures.size.1, pictures.pixel, 0]].iter().flatten().flat_map(|v| v.to_le_bytes()).collect();
             queue.write_buffer(&self.cover_sizes, 0, &numbers);
             let group = device.create_bind_group(&wgpu::BindGroupDescriptor {
                 label: Some("the near cover"),
@@ -814,7 +845,7 @@ impl View {
         let forward = [pitch.cos() * facing.cos(), pitch.cos() * facing.sin(), pitch.sin()];
         let right = [-facing.sin(), facing.cos(), 0.0];
         let up = [-pitch.sin() * facing.cos(), -pitch.sin() * facing.sin(), pitch.cos()];
-        let tan_up = (crate::far_eye::FIELD_OF_VIEW.to_radians() / 2.0).tan();
+        let tan_up = camera.tan_half();
         let tan_across = tan_up * screen.0 as f32 / screen.1.max(1) as f32;
         let side = |way: [f32; 3], sign: f32, tan: f32| -> [f32; 3] { std::array::from_fn(|k| sign * way[k] - tan * forward[k]) };
         Self { eye: [camera.position.x, camera.position.y, camera.position.z], sides: [side(right, 1.0, tan_across), side(right, -1.0, tan_across), side(up, 1.0, tan_up), side(up, -1.0, tan_up), forward.map(|v| -v)] }

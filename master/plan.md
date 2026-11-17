@@ -630,6 +630,13 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
           (`INCUS_FAR_RING_SIDE`); three times wider costs about 200 MB, 35 s to make the 16s from nothing, and 0.4
           to 1.1 ms a frame. Next, after his look: a narrow band at the seam that begins under the x-fader and
           follows the render radius, hollow, priced at 64 chunks too; his eye decides how much
+    - [ ] **The near picture on squares** ("Near pixel size" in The near eye: 1, 2 or 4; his "i agree", its place
+          and name his choices, 2026-11-17): build 212, built: at 2 the near view is drawn at half size and laid
+          over in 2 x 2 squares on the far eye's own grid, a whole frame about 0.3 ms shorter off the screen; his
+          look decides whether it stays and at what size. With it, **the field of view on the Camera page** (5 to
+          130 degrees), for zooming into seams. **Panini, or another flex that makes up for a wide field of view,
+          is owed a talk** (his word: "we can talk about some kind of panini or donut flex that compensates for
+          higher fov. it was good last time"; the spec has Panini decided)
     - [ ] **Listing chunks:** the near eye's processor time is all in listing the chunks in view (0.15 to 0.27 ms a
           frame at 32 chunks, about 1 ms at 64)
     - [x] **Faces turned away** from the eye left out: build 209 (ff0c6b2), the card drops them and a chunk's

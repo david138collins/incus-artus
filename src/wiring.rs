@@ -638,7 +638,7 @@ pub const STORES: [Store; 25] = [
         id: StoreId::NearPicture,
         name: "the near picture",
         on: Where::Card,
-        what: "The near eye's own picture and depth, the screen's size: every face whole, the nearest winning a pixel, the water over them; each pixel multiplied by how much of it shows, for the x-fader to lay over the far picture.",
+        what: "The near eye's own picture and depth, the screen's size (or a half or a quarter of it each way: the Render page's \"Near pixel size\", build 212; then the x-fader lays it over in squares of 2 x 2 or 4 x 4 screen pixels): every face whole, the nearest winning a pixel, the water over them; each pixel multiplied by how much of it shows, for the x-fader to lay over the far picture.",
         limits: &[("blocks the x-fader's band goes to", crate::near_eye::MOST_FADER_WIDTH as u64)],
         files: &["src/near_eye.rs"],
     },

@@ -4,6 +4,9 @@
 // over what the far eye drew.
 
 @group(0) @binding(0) var t_near: texture_2d<f32>;
+// x: the near picture's pixel's side in screen pixels (1, 2 or 4: build 212). Each of its pixels is laid over as a
+// square that size, counted from the screen's top left corner (the far eye's tiles' corner), with no smoothing.
+@group(0) @binding(1) var<uniform> pixel: vec4<u32>;
 
 // One triangle over the whole screen.
 @vertex
@@ -13,5 +16,5 @@ fn near_whole(@builtin(vertex_index) k: u32) -> @builtin(position) vec4<f32> {
 
 @fragment
 fn near_over(@builtin(position) at: vec4<f32>) -> @location(0) vec4<f32> {
-    return textureLoad(t_near, vec2<i32>(at.xy), 0);
+    return textureLoad(t_near, vec2<i32>(vec2<u32>(at.xy) / max(pixel.x, 1u)), 0);
 }

@@ -23,8 +23,6 @@ pub const LAYERS: [f32; 3] = [8.0, 4.0, 2.0];
 const TILE: u32 = 8;
 /// The farthest a ray goes (blocks).
 const REACH: f32 = 150_000.0;
-/// The field of view, up and down (degrees): old's dyno camera's.
-pub const FIELD_OF_VIEW: f32 = 100.0;
 /// The sky's share of a face's light by day (old's).
 const AMBIENT: f32 = 0.35;
 /// Sky light: strength and tint (old's).
@@ -1227,7 +1225,7 @@ impl FarEye {
         let forward = [pitch.cos() * facing.cos(), pitch.cos() * facing.sin(), pitch.sin()];
         let right = [-facing.sin(), facing.cos(), 0.0];
         let up = [-pitch.sin() * facing.cos(), -pitch.sin() * facing.sin(), pitch.cos()];
-        let tan_half = (FIELD_OF_VIEW.to_radians() / 2.0).tan();
+        let tan_half = camera.tan_half();
         let aspect = screen.0 as f32 / screen.1.max(1) as f32;
         let screen_pixel = 2.0 * tan_half / screen.1.max(1) as f32;
         let look = self.look;
@@ -1781,6 +1779,10 @@ mod tests {
         // From the spawn, or another mark if asked (`FAR_TEST_MARK`, its name, for a look).
         let mark = std::env::var("FAR_TEST_MARK").ok().and_then(|name| marks.iter().find(|m| m.name == name)).unwrap_or(&marks[0]);
         let mut camera = Camera::new();
+        // The field of view, if asked (`FAR_TEST_FOV`, degrees up and down).
+        if let Some(fov) = std::env::var("FAR_TEST_FOV").ok().and_then(|fov| fov.parse::<f32>().ok()) {
+            camera.fov = fov;
+        }
         camera.position = crate::marks::eye(&doorway, mark).unwrap();
         camera.facing = mark.facing;
         camera.pitch = mark.pitch;
@@ -1916,6 +1918,10 @@ mod tests {
             let fader: Vec<f32> = std::env::var("FAR_TEST_FADER").ok().map(|v| v.split(',').filter_map(|n| n.trim().parse().ok()).collect()).unwrap_or_default();
             if fader.len() == 2 {
                 (near.look.fader_width, near.look.fader_curve) = (fader[0], fader[1]);
+            }
+            // The near picture's pixel, if asked (`FAR_TEST_NEAR_PIXEL`: 1, 2 or 4).
+            if let Some(pixel) = std::env::var("FAR_TEST_NEAR_PIXEL").ok().and_then(|pixel| pixel.parse::<u32>().ok()) {
+                near.look.pixel = pixel;
             }
             // (`FAR_TEST_GROUPS=0`: every group of a chunk's faces listed, the card's own dropping of faces turned away
             // left as it is: to see the listing's rule alone change nothing.)
@@ -2068,6 +2074,40 @@ mod tests {
                 eprintln!("The listing, groups turned away {}: {each:.0} millionths of a second a frame; {} chunks, {} draws, {} faces sent of {} kept", if on { "left out" } else { "listed" }, near.counts.drawn, near.counts.draws, near.counts.faces_drawn, near.counts.faces);
             }
             near.turned = as_it_was;
+        }
+        // The near picture's sizes priced in this one run, if asked (`FAR_TEST_PIXELS`): its pixel 1, 2, 1, 4, 1 screen
+        // pixels a side; the near eye's passes alone, and whole frames, each to the card's finish.
+        if let (Some(near), true) = (&mut near, std::env::var_os("FAR_TEST_PIXELS").is_some()) {
+            let as_it_was = near.look.pixel;
+            for pixel in [1, 2, 1, 4, 1] {
+                near.look.pixel = pixel;
+                let frames_timed = 300;
+                device.poll(wgpu::PollType::wait_indefinitely()).expect("the card finished");
+                let alone = std::time::Instant::now();
+                for _ in 0..frames_timed {
+                    let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("the near eye alone") });
+                    near.prepare(&device, &queue, screen, &eye, &camera);
+                    near.draw_faces(&mut encoder, None);
+                    near.draw_water(&mut encoder, None);
+                    queue.submit([encoder.finish()]);
+                }
+                device.poll(wgpu::PollType::wait_indefinitely()).expect("the card finished");
+                let alone = alone.elapsed().as_secs_f64() * 1e6 / frames_timed as f64;
+                let whole = std::time::Instant::now();
+                for _ in 0..frames_timed {
+                    eye.prepare(&device, &queue, screen, &camera, doorway.sea_level as f32);
+                    let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("the far eye's test") });
+                    eye.start(&mut encoder, None);
+                    near_first(near, &eye, &mut encoder, &camera);
+                    for k in 0..LAYERS.len() {
+                        eye.layer(k, &mut encoder, None);
+                    }
+                    queue.submit([encoder.finish()]);
+                }
+                device.poll(wgpu::PollType::wait_indefinitely()).expect("the card finished");
+                eprintln!("Near pixel size {pixel}: the near passes alone {alone:.0} millionths of a second a frame; a whole frame {:.0}", whole.elapsed().as_secs_f64() * 1e6 / frames_timed as f64);
+            }
+            near.look.pixel = as_it_was;
         }
         // The last frame drawn with the eye turned, if asked (`FAR_TEST_TURN`: degrees of facing, then of pitch): a
         // moving view's first frame, where every ray is led by another ray's frame before (the cut's lengths begin

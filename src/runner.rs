@@ -556,7 +556,7 @@ impl Runner {
             near: running.near.as_ref().map(|near| near.counts),
             far: running.far.as_ref().map_or("none".to_string(), FarEye::state),
         };
-        self.panel.show(&ctx, &readings, running.far.as_mut().map(|far| &mut far.look), running.near.as_mut().map(|near| &mut near.look), &mut self.camera.pace);
+        self.panel.show(&ctx, &readings, running.far.as_mut().map(|far| &mut far.look), running.near.as_mut().map(|near| &mut near.look), &mut self.camera.pace, &mut self.camera.fov);
         // The temperatures, top right, always, flights too [David: "while you are running tests, i am sitting here
         // watching, and id like to know what the temps are at while watching"].
         if let Some(watch) = &self.temperatures {

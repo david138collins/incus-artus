@@ -49,7 +49,7 @@ impl Panel {
 
     /// The panel, its Camera page changing the camera's speed and its Render page the far eye's look (`look`: none
     /// without a far eye).
-    pub fn show(&mut self, ctx: &egui::Context, readings: &Readings, look: Option<&mut FarLook>, near_look: Option<&mut NearLook>, pace: &mut Pace) {
+    pub fn show(&mut self, ctx: &egui::Context, readings: &Readings, look: Option<&mut FarLook>, near_look: Option<&mut NearLook>, pace: &mut Pace, fov: &mut f32) {
         if !self.visible {
             return;
         }
@@ -68,7 +68,7 @@ impl Panel {
             let room = (ui.ctx().content_rect().bottom() - ui.cursor().top() - 24.0).max(120.0);
             egui::ScrollArea::vertical().max_height(room).show(ui, |ui| match self.page {
                 0 => overview(ui, readings),
-                1 => camera(ui, readings, pace),
+                1 => camera(ui, readings, pace, fov),
                 _ => render(ui, readings, look, near_look),
             });
         });
@@ -204,6 +204,17 @@ fn render(ui: &mut egui::Ui, readings: &Readings, look: Option<&mut FarLook>, ne
         ui.add_enabled(there, egui::Slider::new(&mut look.radius, 1.0..=crate::near_eye::MOST_RADIUS).step_by(1.0).text("Render radius (chunks)"));
         ui.add_enabled(there, egui::Slider::new(&mut look.fader_width, 0.0..=crate::near_eye::MOST_FADER_WIDTH).step_by(1.0).text("x-fader width (blocks)"));
         ui.add_enabled(there, egui::Slider::new(&mut look.fader_curve, 1.0..=crate::near_eye::MOST_FADER_CURVE).text("x-fader curve"));
+        // The near picture's pixel: 1, 2 or 4 screen pixels a side [David, 2026-11-17: its place here, its name and
+        // its three stops his choices]. (The slider moves the power of two.)
+        let mut power = look.pixel.max(1).ilog2().min(2);
+        ui.add_enabled(
+            there,
+            egui::Slider::new(&mut power, 0..=2)
+                .custom_formatter(|v, _| format!("{}", 1u32 << (v.round().clamp(0.0, 2.0) as u32)))
+                .custom_parser(|text| text.trim().parse::<f64>().ok().map(|size| size.max(1.0).log2().round()))
+                .text("Near pixel size"),
+        );
+        look.pixel = 1 << power;
     });
     ui.separator();
     let Some(look) = look else {
@@ -352,8 +363,10 @@ fn render(ui: &mut egui::Ui, readings: &Readings, look: Option<&mut FarLook>, ne
     }
 }
 
-/// The Camera page: where the camera is, and how fast it flies (its speed and Shift's multiplier, with a Default).
-fn camera(ui: &mut egui::Ui, readings: &Readings, pace: &mut Pace) {
+/// The Camera page: where the camera is, how fast it flies (its speed and Shift's multiplier) and its field of view
+/// [David, 2026-11-17: "i think we need to add FOV and Panini under camera again. it helps for me to be able to set
+/// low FOV and zoom into seams to inspect"; "fov for now"], with a Default for all three.
+fn camera(ui: &mut egui::Ui, readings: &Readings, pace: &mut Pace, fov: &mut f32) {
     let camera = &readings.camera;
     ui.label(format!("north {:.1}, east {:.1}, up {:.1}", camera.position.x, camera.position.y, camera.position.z));
     ui.label(format!("facing {:.0}°, pitch {:.1}°", camera.facing, camera.pitch));
@@ -361,7 +374,10 @@ fn camera(ui: &mut egui::Ui, readings: &Readings, pace: &mut Pace) {
     ui.separator();
     ui.add(egui::Slider::new(&mut pace.speed, 1.0..=2000.0).logarithmic(true).text("speed (blocks a second)"));
     ui.add(egui::Slider::new(&mut pace.multiplier, 1.0..=20.0).text("multiplier (Shift held)"));
-    if ui.add_enabled(*pace != Pace::DEFAULT, egui::Button::new("Default").small()).clicked() {
+    let fields = crate::camera::FIELDS_OF_VIEW;
+    ui.add(egui::Slider::new(fov, fields.0..=fields.1).step_by(1.0).text("Field of view (degrees, up and down)"));
+    if ui.add_enabled(*pace != Pace::DEFAULT || *fov != crate::camera::FIELD_OF_VIEW, egui::Button::new("Default").small()).clicked() {
         *pace = Pace::DEFAULT;
+        *fov = crate::camera::FIELD_OF_VIEW;
     }
 }

@@ -11,7 +11,8 @@ struct Sizes {
     base: vec4<u32>,
     middle: vec4<u32>,
     fine: vec4<u32>,
-    // The screen's size.
+    // The near picture's size in its own pixels (x, y), and its pixel's side in screen pixels (z: 1, 2 or 4; build
+    // 212).
     screen: vec4<u32>,
 }
 
@@ -39,15 +40,19 @@ fn near_cover(@builtin(global_invocation_id) id: vec3<u32>) {
         for (var f = 0u; f < 4u; f++) {
             let fine_pixel = middle_pixel * 2u + vec2<u32>(f & 1u, f >> 1u);
             var fine = 1u;
-            if (side == 2u) {
+            let near_pixel = max(sizes.screen.z, 1u);
+            if (side == 2u && near_pixel == 1u) {
                 // Its four screen pixels' shares in one read, from the corner they meet at (past the screen's edge,
                 // the edge's own pixels). [Build 202 read them one at a time: four million reads, 0.145 ms a frame.]
                 let shares = textureGather(3, t_near, four, (vec2<f32>(fine_pixel * 2u) + 1.0) / vec2<f32>(sizes.screen.xy));
                 fine = u32(min(min(shares.x, shares.y), min(shares.z, shares.w)) >= 0.999);
             } else {
-                for (var y = 0u; y < side; y++) {
-                    for (var x = 0u; x < side; x++) {
-                        let p = fine_pixel * side + vec2<u32>(x, y);
+                // Every pixel of the near picture under it: `side` each way at the screen's size; fewer, down to the
+                // one that holds it, where the near picture's pixels are bigger.
+                let across = max(side / near_pixel, 1u);
+                for (var y = 0u; y < across; y++) {
+                    for (var x = 0u; x < across; x++) {
+                        let p = fine_pixel * side / near_pixel + vec2<u32>(x, y);
                         if (p.x < sizes.screen.x && p.y < sizes.screen.y && textureLoad(t_near, vec2<i32>(p), 0).a < 0.999) {
                             fine = 0u;
                         }

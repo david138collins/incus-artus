@@ -10,7 +10,8 @@
 //!   W A S D        fly forward / left / back / right, level whatever the tilt
 //!   Space / Ctrl   fly up / down
 //!   Shift          fly faster (five times, old's)
-//! Its speed and Shift's multiplier are set on the panel's Camera page (old's 20 blocks a second and 5 by default).
+//! Its speed and Shift's multiplier are set on the panel's Camera page (old's 20 blocks a second and 5 by default),
+//! and its field of view (build 212).
 //! It runs on real time: a tool for looking at the world, not part of it.
 
 use glam::Vec3;
@@ -34,6 +35,13 @@ impl Pace {
     pub const DEFAULT: Pace = Pace { speed: 20.0, multiplier: 5.0 };
 }
 
+/// The field of view the game starts with, degrees up and down (the spec's: "everything looks better at 70 but
+/// everyone plays in quake pro"), and the least and most the Camera page's slider goes to [David, 2026-11-17: "i
+/// think we need to add FOV and Panini under camera again. it helps for me to be able to set low FOV and zoom into
+/// seams to inspect"; Panini waits: "fov for now"].
+pub const FIELD_OF_VIEW: f32 = 100.0;
+pub const FIELDS_OF_VIEW: (f32, f32) = (5.0, 130.0);
+
 #[derive(Clone, Copy)]
 pub struct Camera {
     /// Where the eye is: north, east, up, in blocks.
@@ -43,11 +51,18 @@ pub struct Camera {
     /// Degrees up from level.
     pub pitch: f32,
     pub pace: Pace,
+    /// The field of view, degrees up and down (the Camera page's slider).
+    pub fov: f32,
 }
 
 impl Camera {
     pub fn new() -> Self {
-        Self { position: Vec3::ZERO, facing: 0.0, pitch: 0.0, pace: Pace::DEFAULT }
+        Self { position: Vec3::ZERO, facing: 0.0, pitch: 0.0, pace: Pace::DEFAULT, fov: FIELD_OF_VIEW }
+    }
+
+    /// The tangent of half the field of view, up and down: how far up the screen's top edge is for each block ahead.
+    pub fn tan_half(&self) -> f32 {
+        (self.fov.clamp(FIELDS_OF_VIEW.0, FIELDS_OF_VIEW.1).to_radians() / 2.0).tan()
     }
 
     /// The mouse moved (while captured): the camera turns.
