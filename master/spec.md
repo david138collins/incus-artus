@@ -751,6 +751,7 @@ Where the sources disagree. Each version is given with its ref; nothing here is 
 ### The quartile system
 - Each cell splits into 8 octants; a quarter block is a 1 × ½ × ½ bar along any axis (12 slots per cell); bars can cross two cells and mix materials; it is among the most critical pieces: "the placer and quartility seem the most critical". [decided] (decisions.md:224-228; quartile.md:5, 283; WG:2233)
 - Quarter blocks replace stairs, slabs and roof pieces; dirt slabs exist. [decided] (decisions.md:228-229)
+- Dirt paths wear smooth: dirt slabs appear in the world only by a random chance each time someone steps off a dirt block or hops up one, the block becoming two slabs and one sliding down, "so over time, dirt paths get smoothed". [idea] (vision.md, Paths that wear smooth, 2026-11-17)
 - Only blocks marked in the Registrar can be bars; David registers his own. [decided] (quartile.md:178)
 - Every octant is a stick-on, and everything has collision. [decided] (quartile.md:194, 374)
 - Octant items are objects (a cup, a candle); lone octants ("octblocks") exist. [decided] (quartile.md:191; vision.md:822-824)

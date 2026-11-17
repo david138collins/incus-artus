@@ -1085,6 +1085,27 @@ what novel ways i could create the fire that the ray sees so that it looks organ
 - *Counsel:* ship sounds dry and let the game add the space. The sky light's measure of how much sky a
   place sees could also set how much a sound echoes and how muffled it gets in a cave.
 
+## Paths that wear smooth  [IDEA, David 2026-11-17]
+
+- "we make dirt slabs, but they only appear in the world on their own with a random chance every time someone steps
+  off a dirt block or hops up one, for it to become two slabs and one slides down. so over time, dirt paths get
+  smoothed." And his question: "how would you make such a common check cheap?"
+- *Counsel:*
+  - **It's cheap because of where it hangs.** The check runs only when a walker's height changes by a block as it
+    crosses from one column to the next, which the shared kinematics layer already knows at that moment (it's how it
+    decides to hop or drop). Walking on the level costs nothing. On a step: one look at the block's kind (dirt, a
+    whole block, room below for the slab to land), then one roll.
+  - **The roll itself** is a few sums on a number the walker carries. With a small chance (one in a few hundred),
+    nearly every step ends there.
+  - **The change is rare,** so its cost doesn't matter: one block becomes two slabs, one slides to the lower column,
+    a chunk is made again.
+  - **Villagers off-screen** (the Intermediator and World sims) don't step: there, a route counts its traffic, and
+    when the place is next unfolded the wear is laid along it by the same odds in bulk, from the history seed, so it's
+    the same every time ("1 always equals 1").
+  - **For him to say when it's built:** whether only dirt wears (grass to dirt first?), whether animals and carts
+    count, whether a slab can wear again into nothing, and whether rain or time undoes it.
+  - It makes desire paths: where people really walk becomes easy to walk, with no path-building job.
+
 ## Figures  [IDEA, David 2026-11-09]
 
 - **Minecraft-style figurines, slightly more detailed.** They have elbows (and presumably knees): "vintage
