@@ -2957,6 +2957,20 @@ Reference: `Art/quartile minecraft illustration.png`
   - The test light's colour for step 2 (placed lights) wasn't answered: warm torch orange unless he says.
   - *Counsel:* it keeps his older words: "pitch-black darkness" in caves (the caves stops of 2026-11-01, built in old)
     and "very dark nights" (the plan's "What every step keeps").
+  - **No absolute flights tonight** (David, to Builder): "note that the tv is plugged in now, so we'll have to consider
+    whether a flight is really critical for the rest of the night and get as much as we can done that only needs
+    relative measuring... anyways, i don't mind putting my finger on the scale and seeing if it stays steady. there's
+    a little bit of performance to be squeezed out yet." So: only relative measures tonight (counts off the screen, or
+    a bracket in one session if he's fine with the TV's noise). The team kit's warning, met before (a night of
+    flights 4 to 18% slow with the TV on the same card).
+  - *Build 208, near light step 1, the near eye's own sky light* (cc3a824; unlaunched, unflown). Each face lit by the
+    cell it looks into; light spreads into openings by averaging, reaching about as far in as an opening is wide
+    (tested: a tunnel 2 wide lit 3 blocks in, 4 wide 5 in), black past that; outdoor shade never under a very dark
+    floor. Off the screen with the stage on, the cave near the spawn goes black inside and trees throw shade. The
+    cost, said plainly by Builder: merged faces split where light changes, so the spawn at 4 chunks keeps 40% more
+    faces (190 thousand for 135 thousand) and a chunk takes about 20% longer to make; at 64 chunks the near faces'
+    cost goes with faces sent, so it wants pricing by a bracket, and may move "faces turned away" up his list. Next:
+    his look, then step 2, placed lights.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
