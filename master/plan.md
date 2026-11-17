@@ -646,8 +646,13 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
           bands of distance, "Largest near squares" and "Detail up close (blocks)" in The near eye; build 213 with
           hard edges, built: no hole on the ground off the screen, a whole frame a tenth shorter on the ground; his
           look; the fades by a stipple, his choice ("lets try stippling"), build 214, built: "Stipple width" in The
-          near eye, no cost that shows; his look decides the starting detail, the width, and whether the curve is
-          on from the start); **(2) lights and nights** (placed and moving lights, glows and far lights,
+          near eye, no cost that shows; his look: "the blocks become blurry after like 5 block radius around me, set
+          to 4" (a block's picture is 32 squares a side, smaller than a 4-pixel square past 5 blocks, so they
+          blend); build 215 for it, both ways as sliders by his choice: "Detail up close" down to 1/64, and
+          "Picture sharpness in the squares" (his name); his look decides their starting places, the stipple's
+          width, and whether the curve is on from the start); **(2) lights and nights** (his answers, 2026-11-17:
+          the first light an existing block that glows, which one not yet said; its controls in a new section
+          "Placed lights") (placed and moving lights, glows and far lights,
           night); **then assess**; (3) the far half after (rings that reach where the curve says, with a band of
           4s at the seam; at g = 2 perhaps 600 MB and the finer rays' time: priced first)
     - [ ] **Listing chunks:** the near eye's processor time is all in listing the chunks in view (0.15 to 0.27 ms a

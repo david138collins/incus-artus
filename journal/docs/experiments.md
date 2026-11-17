@@ -8496,3 +8496,51 @@ begins.
   whole frame 1.56, **1.57**, 1.60, **1.58**, 1.57; the near passes alone 1.02, 1.03, 0.90, 0.90, 0.89 (falling
   through the run either way). **The stipple costs nothing that shows.**
 - **Said to him before he looks:** the pattern is fixed to the screen, so it shimmers along a join as he moves.
+
+### Build 215's pass mark: the blocks' pictures in the coarse squares
+
+**David's look at build 214** (launched at his "launch"; about 17 minutes; `logs/session-1794952839.log`, clean). His
+settings in the picture he sent: largest squares 4, "Detail up close" 0.0625 (the slider's least), the stipple at a
+half, the x-fader 155 wide with a curve of 2.85. **His words: "i notice that the blocks become blurry after like 5
+block radius around me, set to 4, why do you think that is? you can see it about at the corner of the debug panel.
+anyways, lets keep going, tell me what you think about that".** No word yet on whether the stipple stays.
+
+**Why, as told to him:** a block's picture is 32 squares a side (`textures::SIDE`). On his screen (1,600 pixels
+tall, 100 degrees: a block one block away 671 pixels) one of them is 4 screen pixels at 5.2 blocks, 2 at 10.5, 1 at
+21. A coarse band's picture is drawn at a quarter or a half size, so the card finds the picture smaller than a
+pixel of that band from there on and blends it (`crisp`: nearest while a picture's square is bigger than a pixel,
+blended with its shrunk sizes once smaller). At full size the same happens at 21 blocks, a pixel big, unseen. At
+his setting the 4s run to 16 blocks and the 2s to 42: from 5 to 16 blocks a 4-pixel square blends up to nine of the
+picture's squares. It's the "blurry pixel art farther away" he named before the curve, and the slider's least was
+three times too big for the 4s to end where the picture runs out (that needs about 1/48 of a block).
+
+**Put to him, two ways, and his answers:** both, each a slider ("Both sliders"); the new one's name his choice of
+three: **"Picture sharpness in the squares"**, in The near eye under "Stipple width".
+
+**Built so:**
+
+1. **"Detail up close (blocks)" goes down to 1/64 of a block** (it stopped at 1/16). At 1/48 the 4s end at about 5
+   blocks and the 2s at 14; at 1/64, 4 and 10.5.
+2. **"Picture sharpness in the squares"**, 0 to 1, beginning at 0 (as now), greyed while the largest squares are 1.
+   In a band of squares s screen pixels a side the card's choice of the picture's size is moved finer by the
+   slider times log2(s) (at 1: two sizes in the 4s, one in the 2s; nothing in the full-size band). At 1 a coarse
+   square shows one square of the picture, crisp, until the picture's squares are smaller than a screen pixel
+   (where the full-size picture begins to blend too).
+
+**The mark:**
+
+- **Tests** all pass.
+- **Pictures off the screen** (largest squares 4, from a low eye and on the ground at the spawn): at sharpness 0,
+  build 214's picture (but for run-to-run flips). At 1: the ground between 5 and 16 blocks in crisp squares (looked
+  at), and nothing changed past the coarse bands (counted: the pixels that differ from sharpness 0 lie within the
+  bands' reach). With "Detail up close" at 1/64: no hole on the ground (the near picture alone over magenta against
+  the whole picture: only slivers at near edges against the sky, as before).
+- **Prices in one run** (sharpness 0, 1, 0, 1, 0 at largest squares 4): the near passes and whole frames.
+- **Said to him before he looks:** at 1 each square picks one of the picture's squares, so the ground may crawl or
+  sparkle as he moves; with the detail low the coarse squares cover little of the screen and save little.
+- **His look** decides the two sliders' starting places, and with them what was still owed (the stipple, its
+  width, whether the curve is on from the start).
+
+**For the build after, placed lights, his answers the same hour:** the first thing that gives light is **an
+existing block that glows** (his choice over a new lamp block; which block he hasn't said: asked with that build's
+pass mark); its controls in **a new section "Placed lights"** on the Render page.
