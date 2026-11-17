@@ -637,6 +637,16 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
           130 degrees), for zooming into seams. **Panini, or another flex that makes up for a wide field of view,
           is owed a talk** (his word: "we can talk about some kind of panini or donut flex that compensates for
           higher fov. it was good last time"; the spec has Panini decided)
+    - [ ] **The detail curve** (his words, 2026-11-17: "a sort of linear equivalence of detail from the back if
+          your hand towards infinity ... a formula with a single flexture. triangles go 4x to 2x to 1x and then march
+          2x - 32x on that golden curve"): the smallest thing drawn at a distance d is **sqrt(a² + (g × d / P)²)**
+          blocks: a a fixed size in the world up close (a quarter block to begin), g a fixed size on the glass far
+          off (pixels), P the pixels a block one block away is tall (from the picture's height and the field of
+          view). His order: **(1) the near half** (three near pictures at a quarter, a half and the whole size by
+          bands of distance, "Largest near squares" and "Detail up close (blocks)" in The near eye; build 213 with
+          hard edges, then the fades); **(2) lights and nights** (placed and moving lights, glows and far lights,
+          night); **then assess**; (3) the far half after (rings that reach where the curve says, with a band of
+          4s at the seam; at g = 2 perhaps 600 MB and the finer rays' time: priced first)
     - [ ] **Listing chunks:** the near eye's processor time is all in listing the chunks in view (0.15 to 0.27 ms a
           frame at 32 chunks, about 1 ms at 64)
     - [x] **Faces turned away** from the eye left out: build 209 (ff0c6b2), the card drops them and a chunk's

@@ -8323,3 +8323,72 @@ eye's listing take it from there.
 
   **At 2 a whole frame is about 0.3 ms shorter at both views** (a fifth to a quarter); at 4, 0.35 to 0.5.
 - **Said to him before he looks:** squares fixed to the screen crawl over near surfaces as the eye moves.
+
+### David's look at build 212, the detail curve, and build 213's pass mark: the curve's near half (2026-11-17)
+
+**His words at build 212** (the near picture's size on its slider, the field of view), in order:
+
+- "to be honest ... i think we could get away with 4x4 as the base layer, but, it'd be better to have like, 9
+  chunks of 2x2 around you, roughly ... and after that 4x4. 4x4 looks almost good enough to do the whole screen like
+  that ... i'm trying to think about the slope of cells from your own hand to the farthest mountain and how we could
+  make it like a golden ratio. i really love the looks we can get here. and its all still really quick once its
+  loaded."
+- Then, turning it round: "i almost want 4x4 *up close*, fading to 2x2, fading to 1x1, which then fades back up to
+  32+ into the distance, like, sharpening down to fine pixels *up* to the render distance the way distant lights
+  will hold a flickering pixel past it as well ... 4x4 feels beautiful up close, but it quickly becomes just blurry
+  pixel art farther away, that would be hard to make out, but where 2x2 looks like pixel crisp... and yet 1x1 would
+  also look 'crunched' up to the point that the cells become marched and get bigger."
+- "i think what we have been looking for is a sort of linear equivalence of detail from the back if your hand
+  towards infinity, and we can define it by a formula with a single flexture. triangles go 4x to 2x to 1x and then
+  march 2x - 32x on that golden curve. how to define it, and how difficult would it be? before or after lights n
+  nights?"
+- To the order put to him (the curve's near half now, then lights and nights, then its far half): "yes. lets do 1
+  and 2 and then assess."
+
+**The detail curve, as defined to him** (Builder's first answer had the slope the other way, 2 x 2 near and 4 x 4
+beyond, from "nothing finer than a square"; his is right for the look, since what reads is how many squares a block
+gets, and for the cost, since the pixels are near):
+
+> The detail size at a distance d, in blocks, is the smallest thing drawn there:
+> **detail(d) = sqrt(a² + (g × d / P)²)**
+> - **a**: a fixed size in the world, up close (a quarter of a block to begin with): the world's own pixel-art
+>   resolution.
+> - **g**: a fixed size on the glass, far off, in screen pixels.
+> - **P**: how many pixels a block one block away is tall: the picture's height over twice the tangent of half the
+>   field of view (about 670 at 1,600 pixels and 100 degrees). Never a number written in.
+>
+> Flat near, a straight line far, one bend where the two are equal, at d = a × P / g.
+
+On the glass that is a square of sqrt((a × P / d)² + g²) pixels. **For the triangles g is 1** (a pixel is the
+floor): with a = 1/4, 4 x 4 squares to about 63 blocks (where the square is 2.83, between 4 and 2), 2 x 2 to about
+168, 1 x 1 from there to the render distance. **For the far cells** the same rule is what the march already asks
+for (`level_at`); at g = 2 it wants 4-block cells from the seam to about 1,340 blocks, 8s to 2,700, 16s to 5,400,
+32s to 10,700: the far half, priced and built after lights and nights.
+
+**The controls, his choices:** "Detail up close (blocks)" in The near eye (1/16 to 1, a quarter at the start);
+"Near pixel size" kept and renamed **"Largest near squares"** (1: the curve off, as today; 2: 2 x 2 then 1 x 1; 4:
+4 x 4, 2 x 2, 1 x 1).
+
+**Build 213, the curve's near half with hard edges** (the fades are the build after):
+
+1. The near eye draws up to three pictures: a quarter, a half and the whole of the screen each way, each for its
+   band of distance from the eye (true distance, so whatever is in a nearer band is in front of everything in a
+   farther one along every line of sight). Where the bands change comes from the curve, the slider's a, the
+   picture's height and the field of view.
+2. A nearer band is drawn first; a farther band draws no pixel a nearer band's picture covers, nor anything well
+   inside the nearer band (nearer than half its radius), so no pixel is shaded twice but along the join and none is
+   left out. Each band's water sees through to the faces of the bands behind it.
+3. The nearer pictures are laid over the full-size one, crisp, in their squares on the screen's own grid; from
+   there the cover, the march, and the x-fader are as they are.
+4. At "Largest near squares" 1 the frame is build 212's at size 1.
+
+**The mark:**
+
+- **Tests** all pass.
+- **Pictures off the screen:** at 1, build 212's picture (but for run-to-run flips). At 4 with a = 1/4: no hole
+  anywhere (no pixel of sky or far ground where build 212 at size 1 has near ground: counted along the joins, on
+  flat ground, on a slope, at a low eye and from high); the squares are 4 x 4 within about 63 blocks, 2 x 2 to
+  about 168 and single pixels beyond (counted by band); water near a join neither goes opaque nor vanishes.
+- **Prices in one run** (largest 1, 4, 1, 2, 1): the near passes and whole frames, at the spawn and from high.
+- **Said to him before he looks:** the joins are hard edges in this build; squares fixed to the screen crawl.
+- **His look** decides a's starting value and whether the curve is on from the start.
