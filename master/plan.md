@@ -603,7 +603,9 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
       entry: plain daylight), so faces carry no light and merge whatever it is; a small light picture round the eye
       later, for moving lights only. Build 209 is faces turned away; build 210 this, built: bricks of 8 x 8 x 8
       cells behind a directory, in one buffer; off the screen the same picture as build 208's, 16 to 18% fewer faces
-      with the stage, the light 20 MB at 32 chunks of it and nothing on bare land; its flights' bracket to come
+      with the stage, the light 20 MB at 32 chunks of it and nothing on bare land; flown in a bracket with the
+      stage on (2026-11-17): the near faces' time on the card 15% less than build 208's way over 20 marks, at no
+      mark dearer. Done enough to go on; his look at builds 208 to 210 owed (the cut and the floor are his by eye)
     - [ ] **Near light:** the near eye's own light, per face, blocky and quantised (the spec); placed lights in 16
           clear steps a block, coloured, flooding through air and stopped by walls, flickering; moving lights (a
           held lantern, effects); caves and interiors dark unless lit ("i want light to be precious")

@@ -8081,3 +8081,32 @@ so every pixel of a face, the grown hair's too, falls in a cell the face covers 
 
 **For step 2, as built here:** a placed light's reach gets bricks of its own kind (colour) in the same buffer and
 directory; putting or moving one rewrites its chunks' light, no faces.
+
+### Build 210 flown (2026-11-17): a bracket with the stage on; the light kept is cheaper on the card than 208's way
+
+**The flights** (build 210, the code committed, no error; as the game starts with the scatter stage, 32 chunks,
+20 standing marks with the stage's six; the TV in, David off the laptop; a rest to under 60 degrees and a minute
+more before each): `INCUS_NEAR_LIGHT=faces` (build 208's way), unset (the light kept), faces again:
+`flight-1794926555`, `-1794927683`, `-1794928862`.
+
+**The near faces on the card, ms (median):**
+
+| | 208's way | the light kept | 208's way |
+|---|---|---|---|
+| on the ground at the spawn | 1.000 | **0.950** | 1.037 |
+| high over the spawn (the dearest frame) | 1.255 | **1.112** | 1.256 |
+| the town by the spawn | 1.159 | **1.012** | 1.152 |
+| the hall in the mountain | 0.742 | **0.669** | 0.747 |
+| over a wood (the most shade in view) | 0.870 | **0.874** | 0.902 |
+| a cave mouth | 0.554 | **0.526** | 0.552 |
+| the bare plain | 0.265 | **0.181** | 0.261 |
+| the scatter at 100,000 | 0.887 | **0.577** | 0.764 |
+| summed over the 20 standing marks | 10.509 | **8.840** | 10.337 |
+
+**15% less over the marks, and at no mark dearer:** looking a cell up for each pixel costs less than the faces the
+light used to split cost in corners. Over the wood, where most pixels find a brick, it comes out even. The dearest
+frame 2.30 to 2.17 ms. In the game the light is 20.0 MB for 1,651 chunks at the spawn (its buffer 32 MB), 6.9 MB
+out on the plain. The processor's passes again can't be read between flights (104 degrees through most marks of
+all three, with the rests); nothing in them is dearer in every standing.
+
+**Against the mark:** met. Where light is kept is done enough to go on; step 2, placed lights, is built on it.
