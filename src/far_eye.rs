@@ -1919,9 +1919,13 @@ mod tests {
             if fader.len() == 2 {
                 (near.look.fader_width, near.look.fader_curve) = (fader[0], fader[1]);
             }
-            // The near picture's pixel, if asked (`FAR_TEST_NEAR_PIXEL`: 1, 2 or 4).
+            // The near eye's largest squares, if asked (`FAR_TEST_NEAR_PIXEL`: 1, 2 or 4), and the detail curve's near
+            // number (`FAR_TEST_DETAIL`, blocks).
             if let Some(pixel) = std::env::var("FAR_TEST_NEAR_PIXEL").ok().and_then(|pixel| pixel.parse::<u32>().ok()) {
                 near.look.pixel = pixel;
+            }
+            if let Some(detail) = std::env::var("FAR_TEST_DETAIL").ok().and_then(|detail| detail.parse::<f32>().ok()) {
+                near.look.detail = detail;
             }
             // (`FAR_TEST_GROUPS=0`: every group of a chunk's faces listed, the card's own dropping of faces turned away
             // left as it is: to see the listing's rule alone change nothing.)
@@ -2079,7 +2083,7 @@ mod tests {
         // pixels a side; the near eye's passes alone, and whole frames, each to the card's finish.
         if let (Some(near), true) = (&mut near, std::env::var_os("FAR_TEST_PIXELS").is_some()) {
             let as_it_was = near.look.pixel;
-            for pixel in [1, 2, 1, 4, 1] {
+            for pixel in [1, 4, 1, 2, 1] {
                 near.look.pixel = pixel;
                 let frames_timed = 300;
                 device.poll(wgpu::PollType::wait_indefinitely()).expect("the card finished");
@@ -2131,6 +2135,13 @@ mod tests {
             eye.layer(k, &mut encoder, None);
         }
         eye.bring_up(&mut encoder, &view, None);
+        // (`FAR_TEST_NEAR_ALONE`: the near eye's picture over plain magenta, not over the far picture, so a pixel the
+        // near eye left out can be counted.)
+        if std::env::var_os("FAR_TEST_NEAR_ALONE").is_some() {
+            let magenta = wgpu::Color { r: 1.0, g: 0.0, b: 1.0, a: 1.0 };
+            let attachment = wgpu::RenderPassColorAttachment { view: &view, depth_slice: None, resolve_target: None, ops: wgpu::Operations { load: wgpu::LoadOp::Clear(magenta), store: wgpu::StoreOp::Store } };
+            drop(encoder.begin_render_pass(&wgpu::RenderPassDescriptor { label: Some("magenta under the near picture"), color_attachments: &[Some(attachment)], depth_stencil_attachment: None, ..Default::default() }));
+        }
         if let Some(near) = &mut near {
             near.join(&mut encoder, &view, None);
             eprintln!("The near eye drew: {:?}", near.counts);

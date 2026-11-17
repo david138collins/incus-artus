@@ -204,17 +204,20 @@ fn render(ui: &mut egui::Ui, readings: &Readings, look: Option<&mut FarLook>, ne
         ui.add_enabled(there, egui::Slider::new(&mut look.radius, 1.0..=crate::near_eye::MOST_RADIUS).step_by(1.0).text("Render radius (chunks)"));
         ui.add_enabled(there, egui::Slider::new(&mut look.fader_width, 0.0..=crate::near_eye::MOST_FADER_WIDTH).step_by(1.0).text("x-fader width (blocks)"));
         ui.add_enabled(there, egui::Slider::new(&mut look.fader_curve, 1.0..=crate::near_eye::MOST_FADER_CURVE).text("x-fader curve"));
-        // The near picture's pixel: 1, 2 or 4 screen pixels a side [David, 2026-11-17: its place here, its name and
-        // its three stops his choices]. (The slider moves the power of two.)
+        // The detail curve's near half [David, 2026-11-17; the places and names his choices]: the largest squares the
+        // near eye draws in, 1 (the curve off), 2 or 4 screen pixels a side (the slider moves the power of two); and
+        // the curve's near number, the size in the world of the smallest thing drawn up close.
         let mut power = look.pixel.max(1).ilog2().min(2);
         ui.add_enabled(
             there,
             egui::Slider::new(&mut power, 0..=2)
                 .custom_formatter(|v, _| format!("{}", 1u32 << (v.round().clamp(0.0, 2.0) as u32)))
                 .custom_parser(|text| text.trim().parse::<f64>().ok().map(|size| size.max(1.0).log2().round()))
-                .text("Near pixel size"),
+                .text("Largest near squares"),
         );
         look.pixel = 1 << power;
+        let details = crate::near_eye::DETAILS;
+        ui.add_enabled(there && look.pixel > 1, egui::Slider::new(&mut look.detail, details.0..=details.1).logarithmic(true).text("Detail up close (blocks)"));
     });
     ui.separator();
     let Some(look) = look else {

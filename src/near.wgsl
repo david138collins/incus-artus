@@ -17,8 +17,32 @@
 // The near light (build 210): kept apart from the faces, only where it isn't plain daylight (`near_eye.rs`, `Light`;
 // `near.rs`, `LightBlock`): a directory, an entry a chunk, then the chunks' bricks of 8 x 8 x 8 cells, 4 bits a cell.
 @group(0) @binding(9) var<storage, read> kept_light: array<u32>;
-// The faces' depth, for the water (its pass alone).
-@group(1) @binding(0) var t_depth: texture_depth_2d;
+// The band being drawn (build 213), and the pictures of the two bands nearer than it (the one just nearer, then the
+// one before that; a clear stand-in where there's none).
+@group(1) @binding(0) var<uniform> band: Band;
+@group(1) @binding(1) var t_nearer_a: texture_2d<f32>;
+@group(1) @binding(2) var t_nearer_b: texture_2d<f32>;
+// For the water (its pass alone): the band's own faces' depth, and those of the two bands behind it (the next, then
+// the one after; an empty stand-in where there's none).
+@group(2) @binding(0) var t_depth: texture_depth_2d;
+@group(2) @binding(1) var t_behind_a: texture_depth_2d;
+@group(2) @binding(2) var t_behind_b: texture_depth_2d;
+
+// A band of the near eye (build 213; `near_eye.rs`, `bands_of`): a stretch of distance from the eye drawn into a
+// picture of its own, in squares of 1, 2 or 4 screen pixels, by the detail curve [David, 2026-11-17: "4x4 *up
+// close*, fading to 2x2, fading to 1x1"].
+struct Band {
+    // x, y: how much of its picture the screen takes, across and down (1, or a little less where a half or a quarter
+    // of the screen was rounded up); z: its pixel's side in screen pixels; w: how much a face's hair is grown by (1 at
+    // the screen's own size and 100 degrees of view).
+    picture: vec4<f32>,
+    // x: it draws nothing nearer the eye than this (blocks, true distance: half the reach of the band nearer than it);
+    // y: nor anything farther than this (its own reach; the farthest band's is past everything). z, w: how many of
+    // its pixels a side a pixel of the band just nearer than it is, and of the one before that (0: no such band).
+    span: vec4<f32>,
+    // x, y: how many pixels of the next band behind it a side a pixel of its own is, and of the one after (0: none).
+    behind: vec4<f32>,
+}
 
 struct Near {
     // The eye's block (north, east, up), and how far into it the eye is: a face's place is taken from the eye in whole
@@ -35,10 +59,6 @@ struct Near {
     // hidden face won a pixel now and then, and which one differed from run to run]); w: how far ahead "nothing
     // behind" is taken to be, for the water.
     reach: vec4<f32>,
-    // The near picture (build 212): x, y how much of it the screen takes, across and down (1, or a little less where
-    // a half or a quarter of the screen was rounded up); z its pixel's side in screen pixels (1, 2 or 4); w how much
-    // a face's hair is grown by (1 at the screen's own size and 100 degrees of view).
-    picture: vec4<f32>,
 }
 
 // How much wider than its cells a face is drawn all round, for each block of its distance from the eye (`near_corner`).
@@ -104,7 +124,7 @@ fn near_corner(@builtin(vertex_index) corner: u32, @location(0) face: vec3<u32>)
     // white dots that flicker as the eye moves [David, 2026-11-16, build 199: "i notice speckling white dots of sky
     // when looking down and moving"]. So neighbours overlap by that hair.
     // (As much wider again on a coarser picture or a wider view, so the overlap stays the same share of its pixel.)
-    let hair = length(exact) * HAIR * near.picture.w;
+    let hair = length(exact) * HAIR * band.picture.w;
     let from_eye = exact + spread_a * (u * 2.0 - 1.0) * hair + spread_b * (v * 2.0 - 1.0) * hair;
     // The far eye's own view: a pixel's ray is forward + x right + y up, so a place's x and y are its share of right
     // and up over how far ahead it is.
@@ -113,7 +133,7 @@ fn near_corner(@builtin(vertex_index) corner: u32, @location(0) face: vec3<u32>)
     let y = dot(from_eye, camera.up.xyz) / dot(camera.up.xyz, camera.up.xyz);
     var corner_out: Corner;
     // (On a picture a little bigger than the screen, the screen is its top left part.)
-    corner_out.clip = vec4<f32>(x * near.picture.x + ahead * (near.picture.x - 1.0), y * near.picture.y + ahead * (1.0 - near.picture.y), near.reach.z, ahead);
+    corner_out.clip = vec4<f32>(x * band.picture.x + ahead * (band.picture.x - 1.0), y * band.picture.y + ahead * (1.0 - band.picture.y), near.reach.z, ahead);
     corner_out.from_eye = from_eye;
     // The cell it looks into, along the way it looks: the next past its own (in half blocks, the block that holds it).
     let own = vec3<i32>(i32(face.x & 63u), i32((face.x >> 6u) & 63u), i32(((face.x >> 12u) & 1023u) | (((face.y >> 26u) & 1u) << 10u)));
@@ -226,6 +246,28 @@ fn near_shows(from_eye: vec3<f32>) -> f32 {
     return blocks / max(blocks + rays, 1e-9);
 }
 
+// Whether a place isn't in this band's stretch of distance (build 213): past the band's reach, or well inside the band
+// nearer than it. A nearer band is always in front of a farther one along a line of sight (bands are by true
+// distance from the eye).
+fn out_of_band(corner: Corner) -> bool {
+    let off = length(corner.from_eye);
+    return off > band.span.y || off < band.span.x;
+}
+
+// Whether a nearer band's picture already has at least `covered` of this pixel (the water's test: any of it, so the
+// same water isn't laid on twice; a block's side under a nearer band's water is still drawn, and seen through it:
+// `near_mask.wgsl` leaves those out only where a nearer picture has all of the pixel).
+fn nearer_has(corner: Corner, covered: f32) -> bool {
+    let at = vec2<u32>(corner.clip.xy);
+    if (band.span.z > 0.5 && textureLoad(t_nearer_a, vec2<i32>(at / u32(band.span.z)), 0).a >= covered) {
+        return true;
+    }
+    if (band.span.w > 0.5 && textureLoad(t_nearer_b, vec2<i32>(at / u32(band.span.w)), 0).a >= covered) {
+        return true;
+    }
+    return false;
+}
+
 @fragment
 fn near_face(corner: Corner) -> @location(0) vec4<f32> {
     let facing = corner.what.x;
@@ -234,6 +276,10 @@ fn near_face(corner: Corner) -> @location(0) vec4<f32> {
     let which = corner.what.y * 2u + select(1u, 0u, facing == 4u);
     let pictures = textureNumLayers(t_blocks);
     let picture = textureSample(t_blocks, crisp, corner.on_picture, min(which, pictures - 1u));
+    // (What a nearer band's picture covers never gets here: the mask in the band's depth drops it first.)
+    if (out_of_band(corner)) {
+        discard;
+    }
     let shows = near_shows(corner.from_eye);
     if (shows <= 0.0) {
         discard;
@@ -257,14 +303,25 @@ fn near_face(corner: Corner) -> @location(0) vec4<f32> {
 // through it), by how much water the eye looks through to the face behind.
 @fragment
 fn near_water(corner: Corner) -> @location(0) vec4<f32> {
+    if (out_of_band(corner) || nearer_has(corner, 0.001)) {
+        discard;
+    }
     let shows = near_shows(corner.from_eye);
     if (shows <= 0.0) {
         discard;
     }
-    let behind = textureLoad(t_depth, vec2<i32>(corner.clip.xy), 0);
+    var behind = textureLoad(t_depth, vec2<i32>(corner.clip.xy), 0);
     // (A face nearer than the water has the greater depth: it hides it.)
     if (corner.clip.z < behind) {
         discard;
+    }
+    // (No face of its own band behind it: the face of the next band behind, or of the one after, at this pixel's
+    // middle in their pictures.)
+    if (behind <= 0.0 && band.behind.x > 0.5) {
+        behind = textureLoad(t_behind_a, vec2<i32>((floor(corner.clip.xy) + 0.5) * band.behind.x), 0);
+    }
+    if (behind <= 0.0 && band.behind.y > 0.5) {
+        behind = textureLoad(t_behind_b, vec2<i32>((floor(corner.clip.xy) + 0.5) * band.behind.y), 0);
     }
     // How far ahead the face behind is, from its depth; nothing behind (the near faces end): deep water.
     let ahead_behind = select(near.reach.z / max(behind, 1e-12), near.reach.w, behind <= 0.0);

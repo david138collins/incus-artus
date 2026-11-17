@@ -8392,3 +8392,52 @@ for (`level_at`); at g = 2 it wants 4-block cells from the seam to about 1,340 b
 - **Prices in one run** (largest 1, 4, 1, 2, 1): the near passes and whole frames, at the spawn and from high.
 - **Said to him before he looks:** the joins are hard edges in this build; squares fixed to the screen crawl.
 - **His look** decides a's starting value and whether the curve is on from the start.
+
+### Build 213 built (unflown): the detail curve's near half, hard edges; checked off the screen
+
+**Built** (`near_eye.rs`: `bands_of`, `Band`; `near.wgsl`; `near_mask.wgsl`, new; `near_join.wgsl`;
+`near_cover.wgsl`; `panel.rs`): the near eye draws one, two or three pictures (its squares 4, 2 and 1 screen pixels
+a side, the nearest band first), each for its stretch of true distance from the eye, where each ends worked out
+each frame from the curve, the slider's a, the picture's height and the field of view. "Near pixel size" is now
+**"Largest near squares"**, with **"Detail up close (blocks)"** under it (greyed while the largest is 1).
+
+**It was built twice, and the first way is said because it's why the second is as it is.** First: a farther band's
+pixels read the nearer bands' pictures and left out what they covered, and the nearer pictures were then laid over
+the full-size one in two passes of their own. It drew right and saved nothing (the near passes at the spawn 2.05 ms
+with the bands for about 1.85 without, the laptop in use at the time): the card still ran a pixel's program for
+every far face hidden behind something near, and the two layings-over were whole-screen passes. Second, as it
+stands: **before a farther band's faces, its depth is filled wherever a nearer band's picture covers the pixel (the
+mask), so the card drops those faces before their pixels' work; and nothing is laid over until the x-fader, which
+now lays all the bands' pictures over the far picture in its one pass** (the cover reads all three too). The same
+pictures to the pixel count, and a saving.
+
+**Against the mark, off the screen (the stage on):**
+
+- **Tests:** all 47 pass.
+- **At "Largest near squares" 1:** one picture, one pass of faces, no mask: the frame as build 212's at size 1.
+- **No hole on the ground.** With the near picture drawn alone over magenta, largest 4 against 1 (a = 1/4): on
+  the ground at the spawn 833 pixels of 1.6 million left out by the bands that the whole picture has, from a low
+  eye 863, on a slope 128, from high 0, low over the sea 0: every one of them on the edge of a tree or a trunk
+  against the sky (looked at: thin lines along silhouettes, in the picture's upper part), where a coarser square's
+  middle misses what a finer pixel would catch. None along the joins on the ground.
+- **Water:** low over the sea the shore, the shallows and the deep look the same across the joins: no ring where
+  the bed passes into a farther band, and the water isn't laid on twice.
+- **From high** everything is farther than the bands reach and the picture is the whole one's (92 pixels' flips).
+- **Prices in one run each** (32 chunks, 2,560 by 1,600; largest 1, 4, 1, 2, 1; ms a frame; the laptop quiet by
+  the end, 3% on the card, but in use earlier in the day: read each run against itself only):
+
+  | | the near passes alone | a whole frame |
+  |---|---|---|
+  | the spawn, largest 1 | 1.23, 1.33, 1.11 | 2.10, 2.08, 2.02 |
+  | the spawn, largest 4 | 1.08 | **1.89** |
+  | the spawn, largest 2 | 1.13 | **1.91** |
+  | high over the spawn, 1 | 0.92, 0.97, 1.08 | 1.18, 1.38, 1.30 |
+  | high over the spawn, 4 / 2 | 1.10 / 0.90 | 1.21 / 1.10 |
+  | over the town, 1 | 0.85, 0.89, 0.86 | 1.09, 1.10, 1.08 |
+  | over the town, 4 / 2 | 0.81 / 0.87 | 1.12 / 1.01 |
+
+  **On the ground a whole frame is 0.15 to 0.2 ms shorter (about a tenth); from high and over the town nothing
+  changes**, as nothing there is near enough to be in a coarse band. Less than the whole near picture at half size
+  saved (0.3 ms, build 212), because the far strip is at full size again, which is the point of the curve.
+- **Said to him before he looks:** the joins are hard edges in this build; squares fixed to the screen crawl; a
+  near thing's edge against the sky is in its band's squares.

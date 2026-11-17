@@ -14,6 +14,37 @@ struct Sizes {
     // The near picture's size in its own pixels (x, y), and its pixel's side in screen pixels (z: 1, 2 or 4; build
     // 212).
     screen: vec4<u32>,
+    // The near eye's nearer bands (build 213): the pixel's side in screen pixels of the band just nearer than the
+    // full-size picture (x) and of the one before that (y); 0: no such band.
+    nearer: vec4<u32>,
+}
+
+// The nearer bands' pictures (clear stand-ins where there are none).
+@group(0) @binding(4) var t_before: texture_2d<f32>;
+@group(0) @binding(5) var t_first: texture_2d<f32>;
+
+// Whether a nearer band's picture wholly covers the square of `side` screen pixels at `corner` (its top left, in
+// screen pixels): every one of that band's pixels under it all a block's.
+fn band_covers(corner: vec2<u32>, side: u32, band_pixel: u32, first: bool) -> bool {
+    if (band_pixel == 0u) {
+        return false;
+    }
+    let across = max(side / band_pixel, 1u);
+    for (var y = 0u; y < across; y++) {
+        for (var x = 0u; x < across; x++) {
+            let p = vec2<i32>(corner / band_pixel + vec2<u32>(x, y));
+            var share = 0.0;
+            if (first) {
+                share = textureLoad(t_first, p, 0).a;
+            } else {
+                share = textureLoad(t_before, p, 0).a;
+            }
+            if (share < 0.999) {
+                return false;
+            }
+        }
+    }
+    return true;
 }
 
 @group(0) @binding(0) var t_near: texture_2d<f32>;
@@ -58,6 +89,10 @@ fn near_cover(@builtin(global_invocation_id) id: vec3<u32>) {
                         }
                     }
                 }
+            }
+            // (Or a nearer band's picture covers it.)
+            if (fine == 0u && (band_covers(fine_pixel * side, side, sizes.nearer.x, false) || band_covers(fine_pixel * side, side, sizes.nearer.y, true))) {
+                fine = 1u;
             }
             if (fine_pixel.x < sizes.fine.x && fine_pixel.y < sizes.fine.y) {
                 textureStore(cover, fine_at + vec2<i32>(fine_pixel), vec4<f32>(f32(fine), 0.0, 0.0, 1.0));

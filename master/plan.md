@@ -644,7 +644,8 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
           off (pixels), P the pixels a block one block away is tall (from the picture's height and the field of
           view). His order: **(1) the near half** (three near pictures at a quarter, a half and the whole size by
           bands of distance, "Largest near squares" and "Detail up close (blocks)" in The near eye; build 213 with
-          hard edges, then the fades); **(2) lights and nights** (placed and moving lights, glows and far lights,
+          hard edges, built: no hole on the ground off the screen, a whole frame a tenth shorter on the ground; his
+          look, then the fades); **(2) lights and nights** (placed and moving lights, glows and far lights,
           night); **then assess**; (3) the far half after (rings that reach where the curve says, with a band of
           4s at the seam; at g = 2 perhaps 600 MB and the finer rays' time: priced first)
     - [ ] **Listing chunks:** the near eye's processor time is all in listing the chunks in view (0.15 to 0.27 ms a

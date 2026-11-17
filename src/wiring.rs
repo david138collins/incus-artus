@@ -317,7 +317,7 @@ pub const PASSES: [Pass; 28] = [
         reads: &[StoreId::NearFaces, StoreId::NearLight, StoreId::FarLight, StoreId::Camera],
         writes: &[StoreId::NearPicture],
         switches: &[("INCUS_NEAR_TEXTURES", "0: the near faces flat in their blocks' far colours, as to build 204 (for measuring against); unset, each wears its block's picture from data/textures, crisp up close and shrunk to its far colour far off"), ("INCUS_NEAR_TURNED", "0: faces turned away from the eye drawn like the rest, as to build 208 (for measuring against); unset, the card drops them before filling them, and a chunk's groups of faces that all look away aren't listed for the frame at all (build 209)")],
-        files: &["src/near_eye.rs", "src/near.wgsl", "src/textures.rs"],
+        files: &["src/near_eye.rs", "src/near.wgsl", "src/near_mask.wgsl", "src/textures.rs"],
     },
     Pass {
         id: PassId::TheNearWater,
@@ -638,7 +638,7 @@ pub const STORES: [Store; 25] = [
         id: StoreId::NearPicture,
         name: "the near picture",
         on: Where::Card,
-        what: "The near eye's own picture and depth, the screen's size (or a half or a quarter of it each way: the Render page's \"Near pixel size\", build 212; then the x-fader lays it over in squares of 2 x 2 or 4 x 4 screen pixels): every face whole, the nearest winning a pixel, the water over them; each pixel multiplied by how much of it shows, for the x-fader to lay over the far picture.",
+        what: "The near eye's own pictures and depths: one the screen's size, and by the detail curve (the Render page's \"Largest near squares\" and \"Detail up close\", build 213) one a half and one a quarter of it each way for the bands of distance nearest the eye, each laid over the full-size one in squares of 2 x 2 and 4 x 4 screen pixels. In each: every face whole, the nearest winning a pixel, the water over them; each pixel multiplied by how much of it shows, for the x-fader to lay over the far picture.",
         limits: &[("blocks the x-fader's band goes to", crate::near_eye::MOST_FADER_WIDTH as u64)],
         files: &["src/near_eye.rs"],
     },
