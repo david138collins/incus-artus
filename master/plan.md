@@ -649,7 +649,8 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
           near eye, no cost that shows; his look: "the blocks become blurry after like 5 block radius around me, set
           to 4" (a block's picture is 32 squares a side, smaller than a 4-pixel square past 5 blocks, so they
           blend); build 215 for it, both ways as sliders by his choice: "Detail up close" down to 1/64, and
-          "Picture sharpness in the squares" (his name); his look decides their starting places, the stipple's
+          "Picture sharpness in the squares" (his name), built: crisp squares off the screen, a speckle in the
+          middle distance at 1, no hole, no cost that shows; his look decides their starting places, the stipple's
           width, and whether the curve is on from the start); **(2) lights and nights** (his answers, 2026-11-17:
           the first light an existing block that glows, which one not yet said; its controls in a new section
           "Placed lights") (placed and moving lights, glows and far lights,

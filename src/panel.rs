@@ -219,6 +219,7 @@ fn render(ui: &mut egui::Ui, readings: &Readings, look: Option<&mut FarLook>, ne
         let details = crate::near_eye::DETAILS;
         ui.add_enabled(there && look.pixel > 1, egui::Slider::new(&mut look.detail, details.0..=details.1).logarithmic(true).text("Detail up close (blocks)"));
         ui.add_enabled(there && look.pixel > 1, egui::Slider::new(&mut look.stipple, 0.0..=crate::near_eye::MOST_STIPPLE).text("Stipple width (share of the band)"));
+        ui.add_enabled(there && look.pixel > 1, egui::Slider::new(&mut look.sharp, 0.0..=1.0).text("Picture sharpness in the squares"));
     });
     ui.separator();
     let Some(look) = look else {

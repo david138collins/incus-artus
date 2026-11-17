@@ -31,7 +31,9 @@ const LIGHT_SIDE: i32 = 256;
 const LIGHT_DIRECTORY: u64 = (LIGHT_SIDE * LIGHT_SIDE * 2) as u64;
 const LIGHT_FIRST: u64 = 1 << 20;
 /// The least and most of the detail curve's near number, blocks; and the most of a band's reach its stipple takes.
-pub const DETAILS: (f32, f32) = (0.0625, 1.0);
+/// (The least was 1/16 to build 214: a block's picture is 32 squares a side, and a 4-pixel square is no bigger than
+/// one of them only to about 5 blocks, which is the 4s' reach at 1/48; so the slider goes under that, build 215.)
+pub const DETAILS: (f32, f32) = (0.015625, 1.0);
 pub const MOST_STIPPLE: f32 = 0.5;
 
 /// The near eye's bands by the detail curve (build 213), the nearest first: each its squares' side in screen pixels,
@@ -82,12 +84,18 @@ pub struct NearLook {
     /// behind (the Render page's "Stipple width (share of the band)", build 214; 0 a hard edge, to a half) [David,
     /// 2026-11-17, of a dissolve or a stipple: "lets try stippling"; the slider's name his choice].
     pub stipple: f32,
+    /// How crisp a block's picture stays in the coarse squares (the Render page's "Picture sharpness in the
+    /// squares", build 215): 0, the card blends the picture once its squares are smaller than the band's (as to
+    /// build 214); 1, a coarse square shows one square of the picture until they're smaller than a screen pixel
+    /// [David, 2026-11-17, of build 214 at 4: "the blocks become blurry after like 5 block radius around me"; both
+    /// this and a lower detail by his choice, the slider's name his].
+    pub sharp: f32,
 }
 
 impl NearLook {
     /// [David, 2026-11-16, asked by Counsel "Make your crossfade settings, 128 wide and curve 1, the defaults?":
     /// "yes, and 32 chunk radius."]
-    pub const DEFAULT: Self = Self { radius: RADIUS, fader_width: 128.0, fader_curve: 1.0, pixel: 1, detail: 0.25, stipple: 0.25 };
+    pub const DEFAULT: Self = Self { radius: RADIUS, fader_width: 128.0, fader_curve: 1.0, pixel: 1, detail: 0.25, stipple: 0.25, sharp: 0.0 };
 }
 
 /// One of the near eye's pictures (build 213): a band of distance from the eye, drawn in squares of `pixel` screen
@@ -794,7 +802,8 @@ impl NearEye {
         // stays the same share of a pixel); where it begins and ends, and how many of its pixels a side a pixel of
         // each of the two bands nearer than it is; and how many of each of the two bands behind it's a pixel of
         // its own is, with the share of its reach its stipple takes (none for the farthest band, which the x-fader
-        // hands over to the far picture).
+        // hands over to the far picture), and how many sizes finer its blocks' pictures are read than the card
+        // would choose for its pixels (the sharpness: up to all the sizes its pixel is bigger than the screen's).
         let wide = camera.tan_half() / (crate::camera::FIELD_OF_VIEW.to_radians() / 2.0).tan();
         for (k, band) in self.bands.iter().enumerate() {
             let pixel = band.pixel as f32;
@@ -802,7 +811,7 @@ impl NearEye {
             let numbers = [
                 [screen.0.max(1) as f32 / (band.size.0 * band.pixel) as f32, screen.1.max(1) as f32 / (band.size.1 * band.pixel) as f32, pixel, pixel * wide],
                 [spans[k].1, spans[k].2.min(1e30), ratio(k.checked_sub(1).and_then(|at| pixels.get(at)), true), ratio(k.checked_sub(2).and_then(|at| pixels.get(at)), true)],
-                [ratio(pixels.get(k + 1), false), ratio(pixels.get(k + 2), false), if k + 1 < pixels.len() { self.look.stipple.clamp(0.0, MOST_STIPPLE) } else { 0.0 }, 0.0],
+                [ratio(pixels.get(k + 1), false), ratio(pixels.get(k + 2), false), if k + 1 < pixels.len() { self.look.stipple.clamp(0.0, MOST_STIPPLE) } else { 0.0 }, -self.look.sharp.clamp(0.0, 1.0) * pixel.log2()],
             ];
             queue.write_buffer(&band.numbers, 0, &numbers.iter().flatten().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
         }

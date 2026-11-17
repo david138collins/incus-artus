@@ -1931,6 +1931,10 @@ mod tests {
             if let Some(stipple) = std::env::var("FAR_TEST_STIPPLE").ok().and_then(|stipple| stipple.parse::<f32>().ok()) {
                 near.look.stipple = stipple;
             }
+            // (And the pictures' sharpness in the squares, `FAR_TEST_SHARP`.)
+            if let Some(sharp) = std::env::var("FAR_TEST_SHARP").ok().and_then(|sharp| sharp.parse::<f32>().ok()) {
+                near.look.sharp = sharp;
+            }
             // (`FAR_TEST_GROUPS=0`: every group of a chunk's faces listed, the card's own dropping of faces turned away
             // left as it is: to see the listing's rule alone change nothing.)
             if std::env::var("FAR_TEST_GROUPS").as_deref() == Ok("0") {
@@ -2088,10 +2092,21 @@ mod tests {
         if let (Some(near), true) = (&mut near, std::env::var_os("FAR_TEST_PIXELS").is_some()) {
             let as_it_was = near.look.pixel;
             // (`FAR_TEST_PIXELS=stipple`: the stipple's widths priced instead, at the largest squares as set.)
+            // (`FAR_TEST_PIXELS=sharp`: the pictures' sharpness in the squares, 0 and 1 by turns, the same way.)
             let stipples = std::env::var("FAR_TEST_PIXELS").as_deref() == Ok("stipple");
-            for (pixel, stipple) in if stipples { [0.0, 0.25, 0.0, 0.5, 0.0].map(|width| (as_it_was, width)) } else { [1, 4, 1, 2, 1].map(|pixel| (pixel, near.look.stipple)) } {
+            let sharps = std::env::var("FAR_TEST_PIXELS").as_deref() == Ok("sharp");
+            let (stipple_was, sharp_was) = (near.look.stipple, near.look.sharp);
+            let turns: [(u32, f32, f32); 5] = if stipples {
+                [0.0, 0.25, 0.0, 0.5, 0.0].map(|width| (as_it_was, width, sharp_was))
+            } else if sharps {
+                [0.0, 1.0, 0.0, 1.0, 0.0].map(|sharp| (as_it_was, stipple_was, sharp))
+            } else {
+                [1, 4, 1, 2, 1].map(|pixel| (pixel, stipple_was, sharp_was))
+            };
+            for (pixel, stipple, sharp) in turns {
                 near.look.pixel = pixel;
                 near.look.stipple = stipple;
+                near.look.sharp = sharp;
                 let frames_timed = 300;
                 device.poll(wgpu::PollType::wait_indefinitely()).expect("the card finished");
                 let alone = std::time::Instant::now();
@@ -2116,9 +2131,11 @@ mod tests {
                     queue.submit([encoder.finish()]);
                 }
                 device.poll(wgpu::PollType::wait_indefinitely()).expect("the card finished");
-                eprintln!("Near pixel size {pixel}, stipple {stipple}: the near passes alone {alone:.0} millionths of a second a frame; a whole frame {:.0}", whole.elapsed().as_secs_f64() * 1e6 / frames_timed as f64);
+                eprintln!("Near pixel size {pixel}, stipple {stipple}, sharpness {sharp}: the near passes alone {alone:.0} millionths of a second a frame; a whole frame {:.0}", whole.elapsed().as_secs_f64() * 1e6 / frames_timed as f64);
             }
             near.look.pixel = as_it_was;
+            near.look.stipple = stipple_was;
+            near.look.sharp = sharp_was;
         }
         // The last frame drawn with the eye turned, if asked (`FAR_TEST_TURN`: degrees of facing, then of pitch): a
         // moving view's first frame, where every ray is led by another ray's frame before (the cut's lengths begin

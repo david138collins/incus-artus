@@ -8544,3 +8544,33 @@ three: **"Picture sharpness in the squares"**, in The near eye under "Stipple wi
 **For the build after, placed lights, his answers the same hour:** the first thing that gives light is **an
 existing block that glows** (his choice over a new lamp block; which block he hasn't said: asked with that build's
 pass mark); its controls in **a new section "Placed lights"** on the Render page.
+
+### Build 215 built (unflown): the blocks' pictures in the coarse squares; checked off the screen
+
+**Built as the mark says** (`near_eye.rs`: `DETAILS`' least 1/64, `NearLook::sharp`, a band's fourth "behind" number;
+`near.wgsl`: the block's picture read by `textureSampleBias` with it; `panel.rs`: "Picture sharpness in the
+squares"): in a band of squares s screen pixels a side the picture's size is chosen finer by the slider times
+log2(s), so at 1 the card reads it as the screen's own pixels would.
+
+**Against the mark, off the screen (the stage on, largest squares 4, a = 1/4, the stipple a quarter; on the ground
+at the spawn, from a low eye, and looking 35 degrees down):**
+
+- **Tests:** all 47 pass.
+- **At sharpness 0, build 214's picture:** to the pixel on the ground and from a low eye (0 pixels of 1.6 million).
+- **At 1, looked at:** the ground crisp in its squares all the way out where at 0 it smears from about 5 blocks (the
+  two pictures side by side are plain). **It also shows what he's warned of:** in the middle distance, where a
+  4-pixel square holds several of the picture's squares and picks one, the ground is a speckle, which will crawl
+  as he moves. 342 thousand pixels differ from sharpness 0 on the ground, 198 thousand from low, 405 thousand
+  looking down, all over the ground and the trunks.
+- **"Nothing changed past the coarse bands" wasn't counted as the mark says** (at a = 1/4 the coarse bands reach 168
+  blocks, most of what these views see, so a count by part of the picture proves nothing). What stands for it: the
+  full-size band's number is 0 by its formula (log2 of 1), and at largest squares 1 the picture with sharpness 1 is
+  the picture with 0 (0 pixels on the ground and from low; 1 pixel by 1 of 255 looking down).
+- **"Detail up close" at 1/64, no hole:** the near picture alone over magenta against the whole picture's: 0 pixels
+  left out in all three views (the 4s end at 2.5 blocks at this picture's height, the 2s at 6.6: almost nothing is
+  in a coarse band, so there are no slivers at near edges either).
+- **Prices in one run** (the spawn, 32 chunks, 2,560 by 1,600; sharpness 0, 1, 0, 1, 0; ms a frame): a whole frame
+  2.25, **2.24**, 2.23, **2.22**, 2.22; the near passes alone 1.20, 1.22, 1.24, 1.25, 1.26 (rising through the run
+  either way). **The sharpness costs nothing that shows.**
+- **Said to him before he looks:** at 1 the ground may crawl or sparkle as he moves; with the detail low the coarse
+  squares cover little of the screen and save little.

@@ -42,6 +42,8 @@ struct Band {
     span: vec4<f32>,
     // x, y: how many pixels of the next band behind it a side a pixel of its own is, and of the one after (0: none).
     // z: the share of its reach, at its far end, it thins out over by a stipple (build 214; 0: a hard edge).
+    // w: how many sizes its blocks' pictures are read off from what the card would choose for its pixels (build 215;
+    // 0 or under: finer, up to as many sizes as its pixel is bigger than the screen's).
     behind: vec4<f32>,
 }
 
@@ -296,7 +298,10 @@ fn near_face(corner: Corner) -> @location(0) vec4<f32> {
     // small the picture is here from this pixel's neighbours' readings, before any pixel is left out.
     let which = corner.what.y * 2u + select(1u, 0u, facing == 4u);
     let pictures = textureNumLayers(t_blocks);
-    let picture = textureSample(t_blocks, crisp, corner.on_picture, min(which, pictures - 1u));
+    // (In a coarse band the card finds the picture small sooner, by its bigger pixels, and blends it: read finer by
+    // the sharpness, a coarse square shows one square of the picture for as long as the screen's own pixels would,
+    // build 215.)
+    let picture = textureSampleBias(t_blocks, crisp, corner.on_picture, min(which, pictures - 1u), band.behind.w);
     // (What a nearer band's picture covers never gets here: the mask in the band's depth drops it first.)
     if (out_of_band(corner) || stippled_out(corner)) {
         discard;
