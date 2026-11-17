@@ -254,3 +254,16 @@ the sun's step.
    its own directions; an age view; nothing added to the march's program, shown by an off and an on trace; flights
    read on the moving marks, bracketed, laziness off and on).
 6. One step a build, his three looks at each.
+
+## 10. A reference found since (Counsel, 2026-11-17; David: "yes", add the pointer)
+
+Dylan Ebert's "texel splatting" (https://dylanebert.com/texel-splatting/; a paper on arXiv, 2603.14587): the
+scene drawn from a fixed point near the eye into low-resolution cube pictures, lit there, then each texel drawn as
+a small square fixed in the world. It is this document's "picture all round the eye, fixed to the world", built
+for 3D pixel art, and it answers two of section 7's open matters in its own way:
+- **Crossing into a new cell:** the probe's origin is the eye snapped to a world grid, so it changes only at a
+  cell's edge, and the old and new pictures are crossfaded by a 4 × 4 dither.
+- **What the fixed point couldn't see:** a second picture taken at the eye fills the holes; those patches
+  shimmer, and he names it the main limitation.
+Not solved there: moving and animated things. Its cost as he gives it: under 4 ms a frame on an RTX 4090 at 384
+texels a face. A reference for the mechanism, not a design to adopt.

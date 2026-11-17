@@ -3012,6 +3012,22 @@ Reference: `Art/quartile minecraft illustration.png`
     misreads where the two meet unless both share one pixel grid and one depth; only a test with real content says.
     References he's looking at: Dead Cells (Vasseur's pipeline article), Guilty Gear Xrd (Motomura, GDC 2015),
     t3ssel8r's 3D pixel art.
+  - He found Dylan Ebert's texel splatting (https://dylanebert.com/texel-splatting/) and asked Counsel's view; on
+    "add a pointer to it in the lazy-rays document and the Figures notes?" he said "yes" (done:
+    `journal/docs/lazy-rays.md` section 10, `journal/docs/vision.md` Figures).
+- **[DECIDED 2026-11-17] A graphics style pass, once there's a slice of gameplay** (David, to Counsel): "it seems we
+  will need to do a whole graphics *style* pass once we have a healthy amount of content for a small slice of
+  gameplay." In the plan under Phase 4.
+  - **[IDEA, his] The near view on the far eye's own 2 × 2 tiles:** "is there a way to make everything in the near
+    view quantized from triangles to a 2x2 grid that uses the same screentiles as the raymarcher? like slipping the
+    triangles like a pack of compound butter under a turkeys skin?"
+  - *Counsel, unbuilt:* yes, and cheaply, since the near eye already draws into a picture of its own (build 199)
+    that the x-fader lays over the far one: draw that picture at half size on the far eye's 2 × 2 tiles (the same
+    corner, so the squares coincide) and lay it on without smoothing. Edges either hard, or averaged from several
+    samples a square ("edges that average and glide", a look the plan keeps). It saves the faces' pixels' work, not
+    their corners' (15% against 49% by his trace). The known flaw of any screen-fixed grid: squares crawl over
+    surfaces as the eye moves, worst near; what texel splatting is for. A switch on the near picture's size (1, 2,
+    4) would let him see it; for the style pass, or sooner as a look if he asks.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its

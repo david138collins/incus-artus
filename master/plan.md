@@ -690,6 +690,10 @@ way, because it gets pretty crowded, so we'll use space a little better" (2026-1
 
 ## Phase 4 · The game
 
+- [ ] **A graphics style pass, once there's a healthy amount of content for a small slice of gameplay** (David,
+      2026-11-17): styles tried and thrown away with real figures, a workshop and combat to judge them by. Waiting
+      for it, in the decisions and the vision's Figures: figures as live 3D drawn chunky; the near view on the far
+      eye's own 2 × 2 tiles; held poses
 - [ ] **4.1 The game's systems,** in the order `master/spec.md` gives, once David has cut it. First, by his word
       (2026-11-16): "players, items, and animals, ideally through the editor gui entirely"; he needn't be a player in
       the game "until we get up to the point of cutting down a tree"

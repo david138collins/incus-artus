@@ -1148,6 +1148,15 @@ what novel ways i could create the fire that the ray sees so that it looks organ
     battles of up to 800 figures; past about 60 to 100 blocks they're sprites already.
   - **A first try:** this figure built from rigid pieces, posed in a deep lunge and with an arm over its head,
     to see where it breaks.
+- **[2026-11-17] Figures as live 3D drawn chunky, and the style pass.** David, after Dead Cells' clips: "i see
+  how by quantizing down the 3d model you get basically a silky perfect sprite animation. and the actual model
+  doesn't have to look that great". His questions and his doubt are in the decisions (2026-11-17): whether a
+  quantized carpenter at a sharp table would "look right, or look like looking at a fish through water and trying
+  to grab it". References: Dead Cells (Thomas Vasseur's pipeline article), Guilty Gear Xrd (Junya Motomura, GDC
+  2015), t3ssel8r's 3D pixel art, and Dylan Ebert's texel splatting (https://dylanebert.com/texel-splatting/:
+  chunky pixels fixed in the world, not the screen, so they hold still as the eye turns; moving figures unsolved
+  there). *Counsel:* the figure stays real 3D (depth, hiding, hits on its true shapes); only how its pixels are
+  drawn changes. Judged in the style pass, with real content.
 
 ## Notes for later: the gods, volcanoes, darkness and crime  [IDEA, 2026-10-23]
 
