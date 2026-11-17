@@ -401,6 +401,7 @@ Where the sources disagree. Each version is given with its ref; nothing here is 
 - Resolution falls off as a continuous curve warped by distance, with a slider for how fast the terrain pixelates and an optional snapped-grid overlay. [wanted] (proposal:311, 727; decisions.md:1516-1521)
 - The softening blend at the near and far seam comes back with trees and rivers. [wanted] (watch-list.md:363-365)
 - Crunchy 2×2 pixels may be a good look. [idea] (regroup.md:900; handoff.md:45)
+- One fixed screen of 2×2 squares ("macropixels") that everything feeds: the far march's adaptive cells underneath, masked by the triangle field, the world drawn at half the window's size (1,280 × 800 on the laptop's 2,560 × 1,600) and shown without smoothing; the UI on the same grid, or a finer one over it with transparency; 3D styles tried between the triangles and that screen: "a good artistic interface i could work around". [idea] (decisions.md, the rebuild, 2026-11-17)
 - A mosaic snap filter; a world-anchored dome for far pixels, where a far dragon may lag. [idea] (proposal:327, 335)
 - Pixel horizon: a crisp, low-resolution pixel-art far band lit from the true slope. [idea] (watch-list.md:299-304)
 - Far people and animals as animated sprites; crowds as sprites past about 60 to 100 blocks. [idea] (watch-list.md:310; proposal:87)

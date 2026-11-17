@@ -3028,6 +3028,26 @@ Reference: `Art/quartile minecraft illustration.png`
     their corners' (15% against 49% by his trace). The known flaw of any screen-fixed grid: squares crawl over
     surfaces as the eye moves, worst near; what texel splatting is for. A switch on the near picture's size (1, 2,
     4) would let him see it; for the style pass, or sooner as a look if he asks.
+  - **[HIS LEAN, 2026-11-17] One fixed 2 × 2 screen that everything feeds** (David, the same talk): "i imagine the
+    raymarcher as an adaptive grid of cells in the bottom, masked and subtracted by the triangle field, both feeding
+    the same simple 2x2 screenspace that would be the fixed monitor. i think its already setup so the march doesnt do
+    work that triangles mask. UI elements can also draw on this grid or even use a 4x4 subgrid on top with
+    transparency rather than masking. i think that may be a good artistic interface i could work around, from there i
+    could try different 3d styles in between the triangles and the 2x2 screenspace. halving the actual resolution the
+    game runs at is probably good. it would still be a borderless window of 2160x1600 but we would actually be
+    drawing 1080x800. that may actually be enough to make it all mesh nicely, once its polished. i see propixelizer
+    calls them macropixels. not sure what it does that i havent specified other than color crush which i do at an
+    asset level. a lot of it seems unnecessary".
+    - *Counsel:* the laptop's screen is 2,560 × 1,600 (every flight's header), so half is 1,280 × 800. The march
+      already skips what triangles cover (builds 201 to 203), as he thought. Drawn at half size, the far eye's
+      layers of 8, 4 and 2 screen pixels are 4, 2 and 1 of the picture's own, the same squares on the glass, and
+      every pass has a quarter of the pixels (the far eye's cost is its rays, the near eye's its corners, so the
+      saving is a part, to be measured, not a quarter). It's his older word come round: "a beautiful world,
+      squinted" at about 640 × 480, and the milestone "a DOS-game resolution where everything is there"; it changes
+      the spec's "the 3D world at native resolution" if he settles on it. What ProPixelizer adds beyond what he's
+      specified: snapping things and the camera to the macropixel grid against crawl (for a flat, no-perspective
+      camera; it doesn't hold in perspective), outlines from depth and normals, and a pixel size per object; the
+      rest is the colour work he does at the asset.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
