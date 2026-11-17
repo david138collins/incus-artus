@@ -1105,6 +1105,16 @@ what novel ways i could create the fire that the ray sees so that it looks organ
   - **For him to say when it's built:** whether only dirt wears (grass to dirt first?), whether animals and carts
     count, whether a slab can wear again into nothing, and whether rain or time undoes it.
   - It makes desire paths: where people really walk becomes easy to walk, with no path-building job.
+- **His answers** (the same day): "i think we'd probably have grass become dirty grass texture or muddy grass texture
+  when walked on a lot maybe. several variations you could make like that. i think animals and carts would count. i
+  don't think they'd actually wear down, slabs wouldn't do it. rain would just make the difference between dirty
+  grass and muddy grass and the walk sound".
+  - So: grass walked on a lot wears to a dirty grass picture (several variations), not to another block; animals and
+    carts count as walkers; a slab is the end of it, slabs don't wear further; rain doesn't undo wear, it only turns
+    dirty grass to muddy grass and changes the footstep's sound.
+  - *Counsel, for building:* the grass's wear is a count kept with the column (a few steps of it choosing the
+    picture), and wet is the weather's, read when drawn and when a foot lands; neither changes a block, so neither
+    makes a chunk again. It fits the seasons' question in the plan ("a re-texture, a named field the look reads").
 
 ## Figures  [IDEA, David 2026-11-09]
 
