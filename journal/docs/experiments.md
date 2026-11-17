@@ -8252,3 +8252,31 @@ frames to the card's finish; the stage on, 32 chunks; full, half, full, half; ms
 half of the near passes' time (a quarter of the pixels saved three quarters of it), where his trace of build 199
 had them at 15%: the corners sent were halved since (build 209) and each pixel does more (pictures, the light
 looked up). The full-size readings wander (1.07 to 1.32 at the spawn); the half-size ones don't.
+
+### Build 212's pass mark: the near picture's size on a slider ("Near pixel size")
+
+**David, 2026-11-17**, offered the half-size switch first and the seam's fine band after: "i agree". Asked where it
+goes and what it's called: **in "The near eye" on the Render page, a slider called "Near pixel size" with three
+stops, 1, 2 and 4** (his choices of those put to him). It's the style note's "smallest look", and the price is
+measured (a third to nearly a half off the near passes at half size).
+
+**Built so:**
+
+1. At 2 or 4 the near eye's own picture and depth are a half or a quarter of the screen each way. The faces and
+   the water are drawn into it as now (a face's hair grown by the same factor, so neighbours still overlap on the
+   coarser grid); the x-fader lays it over the far picture enlarged crisp, each of its pixels a square of 2 x 2 or
+   4 x 4 screen pixels counted from the screen's top left corner, which is the far eye's tiles' corner; the cover
+   reads it at its own size, so the far rays are still skipped under blocks.
+2. At 1 nothing changes. The march's program untouched. The far picture is as it was (its layers' squares are 8,
+   4 and 2 screen pixels already).
+
+**The mark:**
+
+- **Tests** all pass.
+- **Pictures off the screen** (`FAR_TEST_NEAR_PIXEL`): at 1, build 211's picture (but for run-to-run flips); at 2
+  and 4, the near ground is in squares of that size on the screen's own grid (counted), the far view through the
+  x-fader's band is as at 1 (no patch of sky where the cover would have wrongly skipped rays), and no white dots.
+- **Prices in one run** (the setting is live, so 1, 2, 1, 4, 1): the near passes alone, and whole frames.
+- **Said to him before he looks:** squares fixed to the screen crawl over near surfaces as the eye moves, worst
+  close up; whether that reads as style or as a flaw is his eye's.
+- **His look decides** whether it stays, and at what size.
