@@ -7879,3 +7879,22 @@ gave a tunnel 4 wide only 3 blocks of light, short of his "diameter").
   on (11.0 ms for 9.1). At 64 chunks, where the near faces' cost goes with how many are sent, that's a real cost: to
   be priced by a bracket (light off, on, off) when the card is free of the TV, and brought down by the faces-turned-
   away item of his list if it's too dear. **His look decides the cut and the floor.**
+
+### Counts for choosing how light is kept, and faces turned away (2026-11-17, off the screen)
+
+David asked, through Counsel, for the ways of keeping light apart from the faces weighed before any code, and for
+the share of faces turned away counted (Counsel's guess was a third to a half). Counted by a new test,
+`counts_for_keeping_light` (asked by `NEAR_TEST_COUNT`), over the 860 chunks within 16 of the spawn, from a
+player's eye there, the view 100 degrees across facing north:
+
+| | faces kept | sides they cover | a face covers | sides not in plain daylight | air cells the faces look into | of them not in plain daylight | faces in view | turned away |
+|---|---|---|---|---|---|---|---|---|
+| bare land, light on or off | 1,180,365 | 2,133,472 | 1.8 | 0 | 1,184,365 | 0 | 266,690 | 115,231 (43%) |
+| the stage on, light off | 2,045,732 | 3,907,423 | 1.9 | 1,316,079 (34%) | 2,341,819 | 796,621 (34%) | 790,250 | 382,149 (48%) |
+| the stage on, light on | 2,508,151 | 3,907,423 | 1.6 | the same | the same | the same | 1,072,639 | 517,637 (48%) |
+
+- **Faces turned away: 43% of the faces in view on bare land, 48% with the stage.** The top of Counsel's guess.
+- **A correction of Builder's:** build 208's "the spawn at 4 chunks keeps 40% more faces" was with the scatter stage
+  on, and wasn't said. **On bare land the sky light splits nothing** (the land has no overhangs: every side is in
+  plain daylight). With the stage, light splits make 23% more faces over 16 chunks (2.51 million for 2.05).
+- **Shade is where things are built or grown:** none of bare land's surface; a third of the stage's.

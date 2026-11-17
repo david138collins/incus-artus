@@ -896,6 +896,123 @@ mod tests {
         assert_eq!(Blocks::read(&doorway, &mut HashMap::new(), [0, 1]).unwrap().unit, 1, "a chunk the bar doesn't touch stays in whole blocks");
     }
 
+    /// Counts for choosing how light is kept (2026-11-17), only if asked (`NEAR_TEST_COUNT`: a radius in chunks;
+    /// `NEAR_TEST_AT`: north, east; `NEAR_TEST_STAGE=1`: with the scatter stage): over every chunk of the radius, the
+    /// merged faces, the open sides they cover (one per block side: what a light value a side would take), the sides
+    /// not in plain daylight (sky light under 15), the air cells those faces look into and those not in plain
+    /// daylight; and of the faces in a view 100 degrees across facing north from a player's eye there, those turned
+    /// away from the eye, with the sides they cover. Run it with `INCUS_NEAR_LIGHT=0` too for the faces merged
+    /// whatever the light.
+    #[test]
+    fn counts_for_keeping_light() {
+        let Some(radius) = std::env::var("NEAR_TEST_COUNT").ok().and_then(|r| r.parse::<f32>().ok()) else { return };
+        let staged = std::env::var("NEAR_TEST_STAGE").as_deref() == Ok("1");
+        let at: Vec<f32> = std::env::var("NEAR_TEST_AT").ok().map(|v| v.split(',').filter_map(|n| n.trim().parse().ok()).collect()).unwrap_or_default();
+        let place = if at.len() == 2 { [at[0], at[1]] } else { [0.5, 0.5] };
+        let doorway = Doorway::open_with(&crate::doorway::test_world(), staged).unwrap();
+        let column = doorway.column(place[0].floor() as i32, place[1].floor() as i32).unwrap();
+        let eye = [place[0], place[1], doorway.surface(&column).unwrap() as f32 + crate::marks::PLAYER_EYE];
+        let chunks = wanted(place, radius);
+        let threads = std::thread::available_parallelism().map_or(2, |n| n.get()).saturating_sub(2).max(1);
+        let next = std::sync::atomic::AtomicUsize::new(0);
+        // faces, sides, sides shaded, air cells, air cells shaded; in view: faces, faces turned away, their sides.
+        let totals = std::sync::Mutex::new([0u64; 8]);
+        std::thread::scope(|scope| {
+            for _ in 0..threads {
+                scope.spawn(|| {
+                    let doorway = Doorway::open_with(&crate::doorway::test_world(), staged).unwrap();
+                    let mut tiles = HashMap::new();
+                    let mut mine = [0u64; 8];
+                    loop {
+                        let k = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                        let Some(&chunk) = chunks.get(k) else { break };
+                        if tiles.len() > 6 {
+                            tiles.clear();
+                        }
+                        let blocks = Blocks::read(&doorway, &mut tiles, chunk).unwrap();
+                        let lights = blocks.sky_light();
+                        let u = blocks.unit;
+                        let tall = ((blocks.high - blocks.low) * u) as usize;
+                        let light = |n: i32, e: i32, z: i32| -> u8 {
+                            if z >= blocks.high * u {
+                                return 15;
+                            }
+                            if z < blocks.low * u {
+                                return 0;
+                            }
+                            lights[((n + MARGIN * u) as usize + (e + MARGIN * u) as usize * WIDE * u as usize) * tall + (z - blocks.low * u) as usize]
+                        };
+                        let mut air = HashSet::new();
+                        // Is the chunk in the view (its middle within 50 degrees either side of north)?
+                        let middle = [(chunk[0] as f32 + 0.5) * CHUNK as f32 - eye[0], (chunk[1] as f32 + 0.5) * CHUNK as f32 - eye[1]];
+                        let in_view = middle[0] > 0.0 && middle[1].abs() <= middle[0] * 50f32.to_radians().tan() + CHUNK as f32;
+                        for face in blocks.faces() {
+                            let ([a, b], along) = face.facing.axes();
+                            let step = face.facing.step();
+                            let sides = (face.wide * face.high) as u64;
+                            mine[0] += 1;
+                            mine[1] += sides;
+                            for dv in 0..face.high {
+                                for du in 0..face.wide {
+                                    let mut cell = face.at;
+                                    cell[a] += du;
+                                    cell[b] += dv;
+                                    let beyond = [cell[0] + step[0], cell[1] + step[1], cell[2] + step[2]];
+                                    let l = light(beyond[0], beyond[1], beyond[2]);
+                                    if l < 15 {
+                                        mine[2] += 1;
+                                    }
+                                    if air.insert(beyond) {
+                                        mine[3] += 1;
+                                        if l < 15 {
+                                            mine[4] += 1;
+                                        }
+                                    }
+                                }
+                            }
+                            if in_view {
+                                mine[5] += 1;
+                                // The face's plane, in blocks from the world's origin, and whether the eye is on the
+                                // side it looks out of.
+                                let greater = matches!(face.facing, Facing::North | Facing::East | Facing::Up);
+                                let origin = [chunk[0] * CHUNK, chunk[1] * CHUNK, 0];
+                                let plane = (origin[along] as f32 * u as f32 + (face.at[along] + greater as i32) as f32) / u as f32;
+                                let sign = step[along] as f32;
+                                if (eye[along] - plane) * sign <= 0.0 {
+                                    mine[6] += 1;
+                                    mine[7] += sides;
+                                }
+                            }
+                        }
+                    }
+                    let mut totals = totals.lock().unwrap();
+                    for k in 0..8 {
+                        totals[k] += mine[k];
+                    }
+                });
+            }
+        });
+        let t = totals.into_inner().unwrap();
+        eprintln!(
+            "Light counts, radius {radius} round {place:?}{} (light {}): {} chunks; {} faces covering {} sides ({:.1} a face), {} sides not in plain daylight ({:.1}%); {} air cells the faces look into, {} not in plain daylight ({:.1}%); in a view north, {} faces, {} turned away ({:.1}%), covering {} sides",
+            if staged { ", the stage on" } else { "" },
+            if light_on() { "on" } else { "off" },
+            chunks.len(),
+            t[0],
+            t[1],
+            t[1] as f64 / t[0] as f64,
+            t[2],
+            100.0 * t[2] as f64 / t[1] as f64,
+            t[3],
+            t[4],
+            100.0 * t[4] as f64 / t[3] as f64,
+            t[5],
+            t[6],
+            100.0 * t[6] as f64 / t[5] as f64,
+            t[7]
+        );
+    }
+
     /// The lane makes every chunk of a radius, each the mesh made directly; and what a radius comes to (`NEAR_TEST_RADII`:
     /// radii in chunks, for the numbers; `NEAR_TEST_AT`: north, east; `NEAR_TEST_STAGE=1`: with the scatter stage).
     #[test]
