@@ -3377,6 +3377,18 @@ Reference: `Art/quartile minecraft illustration.png`
   fixed to directions round the eye, the dearest way; squares fixed to the faces give crisp straight edges. She
   recommends letting it lie, with a look at Ebert's demo as the free way to see it. Filed in
   `journal/docs/graphics-style.md`, section 10; still parked by his word of the same day.
+- **[DECIDED 2026-11-18] Squares fixed to the world left to simmer; when tried, "a stable experimental branch"**
+  (David, to Builder, after a second piece read with her; read from the journal at edeb52d): "feel like im playing
+  Descent thinking about the box around my head vs perspective. when its time to try this we should make a stable
+  experimental branch for it. but id like to have an understanding of what im letting simmer." Builder's note for
+  that understanding: `journal/docs/experiments.md`, "Left to simmer (2026-11-18)": three looks (screen squares,
+  as built; the world ladder, cheap, crisp edges, never crawls; the box grid, stair-steps that hold still turning,
+  walking the hard half), and the order when it's taken up (the ladder first, his look, then the box grid for
+  turning only if he still wants the stairs).
+  - *Counsel:* "branch" is kept as a folder of its own with its own build folder, main left as it is: a switch of
+    branch in the shared folder moves the other session, and a shared build folder once left him on a stale
+    program. Summed in `journal/docs/graphics-style.md`, section 11. Next with him: sorting the loose ends, then
+    the editor.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its

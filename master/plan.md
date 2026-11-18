@@ -52,7 +52,9 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   base up close"; left as it is, "make a note that this could be reworked later and how that could be done and
   leave it for now" (the note is in `journal/docs/experiments.md`, his look at build 218). Squares fixed to the
   world, the crawl's cure, are "the last big change": "we may have to leave it and work towards world gen/content
-  for a bit to be able to judge it properly". **Lights and nights, the second of his three, are done enough to go on.
+  for a bit to be able to judge it properly". Left to simmer the same day, with three looks named (screen
+  squares, the world ladder, the box grid: `journal/docs/experiments.md`, "Left to simmer"); when it's tried, "we
+  should make a stable experimental branch for it" (a folder and build folder of its own). **Lights and nights, the second of his three, are done enough to go on.
   Assess is flown** (build 225, 2026-11-18: five flights, lamps on against off, the TV out, the processor still at
   104 degrees): against his 2 ms one mark is over, high over the spawn, 2.43 ms a frame (2.28 with lamps off);
   the town by the spawn 1.97; every other mark under 1.7. Seeing the far lamps is the dearest new thing (0.10 to

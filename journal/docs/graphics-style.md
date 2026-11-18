@@ -189,3 +189,29 @@ the stairs stay wanted, the cheap way doesn't give them, and the way that does i
 
 **Where it rests:** Builder recommends letting it lie, as he leans, with a look at Ebert's own demo as the free
 way to see the second look. It stays parked with section 8, to be taken up with world and content to judge by.
+
+## 11. Since: left to simmer, with the three looks named (2026-11-18)
+
+His words, after a second piece read with Builder: "feel like im playing Descent thinking about the box around my
+head vs perspective. when its time to try this we should make a stable experimental branch for it. but id like to
+have an understanding of what im letting simmer."
+
+Builder's note for that understanding is in `journal/docs/experiments.md`, "Left to simmer (2026-11-18)". It
+replaces this file's looser names with three looks:
+
+1. **Screen squares** (what's built, builds 212 to 215): everything stair-stepped; crawls turning and walking.
+2. **The world ladder** (section 9's first way, grown): squares that belong to the faces, doubling with distance
+   (an eighth, a quarter, a half, a whole block). Never crawls. Block edges straight and crisp. Cheap and sure.
+3. **The box grid** (the probe grid of section 4, without its cube pictures): squares fixed to directions round
+   the eye, his "box around my head". Stair-steps that hold still turning; walking is the hard half. The dear one,
+   in work and risk more than in the frame.
+
+Two things true of this engine that the outside pieces didn't say: the far view's rays still go through screen
+squares, so far edges crawl a little turning whatever the near view does (the ladder doesn't change that, the box
+grid would); and the ladder has a jump at the near reach, from a block of about a pixel to far cells of about
+nine, which is the curve's far half's business.
+
+**When it's taken up:** on "a stable experimental branch", which here means a folder of its own with its own
+build folder, main left as it is (a switch of branch in the shared folder moves the other session too). The
+ladder first, then his look; the box grid for turning only, on the nearest band, if he still wants the stairs;
+walking last.
