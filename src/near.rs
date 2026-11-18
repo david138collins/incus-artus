@@ -603,7 +603,7 @@ impl LampsLane {
                 };
                 let mut told = 0u64;
                 let mut stood: HashMap<[i32; 2], Vec<([i32; 3], Block)>> = HashMap::new();
-                let mut first = true;
+                let (mut first, mut whole_said) = (true, false);
                 'asked: loop {
                     let (want, news) = {
                         let (lock, heard) = &*shared;
@@ -629,31 +629,51 @@ impl LampsLane {
                     let (mut round, mut placed) = (Vec::new(), Vec::new());
                     let began = std::time::Instant::now();
                     let read_before = stood.len();
-                    if !glows.none() {
-                        for tx in least[0]..=most[0] {
-                            for ty in least[1]..=most[1] {
-                                let tile = [tx, ty];
-                                if !stood.contains_key(&tile) {
-                                    match doorway.tile(tx, ty) {
-                                        Ok(read) => {
-                                            stood.insert(tile, read.glowing(doorway.tile_least(tile), |block| glows.of(block).is_some()));
-                                        }
-                                        Err(error) => {
-                                            if sender.send(Err(error)).is_err() {
-                                                return;
-                                            }
-                                            continue 'asked;
-                                        }
-                                    }
+                    // The tiles nearest the eye first (build 224): the list handed over as it grows, no more than four
+                    // times a second, so the near lamps' dots don't wait for the tiles 4 km off [build 223's first list
+                    // took half a minute, and no dot showed till then].
+                    let mut tiles: Vec<[i32; 2]> = if glows.none() { Vec::new() } else { (least[0]..=most[0]).flat_map(|tx| (least[1]..=most[1]).map(move |ty| [tx, ty])).collect() };
+                    let middle = |tile: &[i32; 2]| {
+                        let at = doorway.tile_least(*tile);
+                        let side = doorway.tile_least([tile[0] + 1, tile[1] + 1]);
+                        let (north, east) = (((at[0] + side[0]) / 2 - eye[0]) as i64, ((at[1] + side[1]) / 2 - eye[1]) as i64);
+                        north * north + east * east
+                    };
+                    tiles.sort_by_key(|tile| (middle(tile), *tile));
+                    let mut handed = std::time::Instant::now();
+                    for (k, tile) in tiles.iter().enumerate() {
+                        if !stood.contains_key(tile) {
+                            match doorway.tile(tile[0], tile[1]) {
+                                Ok(read) => {
+                                    stood.insert(*tile, read.glowing(doorway.tile_least(*tile), |block| glows.of(block).is_some()));
                                 }
-                                round.extend_from_slice(&stood[&tile]);
-                                placed.extend(doorway.changes_in(tx, ty).iter().cloned());
+                                Err(error) => {
+                                    if sender.send(Err(error)).is_err() {
+                                        return;
+                                    }
+                                    continue 'asked;
+                                }
                             }
+                        }
+                        round.extend_from_slice(&stood[tile]);
+                        placed.extend(doorway.changes_in(tile[0], tile[1]).iter().cloned());
+                        // A part handed over (not the last: that's whole, below).
+                        if k + 1 < tiles.len() && handed.elapsed().as_secs_f32() >= 0.25 {
+                            let part = lamps_round(eye, reach, &round, &placed, &glows);
+                            if first {
+                                log::info!("The far lamps' first part: {} lamps from the {} tiles nearest, {:.1} s", part.len(), k + 1, began.elapsed().as_secs_f32());
+                                first = false;
+                            }
+                            if sender.send(Ok(part)).is_err() {
+                                return;
+                            }
+                            handed = std::time::Instant::now();
                         }
                     }
                     let list = lamps_round(eye, reach, &round, &placed, &glows);
-                    if first {
-                        log::info!("The far lamps' first list: {} lamps within {reach} blocks, {} tiles read in {:.1} s", list.len(), stood.len() - read_before, began.elapsed().as_secs_f32());
+                    if !whole_said {
+                        log::info!("The far lamps' whole list: {} lamps within {reach} blocks, {} tiles read in {:.1} s", list.len(), stood.len() - read_before, began.elapsed().as_secs_f32());
+                        whole_said = true;
                         first = false;
                     }
                     if sender.send(Ok(list)).is_err() {

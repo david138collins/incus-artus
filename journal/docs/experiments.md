@@ -9301,3 +9301,10 @@ Nothing else changes.
 **The mark:** tests all pass; in the session's log the first part's time (the near lamps' tiles: under two seconds
 from the thread's start) beside the whole list's (about half a minute, as at 223); his look: the near lamps' dots
 there from the start.
+
+### Build 224 built (unflown): the far lamps' list nearest first
+
+**Built as the mark says** (`near.rs`, the far lamps' thread: the tiles sorted by how far their middles are from
+the eye, the list handed over as it grows at most four times a second, whole at the end; in the log the first
+part's time and the whole list's). **Tests:** all 59 pass. **The first part's time:** from the session's log at his
+look (the test's frames don't log it).
