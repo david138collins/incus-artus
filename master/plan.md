@@ -45,14 +45,18 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   "Light step" in Lights: "the light is alright"); presets on the Render and Camera pages and the software map
   wrapped (builds 219 and 220: "presets look good, software map looks good enough"); each lamp flickering on its
   own (build 221); far lamps twinkling as single pixels within the near reach, as old's did, from where a lamp is
-  "about a pixel" (build 222: "looks good"). **His look at the curve's near half (2026-11-18):** "i like the look with 4x4
+  "about a pixel" (build 222: "looks good"), and past it out to 4 km through the fog, each hidden by a ray marched
+  through the far cells (build 223: "looks good"; the list nearest first, build 224, unlooked at at his word: "i don't
+  need to check 224"); night by the sun slider, the sun's height down to -90 and "night brightness" under it in Light,
+  moonlit to begin (build 225: "looks good"). **His look at the curve's near half (2026-11-18):** "i like the look with 4x4
   base up close"; left as it is, "make a note that this could be reworked later and how that could be done and
   leave it for now" (the note is in `journal/docs/experiments.md`, his look at build 218). Squares fixed to the
   world, the crawl's cure, are "the last big change": "we may have to leave it and work towards world gen/content
-  for a bit to be able to judge it properly". **Next, in his order:** the rest of glows and far lights (lamps past the near reach); night; then assess.
+  for a bit to be able to judge it properly". **Lights and nights, the second of his three, are done enough to go on.
+  Next, in his order:** assess (how the bracket is flown is his to say).
   After that the curve's far half, more textures, and the near eye's own costs (listing chunks, chunks with
   pieces, chunk optimizing where it would show); "dont worry about very fast flight". **Owed at "assess":** a
-  bracket of flights (the TV in and the processor hot all through builds 211 to 222, and none flown, so nothing
+  bracket of flights (the TV in and the processor hot all through builds 211 to 225, and none flown, so nothing
   says where the frame stands against his 2 ms); and his starting settings, now his to save as "default" presets
   (whether the curve is on from the start, the lantern, the stipple), then named to the bracket or made the
   built-in ones, since a flight flies the built-in settings. Panini, or another flex for a wide field of view,

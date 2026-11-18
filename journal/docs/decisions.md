@@ -3269,6 +3269,45 @@ Reference: `Art/quartile minecraft illustration.png`
     too). From here my commits wait until a look is reported, and go in before Builder's next code commit.
 - **Next, in his order** (2026-11-18): glows and far lights; night; then assess; then the curve's far half and the
   rest of his checklist.
+- *Read from the journal at 6d85041* (builds 223 to 225 and his words, `experiments.md`; his words relayed by
+  Builder; the list's time and the heat checked against `logs/session-1795034337.log`; none of these builds flown,
+  no price taken for any).
+- **Far lamps past the near reach: his look at build 223 (2026-11-18), "looks good. whats next?"** Done enough to
+  go on, and glows and far lights with it. Build 223: the lamps' list out to 4 km (633 round the spawn); past the
+  near reach a ray marched from the eye to each lamp through the far cells by the far eye's own march (old's way),
+  in a pass of its own, so the march's program is untouched ("room for one more buffer and no more"); the dot's
+  far part fades in the fog. Two cheaper ways were built first and judged too coarse by the pictures (the mark's
+  own, column tops along the line, and the far picture's distance). Known looseness: a lamp in the first few
+  blocks of a cave mouth may show from far off where the near view would hide it (5 and 3 lamps where the exact
+  way shows 2, at two mouths). Its price is owed with builds 221's and 222's at "assess".
+  - A flaw he didn't see, from the session's log: the first list took 28.8 s (289 tiles), so no dot showed, near
+    or far, for the first half minute. Build 224: the list reads the tiles nearest the eye first and is handed
+    over as it grows. **His word: "i don't need to check 224. whats next?"** So build 224 is done enough to go on
+    unlooked at, at his word. Its mark read since, from the log of his look at build 225
+    (`logs/session-1795038101.log`): the first 281 lamps, from the two tiles nearest, 0.3 s after the thread
+    began; the whole list in 29.4 s as before.
+  - The look at 223 ran ten minutes with the processor up to 104 degrees (the cutoff is 105), another game open;
+    the look at 225, thirteen minutes, up to 103.
+- **[DECIDED 2026-11-18] The first night: by the sun slider, moonlit, with a slider** (David, to Builder, asked
+  what's next after build 223). His answers: **"Night by the sun slider"** (a real night as the sun's height goes
+  under the horizon, still set by hand, the look judged first); **"Moonlit, with a slider"** (as dark as a moonlit
+  night to begin, the spec's default); the slider **"In Light, \"night brightness\""**, under "sun height
+  (degrees)".
+  - Build 225 (unflown; nothing new on the card, one fixed number made a slider): "sun height (degrees)" from -90
+    to 90 (it stopped at -10, still dusk); "night brightness", night's light as a share of the day's sky light,
+    0 (black but for lamps and the lantern) to 0.25, beginning at old's 0.04; it lights the far land, the near
+    faces, the water and the night sky alike, and is kept in the Render page's presets. Night comes as the sun
+    goes under -2 and is whole by -18. Nothing else new: no moon in the sky, no stars, no moon's shadow or colour,
+    no time passing. Fog is still off to begin with, so far lamps don't fade at night unless it's on.
+  - **His look at build 225: "looks good. whats next?"** Night by the sun slider is done enough to go on, and with it lights and
+    nights, the second of his three ("lets do 1 and 2 and then assess").
+  - *Counsel:* "set by hand" means no clock yet: the day's length (15 and 15 built in old; "30 minutes of sun and
+    30 minutes of night appeal to me", 2026-11-09) and the sun's snapping steps (2026-11-13) aren't touched by this
+    build. "Light is precious: nights are very dark" stands beside the moonlit default; the slider is where the
+    two get weighed. The two moons (their light "gonna be big") are still an idea, not in this build.
+- **Next, in his order** (2026-11-18, after build 225): assess, with the bracket of flights owed there (the TV
+  in and the processor hot all through builds 211 to 225, none flown); how it's flown is his to say, Builder
+  asking. Then the curve's far half and the rest of his checklist.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
