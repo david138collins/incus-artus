@@ -677,8 +677,9 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
           strength, one number), and a colour reddens as it fades (the falling-off); his look: "lights look
           good for now. although i couldn't really see the steps in the red and green light levels" (the steps
           nearest a lamp are the smallest, and the flicker's swing is bigger than they are: a flaw written
-          down, a fixed share dimmer each block would even them); then random flicker, glows and far lights,
-          night) (placed and moving lights, glows and far lights,
+          down, a fixed share dimmer each block would even them; his choice: "Even steps first", build 218, its
+          pass mark written, the slider "Light step (share dimmer each block)", his name); then random flicker,
+          glows and far lights, night) (placed and moving lights, glows and far lights,
           night); **then assess**; (3) the far half after (rings that reach where the curve says, with a band of
           4s at the seam; at g = 2 perhaps 600 MB and the finer rays' time: priced first)
     - [ ] **Listing chunks:** the near eye's processor time is all in listing the chunks in view (0.15 to 0.27 ms a

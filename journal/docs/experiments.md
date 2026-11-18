@@ -8773,3 +8773,36 @@ went to Counsel.
   3. By day daylight takes over within a few blocks of a lamp, so only the first, smallest steps are seen.
   A falling-off where each block is a fixed share dimmer than the last would make every step the same size to
   the eye (and would keep a light's colour as it fades, the other thing written down at build 217).
+
+### Build 218's pass mark: even steps in the lamps' and the lantern's light
+
+**His answers** (2026-11-17, after "i couldn't really see the steps in the red and green light levels"): **"Even
+steps first"**, as its own small build before random flicker; the slider's name his choice of three: **"Light step
+(share dimmer each block)"**, in "Lights" above the flicker sliders.
+
+**Built so:**
+
+1. **Each block from a light is a fixed share dimmer than the last** (a quarter to begin; the slider from a
+   twentieth to a half): where a level is read (`near.wgsl`, `placed`) the light is (1 - the share) to the power
+   of how many steps the level is under 15, in place of the level squared. Every step is then the same size to the
+   eye, from beside the lamp to its edge. What's kept (levels 0 to 15, a step a block) doesn't change, nor the
+   spreading: only how a level is shown.
+2. **The lantern's colour keeps its shares as it fades**: its three levels are its brightness and, for each weaker
+   colour, as many steps under it as that colour's share comes to at this step (so they fall together), in place
+   of build 217's root.
+3. **The flicker begins at a twentieth of the brightness** (it was 15%), under a step's size.
+
+**Said plainly, what changes in what he's seen:** the lamps are dimmer through the middle of their reach (seven
+blocks out, 13% of full where it was 28%) and a little brighter at the very edge; the cell beside a lamp is three
+quarters of full where it was 87%.
+
+**The mark:**
+
+- **Tests** all pass, with one for the lantern's levels (warm orange at 15 and a quarter: 15, 13, 10).
+- **Pictures off the screen** (the stage on, the flicker 0): from the cave's mouth looking in, the lamps' red and
+  green in bands a block wide, each plainly darker than the last, beside build 216's picture of the same; the
+  lantern deep in the cave (the lamps off) orange to its edge, not reddening; with the lantern out and the lamps
+  off, build 215's picture (nothing but placed light changes).
+- **No price taken:** one power in a pixel's program where there was a multiply; a flight would say, not a
+  bracket.
+- **His look** decides the share to begin, and whether the steps now read as he means them.
