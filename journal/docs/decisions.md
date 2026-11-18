@@ -3347,6 +3347,29 @@ Reference: `Art/quartile minecraft illustration.png`
       thing added to the faces' program since 210 switched out in turn.
   - **[OPEN] His to say:** whether the ways down come before the curve's far half; and whether a flight should
     also fly the game as he looks at it (the wider rings, the near squares at 4).
+- **[DECIDED 2026-11-18] The checks from assess are written down, not built now** (David, to Builder, the same
+  evening; read from the plan at 1becdbc): "make a note of those to add to the things we need to check". They are
+  under plan 2.4, "Checks owed from assess": the far lamps seen in turns; whether the near faces grew since build
+  210, both builds flown in one session first; and the game he looks at, measured with his own settings. This
+  answers the open line above: the ways down don't come first. Builder took Counsel's correction into
+  `experiments.md` (the near half was off in the flights) and took her "bands" guess out of the plan.
+- **[DECIDED 2026-11-18] Loose ends listed and sorted, then the editor, "from the other end of the program"**
+  (David, to Builder, relayed by her): "list in short the loose ends we still haven't gotten to. after that, i
+  have some content re. splats to read together with you as we think about how we'll try to further refine the
+  near/far view in the graphics, when we're ready to; we'll decide between loose ends to tie up now and what we
+  will try/test/work up when we're ready to finish out the engine more; i think after we've tied up the loose ends
+  we should focus on the editor stuff and start making some headway from the other end of the program".
+  - So, in his order: (1) Builder's short list of loose ends; (2) the splats reading with her, toward refining the
+    near and far view "when we're ready to", not now; (3) the loose ends sorted into those tied up now and those
+    kept for when the engine is finished out more; (4) the ones chosen, tied up; (5) the editor.
+  - *Counsel:* this is his word of earlier the same day carried through ("we may have to leave it and work
+    towards world gen/content for a bit to be able to judge it properly"), and it means Phase 2's last step
+    isn't worked to its end before Phase 3 begins: what's left of 2.4 (the curve's far half, textures, placed
+    things in the far view, the near eye's costs, the Panini talk, the three checks) is his to sort, a part now
+    and a part later. The plan's steps aren't moved until he has sorted them.
+  - **[OPEN] What "the editor stuff" begins with.** Phase 3 is the editor's pages, and his order for it
+    (2026-11-16) begins with tectonics, then world generation, the Registrar and the placer, ecology. Whether
+    that is what he means here, or the editor's own frame and pages first, is his to say.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its

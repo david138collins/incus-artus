@@ -58,10 +58,14 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   the town by the spawn 1.97; every other mark under 1.7. Seeing the far lamps is the dearest new thing (0.10 to
   0.20 ms on the card). The bracket flew the built-in settings: the curve's near half off, and rings of 128 where
   his looks launch with wider ones, so the near half is still unpriced by a flight and the game he looks at
-  unmeasured. **His to say, asked by Builder:** whether the ways down come before the curve's far half (seeing
-  the far lamps in turns, about 0.15 off the high spot; and whether the near faces have grown since build 210: the same
-  triangles, dearer on the card, by one flight of another day, so it wants both builds flown in one session).
-  After that the curve's far half (priced first), more textures, placed things in the far view (unticked; build
+  unmeasured. **His word on them (2026-11-18):** "make a note of those to add to the
+  things we need to check"; the three checks are under 2.4, not built now. **Next, in his order:** Builder lists
+  "the loose ends we still haven't gotten to"; he reads "some content re. splats" with her, toward refining the
+  near and far view "when we're ready to"; "we'll decide between loose ends to tie up now and what we will
+  try/test/work up when we're ready to finish out the engine more"; and "after we've tied up the loose ends we
+  should focus on the editor stuff and start making some headway from the other end of the program" (Phase 3;
+  what it begins with is his to say: tectonics, by his order of 2026-11-16). So 2.4 isn't worked to its end
+  first. Its loose ends, his to sort: the three checks from assess, the curve's far half (priced first), more textures, placed things in the far view (unticked; build
   207 did part), and the near eye's own costs (listing chunks, chunks with pieces, chunk optimizing where it
   would show); "dont worry about very fast flight". **Still owed:** his starting settings, his to save as
   "default" presets (whether the curve is on from the start, the lantern, the stipple, the rings' size), then
