@@ -9162,3 +9162,34 @@ steady flame).
 - **Its price**: the pass's time on the card from the card's clock, in the frame's report; a bracket owed at
   "assess".
 - **His look:** whether far lamps pop in and out as old's did, and from where.
+
+### Build 222 built (unflown): far lamps twinkle within the near reach; checked off the screen
+
+**Built as the mark says** (`near.rs`: `Lamp`, `MOST_LAMPS`, `LAMPS_STEP`, `lamps_round`, `LampsLane` on its own
+thread, a tile's glowing cells now with their blocks; `near_eye.rs`: the list asked and put on the card, the dots'
+pipeline in a group of its own, `draw_lamps`, `DOT_*` numbers; `near.wgsl`: `voice_wave` and `steady` drawn out of
+`placed`, `lamp_dot` and `lamp_glow`; the wiring: the pass "the far lamps" after the x-fader, "listing the lamps" on
+the loading lane, the store "the far lamps' list", the switch `INCUS_FAR_LAMPS=0`). The test's clock can be set
+(`FAR_TEST_CLOCK`) for pictures at chosen moments.
+
+**Against the mark, off the screen (the stage on):**
+
+- **Tests:** all 59 pass, one new (the list: the stood and the placed together, nearest first, none past the reach,
+  a cell once, the most kept).
+- **The woods from 260 blocks north, 185 up, looking south** (1600 x 1000, a lamp a pixel at 420 blocks), the
+  flicker at 0: 14 dots, 8 red and 6 green, each on a pixel where its own lamp shows in the picture without them
+  (red on red, green on green), none on leaves or trunks; the rest hidden. **Met.**
+- **The cave's mouth from 400 blocks:** one red dot at the mouth, the lamps down the tunnel hidden by its walls.
+- **The twinkle, the default flicker (a twentieth), the same view at three moments:** 13 dots at 0 s, 8 at 0.37 s,
+  15 at 1.1 s, each lamp going out at its own moments. **Met.**
+- **The cave's mouth up close, the flicker at 0, against build 221's picture:** the dots on, 10 pixels differ (the
+  same dark spot at (785, 254)); off, 1 pixel by 9. No dot near (a lamp there is many pixels). **Met.**
+- **Its price: not taken (a miss as written).** A flight is twelve marks, six minutes of the card and the processor
+  hot just before his look; the pass is one draw of six corners a lamp (338 listed round the spawn). Owed with build
+  221's at "assess".
+
+**Said to him before he looks:** the dots are only within the near reach (1,024 blocks) for now; they begin where a
+lamp's block is 2 pixels across, so at the field of view of 100 on his screen from about 400 blocks, whole at 800;
+zooming in brings the steady lamp back. Most of the time a far lamp is lit, and it blinks out for moments at its
+light's low points (a third of its swing near, more far off); "Flicker (share of brightness)" moves only how much its
+light dims, not how often it blinks.

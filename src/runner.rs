@@ -313,12 +313,12 @@ impl Runner {
                 PassId::TheFar4 => self.the_far_layer(&mut work, 1, PassId::TheFar4),
                 PassId::TheFar2 => self.the_far_layer(&mut work, 2, PassId::TheFar2),
                 PassId::BringingItUp => self.bringing_it_up(&mut work),
-                PassId::TheNearFaces | PassId::TheNearWater | PassId::TheNearCover | PassId::TheXFader => self.the_near(&mut work, pass.id),
+                PassId::TheNearFaces | PassId::TheNearWater | PassId::TheNearCover | PassId::TheXFader | PassId::TheFarLamps => self.the_near(&mut work, pass.id),
                 PassId::ThePanel => self.the_panel(&mut work),
                 PassId::HandingTheCardItsWork => self.handing_the_card_its_work(&mut work),
                 PassId::ShowingIt => self.showing_it(&mut work),
                 PassId::Measuring => self.measuring(&mut work, event_loop),
-                PassId::HearingTheWindow | PassId::TheDoorway | PassId::SummingTheFarCells | PassId::MakingTheFarTextures | PassId::MakingTheFarLight | PassId::MakingTheFarRing | PassId::SpreadingTheLantern | PassId::MeshingTheNearChunks | PassId::ReadingTheTemperatures => unreachable!("{} isn't one of the frame's passes", pass.name),
+                PassId::HearingTheWindow | PassId::TheDoorway | PassId::SummingTheFarCells | PassId::MakingTheFarTextures | PassId::MakingTheFarLight | PassId::MakingTheFarRing | PassId::SpreadingTheLantern | PassId::ListingTheLamps | PassId::MeshingTheNearChunks | PassId::ReadingTheTemperatures => unreachable!("{} isn't one of the frame's passes", pass.name),
             };
             self.timed(pass.id, started);
             if !carry_on {
@@ -470,12 +470,12 @@ impl Runner {
 
     /// The near eye's faces into its own picture, then (its second pass) its water over them, then (its third) its
     /// cover for the far eye, all before the march; and after the far picture is brought up (its fourth, the
-    /// x-fader) its picture laid over it.
+    /// x-fader) its picture laid over it; then (its fifth, build 222) the far lamps' dots added.
     fn the_near(&mut self, work: &mut FrameWork, id: PassId) -> bool {
         let Some(running) = &mut self.running else { return false };
         let (Some(near), Some(far), Some(texture), Some(encoder)) = (&mut running.near, &running.far, &work.texture, &mut work.encoder) else { return true };
         // (Its own picture once the far eye's numbers are the frame's; the x-fader once the far picture is brought up.)
-        if !(if id == PassId::TheXFader { work.far_drew } else { work.far_ready }) {
+        if !(if matches!(id, PassId::TheXFader | PassId::TheFarLamps) { work.far_drew } else { work.far_ready }) {
             return true;
         }
         if !work.near_drew {
@@ -492,6 +492,7 @@ impl Runner {
                     far.covered(&running.card.queue);
                 }
             }
+            PassId::TheFarLamps => near.draw_lamps(encoder, &texture.texture.create_view(&wgpu::TextureViewDescriptor::default()), slot.and_then(|slot| clock.and_then(|clock| clock.render_pass(slot)))),
             _ => near.join(encoder, &texture.texture.create_view(&wgpu::TextureViewDescriptor::default()), slot.and_then(|slot| clock.and_then(|clock| clock.render_pass(slot)))),
         }
         true

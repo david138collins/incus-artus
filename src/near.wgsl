@@ -232,11 +232,20 @@ fn placed(levels: vec3<u32>, voice: u32) -> vec3<f32> {
     if (all(levels == vec3<u32>(0u))) {
         return vec3<f32>(0.0);
     }
-    let light = select(vec3<f32>(0.0), pow(vec3<f32>(1.0 - near.glow.w), 15.0 - vec3<f32>(levels)), levels > vec3<u32>(0u));
+    return steady(levels) * (1.0 - near.glow.x * voice_wave(voice));
+}
+
+// A placed light's levels as light on a surface, before its flicker (build 218's steps).
+fn steady(levels: vec3<u32>) -> vec3<f32> {
+    return select(vec3<f32>(0.0), pow(vec3<f32>(1.0 - near.glow.w), 15.0 - vec3<f32>(levels)), levels > vec3<u32>(0u));
+}
+
+// Where a voice is in its beat now, 0 to 1 (build 221): its light is dimmest at 1. (Build 222: the far lamps' dots
+// read it too, so a dot pops in as its lamp's light swells.)
+fn voice_wave(voice: u32) -> f32 {
     let v = f32(voice);
     let turn = near.glow.z * near.glow.y * 6.2832 * (0.75 + 0.5 * fract(v * 0.618034)) + v * 2.399963;
-    let wave = 0.5 + 0.25 * sin(turn) + 0.15 * sin(turn * 2.7 + 1.3 + v) + 0.1 * sin(turn * 5.3 + 0.7 * v);
-    return light * (1.0 - near.glow.x * wave);
+    return 0.5 + 0.25 * sin(turn) + 0.15 * sin(turn * 2.7 + 1.3 + v) + 0.1 * sin(turn * 5.3 + 0.7 * v);
 }
 
 // The lantern's voice (build 221): one of its own, apart from the lamps' 16.
@@ -429,4 +438,97 @@ fn near_water(corner: Corner) -> @location(0) vec4<f32> {
     let kept = face_light(corner);
     let seen = max(near_lit(camera.water.rgb, 1.0, corner.from_eye, kept.sky), camera.water.rgb * kept.placed);
     return vec4<f32>(to_srgb(clamp(seen, vec3<f32>(0.0), vec3<f32>(1.0))) * covers, covers);
+}
+
+// ── The far lamps (build 222) ──
+//
+// [David, 2026-11-18: "the single pixels of light don't twinkle quite the way they did in old incus, from a
+// distance"; old's far glows, 2026-11-09: "pixels of green that popped in and out as they twinkled, less and less as
+// you got farther away"; where it begins: "About a pixel".] After the x-fader, each lamp in the list (`near.rs`,
+// `LampsLane`) is a dot one screen pixel square at its block's middle, its light added to the picture: none while
+// its block is `from.x` pixels across or more, whole at `from.y`; shown only while its light is up its swing past a
+// bar that rises with distance, so far off it pops in at its peaks alone (with no flicker, shown steadily); dimmer by
+// the share of the pixel its block covers under a pixel; by how much of the near picture shows there (the x-fader);
+// and hidden where the near picture has something nearer at its pixel. (In a group of its own, the fourth: the
+// near eye's other passes' groups take the second and third.)
+
+struct Twinkle {
+    // x, y: the screen's size; z: the full-size band's pixel's side in screen pixels; w: how many screen pixels a
+    // block is across a block ahead of the eye.
+    screen: vec4<f32>,
+    // x: a lamp's block across, pixels, at which its dot begins to show; y: at which it's whole; z: the bar it must be
+    // over where it begins (a share of its swing); w: how much the bar rises.
+    begins: vec4<f32>,
+    // x: over how many blocks past where it's whole the bar rises; y: how far behind its block's middle something
+    // may be at its pixel and not hide it (blocks).
+    rest: vec4<f32>,
+}
+
+@group(3) @binding(0) var<uniform> twinkle: Twinkle;
+// The lamps: each its cell (north, east, up; the world's) and its light, red, green and blue in 4 bits each from the
+// low bits, with its voice over them (`<< 12`).
+@group(3) @binding(1) var<storage, read> lamps: array<vec4<i32>>;
+// The full-size band's depth (the near eye's farthest picture; where a nearer band covers a pixel its mask is in it,
+// the nearest there is).
+@group(3) @binding(2) var t_whole_depth: texture_depth_2d;
+
+struct Dot {
+    @builtin(position) clip: vec4<f32>,
+    @location(0) @interpolate(flat) colour: vec3<f32>,
+}
+
+// A lamp's dot's corner: two triangles over the screen pixel its block's middle falls in; off the screen (nothing
+// drawn) where it doesn't show.
+@vertex
+fn lamp_dot(@builtin(vertex_index) k: u32, @builtin(instance_index) which: u32) -> Dot {
+    var dot_out: Dot;
+    dot_out.clip = vec4<f32>(2.0, 2.0, 0.0, 1.0);
+    dot_out.colour = vec3<f32>(0.0);
+    let lamp = lamps[which];
+    let from_eye = vec3<f32>(lamp.xyz - near.cell.xyz) + 0.5 - near.part.xyz;
+    let ahead = dot(from_eye, camera.forward.xyz);
+    if (ahead < 1.0) {
+        return dot_out;
+    }
+    // How many pixels across its block is, and how far into showing that puts it.
+    let across = twinkle.screen.w / ahead;
+    let begun = clamp((twinkle.begins.x - across) / max(twinkle.begins.x - twinkle.begins.y, 0.001), 0.0, 1.0);
+    if (begun <= 0.0) {
+        return dot_out;
+    }
+    let x = dot(from_eye, camera.right.xyz) / dot(camera.right.xyz, camera.right.xyz) / ahead;
+    let y = dot(from_eye, camera.up.xyz) / dot(camera.up.xyz, camera.up.xyz) / ahead;
+    if (abs(x) >= 1.0 || abs(y) >= 1.0) {
+        return dot_out;
+    }
+    let pixel = floor(vec2<f32>((x * 0.5 + 0.5) * twinkle.screen.x, (0.5 - y * 0.5) * twinkle.screen.y));
+    // Hidden by something nearer at its pixel in the near picture (its own block's faces are within the slack).
+    let depth = textureLoad(t_whole_depth, vec2<i32>(pixel / max(twinkle.screen.z, 1.0)), 0);
+    if (depth > 0.0 && near.reach.z / depth < ahead - twinkle.rest.y) {
+        return dot_out;
+    }
+    let shows = near_shows(from_eye);
+    if (shows <= 0.0) {
+        return dot_out;
+    }
+    // Its twinkle: shown while its light is up its swing past the bar (1 less its wave), the bar rising from where
+    // it's whole on.
+    let whole_at = twinkle.screen.w / max(twinkle.begins.y, 0.001);
+    let past = clamp((ahead - whole_at) / max(twinkle.rest.x, 1.0), 0.0, 1.0);
+    let voice = u32(lamp.w >> 12u) & 15u;
+    if (near.glow.x > 0.0 && 1.0 - voice_wave(voice) < twinkle.begins.z + twinkle.begins.w * past) {
+        return dot_out;
+    }
+    let levels = vec3<u32>(u32(lamp.w) & 15u, (u32(lamp.w) >> 4u) & 15u, (u32(lamp.w) >> 8u) & 15u);
+    let share = min(across * across, 1.0);
+    dot_out.colour = to_srgb(clamp(steady(levels) * begun * share * shows, vec3<f32>(0.0), vec3<f32>(1.0)));
+    let corners = array<vec2<f32>, 6>(vec2<f32>(0.0, 0.0), vec2<f32>(1.0, 0.0), vec2<f32>(0.0, 1.0), vec2<f32>(0.0, 1.0), vec2<f32>(1.0, 0.0), vec2<f32>(1.0, 1.0));
+    let at = pixel + corners[k % 6u];
+    dot_out.clip = vec4<f32>(at.x / twinkle.screen.x * 2.0 - 1.0, 1.0 - at.y / twinkle.screen.y * 2.0, 0.0, 1.0);
+    return dot_out;
+}
+
+@fragment
+fn lamp_glow(dot_in: Dot) -> @location(0) vec4<f32> {
+    return vec4<f32>(dot_in.colour, 0.0);
 }

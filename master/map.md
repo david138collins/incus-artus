@@ -32,6 +32,7 @@ flowchart TB
     pass_the_far_2_x_2["the far 2 x 2"]
     pass_bringing_it_up["bringing it up"]
     pass_the_x_fader["the x-fader"]
+    pass_the_far_lamps["the far lamps"]
     pass_the_panel["the panel"]
     pass_handing_the_card_its_work["handing the card its work"]
     pass_showing_it["showing it"]
@@ -46,6 +47,7 @@ flowchart TB
     pass_making_the_far_light["making the far light"]
     pass_making_the_far_ring["making the far ring"]
     pass_spreading_the_lantern["spreading the lantern"]
+    pass_listing_the_lamps["listing the lamps"]
   end
   subgraph lane_the_temperatures["the temperatures (every 3 seconds, on a thread of its own)"]
     direction LR
@@ -77,6 +79,7 @@ flowchart TB
   store_the_window_round_the_eye[("the window round the eye")]
   store_the_temperatures[("the temperatures")]
   store_the_presets[("the presets")]
+  store_the_far_lamps__list[("the far lamps' list")]
   pass_hearing_the_window --> store_the_keys_held
   pass_hearing_the_window --> store_the_camera
   store_the_marks --> pass_going_to_a_mark
@@ -150,6 +153,10 @@ flowchart TB
   pass_bringing_it_up --> store_the_screen_s_picture
   store_the_near_picture --> pass_the_x_fader
   pass_the_x_fader --> store_the_screen_s_picture
+  store_the_far_lamps__list --> pass_the_far_lamps
+  store_the_near_picture --> pass_the_far_lamps
+  store_the_camera --> pass_the_far_lamps
+  pass_the_far_lamps --> store_the_screen_s_picture
   store_the_panel_s_shapes --> pass_the_panel
   pass_the_panel --> store_the_screen_s_picture
   store_the_screen_s_picture --> pass_showing_it
@@ -174,6 +181,9 @@ flowchart TB
   pass_making_the_far_ring --> store_the_far_textures
   store_a_tile_s_columns --> pass_spreading_the_lantern
   pass_spreading_the_lantern --> store_the_near_light
+  store_a_tile_s_columns --> pass_listing_the_lamps
+  store_what_changed --> pass_listing_the_lamps
+  pass_listing_the_lamps --> store_the_far_lamps__list
   pass_reading_the_temperatures --> store_the_temperatures
 ```
 
@@ -190,7 +200,7 @@ flowchart TB
 
 - **Runs:** once a frame.
 - **What it is:** Each frame, its passes in order: the camera goes to a mark if it's time, flies, the panels are laid out, the card draws the picture, and it's handed to the screen.
-- **Its passes, in order:** going to a mark, flying, putting the far cells on the card, putting the near chunks on the card, laying out the panel, getting the picture, the far start, listing the near chunks, the near faces, the near water, the near cover, the far 8 x 8, the far 4 x 4, the far 2 x 2, bringing it up, the x-fader, the panel, handing the card its work, showing it and measuring.
+- **Its passes, in order:** going to a mark, flying, putting the far cells on the card, putting the near chunks on the card, laying out the panel, getting the picture, the far start, listing the near chunks, the near faces, the near water, the near cover, the far 8 x 8, the far 4 x 4, the far 2 x 2, bringing it up, the x-fader, the far lamps, the panel, handing the card its work, showing it and measuring.
 - **Switch** `INCUS_FLIGHT`: a measured flight: every mark in data/marks.toml in turn, 5 s settling and 20 s measured at each, uncapped with the panel hidden; a report, then quits.
 - **Switch** `INCUS_START_PRESET`: the presets the game starts with, by page and name (render/<name>, camera/<name>, a comma between); unset, each page's "default" preset, and on a flight the built-in settings, so flights stay like for like whatever is saved.
 - **Switch** `WGPU_ADAPTER_NAME`: the card, by part of its name (intel: the laptop's Intel card).
@@ -204,7 +214,7 @@ flowchart TB
 
 - **Runs:** as tiles are asked for.
 - **What it is:** The world, read a tile at a time through the doorway. Going to a mark asks it for the ground under the eye; the far cells' lane will ask for tiles (2.2).
-- **Its passes, in order:** the doorway, meshing the near chunks, summing the far cells, making the far textures, making the far light, making the far ring and spreading the lantern.
+- **Its passes, in order:** the doorway, meshing the near chunks, summing the far cells, making the far textures, making the far light, making the far ring, spreading the lantern and listing the lamps.
 - **Switch** `INCUS_SCATTER_STAGE`: 1: the scatter stage is on: test detail the doorway applies as it answers a tile (woods within 10 km of the spawn, towers, a castle, a town, a hall's entrance, cave mouths, posts, a slab, an arch), from a seed and a short list of places, for the far cells, the far light and the near eye to be judged on. An instrument, not world generation; unset, the world as the export has it.
 - **Files:** src/doorway.rs and src/scatter_stage.rs.
 
@@ -384,6 +394,15 @@ flowchart TB
 - **Cost, last measured** (`kept logs/flight-1794589790.txt`): not measured.
 - **Files:** src/near_eye.rs and src/near_join.wgsl.
 
+### the far lamps
+
+- **A pass** in the frame, on the card.
+- **What it is:** Each lamp in the far lamps' list a dot one screen pixel square at its block's middle, its light added to the picture [David, 2026-11-18: "the single pixels of light don't twinkle quite the way they did in old incus, from a distance"; "About a pixel"]: from where its block is 2 pixels across, whole at 1; shown only while its light is up its swing past a bar (a third, rising to nearly the top 1,500 blocks on, old's), so far off it pops in at its peaks alone; dimmer under a pixel, by the x-fader, and hidden where the near picture has something nearer at its pixel. Within the near reach (build 222).
+- **Reads:** the far lamps' list, the near picture and the camera. **Writes:** the screen's picture.
+- **Switch** `INCUS_FAR_LAMPS`: 0: no dots, as to build 221 (for measuring against); unset, a lamp's dot twinkles from where its block is about a pixel.
+- **Cost, last measured** (`kept logs/flight-1794589790.txt`): not measured.
+- **Files:** src/near_eye.rs and src/near.wgsl.
+
 ### the panel
 
 - **A pass** in the frame, on the card.
@@ -476,6 +495,14 @@ flowchart TB
 - **Cost, last measured** (`kept logs/flight-1794589790.txt`): not measured.
 - **Files:** src/near.rs and src/near_eye.rs.
 
+### listing the lamps
+
+- **A pass** in loading, on the processor.
+- **What it is:** On a thread of its own, whenever the eye has moved 64 blocks, the render radius changes or a block is placed: every lamp within the radius and a chunk more, those the scatter stage stood (each tile's found once and kept) and those placed through the doorway, with its light and its voice, the nearest first. The frame puts the list on the card as it comes and never waits for it (build 222).
+- **Reads:** a tile's columns and what changed. **Writes:** the far lamps' list.
+- **Cost, last measured** (`kept logs/flight-1794589790.txt`): not measured.
+- **Files:** src/near.rs and src/near_eye.rs.
+
 ### reading the temperatures
 
 - **A pass** in the temperatures, on the processor.
@@ -497,7 +524,7 @@ flowchart TB
 
 - **A store** on the processor.
 - **What it is:** Where the eye is (north, east, up, in blocks) and where it looks (facing from north toward east, pitch up from level).
-- **Written by:** hearing the window, going to a mark, flying and laying out the panel. **Read by:** putting the far cells on the card, putting the near chunks on the card, laying out the panel, the far start, listing the near chunks, the near faces and the near water.
+- **Written by:** hearing the window, going to a mark, flying and laying out the panel. **Read by:** putting the far cells on the card, putting the near chunks on the card, laying out the panel, the far start, listing the near chunks, the near faces, the near water and the far lamps.
 - **Files:** src/camera.rs.
 
 ### the clocks
@@ -527,7 +554,7 @@ flowchart TB
 
 - **A store** on the card.
 - **What it is:** The picture the card draws on and the screen shows, the window's size.
-- **Written by:** bringing it up, the x-fader and the panel. **Read by:** showing it.
+- **Written by:** bringing it up, the x-fader, the far lamps and the panel. **Read by:** showing it.
 - **Files:** src/card.rs.
 
 ### the flight's report
@@ -555,7 +582,7 @@ flowchart TB
 
 - **A store** on the processor.
 - **What it is:** A tile's answer: each column's ground, water and profile as the export holds them, its runs made when asked.
-- **Written by:** the doorway. **Read by:** going to a mark, meshing the near chunks, summing the far cells, making the far ring and spreading the lantern.
+- **Written by:** the doorway. **Read by:** going to a mark, meshing the near chunks, summing the far cells, making the far ring, spreading the lantern and listing the lamps.
 - **Files:** src/doorway.rs.
 
 ### the marks
@@ -569,7 +596,7 @@ flowchart TB
 
 - **A store** on the processor.
 - **What it is:** The changes made through the doorway, by tile: whole blocks and bars, in the order they were made. A mark's are taken back when the flight moves on.
-- **Written by:** going to a mark. **Read by:** the doorway and meshing the near chunks.
+- **Written by:** going to a mark. **Read by:** the doorway, meshing the near chunks and listing the lamps.
 - **Files:** src/doorway.rs.
 
 ### the far cells
@@ -594,7 +621,7 @@ flowchart TB
 
 - **A store** on the card.
 - **What it is:** The near eye's own pictures and depths: one the screen's size, and by the detail curve (the Render page's "Largest near squares" and "Detail up close", build 213) one a half and one a quarter of it each way for the bands of distance nearest the eye, each laid over the full-size one in squares of 2 x 2 and 4 x 4 screen pixels. In each: every face whole, the nearest winning a pixel, the water over them; each pixel multiplied by how much of it shows, for the x-fader to lay over the far picture.
-- **Written by:** the near faces and the near water. **Read by:** the near water, the near cover and the x-fader.
+- **Written by:** the near faces and the near water. **Read by:** the near water, the near cover, the x-fader and the far lamps.
 - **Limit:** blocks the x-fader's band goes to, 512.
 - **Files:** src/near_eye.rs.
 
@@ -685,4 +712,12 @@ flowchart TB
 - **What it is:** A page of the panel's settings saved under a name, presets/render/<name>.toml and presets/camera/<name>.toml, plain text. The one named "default" is what the game starts with (the built-in settings till one is saved, and on a flight); a setting a file leaves out keeps its built-in value.
 - **Written by:** laying out the panel. **Read by:** laying out the panel.
 - **Files:** src/presets.rs.
+
+### the far lamps' list
+
+- **A store** on the card.
+- **What it is:** The lamps round the eye, the nearest first (build 222): each its cell, and its light (red, green and blue, 4 bits each) with its voice over them, four words a lamp. Written whole as each list comes from its thread.
+- **Written by:** listing the lamps. **Read by:** the far lamps.
+- **Limit:** lamps at most, 4096.
+- **Files:** src/near_eye.rs and src/near.rs.
 

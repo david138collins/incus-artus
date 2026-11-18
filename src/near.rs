@@ -514,6 +514,179 @@ impl Drop for LanternLane {
     }
 }
 
+/// A lamp as the far lamps' pass draws it (build 222) [David, 2026-11-18: "the single pixels of light don't twinkle
+/// quite the way they did in old incus, from a distance"]: its cell (the world's), its light (red, green and blue,
+/// each 0 to 15) and its voice (build 221's, the one its light flickers to).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct Lamp {
+    pub cell: [i32; 3],
+    pub light: [u8; 3],
+    pub voice: u8,
+}
+
+/// The most lamps the far lamps' list keeps, the nearest (old kept 1,024 far glows; four times that is 64 KB).
+pub const MOST_LAMPS: usize = 4096;
+
+/// How far the eye moves (blocks, north or east) before the far lamps' list is asked for again.
+pub const LAMPS_STEP: i32 = 64;
+
+/// The lamps within `reach` columns of `eye` (north, east), the nearest first, at most `MOST_LAMPS`: those the
+/// scatter stage stood (`stood`, each with its block) and the whole blocks placed through the doorway (`placed`) that
+/// give light; a cell once, whichever way it came.
+pub fn lamps_round(eye: [i32; 2], reach: i32, stood: &[([i32; 3], Block)], placed: &[Change], glows: &Glows) -> Vec<Lamp> {
+    let apart = |cell: &[i32; 3]| {
+        let (north, east) = ((cell[0] - eye[0]) as i64, (cell[1] - eye[1]) as i64);
+        north * north + east * east
+    };
+    let most = reach.max(0) as i64 * reach.max(0) as i64;
+    let given = placed.iter().filter_map(|change| match change {
+        Change::Block { cell, block } => Some((*cell, *block)),
+        _ => None,
+    });
+    let mut found: Vec<(i64, Lamp)> = stood
+        .iter()
+        .copied()
+        .chain(given)
+        .filter_map(|(cell, block)| glows.of(block).map(|light| (cell, light)))
+        .filter(|(cell, _)| apart(cell) <= most)
+        .map(|(cell, light)| (apart(&cell), Lamp { cell, light, voice: voice_of(cell) }))
+        .collect();
+    found.sort_by_key(|(off, lamp)| (*off, lamp.cell));
+    found.dedup_by_key(|(_, lamp)| lamp.cell);
+    found.truncate(MOST_LAMPS);
+    found.into_iter().map(|(_, lamp)| lamp).collect()
+}
+
+/// What the far lamps' thread shares with the frame: the list wanted now (the eye's column and the reach), the
+/// changes made through the game's doorway and how many times they've been told, whether there's anything new to
+/// do, and whether to stop.
+struct LampsAsked {
+    want: Option<([i32; 2], i32)>,
+    changes: std::sync::Arc<HashMap<[i32; 2], Vec<Change>>>,
+    told: u64,
+    fresh: bool,
+    stop: bool,
+}
+
+/// The far lamps' lane (build 222): a thread of its own, with a doorway of its own, that lists the lamps round the
+/// eye whenever it's asked (the eye has moved `LAMPS_STEP` blocks, the reach has changed, or a block has) and hands
+/// the list over. The frame never waits for it. Each tile's lamps are found once and kept (the tile isn't).
+pub struct LampsLane {
+    asked: std::sync::Arc<(std::sync::Mutex<LampsAsked>, std::sync::Condvar)>,
+    made: std::sync::mpsc::Receiver<Result<Vec<Lamp>, String>>,
+}
+
+impl LampsLane {
+    pub fn start(folder: std::path::PathBuf, staged: bool) -> Result<Self, String> {
+        let asked = std::sync::Arc::new((std::sync::Mutex::new(LampsAsked { want: None, changes: Default::default(), told: 0, fresh: false, stop: false }), std::sync::Condvar::new()));
+        let (sender, made) = std::sync::mpsc::channel();
+        let shared = asked.clone();
+        std::thread::Builder::new()
+            .name("the far lamps".to_string())
+            .spawn(move || {
+                let mut doorway = match Doorway::open_with(&folder, staged) {
+                    Ok(doorway) => doorway,
+                    Err(error) => {
+                        let _ = sender.send(Err(error));
+                        return;
+                    }
+                };
+                let glows = match Glows::load(&mut doorway) {
+                    Ok(glows) => glows,
+                    Err(error) => {
+                        let _ = sender.send(Err(error));
+                        return;
+                    }
+                };
+                let mut told = 0u64;
+                let mut stood: HashMap<[i32; 2], Vec<([i32; 3], Block)>> = HashMap::new();
+                'asked: loop {
+                    let (want, news) = {
+                        let (lock, heard) = &*shared;
+                        let mut asked = lock.lock().unwrap();
+                        loop {
+                            if asked.stop {
+                                return;
+                            }
+                            if asked.fresh {
+                                asked.fresh = false;
+                                break (asked.want, (asked.told != told).then(|| (asked.told, asked.changes.clone())));
+                            }
+                            asked = heard.wait(asked).unwrap();
+                        }
+                    };
+                    if let Some((now, changes)) = news {
+                        doorway.set_changes((*changes).clone());
+                        told = now;
+                    }
+                    let Some((eye, reach)) = want else { continue };
+                    let (least, _) = doorway.place(eye[0] - reach, eye[1] - reach);
+                    let (most, _) = doorway.place(eye[0] + reach, eye[1] + reach);
+                    let (mut round, mut placed) = (Vec::new(), Vec::new());
+                    if !glows.none() {
+                        for tx in least[0]..=most[0] {
+                            for ty in least[1]..=most[1] {
+                                let tile = [tx, ty];
+                                if !stood.contains_key(&tile) {
+                                    match doorway.tile(tx, ty) {
+                                        Ok(read) => {
+                                            stood.insert(tile, read.glowing(doorway.tile_least(tile), |block| glows.of(block).is_some()));
+                                        }
+                                        Err(error) => {
+                                            if sender.send(Err(error)).is_err() {
+                                                return;
+                                            }
+                                            continue 'asked;
+                                        }
+                                    }
+                                }
+                                round.extend_from_slice(&stood[&tile]);
+                                placed.extend(doorway.changes_in(tx, ty).iter().cloned());
+                            }
+                        }
+                    }
+                    if sender.send(Ok(lamps_round(eye, reach, &round, &placed, &glows))).is_err() {
+                        return;
+                    }
+                }
+            })
+            .map_err(|error| format!("the far lamps' thread couldn't start: {error}"))?;
+        Ok(Self { asked, made })
+    }
+
+    /// The list wanted now: round the eye's column, out to `reach` blocks. The last asking is the one answered.
+    pub fn ask(&self, eye: [i32; 2], reach: i32) {
+        let (lock, heard) = &*self.asked;
+        let mut asked = lock.lock().unwrap();
+        asked.want = Some((eye, reach));
+        asked.fresh = true;
+        heard.notify_all();
+    }
+
+    /// The changes made through the game's doorway, as they are now: the list is made again with them.
+    pub fn changed(&self, changes: HashMap<[i32; 2], Vec<Change>>) {
+        let (lock, heard) = &*self.asked;
+        let mut asked = lock.lock().unwrap();
+        asked.changes = std::sync::Arc::new(changes);
+        asked.told += 1;
+        asked.fresh = true;
+        heard.notify_all();
+    }
+
+    /// The lists made since the last taking (the oldest first), with any errors among them.
+    pub fn take(&self) -> Vec<Result<Vec<Lamp>, String>> {
+        self.made.try_iter().collect()
+    }
+}
+
+impl Drop for LampsLane {
+    fn drop(&mut self) {
+        let (lock, heard) = &*self.asked;
+        lock.lock().unwrap().stop = true;
+        heard.notify_all();
+    }
+}
+
 /// A chunk's placed light (build 216), if a glowing block is near enough to reach it: the glowing blocks the scatter
 /// stage stood in the tiles round it (each tile's found once and kept in `lamps`) and those placed through the
 /// doorway; if any is within a light's reach of the chunk's columns, its blocks are read again 16 columns out and the
@@ -537,7 +710,7 @@ pub fn placed_for(doorway: &Doorway, tiles: &mut HashMap<[i32; 2], Tile>, lamps:
             if !tiles.contains_key(&tile) {
                 tiles.insert(tile, doorway.tile(tile[0], tile[1])?);
             }
-            lamps.insert(tile, tiles[&tile].glowing(doorway.tile_least(tile), |block| glows.of(block).is_some()));
+            lamps.insert(tile, tiles[&tile].glowing(doorway.tile_least(tile), |block| glows.of(block).is_some()).into_iter().map(|(cell, _)| cell).collect());
         }
         found.extend(lamps[&tile].iter().filter(|cell| near(cell)));
         for change in doorway.changes_in(tile[0], tile[1]) {
@@ -2131,6 +2304,26 @@ mod tests {
             }
             eprintln!("The lantern at the spawn: its chunk's blocks read 16 columns out in {read:.1} ms (once a chunk, the tile in hand or not); a spreading {:.2} ms (each block the eye crosses)", began.elapsed().as_secs_f64() * 1000.0 / 20.0);
         }
+    }
+
+    /// The far lamps' list (build 222): those the scatter stage stood and those placed, together, the nearest first,
+    /// none past the reach, a cell once, only blocks that give light, each with its light and its voice; and no more
+    /// than the most.
+    #[test]
+    fn the_far_lamps_list_is_the_nearest_within_reach() {
+        let glows = Glows { blocks: vec![[0; 3], [15, 1, 0], [1, 15, 2]] };
+        let stood: Vec<([i32; 3], Block)> = vec![([100, 0, 50], 1), ([10, 0, 50], 2), ([0, 300, 50], 1), ([5, 5, 50], 0)];
+        let placed = [Change::Block { cell: [0, 20, 60], block: 1 }, Change::Block { cell: [10, 0, 50], block: 2 }, Change::Block { cell: [3, 3, 3], block: 0 }];
+        let list = lamps_round([0, 0], 200, &stood, &placed, &glows);
+        assert_eq!(list.iter().map(|lamp| lamp.cell).collect::<Vec<_>>(), vec![[10, 0, 50], [0, 20, 60], [100, 0, 50]], "nearest first, the one 300 off left out, a cell once, no plain blocks");
+        assert_eq!(list[0].light, [1, 15, 2], "the green lamp's light");
+        assert_eq!(list[1], Lamp { cell: [0, 20, 60], light: [15, 1, 0], voice: voice_of([0, 20, 60]) }, "a placed lamp with its light and voice");
+        let many: Vec<([i32; 3], Block)> = (0..MOST_LAMPS as i32 + 10).map(|k| ([k % 100, k / 100, 50], 1)).collect();
+        let list = lamps_round([0, 0], 1000, &many, &[], &glows);
+        assert_eq!(list.len(), MOST_LAMPS, "the most kept");
+        let apart = |lamp: &Lamp| lamp.cell[0] * lamp.cell[0] + lamp.cell[1] * lamp.cell[1];
+        assert!(list.windows(2).all(|pair| apart(&pair[0]) <= apart(&pair[1])), "the nearest first");
+        assert!(many.iter().filter(|(cell, _)| cell[0] * cell[0] + cell[1] * cell[1] < apart(&list[MOST_LAMPS - 1])).count() <= MOST_LAMPS, "the ones left out are the farthest");
     }
 
     /// Two lamps of one colour as bright in a cell (build 221): the lower voice, whichever is given first; and the

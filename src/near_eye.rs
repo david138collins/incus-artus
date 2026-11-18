@@ -37,6 +37,17 @@ pub const DETAILS: (f32, f32) = (0.015625, 1.0);
 pub const MOST_STIPPLE: f32 = 0.5;
 /// The least and most of a light's step: the share dimmer each block from a lamp is than the last.
 pub const STEPS: (f32, f32) = (0.05, 0.5);
+/// The far lamps' dots (build 222) [David, 2026-11-18: "About a pixel"]: a lamp's block across (screen pixels) at
+/// which its dot begins to show, and at which it's whole; the bar its light must be over to show (a share of its
+/// swing) where it's whole, how much that rises, and over how many blocks past there (old's far glows' numbers, build
+/// 100: a third, rising to nearly the top 1,500 blocks on); and how far behind a lamp's middle something at its pixel
+/// may be and not hide it (its own block's faces are within half a block and a little).
+const DOT_FROM: f32 = 2.0;
+const DOT_WHOLE: f32 = 1.0;
+const DOT_BAR: f32 = 0.3;
+const DOT_BAR_RISES: f32 = 0.62;
+const DOT_BAR_OVER: f32 = 1500.0;
+const DOT_SLACK: f32 = 1.5;
 
 /// The near eye's bands by the detail curve (build 213), the nearest first: each its squares' side in screen pixels,
 /// the distance from the eye (true, not level) nearer than which it draws nothing, and the distance it draws to.
@@ -233,6 +244,23 @@ pub struct NearEye {
     lantern_shown: Option<([i32; 3], [u8; 3])>,
     /// How long the last box's blocks took to read and its light to spread, on its thread (ms).
     pub lantern_ms: (f32, f32),
+    /// The far lamps (build 222): their thread; what was last asked of it (the eye's column and the reach) and
+    /// whether a list has come since; the list on the card (`near::MOST_LAMPS` of four words) and how many are in it;
+    /// the dots' pass, what its group is made by, its numbers and its group (made again with the bands); and whether
+    /// they're drawn at all (`INCUS_FAR_LAMPS=0`: not, as to build 221).
+    lamps_lane: crate::near::LampsLane,
+    /// The placed lights' clock, seconds, if it's set (the tests' pictures at chosen moments); none, the time since
+    /// the game began.
+    pub clock: Option<f32>,
+    lamps_asked: Option<([i32; 2], i32)>,
+    lamps_come: bool,
+    lamps: wgpu::Buffer,
+    pub lamps_count: u32,
+    dots: wgpu::RenderPipeline,
+    dots_layout: wgpu::BindGroupLayout,
+    dots_numbers: wgpu::Buffer,
+    dots_group: Option<wgpu::BindGroup>,
+    pub far_lamps: bool,
     /// The render radius and the x-fader (the Render page's sliders).
     pub look: NearLook,
     chunks: HashMap<[i32; 2], Kept>,
@@ -327,6 +355,7 @@ impl NearEye {
         // first look. Six fill it in about twice the time and leave the frame and the far eye's lanes their room.]
         let threads = std::env::var("INCUS_NEAR_THREADS").ok().and_then(|n| n.parse::<usize>().ok()).map_or_else(|| (std::thread::available_parallelism().map_or(2, |n| n.get()) / 4).clamp(2, 6), |n| n.clamp(1, 32));
         let lantern_lane = crate::near::LanternLane::start(folder.clone(), crate::scatter_stage::on())?;
+        let lamps_lane = crate::near::LampsLane::start(folder.clone(), crate::scatter_stage::on())?;
         let lane = Lane::start(folder, crate::scatter_stage::on(), threads)?;
         let module = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some("the near eye"), source: wgpu::ShaderSource::Wgsl(source().into()) });
         let both = wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT;
@@ -439,6 +468,34 @@ impl NearEye {
             multiview_mask: None,
             cache: None,
         });
+        // The far lamps (build 222): a dot a lamp, added to the picture after the x-fader. Its own group, the fourth
+        // (`near.wgsl`'s `Twinkle`, the lamps, the full-size band's depth), read where each dot's corners are placed.
+        let vertex = wgpu::ShaderStages::VERTEX;
+        let dots_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("the far lamps"),
+            entries: &[
+                uniform(0, vertex),
+                wgpu::BindGroupLayoutEntry { binding: 1, visibility: vertex, ty: wgpu::BindingType::Buffer { ty: wgpu::BufferBindingType::Storage { read_only: true }, has_dynamic_offset: false, min_binding_size: None }, count: None },
+                wgpu::BindGroupLayoutEntry { binding: 2, visibility: vertex, ty: wgpu::BindingType::Texture { sample_type: wgpu::TextureSampleType::Depth, view_dimension: wgpu::TextureViewDimension::D2, multisampled: false }, count: None },
+            ],
+        });
+        let dots_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor { label: Some("the far lamps"), bind_group_layouts: &[Some(&layout), None, None, Some(&dots_layout)], immediate_size: 0 });
+        let added = Some(wgpu::BlendState { color: wgpu::BlendComponent { src_factor: wgpu::BlendFactor::One, dst_factor: wgpu::BlendFactor::One, operation: wgpu::BlendOperation::Add }, alpha: wgpu::BlendComponent { src_factor: wgpu::BlendFactor::Zero, dst_factor: wgpu::BlendFactor::One, operation: wgpu::BlendOperation::Add } });
+        let dots = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("the far lamps"),
+            layout: Some(&dots_pipeline_layout),
+            vertex: wgpu::VertexState { module: &module, entry_point: Some("lamp_dot"), compilation_options: Default::default(), buffers: &[] },
+            fragment: Some(wgpu::FragmentState { module: &module, entry_point: Some("lamp_glow"), compilation_options: Default::default(), targets: &[Some(wgpu::ColorTargetState { format, blend: added, write_mask: wgpu::ColorWrites::ALL })] }),
+            primitive: wgpu::PrimitiveState::default(),
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState::default(),
+            multiview_mask: None,
+            cache: None,
+        });
+        let dots_numbers = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the far lamps' numbers"), size: 48, usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
+        let lamps = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the far lamps' list"), size: crate::near::MOST_LAMPS as u64 * 16, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
+        let far_lamps = std::env::var("INCUS_FAR_LAMPS").as_deref() != Ok("0");
+        log::info!("The far lamps: {}", if far_lamps { "a dot a lamp from where it's about a pixel, twinkling" } else { "not drawn (INCUS_FAR_LAMPS=0)" });
         // The cover: which of the far eye's pixels the near picture wholly covers.
         let cover_module = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some("the near cover"), source: wgpu::ShaderSource::Wgsl(include_str!("near_cover.wgsl").into()) });
         let compute = wgpu::ShaderStages::COMPUTE;
@@ -502,7 +559,7 @@ impl NearEye {
         });
         let radius = std::env::var("INCUS_NEAR_RADIUS").ok().and_then(|r| r.parse::<f32>().ok()).map_or(RADIUS, |r| r.clamp(1.0, MOST_RADIUS));
         log::info!("The near eye: faces as triangles within a render radius of {radius} chunks ({} blocks), its lane on {threads} threads", radius * CHUNK as f32);
-        Ok(Self { lane, lantern_lane, lantern, lantern_asked: None, lantern_shown: None, lantern_ms: (0.0, 0.0), look: NearLook { radius, ..NearLook::DEFAULT }, chunks: HashMap::new(), pages: Vec::new(), asked: None, want: Vec::new(), first_to_come: 0, touched: HashSet::new(), need: HashMap::new(), remake: HashSet::new(), waiting: Default::default(), recent_ms: Default::default(), faces, water, layout, band_layout, depths_layout, blank, blank_depth, group: None, numbers, colours, blocks_view, crisp, textured, light, turned, mask, join, join_layout, join_numbers, join_group: None, format, bands: Vec::new(), bands_for: None, cover_pass, cover_layout, cover_sizes, cover_sampler, cover_group: None, draws, counts: Counts { threads, ..Default::default() } })
+        Ok(Self { lane, lantern_lane, lantern, lantern_asked: None, lantern_shown: None, lantern_ms: (0.0, 0.0), lamps_lane, clock: None, lamps_asked: None, lamps_come: false, lamps, lamps_count: 0, dots, dots_layout, dots_numbers, dots_group: None, far_lamps, look: NearLook { radius, ..NearLook::DEFAULT }, chunks: HashMap::new(), pages: Vec::new(), asked: None, want: Vec::new(), first_to_come: 0, touched: HashSet::new(), need: HashMap::new(), remake: HashSet::new(), waiting: Default::default(), recent_ms: Default::default(), faces, water, layout, band_layout, depths_layout, blank, blank_depth, group: None, numbers, colours, blocks_view, crisp, textured, light, turned, mask, join, join_layout, join_numbers, join_group: None, format, bands: Vec::new(), bands_for: None, cover_pass, cover_layout, cover_sizes, cover_sampler, cover_group: None, draws, counts: Counts { threads, ..Default::default() } })
     }
 
     /// Room for `count` faces: a page and where in it (a free stretch that holds them, the first found; a new page
@@ -738,6 +795,8 @@ impl NearEye {
         }
         let told = self.lane.changed(changes.clone());
         self.lantern_lane.changed(changes.clone());
+        self.lamps_lane.changed(changes.clone());
+        self.lamps_asked = None;
         for chunk in now.union(&self.touched) {
             self.need.insert(*chunk, told);
             if self.chunks.contains_key(chunk) {
@@ -852,6 +911,16 @@ impl NearEye {
                     wgpu::BindGroupEntry { binding: 3, resource: wgpu::BindingResource::TextureView(before(2).0) },
                 ],
             }));
+            // The far lamps' group: their numbers, the list, and the full-size band's depth.
+            self.dots_group = Some(device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("the far lamps"),
+                layout: &self.dots_layout,
+                entries: &[
+                    wgpu::BindGroupEntry { binding: 0, resource: self.dots_numbers.as_entire_binding() },
+                    wgpu::BindGroupEntry { binding: 1, resource: self.lamps.as_entire_binding() },
+                    wgpu::BindGroupEntry { binding: 2, resource: wgpu::BindingResource::TextureView(&pictures[last].2) },
+                ],
+            }));
             self.bands = bands;
             self.bands_for = Some((pixels.clone(), screen));
             // (The cover reads the full-size picture: its group is made again.)
@@ -901,6 +970,30 @@ impl NearEye {
                 Err(error) => log::error!("The lantern's light couldn't be spread: {error}"),
             }
         }
+        // The far lamps (build 222): the list asked of its thread when the eye has moved `LAMPS_STEP` blocks or the
+        // radius changed (out to the radius and a chunk more), put on the card as it comes; and the dots' numbers.
+        let column = [camera.position.x.floor() as i32, camera.position.y.floor() as i32];
+        let lamps_reach = (self.look.radius.clamp(1.0, MOST_RADIUS) as i32 + 1) * CHUNK;
+        if self.lamps_asked.is_none_or(|(at, reach)| reach != lamps_reach || (at[0] - column[0]).abs() >= crate::near::LAMPS_STEP || (at[1] - column[1]).abs() >= crate::near::LAMPS_STEP) {
+            self.lamps_asked = Some((column, lamps_reach));
+            self.lamps_lane.ask(column, lamps_reach);
+        }
+        for made in self.lamps_lane.take() {
+            match made {
+                Ok(list) => {
+                    let words: Vec<u8> = list.iter().flat_map(|lamp| [lamp.cell[0], lamp.cell[1], lamp.cell[2], lamp.light[0] as i32 | (lamp.light[1] as i32) << 4 | (lamp.light[2] as i32) << 8 | (lamp.voice as i32) << 12]).flat_map(|v| v.to_le_bytes()).collect();
+                    if !words.is_empty() {
+                        queue.write_buffer(&self.lamps, 0, &words);
+                    }
+                    self.lamps_count = list.len() as u32;
+                    self.lamps_come = true;
+                }
+                Err(error) => log::error!("The far lamps couldn't be listed: {error}"),
+            }
+        }
+        let whole_pixel = self.bands.last().map_or(1, |band| band.pixel) as f32;
+        let dot_numbers = [[screen.0.max(1) as f32, screen.1.max(1) as f32, whole_pixel, per_block], [DOT_FROM, DOT_WHOLE, DOT_BAR, DOT_BAR_RISES], [DOT_BAR_OVER, DOT_SLACK, 0.0, 0.0]];
+        queue.write_buffer(&self.dots_numbers, 0, &dot_numbers.iter().flatten().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
         // The numbers: the eye's block and how far into it the eye is (and the x-fader's curve); the reach, the
         // x-fader's band and the depths; and the placed lights' flicker and step, with the time (seconds, turned over each
         // hour so it stays fine); and the lantern's box's least corner, with whether there's a box at all.
@@ -911,7 +1004,7 @@ impl NearEye {
         bytes.extend((0..3).map(|k| eye[k] - cell[k]).chain([self.look.fader_curve.clamp(1.0, MOST_FADER_CURVE)]).flat_map(|v| v.to_le_bytes()));
         bytes.extend([self.counts.reach, band_of(self.look.fader_width, self.counts.reach), DEPTHS[0], DEPTHS[1]].iter().flat_map(|v| v.to_le_bytes()));
         static BEGAN: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
-        let seconds = BEGAN.get_or_init(std::time::Instant::now).elapsed().as_secs_f32() % 3600.0;
+        let seconds = self.clock.unwrap_or_else(|| BEGAN.get_or_init(std::time::Instant::now).elapsed().as_secs_f32() % 3600.0);
         bytes.extend([self.look.flicker.clamp(0.0, 1.0), self.look.flicker_speed.max(0.0), seconds, self.look.step.clamp(STEPS.0, STEPS.1)].iter().flat_map(|v| v.to_le_bytes()));
         let corner = self.lantern_shown.map(|(at, _)| at.map(|v| v - crate::near::CARRIED_BOX / 2));
         bytes.extend(corner.unwrap_or([0; 3]).iter().copied().chain([corner.is_some() as i32]).flat_map(|v| v.to_le_bytes()));
@@ -1091,6 +1184,26 @@ impl NearEye {
         pass.set_bind_group(0, group, &[]);
         pass.dispatch_workgroups(sizes[0].0.div_ceil(8), sizes[0].1.div_ceil(8), 1);
         true
+    }
+
+    /// Whether the far lamps' list on the card is the one last asked for (a list has come since the asking): for the
+    /// tests, which wait for its thread.
+    pub fn lamps_settled(&self) -> bool {
+        self.lamps_come && self.lamps_asked.is_some()
+    }
+
+    /// The far lamps (build 222): a dot a lamp added to the picture (`view`), after the x-fader.
+    pub fn draw_lamps(&self, encoder: &mut wgpu::CommandEncoder, view: &wgpu::TextureView, timestamps: Option<wgpu::RenderPassTimestampWrites<'_>>) {
+        let (Some((group, _)), Some(dots)) = (&self.group, &self.dots_group) else { return };
+        let attachment = wgpu::RenderPassColorAttachment { view, depth_slice: None, resolve_target: None, ops: wgpu::Operations { load: wgpu::LoadOp::Load, store: wgpu::StoreOp::Store } };
+        let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor { label: Some("the far lamps"), color_attachments: &[Some(attachment)], depth_stencil_attachment: None, timestamp_writes: timestamps, ..Default::default() });
+        if !self.far_lamps || self.lamps_count == 0 {
+            return;
+        }
+        pass.set_pipeline(&self.dots);
+        pass.set_bind_group(0, group, &[]);
+        pass.set_bind_group(3, dots, &[]);
+        pass.draw(0..6, 0..self.lamps_count);
     }
 
     /// The x-fader: the near eye's pictures laid over the far picture (`view`): the full-size one, then each nearer

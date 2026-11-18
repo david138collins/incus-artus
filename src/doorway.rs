@@ -476,9 +476,10 @@ impl Tile {
 
     /// The cells (north, east, up; the world's) of every block the scatter stage stood in the tile that `glows`
     /// (build 216), the tile's least corner at `least`: for finding the lamps near a chunk without reading columns.
-    pub fn glowing(&self, least: [i32; 2], glows: impl Fn(Block) -> bool) -> Vec<[i32; 3]> {
+    /// With each one's block (build 222, for the far lamps' list).
+    pub fn glowing(&self, least: [i32; 2], glows: impl Fn(Block) -> bool) -> Vec<([i32; 3], Block)> {
         let Some(staged) = &self.staged else { return Vec::new() };
-        staged.cells_of(glows).into_iter().map(|(k, up)| [least[0] + (k % self.side) as i32, least[1] + (k / self.side) as i32, up]).collect()
+        staged.cells_of(glows).into_iter().map(|(k, up, block)| ([least[0] + (k % self.side) as i32, least[1] + (k / self.side) as i32, up], block)).collect()
     }
 
     /// The column `i` north and `j` east of the tile's least corner.

@@ -2009,6 +2009,11 @@ mod tests {
         if let (Some(near), true) = (&mut near, std::env::var_os("FAR_TEST_LANTERN").is_some()) {
             near.look.lantern = true;
         }
+        // (The placed lights' clock set, `FAR_TEST_CLOCK`, seconds: pictures of the far lamps at chosen moments of
+        // their twinkle, build 222.)
+        if let (Some(near), Some(clock)) = (&mut near, std::env::var("FAR_TEST_CLOCK").ok().and_then(|clock| clock.parse::<f32>().ok())) {
+            near.clock = Some(clock);
+        }
         // A frame, or as many as asked (`FAR_TEST_FRAMES`; by the one dispatch a finer layer's lead is the frame
         // before's, and the first frame makes its own); the last one's picture read back.
         let frames = std::env::var("FAR_TEST_FRAMES").ok().and_then(|n| n.parse::<u32>().ok()).unwrap_or(1).max(1);
@@ -2016,15 +2021,17 @@ mod tests {
         // its cover for the far eye.
         let near_first = |near: &mut crate::near_eye::NearEye, eye: &FarEye, encoder: &mut wgpu::CommandEncoder, camera: &Camera| {
             assert!(near.prepare(&device, &queue, screen, eye, camera), "the near eye has what it reads of the far eye's");
-            // (The lantern's light comes from its thread: waited for here, so a picture or a timed frame has it.)
-            for _ in 0..5000 {
-                if near.lantern_settled() {
+            // (The lantern's light comes from its thread: waited for here, so a picture or a timed frame has it. So
+            // does the far lamps' list, build 222.)
+            for _ in 0..20000 {
+                if near.lantern_settled() && near.lamps_settled() {
                     break;
                 }
                 std::thread::sleep(std::time::Duration::from_millis(1));
                 near.prepare(&device, &queue, screen, eye, camera);
             }
             assert!(near.lantern_settled(), "the lantern's light came from its thread");
+            assert!(near.lamps_settled(), "the far lamps' list came from its thread");
             near.draw_faces(encoder, None);
             near.draw_water(encoder, None);
             if near.cover(&device, &queue, encoder, eye, None) {
@@ -2210,7 +2217,8 @@ mod tests {
         }
         if let Some(near) = &mut near {
             near.join(&mut encoder, &view, None);
-            eprintln!("The near eye drew: {:?}", near.counts);
+            near.draw_lamps(&mut encoder, &view, None);
+            eprintln!("The near eye drew: {:?}; far lamps listed: {}", near.counts, near.lamps_count);
         }
         encoder.copy_texture_to_buffer(
             wgpu::TexelCopyTextureInfo { texture: &target, mip_level: 0, origin: wgpu::Origin3d::ZERO, aspect: wgpu::TextureAspect::All },

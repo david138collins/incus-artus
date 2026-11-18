@@ -72,6 +72,7 @@ pub enum PassId {
     TheFar2,
     BringingItUp,
     TheXFader,
+    TheFarLamps,
     ThePanel,
     HandingTheCardItsWork,
     ShowingIt,
@@ -83,6 +84,7 @@ pub enum PassId {
     MakingTheFarLight,
     MakingTheFarRing,
     SpreadingTheLantern,
+    ListingTheLamps,
     ReadingTheTemperatures,
 }
 
@@ -126,6 +128,7 @@ pub enum StoreId {
     FarWindow,
     Temperatures,
     Presets,
+    FarLamps,
 }
 
 pub struct Store {
@@ -181,7 +184,7 @@ pub const LANES: [Lane; 4] = [
     },
 ];
 
-pub const PASSES: [Pass; 29] = [
+pub const PASSES: [Pass; 31] = [
     Pass {
         id: PassId::HearingTheWindow,
         name: "hearing the window",
@@ -400,6 +403,17 @@ pub const PASSES: [Pass; 29] = [
         files: &["src/near_eye.rs", "src/near_join.wgsl"],
     },
     Pass {
+        id: PassId::TheFarLamps,
+        name: "the far lamps",
+        lane: LaneId::Frame,
+        on: Where::Card,
+        what: "Each lamp in the far lamps' list a dot one screen pixel square at its block's middle, its light added to the picture [David, 2026-11-18: \"the single pixels of light don't twinkle quite the way they did in old incus, from a distance\"; \"About a pixel\"]: from where its block is 2 pixels across, whole at 1; shown only while its light is up its swing past a bar (a third, rising to nearly the top 1,500 blocks on, old's), so far off it pops in at its peaks alone; dimmer under a pixel, by the x-fader, and hidden where the near picture has something nearer at its pixel. Within the near reach (build 222).",
+        reads: &[StoreId::FarLamps, StoreId::NearPicture, StoreId::Camera],
+        writes: &[StoreId::ScreenPicture],
+        switches: &[("INCUS_FAR_LAMPS", "0: no dots, as to build 221 (for measuring against); unset, a lamp's dot twinkles from where its block is about a pixel")],
+        files: &["src/near_eye.rs", "src/near.wgsl"],
+    },
+    Pass {
         id: PassId::ThePanel,
         name: "the panel",
         lane: LaneId::Frame,
@@ -523,6 +537,17 @@ pub const PASSES: [Pass; 29] = [
         files: &["src/near.rs", "src/near_eye.rs"],
     },
     Pass {
+        id: PassId::ListingTheLamps,
+        name: "listing the lamps",
+        lane: LaneId::Loading,
+        on: Where::Processor,
+        what: "On a thread of its own, whenever the eye has moved 64 blocks, the render radius changes or a block is placed: every lamp within the radius and a chunk more, those the scatter stage stood (each tile's found once and kept) and those placed through the doorway, with its light and its voice, the nearest first. The frame puts the list on the card as it comes and never waits for it (build 222).",
+        reads: &[StoreId::TileColumns, StoreId::Changes],
+        writes: &[StoreId::FarLamps],
+        switches: &[],
+        files: &["src/near.rs", "src/near_eye.rs"],
+    },
+    Pass {
         id: PassId::ReadingTheTemperatures,
         name: "reading the temperatures",
         lane: LaneId::Temperatures,
@@ -535,7 +560,7 @@ pub const PASSES: [Pass; 29] = [
     },
 ];
 
-pub const STORES: [Store; 26] = [
+pub const STORES: [Store; 27] = [
     Store {
         id: StoreId::KeysHeld,
         name: "the keys held",
@@ -743,6 +768,14 @@ pub const STORES: [Store; 26] = [
         what: "A page of the panel's settings saved under a name, presets/render/<name>.toml and presets/camera/<name>.toml, plain text. The one named \"default\" is what the game starts with (the built-in settings till one is saved, and on a flight); a setting a file leaves out keeps its built-in value.",
         limits: &[],
         files: &["src/presets.rs"],
+    },
+    Store {
+        id: StoreId::FarLamps,
+        name: "the far lamps' list",
+        on: Where::Card,
+        what: "The lamps round the eye, the nearest first (build 222): each its cell, and its light (red, green and blue, 4 bits each) with its voice over them, four words a lamp. Written whole as each list comes from its thread.",
+        limits: &[("lamps at most", crate::near::MOST_LAMPS as u64)],
+        files: &["src/near_eye.rs", "src/near.rs"],
     },
 ];
 

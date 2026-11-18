@@ -124,14 +124,14 @@ impl Staged {
     }
 
     /// Every cell of a block `wanted` in the columns the stage changed: its column's place in the tile, and its
-    /// height (build 216, for finding the lamps).
-    pub fn cells_of(&self, wanted: impl Fn(Block) -> bool) -> Vec<(usize, i32)> {
+    /// height (build 216, for finding the lamps), with the block (build 222, for each lamp's light).
+    pub fn cells_of(&self, wanted: impl Fn(Block) -> bool) -> Vec<(usize, i32, Block)> {
         let mut cells = Vec::new();
         let mut from = 0;
         for (k, end) in self.ends.iter().enumerate() {
             for run in &self.runs[from..*end as usize] {
                 if wanted(run.block) {
-                    cells.extend((run.from..run.to).map(|up| (k, up)));
+                    cells.extend((run.from..run.to).map(|up| (k, up, run.block)));
                 }
             }
             from = *end as usize;
