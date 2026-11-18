@@ -9413,3 +9413,38 @@ near faces' growth since build 210, as written above. The triangles are the same
 lead from one flight of another day, not a finding: both builds are to be flown in one session first. David's word
 the same evening: "make a note of those to add to the things we need to check"; they are under "Checks owed from
 assess" in plan 2.4, with a third, the game he looks at measured with his own settings.
+
+### Left to simmer (2026-11-18): squares fixed to the world, three looks
+
+**His words,** after reading two pieces on texel splatting with Builder (an outside AI's answers to a description
+of the engine; Ebert's paper is arXiv 2603.14587, its demo at dylanebert.com/texel-splatting): "i like the
+stairstepped edges i think. its hard to say without seeing it"; "im just not sure what the two ways would look
+like. hence thinking maybe i should let it lie and move on for a while, maybe"; "feel like im playing Descent
+thinking about the box around my head vs perspective. when its time to try this we should make a stable
+experimental branch for it. but id like to have an understanding of what im letting simmer."
+
+**The three looks:**
+
+- **Screen squares (now, builds 212 to 215):** the near bands drawn small and laid over in 4 x 4 and 2 x 2 screen
+  squares. Everything stair-stepped; it crawls turning and walking.
+- **The world ladder:** squares that belong to the faces (a picture's own coarse versions, nearest read, at full
+  size), doubling with distance: 1/8, 1/4, 1/2, 1 block, each swapped in before it is smaller than a pixel or two;
+  a block is about a pixel near 1,000 blocks, where the far cells take over. Never crawls, turning or walking.
+  Block edges straight and crisp (a block's edge lies on the grid). Cheap and sure. Open: the lines where the
+  squares double (a stipple, as the bands have now); how a coarse picture is made (the commonest colour, his
+  art's say); models off the grid keep smooth outlines.
+- **The box grid (Ebert's probe grid, without his cube pictures of the whole scene):** squares fixed to directions
+  round the eye. Stair-steps that hold still turning; walking is the hard half (the box moved in steps, each
+  square stood at its place in the world between, holes round corners, a jump a step). Squares slant between the
+  box's sides. Models get stair-stepped outlines free. Dear in Builder's work and risk more than in the frame:
+  both eyes' pictures rearranged.
+
+**Not said by the pieces, true of the engine:** the far view's cells are fixed to the world already, but its
+rays go through screen squares (8 x 8, 4 x 4, 2 x 2), so far edges still crawl a little turning: the ladder
+doesn't change that, the box grid would. And the ladder isn't seamless at the near reach yet: a block is about a
+pixel there and the first far cells are 8 blocks, about nine pixels (the finer region at the seam, the curve's
+far half).
+
+**When it's taken up** (his word: a stable experimental branch): in a folder of its own with its own build
+folder, main left as it is. The ladder first (a few builds), his look; the box grid for turning only, on the
+nearest band, if he still wants the stair-steps; walking last.
