@@ -8894,3 +8894,68 @@ there's a 'default' preset, and if you save a preset named default, it becomes t
 dot that turns green when you are on the default preset. this can replace the defaulter buttons inside the panel.
 additionally, we need to give some love to the software map; it needs to smart-wrap and let me scroll downwards and
 upwards."
+
+### Builds 219 and 220's pass marks: presets on the panel's pages; the software map wrapped and scrolling
+
+**His word** (2026-11-18): "we do need a preset system now, i think, in order for me to better check out the
+features as they start to grow. the same way we did it before, where there's a 'default' preset, and if you save a
+preset named default, it becomes the default, and there's a little dot that turns green when you are on the
+default preset. this can replace the defaulter buttons inside the panel. additionally, we need to give some love
+to the software map; it needs to smart-wrap and let me scroll downwards and upwards."
+
+**His answers** (asked the same day): the bar's place, of three: **"On each page"** (the Render page's presets
+hold the near eye, the lights and the far eye together; the Camera page's its speed, Shift's multiplier and the
+field of view; loading a look never changes how fast he flies); getting back to the default, of two: **"From the
+Load list only"** (the dot only shows; nothing reset by a stray click).
+
+**Build 219, presets, built so** (old's `debug/presets.rs` as the pattern; its words kept, as he knows them):
+
+1. **A bar at the top of the Render page and of the Camera page:** the dot and "default" (green while the page's
+   settings are exactly the default preset, grey once anything differs); "Preset:", a name box, "Save" ("Save
+   (replace)" where the name is taken), "Load…" (a list), "Folder" (opens the presets' folder).
+2. **The files:** `presets/render/<name>.toml` and `presets/camera/<name>.toml`, plain text, one line a setting.
+   A preset saved before a setting existed still loads (the setting keeps the built-in value); a setting that no
+   longer exists is passed over.
+3. **"default":** a preset saved under that name is what the game starts with. Till one is saved the built-in
+   settings are the default, and "default" is always in the Load list, so there is always a way back.
+4. **Ctrl+S** saves under the name in the box of the page that's showing, while the mouse is free (Ctrl and S fly
+   down and back while it's captured); a line at the bottom of the screen says what was saved, for three seconds.
+5. **The Default buttons go**, as he said: the seven sections' on the Render page, "All to default" under them,
+   and the Camera page's.
+6. **The lantern lit or out isn't a setting** (the L key's): a preset doesn't keep it and loading one leaves it as
+   it is; its brightness and colour are kept.
+7. **Flights and tests don't read his presets:** the tests use the built-in settings; a flight flies the built-in
+   settings too, so brackets stay like for like whatever he saves, unless `INCUS_START_PRESET=render/<name>` (and
+   `,camera/<name>`) names what to fly, which the flight's header then shows with its other switches. The
+   session's log says what the game started with. **Said plainly:** once he saves a "default", a flight no longer
+   measures the game as it starts for him unless that switch is given; at "assess", his starting settings are
+   either named to the bracket or made the built-in ones.
+
+**Its mark:**
+
+- **Tests** all pass, with new ones: a preset saved and loaded comes back the same; a file with a setting missing
+  keeps the built-in value and one with a setting unknown still loads; the lantern lit isn't kept; the dot is on
+  for the built-in settings with no file, off after a change, on again once that's saved as "default"; a name is
+  cleaned to letters, digits, "-" and "_"; and the Render and Camera pages laid out off the screen with their
+  bars for a few frames, Ctrl+S among them, without a fault.
+- **No picture changes:** the spawn's picture off the screen is build 218's to the pixel (nothing on the card is
+  touched).
+- **His look:** the bars' place and words, the dot, a preset saved, changed and loaded back, "default" saved and
+  the game started again on it.
+
+**Build 220, the software map, built so:**
+
+1. **Wrapped to the screen's width** (my reading of "smart-wrap", his to change): the lanes flow like words, side
+   by side while they fit, then onto the next row; a lane wider than the screen wraps its passes onto rows inside
+   its box; the stores flow the same way in rows under the lanes, still in the order of the passes they're joined
+   to. Nothing runs off the right edge at any window size. The lines still join each pass to its stores, behind
+   the boxes.
+2. **Scrolls up and down** by the wheel or its bar when it's taller than the screen.
+
+**Its mark:**
+
+- **A test** of the layout at four widths (800, 1,280, 1,920 and 2,560): every box inside the width, no two
+  passes or stores overlapping, every pass inside its lane's box, the lanes' and passes' order kept.
+- **His look:** whether the wrap reads as he meant it, and the scroll.
+
+Both handed to him in one launch (build 220).

@@ -703,6 +703,12 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
           round the pieces, or another way
     - [ ] **Chunk optimizing where it would show:** what a player would feel (filling 64 chunks took 37 s at the
           spawn; the corners' program is half the card at 64 chunks), each only if its gain is visible
+    - [ ] **Presets and the software map** (his word, 2026-11-18, alongside the list: "we do need a preset system
+          now ... in order for me to better check out the features as they start to grow. the same way we did it
+          before"; "this can replace the defaulter buttons inside the panel"; the map "needs to smart-wrap and
+          let me scroll downwards and upwards"). His answers: a bar "On each page" (Render, Camera); back to the
+          default "From the Load list only". Build 219, presets, and build 220, the map: their pass marks
+          written (`journal/docs/experiments.md`)
     - Not now, by his word: very fast flight (single frames of about 20 ms at 2,000 blocks a second)
     - Not in his list, kept here as they were: water's look, objects, glass, the doorway's pieces and lights below;
       the Intel card's flight and his walk through old's world (the gate)
