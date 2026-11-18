@@ -45,7 +45,7 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   "Light step" in Lights: "the light is alright"); presets on the Render and Camera pages and the software map
   wrapped (builds 219 and 220: "presets look good, software map looks good enough"); each lamp flickering on its
   own (build 221); far lamps twinkling as single pixels within the near reach, as old's did, from where a lamp is
-  "about a pixel" (build 222, his look owed). **His look at the curve's near half (2026-11-18):** "i like the look with 4x4
+  "about a pixel" (build 222: "looks good"). **His look at the curve's near half (2026-11-18):** "i like the look with 4x4
   base up close"; left as it is, "make a note that this could be reworked later and how that could be done and
   leave it for now" (the note is in `journal/docs/experiments.md`, his look at build 218). Squares fixed to the
   world, the crawl's cure, are "the last big change": "we may have to leave it and work towards world gen/content

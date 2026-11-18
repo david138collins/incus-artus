@@ -3262,6 +3262,11 @@ Reference: `Art/quartile minecraft illustration.png`
     it shows only at its peaks; hidden by what's nearer; fading with the blocks at the near reach, never snapping
     off. No new control. Past the near reach is the next build (a lamp's line of sight read through the far
     cells). His look owed.
+  - **His look at build 222 (2026-11-18): "looks good".** Done enough to go on (read from the journal at
+    5100e3e). Next, lamps past the near reach, hidden by the far cells along a line to each; pass mark first.
+  - *Counsel, a slip of mine:* my commit 308017d landed just before that launch; the build stamps its commit,
+    so the game rebuilt as it started and came up at 104 degrees (the cutoff is 105; another game was open
+    too). From here my commits wait until a look is reported, and go in before Builder's next code commit.
 - **Next, in his order** (2026-11-18): glows and far lights; night; then assess; then the curve's far half and the
   rest of his checklist.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's

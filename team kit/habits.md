@@ -23,6 +23,10 @@ Practical things learned the hard way. Each has its reason, so a later session c
   mid-script changes the build's stamp: the next run rebuilds, and its report names a different commit. The code
   may be the same, but the reports no longer line up at a glance. Ask to be told when a script of flights starts
   and ends.
+- **Hold them before a launch too, if the build stamps its commit.** A build script that reads the commit runs
+  again whenever the repository's head moves, so a commit of notes alone rebuilds the whole program at its next
+  start. One landed just before a look and the game came up a degree under the processor's cutoff. The safe time
+  to commit notes is after a look is reported and before the next code commit, which rebuilds anyway.
 - **A worktree or an older checkout gets its own build folder.** Sharing one let an old program's exe stand in for the
   new, and David was launched into the wrong version.
 
