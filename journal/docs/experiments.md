@@ -9202,3 +9202,37 @@ commit just before it had the game built again as it started. No warnings in the
 
 **Next, as the mark said:** lamps past the near reach (1,024 blocks), their dots hidden by the far cells along a
 line to each one (old's way), so a lamp in a cave mouth 3 km off twinkles and one behind a ridge doesn't.
+
+### Build 223's pass mark: far lamps past the near reach
+
+**His words:** at build 221, "the single pixels of light don't twinkle quite the way they did in old incus, from a
+distance"; at build 222, "looks good". The spec: far lights' "glow and twinkle shrink and fade into fog, never
+snapping off". Build 222's dots end with the near faces at their reach (1,024 blocks as it starts); the scatter
+stage stands lamps in cave mouths out to 4 km.
+
+**Built so (build 223):**
+
+1. **The list reaches 4,096 blocks** (where the scatter stage's caves stop), the nearest 4,096 lamps kept. Its
+   thread reads the 290 or so tiles in that square once each as the eye first comes near them, keeping only their
+   lamps; how long the first list took is written in the session's log.
+2. **Past the near reach a dot is hidden by the far cells:** where the far eye's column tops (the height of the
+   highest thing in a column and the eight round it, which the march already keeps for skipping) stand higher than
+   the line from the eye to the lamp. Walked along that line from where the far rays begin to two columns short of
+   the lamp (so the hill a cave mouth is cut into doesn't hide its own lamp), at the 32s where they're kept round the
+   eye and coarser beyond; a column not known yet hides nothing. (Build 222's mark said a ray to each lamp, old's
+   way; the column tops are the same far cells read the cheap way, and the pictures say whether it's enough.)
+3. **Across the x-fader** a dot is the near part as build 222 has it (hidden by the near picture's depth) by how
+   much of the near picture shows, and the far part (hidden by the column tops) by the rest: so it never snaps off at
+   the near reach.
+4. **Through the fog:** the far part dimmed by as much as the fog takes of a surface at its distance (the near faces
+   have no fog, so the near part none).
+5. **No new control;** the twinkle's numbers as build 222's.
+
+**The mark:**
+
+- **Tests** all pass, the list's grown: a lamp 4,000 blocks off kept.
+- **Pictures off the screen** (the stage on): build 222's views (the woods from the north, the cave's mouth up
+  close) as they were with the far lamps on; a view over land with cave lamps 1 to 4 km off: dots at mouths that
+  face the eye, none for a lamp behind a ridge or deep in its cave; the far lamps off, the far picture as it was.
+- **Its price:** owed with builds 221's and 222's at "assess". The list's first making, from the log.
+- **His look:** far lamps twinkling out past a kilometre and fading into the fog.
