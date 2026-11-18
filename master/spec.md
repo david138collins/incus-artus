@@ -423,6 +423,7 @@ Where the sources disagree. Each version is given with its ref; nothing here is 
 - Lamps flicker each on its own beat (one of 16, fixed by where a lamp stands; asked for "at some point"). [built, build 221; his look owed] (decisions.md, the rebuild, 2026-11-17 and 11-18)
 - Each block from a lamp or a lantern is a fixed share dimmer than the last (a quarter to begin; "Light step (share dimmer each block)" in Lights), so every step is the same size to the eye and a light keeps its colour as it fades: "the light is alright". [built, build 218] (decisions.md, the rebuild, 2026-11-17)
 - Coloured, flickering placed lights (the brazier) sparkle from far away: "i can see them from far away sparkling." [decided] (objects.md:342; handoff.md:203-204)
+- A far lamp is a single pixel of its colour that pops in and out with its own flicker, less and less the farther off, beginning where the lamp is "about a pixel" on the screen (so it follows the field of view): "the single pixels of light don't twinkle quite the way they did in old incus". [built within the near reach, build 222; his look owed; past it to come] (decisions.md, the rebuild, 2026-11-18)
 - Far lights: their glow and twinkle shrink and fade into fog, never snapping off. [decided] (regroup.md:1292)
 - Coloured light carries meaning. [decided] (caves.md:477)
 - Terrain light from sun and sky may lag about a quarter second; light that moves with actors stays prompt every frame: "terrain light almost needs zero dynamism for gameplay". [decided] (decisions.md:1439-1446; dyno.md:408)

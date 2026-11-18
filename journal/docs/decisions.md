@@ -3250,6 +3250,18 @@ Reference: `Art/quartile minecraft illustration.png`
   made to flicker at random at some point?", and "whats next?"): 16 voices, a lamp's picked from where it stands
   and kept in a colour cell's four spare bits, the lantern a voice of its own, no new control. The flicker still
   begins at a twentieth, so it may want moving up to be seen.
+- **[DECIDED 2026-11-18] Far lamps twinkle, from where a lamp is about a pixel** (David, to Builder, at his look at
+  build 221, each lamp's own flicker; read from the journal at 5333ae8): "the single pixels of light don't twinkle
+  quite the way they did in old incus, from a distance." (His words for old's, 2026-11-09: "pixels of green that
+  popped in and out as they twinkled, less and less as you got farther away".) Asked where the twinkle should
+  begin: **"About a pixel"**, so it follows the field of view, and zooming in brings back the steady lamp.
+  - Build 222, the first half of glows and far lights, within the near eye's reach (unflown, its price not taken,
+    owed with build 221's at "assess"): each lamp a dot one screen pixel square in a pass of its own after the
+    x-fader; none while its block is 2 pixels across or more, whole at a pixel (about 400 to 800 blocks at his
+    field of view); shown while its own flicker is over a bar that rises with distance (old's numbers), so far off
+    it shows only at its peaks; hidden by what's nearer; fading with the blocks at the near reach, never snapping
+    off. No new control. Past the near reach is the next build (a lamp's line of sight read through the far
+    cells). His look owed.
 - **Next, in his order** (2026-11-18): glows and far lights; night; then assess; then the curve's far half and the
   rest of his checklist.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
