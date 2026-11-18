@@ -8676,3 +8676,40 @@ Builder's off-screen runs came just before it, the TV in; nothing about speed is
   least 1/64, the sharpness beginning at 0) stay as built. Done enough to go on; whether the detail curve is on
   from the start is still his to say.
 - **Next, by his order:** moving lights, then glows and far lights, then night; then assess.
+
+### Build 217's pass mark: a moving light, the lantern (near light, step 3)
+
+**His answers** (2026-11-17, put to him after "it looks great"): the first moving light a lantern at the eye,
+switched by **the L key**; its controls **in "Placed lights", renamed "Lights"**; lamps flickering at random **after
+it, as its own build** ("Lantern alone, flicker after"). From before: "moving torches are obviously necessary as
+well as light from fx" (2026-11-06); a small light picture round the eye, for moving lights only (his "proceed with
+C").
+
+**Built so:**
+
+1. **The lantern is a light at the eye's own block**, on or off: the L key while playing, and a tick box
+   **"Lantern"** in the Render page's section **"Lights"** (was "Placed lights"), with **"Lantern brightness"** (1 to
+   15, 12 to begin) and **"Lantern colour"** (warm orange to begin) under the two flicker sliders.
+2. **Its light spreads as a lamp's does**: a step dimmer each block, six ways, through air and water, stopped by
+   whole blocks, red, green and blue each on its own. Worked out on a thread of its own, in a box of 32 x 32 x 32
+   cells round the eye, again whenever the eye crosses into another block, the lantern is switched or set, or a
+   block changes; the frame never waits for it (the light follows a frame or two behind).
+3. **Kept apart from the placed light**: its box is a small buffer of its own on the card (64 KB), so carrying it
+   makes no chunk again and touches no brick. A pixel takes, colour by colour, the brighter of the lamps' light and
+   the lantern's there, then the brighter of that and daylight, as build 216.
+4. Off, the frame is build 216's.
+
+**Not in this build:** lights that others carry or that effects throw (the same box serves them later, more
+than one light in it); the lantern seen from far; a lantern as a thing held; random flicker (next).
+
+**The mark:**
+
+- **Tests** all pass, with a new one: the lantern's light a step a block from the eye, stopped by a wall and going
+  round its end, none past its reach, its box read back as the card reads it.
+- **Pictures off the screen** (the stage on): in the cave by the spawn past its lamps' reach, and in the woods'
+  shade, the lantern lighting the ground and walls round the eye in steps; with the lantern off, build 216's
+  picture.
+- **Counts:** how long a spread takes (the box's blocks read, and the spreading), on the thread.
+- **Prices in one run:** a whole frame at the spawn with the lantern on and off by turns.
+- **His look** decides its brightness and colour to begin, and how the steps feel moving (they jump a block at a
+  time as he walks: the spec's blocky light, said to him before he looks).

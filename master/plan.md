@@ -657,8 +657,9 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
           the light spread a step a block when a chunk is made and kept in colour bricks beside the sky's, the
           cave by the spawn lit red and green off the screen, 4.3 MB within 16 chunks, no cost that shows; his
           look: "it looks great", done enough to go on; lamps flickering at random asked for "at some point"
-          (a flicker voice a lamp, in the colour bricks' spare bits); then moving lights, glows and far lights,
-          night) (placed and moving lights, glows and far lights,
+          (a flicker voice a lamp, in the colour bricks' spare bits; its own build after the lantern, his
+          choice); build 217, a moving light, its pass mark written: a lantern at the eye on the L key, its
+          controls in "Lights" (was "Placed lights"), his choices; then glows and far lights, night) (placed and moving lights, glows and far lights,
           night); **then assess**; (3) the far half after (rings that reach where the curve says, with a band of
           4s at the seam; at g = 2 perhaps 600 MB and the finer rays' time: priced first)
     - [ ] **Listing chunks:** the near eye's processor time is all in listing the chunks in view (0.15 to 0.27 ms a
