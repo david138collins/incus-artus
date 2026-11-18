@@ -9406,3 +9406,10 @@ spawn under, 1.93 (frame 1.97). Every other mark under 1.7.
 2. **Find the near faces' growth since 210** (0.1 high over the spawn, more in thick scatter): a flight with the near
    half's bands off against on, then the cause.
 3. The rest of high over the spawn is the near faces (1.2) and the far 8 x 8 (0.7), as before.
+
+**A correction to the entry above, from Counsel's check (fd3f0e3):** the flights fly the built-in settings, so the
+curve's near half was off in all five and the rings were 128; the near half's bands can't be the cause of the
+near faces' growth since build 210, as written above. The triangles are the same at every mark, so the growth is a
+lead from one flight of another day, not a finding: both builds are to be flown in one session first. David's word
+the same evening: "make a note of those to add to the things we need to check"; they are under "Checks owed from
+assess" in plan 2.4, with a third, the game he looks at measured with his own settings.

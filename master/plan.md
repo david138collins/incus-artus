@@ -732,10 +732,19 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
           night); **then assess** (flown 2026-11-18, five flights, lamps on against off: seeing the far lamps
           0.10 ms on the plain, 0.20 high over the spawn, the dearest new thing; the dots and the near faces' light
           under 0.1; high over the spawn 2.39 ms on the card, the one mark over his 2 ms (2.24 with lamps off, 2.11
-          at build 210); the near faces grown since 210 apart from the lamps, most in thick scatter. Ways down,
-          dearest first: the far lamps seen in turns, a quarter a frame (about 0.15 off); then the near faces'
-          growth found. In `journal/docs/experiments.md`); (3) the far half after (rings that reach where the curve says, with a band of
+          at build 210). The checks it left are under "Checks owed from assess" below. In
+          `journal/docs/experiments.md`); (3) the far half after (rings that reach where the curve says, with a band of
           4s at the seam; at g = 2 perhaps 600 MB and the finer rays' time: priced first)
+    - [ ] **Checks owed from assess** (build 225's bracket, 2026-11-18; his word: "make a note of those to add to
+          the things we need to check"):
+      - [ ] **The far lamps seen in turns:** a quarter of the list each frame, each lamp's answer kept till its
+            turn; about 0.15 ms off high over the spawn, the one mark over his 2 ms
+      - [ ] **Whether the near faces grew since build 210:** the same triangles at every mark, dearer on the card
+            by one flight of another day (high over the spawn 1.11 to 1.20 ms; thick scatter more); both builds
+            flown in one session before anything is looked for
+      - [ ] **The game he looks at, measured:** the bracket flew the built-in settings (the curve's near half off,
+            rings of 128); one bracket with his launch settings (the near half on, rings of 256 and 320), or with
+            his starting presets once he has saved them
     - [ ] **Listing chunks:** the near eye's processor time is all in listing the chunks in view (0.15 to 0.27 ms a
           frame at 32 chunks, about 1 ms at 64)
     - [x] **Faces turned away** from the eye left out: build 209 (ff0c6b2), the card drops them and a chunk's
