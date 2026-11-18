@@ -707,8 +707,10 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
           now ... in order for me to better check out the features as they start to grow. the same way we did it
           before"; "this can replace the defaulter buttons inside the panel"; the map "needs to smart-wrap and
           let me scroll downwards and upwards"). His answers: a bar "On each page" (Render, Camera); back to the
-          default "From the Load list only". Build 219, presets, and build 220, the map: their pass marks
-          written (`journal/docs/experiments.md`)
+          default "From the Load list only". Build 219, presets, built: `presets/render/` and
+          `presets/camera/`, the game started on each page's "default", Ctrl+S with the mouse free, the Default
+          buttons out; flights fly the built-in settings unless `INCUS_START_PRESET` names a preset. Build 220,
+          the map: its pass mark written (`journal/docs/experiments.md`). His look owed
     - Not now, by his word: very fast flight (single frames of about 20 ms at 2,000 blocks a second)
     - Not in his list, kept here as they were: water's look, objects, glass, the doorway's pieces and lights below;
       the Intel card's flight and his walk through old's world (the gate)

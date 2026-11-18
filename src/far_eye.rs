@@ -77,11 +77,12 @@ pub const TALLY: usize = 12;
 /// The most of a frame the ring's sending takes (ms): its maker works off the frame, the frame only hands its bricks on.
 const RING_MS: f32 = 0.3;
 
-/// The far eye's look as David tunes it on the Render page (F3), each with its default.
-#[derive(Clone, Copy, Debug, PartialEq)]
+/// The far eye's look as David tunes it on the Render page (F3), kept in that page's presets (`presets.rs`).
 ///
 /// David, 2026-11-12: "please expose any interesting or valuable parameters that may be worth adjusting live, with
-/// default switches so i can get back to normal."
+/// default switches so i can get back to normal." (The default switches are the "default" preset since build 219.)
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct FarLook {
     /// Where in a level's stretch its blend with the next begins (old's 0.8: later is a narrower hand-over).
     pub hand_over: f32,
@@ -129,6 +130,13 @@ pub struct FarLook {
     /// a ray by the face it shows it as well as by its bulk. It picks which of the march's two programs marches once
     /// the world is loaded (`FarEye::one_loaded` and `one_loaded_other`): nothing is switched inside either.
     pub faces: bool,
+}
+
+impl Default for FarLook {
+    /// The built-in settings (what a preset's file leaves out keeps these).
+    fn default() -> Self {
+        Self::DEFAULT
+    }
 }
 
 impl FarLook {

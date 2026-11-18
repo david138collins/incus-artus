@@ -64,11 +64,17 @@ pub fn run() {
     let flight = crate::flight::wanted().then(|| Flight::new(&marks));
     let mut panel = Panel::new();
     panel.visible = flight.is_none();
+    // What the game starts with (`presets.rs`): each page's "default" preset, if David has saved one; the built-in
+    // settings on a flight. The Render page's are taken once the eyes are made (`open`).
+    let mut camera = Camera::new();
+    let (preset, what) = crate::presets::start::<crate::presets::CameraPreset>(&crate::presets::folder(), "camera", flight.is_some());
+    log::info!("The Camera page's settings: {what}");
+    (camera.pace.speed, camera.pace.multiplier, camera.fov) = (preset.speed, preset.multiplier, preset.field_of_view);
     let mut runner = Runner {
         running: None,
         frame_clock: FrameClock::new(),
         pass_clock: PassClock::new(),
-        camera: Camera::new(),
+        camera,
         panel,
         editor: Editor::new(),
         held: HashSet::new(),
@@ -177,7 +183,7 @@ impl Runner {
         log::info!("The window: {} x {}, the screen {refresh:.0} a second", card.config.width, card.config.height);
         // The far eye, its cells summed on the loading lane nearest the first mark first, on all but two of the
         // processor's threads (the frame and the window keep theirs).
-        let far = self.doorway.as_ref().map(|doorway| {
+        let mut far = self.doorway.as_ref().map(|doorway| {
             let store = crate::bricks::Store::new(&card.device, &card.queue, crate::far::regions_of(doorway), doorway.height(), crate::bricks::brick_side(), crate::bricks::window_regions());
             let near = self.marks.get(self.first_mark).map_or([0.0, 0.0], |mark| mark.at);
             let threads = std::thread::available_parallelism().map_or(2, |n| n.get()).saturating_sub(2).max(1);
@@ -191,7 +197,7 @@ impl Runner {
             FarEye::new(&card.device, card.config.format, store, lane, rings)
         });
         // The near eye: the blocks inside the render radius as triangles (plan 2.3), its lane's threads its own.
-        let near = (far.is_some() && std::env::var("INCUS_NEAR").as_deref() != Ok("0"))
+        let mut near = (far.is_some() && std::env::var("INCUS_NEAR").as_deref() != Ok("0"))
             .then(|| {
                 let mut doorway = Doorway::open(&crate::doorway::test_world()).map_err(|error| log::error!("The near eye's colours couldn't be read: {error}")).ok()?;
                 let colours = crate::far::FarColours::load(&mut doorway).map_err(|error| log::error!("The near eye's colours couldn't be read: {error}")).ok()?;
@@ -199,6 +205,16 @@ impl Runner {
                 crate::near_eye::NearEye::new(&card.device, &card.queue, card.config.format, crate::doorway::test_world(), &colours.as_light(), &textures).map_err(|error| log::error!("The near eye couldn't start: {error}")).ok()
             })
             .flatten();
+        // The Render page's settings the game starts with: its "default" preset, if there is one (`presets.rs`).
+        let (preset, what) = crate::presets::start::<crate::presets::RenderPreset>(&crate::presets::folder(), "render", self.flight.is_some());
+        log::info!("The Render page's settings: {what}");
+        if let Some(far) = &mut far {
+            far.look = preset.far;
+        }
+        if let Some(near) = &mut near {
+            near.look = preset.near;
+        }
+        self.panel.near_spare = preset.near;
         self.running = Some(Running { window, card, card_clock, egui_ctx, egui_state, egui_renderer, to_free: Vec::new(), refresh, far, near, memory: None, memory_at: None });
     }
 
@@ -206,6 +222,12 @@ impl Runner {
     fn capture(&mut self, captured: bool) {
         let Some(running) = &self.running else { return };
         if captured {
+            // Whatever box of the panels was being typed in is left, so its keys are the camera's again.
+            running.egui_ctx.memory_mut(|memory| {
+                if let Some(typed_in) = memory.focused() {
+                    memory.surrender_focus(typed_in);
+                }
+            });
             let grabbed = running.window.set_cursor_grab(CursorGrabMode::Locked).or_else(|_| running.window.set_cursor_grab(CursorGrabMode::Confined));
             if let Err(error) = grabbed {
                 log::warn!("The mouse couldn't be captured: {error}");
@@ -516,7 +538,15 @@ impl Runner {
     fn flying(&mut self, now: Instant) -> bool {
         let step = self.frame_clock.step(now);
         if !self.editor.open {
-            self.camera.fly(&self.held, step);
+            // With the mouse free, Ctrl is the panels' (Ctrl+S saves a preset, build 219): it doesn't fly down, nor S
+            // back while it's held, so a save doesn't move the eye.
+            let ctrl = self.held.contains(&KeyCode::ControlLeft) || self.held.contains(&KeyCode::ControlRight);
+            if self.captured || !ctrl {
+                self.camera.fly(&self.held, step);
+            } else {
+                let held: HashSet<KeyCode> = self.held.iter().copied().filter(|key| !matches!(key, KeyCode::ControlLeft | KeyCode::KeyS)).collect();
+                self.camera.fly(&held, step);
+            }
         }
         // A moving mark on a flight: straight ahead along its facing, level, at its speed (step 4).
         if let Some(speed) = self.flight.as_ref().and_then(|flight| flight.speed(&self.marks)) {
@@ -726,6 +756,9 @@ impl ApplicationHandler for Runner {
         {
             let _ = running.egui_state.on_window_event(&running.window, &event);
         }
+        // While a box of the panels is typed in (a preset's name), its letters aren't the camera's: only the keys that
+        // open and close things are heard.
+        let typing = !self.captured && self.running.as_ref().is_some_and(|running| running.egui_ctx.egui_wants_keyboard_input());
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
             WindowEvent::Resized(size) => {
@@ -739,6 +772,7 @@ impl ApplicationHandler for Runner {
                 self.held.clear();
             }
             WindowEvent::KeyboardInput { event: KeyEvent { physical_key: PhysicalKey::Code(key), state, repeat, .. }, .. } => match state {
+                ElementState::Pressed if typing && !matches!(key, KeyCode::F2 | KeyCode::F3 | KeyCode::F11 | KeyCode::Tab) => {}
                 ElementState::Pressed => {
                     self.held.insert(key);
                     if !repeat {

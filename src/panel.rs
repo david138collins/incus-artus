@@ -6,6 +6,7 @@ use crate::camera::{Camera, Pace};
 use crate::clocks::{PassTimes, Spread};
 use crate::far_eye::FarLook;
 use crate::near_eye::NearLook;
+use crate::presets::{Bar, CameraPreset, RenderPreset};
 use crate::wiring::PassId;
 
 /// The pages, in order (old's names; the Render page holds the far eye's look, David 2026-11-12).
@@ -14,6 +15,15 @@ const PAGES: [&str; 3] = ["Overview", "Camera", "Render"];
 pub struct Panel {
     pub visible: bool,
     page: usize,
+    /// The Camera page's and the Render page's preset bars (`presets.rs`) [David, 2026-11-18, their place: "On each
+    /// page"].
+    camera: Bar<CameraPreset>,
+    render: Bar<RenderPreset>,
+    /// The near eye's settings where there's no near eye: what the game started with or a preset last loaded, so a
+    /// preset saved without one keeps them.
+    pub near_spare: NearLook,
+    /// What Ctrl+S last came to, and when (egui's clock): shown at the bottom of the screen for three seconds.
+    said: Option<(String, f64)>,
 }
 
 /// What the panel shows this frame.
@@ -44,14 +54,41 @@ pub struct Readings<'a> {
 
 impl Panel {
     pub fn new() -> Self {
-        Self { visible: true, page: 0 }
+        Self::with_presets_in(&crate::presets::folder())
     }
 
-    /// The panel, its Camera page changing the camera's speed and its Render page the far eye's look (`look`: none
-    /// without a far eye).
-    pub fn show(&mut self, ctx: &egui::Context, readings: &Readings, look: Option<&mut FarLook>, near_look: Option<&mut NearLook>, pace: &mut Pace, fov: &mut f32) {
+    /// The panel, its pages' presets kept in `root`.
+    pub fn with_presets_in(root: &std::path::Path) -> Self {
+        Self { visible: true, page: 0, camera: Bar::new(root, "camera"), render: Bar::new(root, "render"), near_spare: NearLook::DEFAULT, said: None }
+    }
+
+    /// The panel, its Camera page changing the camera's speed and its Render page the near and far eyes' looks (`look`:
+    /// none without a far eye). Each of those two pages has its preset bar under the tabs, in view however far the page
+    /// is scrolled; Ctrl+S saves the showing page's settings under the name in its box, while the mouse is free.
+    pub fn show(&mut self, ctx: &egui::Context, readings: &Readings, mut look: Option<&mut FarLook>, mut near_look: Option<&mut NearLook>, pace: &mut Pace, fov: &mut f32) {
         if !self.visible {
             return;
+        }
+        let camera_now = |pace: &Pace, fov: f32| CameraPreset { speed: pace.speed, multiplier: pace.multiplier, field_of_view: fov };
+        let render_now = |near: Option<&NearLook>, far: Option<&FarLook>, spare: &NearLook| RenderPreset::of(near.unwrap_or(spare), far.unwrap_or(&FarLook::DEFAULT));
+        let now = ctx.input(|input| input.time);
+        if !readings.captured && ctx.input_mut(|input| input.consume_key(egui::Modifiers::COMMAND, egui::Key::S)) {
+            let said = match self.page {
+                1 => self.camera.save_named(&camera_now(pace, *fov)),
+                2 if look.is_some() => self.render.save_named(&render_now(near_look.as_deref(), look.as_deref(), &self.near_spare)),
+                2 => "Ctrl+S: there's no far eye, so nothing to save.".to_string(),
+                _ => "Ctrl+S saves the Camera page's or the Render page's settings: open one of them.".to_string(),
+            };
+            self.said = Some((said, now));
+        }
+        if let Some((said, when)) = &self.said {
+            if now - when < 3.0 {
+                egui::Area::new("preset saved".into()).anchor(egui::Align2::CENTER_BOTTOM, egui::vec2(0.0, -40.0)).order(egui::Order::Foreground).show(ctx, |ui| {
+                    egui::Frame::popup(ui.style()).show(ui, |ui| ui.label(said));
+                });
+            } else {
+                self.said = None;
+            }
         }
         egui::Window::new("Debug  [F3]").default_pos([10.0, 10.0]).default_width(320.0).show(ctx, |ui| {
             ui.horizontal_wrapped(|ui| {
@@ -62,6 +99,32 @@ impl Panel {
                 }
             });
             ui.separator();
+            // The page's preset bar: what's loaded goes straight into the settings (the lantern left lit or out as it
+            // is: that's the L key's).
+            match self.page {
+                1 => {
+                    let mut preset = camera_now(pace, *fov);
+                    if self.camera.show(ui, &mut preset, true) {
+                        (pace.speed, pace.multiplier, *fov) = (preset.speed, preset.multiplier, preset.field_of_view);
+                    }
+                    ui.separator();
+                }
+                2 => {
+                    let mut preset = render_now(near_look.as_deref(), look.as_deref(), &self.near_spare);
+                    if self.render.show(ui, &mut preset, look.is_some()) {
+                        if let Some(far) = look.as_deref_mut() {
+                            *far = preset.far;
+                        }
+                        match near_look.as_deref_mut() {
+                            Some(near) => *near = NearLook { lantern: near.lantern, ..preset.near },
+                            None => self.near_spare = preset.near,
+                        }
+                    }
+                    ui.separator();
+                }
+                _ => {}
+            }
+            let spare = self.near_spare;
             // The page scrolls under its tabs, and is never taller than the room from here to the screen's bottom
             // [David, 2026-11-16: "we gotta do something about that debug panel, it runs off the screen its so long.
             // we should add collapsing sections to it and a scrollbar"].
@@ -69,7 +132,7 @@ impl Panel {
             egui::ScrollArea::vertical().max_height(room).show(ui, |ui| match self.page {
                 0 => overview(ui, readings),
                 1 => camera(ui, readings, pace, fov),
-                _ => render(ui, readings, look, near_look),
+                _ => render(ui, readings, look, near_look, spare),
             });
         });
     }
@@ -77,16 +140,16 @@ impl Panel {
 
 /// A section of a page that folds [David, 2026-11-16: "we should add collapsing sections to it and a scrollbar"; of the
 /// sections and which start open: "your way of folding the content of the debug pages is fine"]. Its heading: the
-/// arrow, its title (a click on either folds or opens it), and whatever `beside` puts there (a section's Default);
-/// `body` under it while it's open. Folded or open is kept while the game runs, by `name`. `on`: what both work on.
-fn section<T: ?Sized>(ui: &mut egui::Ui, name: &str, title: &str, open: bool, on: &mut T, beside: impl FnOnce(&mut egui::Ui, &mut T), body: impl FnOnce(&mut egui::Ui, &mut T)) {
+/// arrow and its title (a click on either folds or opens it); `body` under it while it's open. Folded or open is kept
+/// while the game runs, by `name`. `on`: what the body works on. (A section's Default sat beside its title till build
+/// 219: the page's presets took their place [David, 2026-11-18: "this can replace the defaulter buttons inside the
+/// panel"].)
+fn section<T: ?Sized>(ui: &mut egui::Ui, name: &str, title: &str, open: bool, on: &mut T, body: impl FnOnce(&mut egui::Ui, &mut T)) {
     let id = ui.make_persistent_id(name);
     let mut state = egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), id, open);
     let head = ui.horizontal(|ui| {
         state.show_toggle_button(ui, egui::collapsing_header::paint_default_icon);
-        let clicked = ui.add(egui::Label::new(egui::RichText::new(title).strong()).selectable(false).sense(egui::Sense::click())).clicked();
-        beside(ui, &mut *on);
-        clicked
+        ui.add(egui::Label::new(egui::RichText::new(title).strong()).selectable(false).sense(egui::Sense::click())).clicked()
     });
     if head.inner {
         state.toggle(ui);
@@ -107,11 +170,11 @@ fn overview(ui: &mut egui::Ui, readings: &Readings) {
     ui.separator();
     let frame = readings.frame;
     let fps = if frame.median > 0.0 { 1000.0 / frame.median } else { 0.0 };
-    section(ui, "overview: the frame", &format!("The frame: {fps:.0} a second"), false, &mut (), |_, _| {}, |ui, _| {
+    section(ui, "overview: the frame", &format!("The frame: {fps:.0} a second"), false, &mut (), |ui, _| {
         ui.label(format!("ms: median {:.2}, 95th {:.2}, 99th {:.2} (the last {} frames)", frame.median, frame.p95, frame.p99, frame.count));
     });
     ui.separator();
-    section(ui, "overview: each pass", "Each pass (ms, median and 99th)", false, &mut (), |_, _| {}, |ui, _| {
+    section(ui, "overview: each pass", "Each pass (ms, median and 99th)", false, &mut (), |ui, _| {
         egui::Grid::new("the passes").striped(true).show(ui, |ui| {
             ui.label("");
             ui.label("on the processor");
@@ -141,26 +204,20 @@ fn overview(ui: &mut egui::Ui, readings: &Readings) {
 /// The far eye's passes on the card, in the frame's order.
 const FAR_PASSES: [PassId; 5] = [PassId::TheFarStart, PassId::TheFar8, PassId::TheFar4, PassId::TheFar2, PassId::BringingItUp];
 
-/// A section's Default: greyed while its settings are the defaults; pressed, they go back.
-fn section_default(ui: &mut egui::Ui, look: &mut FarLook, differs: bool, reset: impl FnOnce(&mut FarLook)) {
-    if ui.add_enabled(differs, egui::Button::new("Default").small()).clicked() {
-        reset(look);
-    }
-}
-
 /// The Render page: the far eye's card time at the top (its gauge, to watch as the settings move), the near eye's and
-/// its radius, then the far eye's look's settings in sections, each with its own Default, and all of them back at once
-/// at the bottom [David, 2026-11-12: "a very simple crossover slider set for the transitions ... i can watch the card
-/// time as i adjust it ... and include a default button"; "please expose any interesting or valuable parameters that
-/// may be worth adjusting live, with default switches so i can get back to normal"]. Every section folds (`section`);
-/// the far eye, the near eye and the picture are open at the start.
-fn render(ui: &mut egui::Ui, readings: &Readings, look: Option<&mut FarLook>, near_look: Option<&mut NearLook>) {
+/// its radius, then the far eye's look's settings in sections [David, 2026-11-12: "a very simple crossover slider set
+/// for the transitions ... i can watch the card time as i adjust it ... and include a default button"; "please expose
+/// any interesting or valuable parameters that may be worth adjusting live, with default switches so i can get back to
+/// normal"; the way back is the page's "default" preset since build 219]. Every section folds (`section`); the far
+/// eye, the near eye and the picture are open at the start. `spare`: the near eye's settings to show, greyed, where
+/// there's no near eye.
+fn render(ui: &mut egui::Ui, readings: &Readings, look: Option<&mut FarLook>, near_look: Option<&mut NearLook>, spare: NearLook) {
     let card = |id: PassId| readings.passes[id as usize].card.unwrap_or_default();
     let median: f32 = FAR_PASSES.iter().map(|id| card(*id).median).sum();
     let p99: f32 = FAR_PASSES.iter().map(|id| card(*id).p99).sum();
     let frame = readings.frame;
     let fps = if frame.median > 0.0 { 1000.0 / frame.median } else { 0.0 };
-    section(ui, "render: the far eye", &format!("The far eye on the card: {median:.2} ms (99th {p99:.2})"), true, &mut (), |_, _| {}, |ui, _| {
+    section(ui, "render: the far eye", &format!("The far eye on the card: {median:.2} ms (99th {p99:.2})"), true, &mut (), |ui, _| {
         if let Some((used, held)) = readings.memory {
             ui.label(format!("The card's memory: {used:.0} MB in use, {held:.0} MB held (the bar: well under 4,000 at worst)"));
         }
@@ -173,18 +230,13 @@ fn render(ui: &mut egui::Ui, readings: &Readings, look: Option<&mut FarLook>, ne
     // fade"; its place and name here: "yes thats fine"]. And the x-fader, how blocks hand over to rays [David,
     // 2026-11-16: "i think a x-fader with curves could hide it almost completely so blocks smoothly fade into rays";
     // its two sliders' place and names were put to him with the step, and his answer was "go ahead with the next
-    // step"]. Greyed where there's no near eye. The section's Default puts all three back, like the far eye's.
+    // step"]. Greyed where there's no near eye.
     let near_ms: f32 = [PassId::TheNearFaces, PassId::TheNearWater, PassId::TheNearCover, PassId::TheXFader].iter().map(|id| card(*id).median).sum();
     let near_title = if readings.near.is_some() { format!("The near eye on the card: {near_ms:.2} ms") } else { "The near eye".to_string() };
-    let mut none = NearLook::DEFAULT;
+    let mut none = spare;
     let there = near_look.is_some();
-    let beside = |ui: &mut egui::Ui, look: &mut NearLook| {
-        if ui.add_enabled(there && *look != NearLook::DEFAULT, egui::Button::new("Default").small()).clicked() {
-            *look = NearLook::DEFAULT;
-        }
-    };
     let near_look = near_look.unwrap_or(&mut none);
-    section(ui, "render: the near eye", &near_title, true, &mut *near_look, beside, |ui, look| {
+    section(ui, "render: the near eye", &near_title, true, &mut *near_look, |ui, look| {
         match &readings.near {
             Some(near) => {
                 ui.label(format!(
@@ -225,15 +277,8 @@ fn render(ui: &mut egui::Ui, readings: &Readings, look: Option<&mut FarLook>, ne
     // Lights (build 216's "Placed lights", a section of their own by his word; renamed and the lantern put in it at
     // build 217) [David, 2026-11-17, asked where the lantern's controls go: "In \"Placed lights\", renamed
     // \"Lights\""]: the flicker, a wobble where the light is read; and the lantern, a light at the eye (the L
-    // key). Its Default puts them back, but leaves the lantern lit or out as it is.
-    let lamps_beside = |ui: &mut egui::Ui, look: &mut NearLook| {
-        let d = NearLook::DEFAULT;
-        let differs = look.step != d.step || look.flicker != d.flicker || look.flicker_speed != d.flicker_speed || look.lantern_level != d.lantern_level || look.lantern_colour != d.lantern_colour;
-        if ui.add_enabled(there && differs, egui::Button::new("Default").small()).clicked() {
-            (look.step, look.flicker, look.flicker_speed, look.lantern_level, look.lantern_colour) = (d.step, d.flicker, d.flicker_speed, d.lantern_level, d.lantern_colour);
-        }
-    };
-    section(ui, "render: lights", "Lights", true, &mut *near_look, lamps_beside, |ui, look| {
+    // key). (A preset leaves the lantern lit or out as it is.)
+    section(ui, "render: lights", "Lights", true, &mut *near_look, |ui, look| {
         let steps = crate::near_eye::STEPS;
         ui.add_enabled(there, egui::Slider::new(&mut look.step, steps.0..=steps.1).text("Light step (share dimmer each block)"));
         ui.add_enabled(there, egui::Slider::new(&mut look.flicker, 0.0..=1.0).text("Flicker (share of brightness)"));
@@ -250,17 +295,12 @@ fn render(ui: &mut egui::Ui, readings: &Readings, look: Option<&mut FarLook>, ne
         ui.label("No far eye (the doorway couldn't open the world).");
         return;
     };
-    let d = FarLook::DEFAULT;
     section(
         ui,
         "render: the picture",
         "The picture",
         true,
         &mut *look,
-        |ui, look| {
-            let differs = (look.blend, look.detail, look.bring_up, look.view, look.sky_weight, look.faces) != (d.blend, d.detail, d.bring_up, d.view, d.sky_weight, d.faces);
-            section_default(ui, look, differs, |l| (l.blend, l.detail, l.bring_up, l.view, l.sky_weight, l.faces) = (d.blend, d.detail, d.bring_up, d.view, d.sky_weight, d.faces));
-        },
         |ui, look| {
             // Change 1: the far cells blended by the code (old's: the "initial blend", David's name for it, 2026-11-14,
             // as it's what draws till the textures are in and wherever a brick isn't in them) or the texture hardware
@@ -303,10 +343,6 @@ fn render(ui: &mut egui::Ui, readings: &Readings, look: Option<&mut FarLook>, ne
         false,
         &mut *look,
         |ui, look| {
-            let differs = (look.start_pattern, look.weave_bits, look.start_blue, look.start_spread) != (d.start_pattern, d.weave_bits, d.start_blue, d.start_spread);
-            section_default(ui, look, differs, |l| (l.start_pattern, l.weave_bits, l.start_blue, l.start_spread) = (d.start_pattern, d.weave_bits, d.start_blue, d.start_spread));
-        },
-        |ui, look| {
             ui.horizontal(|ui| {
                 ui.label("pattern");
                 for (k, name) in ["scattered", "woven", "blue noise", "woven + blue noise"].iter().enumerate() {
@@ -334,10 +370,6 @@ fn render(ui: &mut egui::Ui, readings: &Readings, look: Option<&mut FarLook>, ne
         false,
         &mut *look,
         |ui, look| {
-            let differs = (look.hand_over, look.fade_4, look.fade_2) != (d.hand_over, d.fade_4, d.fade_2);
-            section_default(ui, look, differs, |l| (l.hand_over, l.fade_4, l.fade_2) = (d.hand_over, d.fade_4, d.fade_2));
-        },
-        |ui, look| {
             ui.add(egui::Slider::new(&mut look.hand_over, 0.3..=0.95).text("levels hand over from"));
             ui.add(egui::Slider::new(&mut look.fade_4[0], 0.1..=4.0).text("4 × 4 fades in from"));
             ui.add(egui::Slider::new(&mut look.fade_4[1], 0.05..=3.0).text("4 × 4 fades in over"));
@@ -352,12 +384,6 @@ fn render(ui: &mut egui::Ui, readings: &Readings, look: Option<&mut FarLook>, ne
         "Light",
         false,
         &mut *look,
-        |ui, look| {
-            let differs = (look.sun_from, look.sun_height, look.ambient, look.shadows, look.sky_light, look.sky_strength, look.sky_tint) != (d.sun_from, d.sun_height, d.ambient, d.shadows, d.sky_light, d.sky_strength, d.sky_tint);
-            section_default(ui, look, differs, |l| {
-                (l.sun_from, l.sun_height, l.ambient, l.shadows, l.sky_light, l.sky_strength, l.sky_tint) = (d.sun_from, d.sun_height, d.ambient, d.shadows, d.sky_light, d.sky_strength, d.sky_tint);
-            });
-        },
         |ui, look| {
             ui.add(egui::Slider::new(&mut look.sun_from, 0.0..=360.0).text("sun from (degrees, north to east)"));
             ui.add(egui::Slider::new(&mut look.sun_height, -10.0..=90.0).text("sun height (degrees)"));
@@ -376,25 +402,17 @@ fn render(ui: &mut egui::Ui, readings: &Readings, look: Option<&mut FarLook>, ne
         false,
         &mut *look,
         |ui, look| {
-            let differs = (look.fog, look.fog_reach, look.fog_height, look.fog_warmth) != (d.fog, d.fog_reach, d.fog_height, d.fog_warmth);
-            section_default(ui, look, differs, |l| (l.fog, l.fog_reach, l.fog_height, l.fog_warmth) = (d.fog, d.fog_reach, d.fog_height, d.fog_warmth));
-        },
-        |ui, look| {
             ui.checkbox(&mut look.fog, "fog");
             ui.add_enabled(look.fog, egui::Slider::new(&mut look.fog_reach, 500.0..=20_000.0).logarithmic(true).text("fog reach (blocks)"));
             ui.add_enabled(look.fog, egui::Slider::new(&mut look.fog_height, 25.0..=1_000.0).text("fog thins every (blocks up)"));
             ui.add_enabled(look.fog, egui::Slider::new(&mut look.fog_warmth, 0.0..=1.0).text("fog warmth towards the sun"));
         },
     );
-    ui.separator();
-    if ui.add_enabled(*look != FarLook::DEFAULT, egui::Button::new("All to default")).clicked() {
-        *look = FarLook::DEFAULT;
-    }
 }
 
 /// The Camera page: where the camera is, how fast it flies (its speed and Shift's multiplier) and its field of view
 /// [David, 2026-11-17: "i think we need to add FOV and Panini under camera again. it helps for me to be able to set
-/// low FOV and zoom into seams to inspect"; "fov for now"], with a Default for all three.
+/// low FOV and zoom into seams to inspect"; "fov for now"]. All three are kept in the page's presets.
 fn camera(ui: &mut egui::Ui, readings: &Readings, pace: &mut Pace, fov: &mut f32) {
     let camera = &readings.camera;
     ui.label(format!("north {:.1}, east {:.1}, up {:.1}", camera.position.x, camera.position.y, camera.position.z));
@@ -405,8 +423,56 @@ fn camera(ui: &mut egui::Ui, readings: &Readings, pace: &mut Pace, fov: &mut f32
     ui.add(egui::Slider::new(&mut pace.multiplier, 1.0..=20.0).text("multiplier (Shift held)"));
     let fields = crate::camera::FIELDS_OF_VIEW;
     ui.add(egui::Slider::new(fov, fields.0..=fields.1).step_by(1.0).text("Field of view (degrees, up and down)"));
-    if ui.add_enabled(*pace != Pace::DEFAULT || *fov != crate::camera::FIELD_OF_VIEW, egui::Button::new("Default").small()).clicked() {
-        *pace = Pace::DEFAULT;
-        *fov = crate::camera::FIELD_OF_VIEW;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The Camera and Render pages laid out off the screen with their preset bars, a few frames each, Ctrl+S among
+    /// them: nothing faults, and Ctrl+S saves the showing page's settings under the name in its box.
+    #[test]
+    fn the_pages_lay_out_with_their_preset_bars_and_ctrl_s_saves() {
+        let root = std::env::temp_dir().join("incus artus preset tests").join("the panel");
+        let _ = std::fs::remove_dir_all(&root);
+        let mut panel = Panel::with_presets_in(&root);
+        let ctx = egui::Context::default();
+        let passes = vec![PassTimes::default(); crate::wiring::PASSES.len()];
+        let readings = Readings {
+            card: "no card",
+            picture: (1600, 1000),
+            present: wgpu::PresentMode::Fifo,
+            refresh: 60.0,
+            frame: Spread::default(),
+            passes: &passes,
+            card_whole: None,
+            camera: Camera::new(),
+            captured: false,
+            memory: None,
+            blends: [true, true],
+            faces_switch: true,
+            near: None,
+            far: "none".to_string(),
+        };
+        let (mut far, mut near, mut pace, mut fov) = (FarLook::DEFAULT, NearLook::DEFAULT, Pace::DEFAULT, 70.0);
+        (far.fog, near.radius, near.lantern, pace.speed) = (true, 12.0, true, 333.0);
+        let ctrl_s = egui::Event::Key { key: egui::Key::S, physical_key: None, pressed: true, repeat: false, modifiers: egui::Modifiers::COMMAND };
+        for page in 0..PAGES.len() {
+            panel.page = page;
+            (panel.camera.name, panel.render.name) = ("try".to_string(), "try".to_string());
+            for frame in 0..4 {
+                let events = if frame == 2 { vec![ctrl_s.clone()] } else { Vec::new() };
+                ctx.begin_pass(egui::RawInput { screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1600.0, 1000.0))), events, ..Default::default() });
+                panel.show(&ctx, &readings, Some(&mut far), Some(&mut near), &mut pace, &mut fov);
+                // (The font pictures egui made are let go of: there's no card here to hand them to.)
+                ctx.end_pass().textures_delta.clear();
+            }
+        }
+        let render: RenderPreset = toml::from_str(&std::fs::read_to_string(root.join("render").join("try.toml")).unwrap()).unwrap();
+        assert_eq!(render, RenderPreset::of(&near, &far));
+        assert!(render.far.fog && render.near.radius == 12.0 && !render.near.lantern && near.lantern, "the settings as they stood, the lantern left lit and not kept");
+        let camera: CameraPreset = toml::from_str(&std::fs::read_to_string(root.join("camera").join("try.toml")).unwrap()).unwrap();
+        assert_eq!(camera, CameraPreset { speed: 333.0, multiplier: Pace::DEFAULT.multiplier, field_of_view: 70.0 });
+        let _ = std::fs::remove_dir_all(&root);
     }
 }

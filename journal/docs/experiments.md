@@ -8959,3 +8959,34 @@ Load list only"** (the dot only shows; nothing reset by a stray click).
 - **His look:** whether the wrap reads as he meant it, and the scroll.
 
 Both handed to him in one launch (build 220).
+
+### Build 219 built (unflown): presets on the Render and Camera pages; checked off the screen
+
+**Built as the mark says** (`src/presets.rs`, new: the bar, the files, what the game starts with; `panel.rs`: a bar
+under the tabs of the Camera and the Render page, in view however far the page is scrolled, Ctrl+S, the Default
+buttons out; `runner.rs`: the game started on each page's "default"; `near_eye.rs`, `far_eye.rs`: the looks made
+savable; `wiring.rs`: the presets a store on the disk, `INCUS_START_PRESET` a switch of the frame's lane).
+
+**Three things the mark didn't say, found in the building:**
+
+- **Typing a preset's name would have flown the camera** (W, A, S and D fly with the mouse free too). While a box
+  of the panel is typed in, only F2, F3, F11 and Tab are heard; taking the mouse (Tab) leaves the box.
+- **Ctrl+S would have moved the eye** (Ctrl flies down, S back). With the mouse free, Ctrl no longer flies down,
+  nor S back while it's held. With the mouse captured both fly as before. **A change to what he had:** going down
+  with Ctrl now needs the mouse captured.
+- **Without a near eye** (`INCUS_NEAR=0`) the page keeps the near eye's settings the game started with or last
+  loaded, so a preset saved then doesn't lose them.
+
+**Against the mark, off the screen:**
+
+- **Tests:** all 56 pass, five new: a preset saved and loaded comes back the same, its numbers written short
+  (0.05, not 0.05000000074505806) and the lantern lit not kept; a file with a setting missing, a setting unknown
+  and a whole number for a fraction still loads; the dot on for the built-in settings with no file, off after a
+  change, on again once saved as "default", which the game then starts with and a flight doesn't; a name cleaned
+  for a file; the Camera and Render pages laid out off the screen with their bars, Ctrl+S saving each page's
+  settings under the name in its box.
+- **The spawn's picture against build 218's: 13 pixels of 1.6 million differ, by 3 of 255 at most.** The mark
+  said to the pixel: **missed as written.** Nothing on the card was touched; build 218's picture against build
+  215's differed by 12 pixels the same way, so it reads as what one run differs from the next by. Checked with
+  build 220's picture, which is the same program run again.
+- **Not checked off the screen:** how the bars look and sit. His look.

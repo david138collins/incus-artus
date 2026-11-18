@@ -125,6 +125,7 @@ pub enum StoreId {
     BlueNoise,
     FarWindow,
     Temperatures,
+    Presets,
 }
 
 pub struct Store {
@@ -153,6 +154,7 @@ pub const LANES: [Lane; 4] = [
         what: "Each frame, its passes in order: the camera goes to a mark if it's time, flies, the panels are laid out, the card draws the picture, and it's handed to the screen.",
         switches: &[
             ("INCUS_FLIGHT", "a measured flight: every mark in data/marks.toml in turn, 5 s settling and 20 s measured at each, uncapped with the panel hidden; a report, then quits"),
+            ("INCUS_START_PRESET", "the presets the game starts with, by page and name (render/<name>, camera/<name>, a comma between); unset, each page's \"default\" preset, and on a flight the built-in settings, so flights stay like for like whatever is saved"),
             ("WGPU_ADAPTER_NAME", "the card, by part of its name (intel: the laptop's Intel card)"),
             ("WGPU_POWER_PREF", "the card, by power (low or high)"),
             ("WGPU_BACKEND", "the card's language (DirectX 12 unless set)"),
@@ -251,11 +253,11 @@ pub const PASSES: [Pass; 29] = [
         name: "laying out the panel",
         lane: LaneId::Frame,
         on: Where::Processor,
-        what: "The developer panel (F3) and the editor (F2) laid out, and cut into shapes for the card. The panel's Camera page changes how fast the camera flies, its Render page the far eye's look.",
-        reads: &[StoreId::Camera, StoreId::Clocks, StoreId::Wiring, StoreId::Temperatures],
-        writes: &[StoreId::PanelShapes, StoreId::Camera, StoreId::FarLook],
+        what: "The developer panel (F3) and the editor (F2) laid out, and cut into shapes for the card. The panel's Camera page changes how fast the camera flies, its Render page the near and far eyes' looks; each of the two has a preset bar, which saves the page's settings to the presets and loads them back.",
+        reads: &[StoreId::Camera, StoreId::Clocks, StoreId::Wiring, StoreId::Temperatures, StoreId::Presets],
+        writes: &[StoreId::PanelShapes, StoreId::Camera, StoreId::FarLook, StoreId::Presets],
         switches: &[],
-        files: &["src/panel.rs", "src/editor/mod.rs", "src/editor/software_map.rs"],
+        files: &["src/panel.rs", "src/presets.rs", "src/editor/mod.rs", "src/editor/software_map.rs"],
     },
     Pass {
         id: PassId::GettingThePicture,
@@ -533,7 +535,7 @@ pub const PASSES: [Pass; 29] = [
     },
 ];
 
-pub const STORES: [Store; 25] = [
+pub const STORES: [Store; 26] = [
     Store {
         id: StoreId::KeysHeld,
         name: "the keys held",
@@ -690,7 +692,7 @@ pub const STORES: [Store; 25] = [
         id: StoreId::FarLook,
         name: "the far eye's look",
         on: Where::Processor,
-        what: "What David tunes on the Render page (F3): where the levels hand over, where the 4 x 4 and the 2 x 2 fade in, and the sky's weight at a skyline; each with its default (Default puts them all back).",
+        what: "What David tunes on the Render page (F3): where the levels hand over, where the 4 x 4 and the 2 x 2 fade in, and the sky's weight at a skyline, and the rest of that page; kept in the page's presets.",
         limits: &[],
         files: &["src/far_eye.rs", "src/panel.rs"],
     },
@@ -733,6 +735,14 @@ pub const STORES: [Store; 25] = [
         what: "The latest reading: the CPU area and the GPU (°C), and the GPU's clock (MHz); each left out where the computer doesn't offer it. On the laptop the CPU area is the thermal zone _TZ.TZ01, the motherboard round the processor, not its cores; 105 °C is the cutoff David agreed for long runs.",
         limits: &[("seconds between readings", 3)],
         files: &["src/temperatures.rs"],
+    },
+    Store {
+        id: StoreId::Presets,
+        name: "the presets",
+        on: Where::Disk,
+        what: "A page of the panel's settings saved under a name, presets/render/<name>.toml and presets/camera/<name>.toml, plain text. The one named \"default\" is what the game starts with (the built-in settings till one is saved, and on a flight); a setting a file leaves out keeps its built-in value.",
+        limits: &[],
+        files: &["src/presets.rs"],
     },
 ];
 

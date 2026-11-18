@@ -76,6 +76,7 @@ flowchart TB
   store_the_blue_noise[("the blue noise")]
   store_the_window_round_the_eye[("the window round the eye")]
   store_the_temperatures[("the temperatures")]
+  store_the_presets[("the presets")]
   pass_hearing_the_window --> store_the_keys_held
   pass_hearing_the_window --> store_the_camera
   store_the_marks --> pass_going_to_a_mark
@@ -98,9 +99,11 @@ flowchart TB
   store_the_clocks --> pass_laying_out_the_panel
   store_the_wiring --> pass_laying_out_the_panel
   store_the_temperatures --> pass_laying_out_the_panel
+  store_the_presets --> pass_laying_out_the_panel
   pass_laying_out_the_panel --> store_the_panel_s_shapes
   pass_laying_out_the_panel --> store_the_camera
   pass_laying_out_the_panel --> store_the_far_eye_s_look
+  pass_laying_out_the_panel --> store_the_presets
   store_the_camera --> pass_the_far_start
   store_the_far_bricks --> pass_the_far_start
   store_the_far_eye_s_look --> pass_the_far_start
@@ -189,6 +192,7 @@ flowchart TB
 - **What it is:** Each frame, its passes in order: the camera goes to a mark if it's time, flies, the panels are laid out, the card draws the picture, and it's handed to the screen.
 - **Its passes, in order:** going to a mark, flying, putting the far cells on the card, putting the near chunks on the card, laying out the panel, getting the picture, the far start, listing the near chunks, the near faces, the near water, the near cover, the far 8 x 8, the far 4 x 4, the far 2 x 2, bringing it up, the x-fader, the panel, handing the card its work, showing it and measuring.
 - **Switch** `INCUS_FLIGHT`: a measured flight: every mark in data/marks.toml in turn, 5 s settling and 20 s measured at each, uncapped with the panel hidden; a report, then quits.
+- **Switch** `INCUS_START_PRESET`: the presets the game starts with, by page and name (render/<name>, camera/<name>, a comma between); unset, each page's "default" preset, and on a flight the built-in settings, so flights stay like for like whatever is saved.
 - **Switch** `WGPU_ADAPTER_NAME`: the card, by part of its name (intel: the laptop's Intel card).
 - **Switch** `WGPU_POWER_PREF`: the card, by power (low or high).
 - **Switch** `WGPU_BACKEND`: the card's language (DirectX 12 unless set).
@@ -265,10 +269,10 @@ flowchart TB
 ### laying out the panel
 
 - **A pass** in the frame, on the processor.
-- **What it is:** The developer panel (F3) and the editor (F2) laid out, and cut into shapes for the card. The panel's Camera page changes how fast the camera flies, its Render page the far eye's look.
-- **Reads:** the camera, the clocks, the wiring and the temperatures. **Writes:** the panel's shapes, the camera and the far eye's look.
+- **What it is:** The developer panel (F3) and the editor (F2) laid out, and cut into shapes for the card. The panel's Camera page changes how fast the camera flies, its Render page the near and far eyes' looks; each of the two has a preset bar, which saves the page's settings to the presets and loads them back.
+- **Reads:** the camera, the clocks, the wiring, the temperatures and the presets. **Writes:** the panel's shapes, the camera, the far eye's look and the presets.
 - **Cost, last measured** (`kept logs/flight-1794589790.txt`): on the processor median 0.016, 95th 0.033, 99th 0.151, worst 0.341.
-- **Files:** src/panel.rs, src/editor/mod.rs and src/editor/software_map.rs.
+- **Files:** src/panel.rs, src/presets.rs, src/editor/mod.rs and src/editor/software_map.rs.
 
 ### getting the picture
 
@@ -631,7 +635,7 @@ flowchart TB
 ### the far eye's look
 
 - **A store** on the processor.
-- **What it is:** What David tunes on the Render page (F3): where the levels hand over, where the 4 x 4 and the 2 x 2 fade in, and the sky's weight at a skyline; each with its default (Default puts them all back).
+- **What it is:** What David tunes on the Render page (F3): where the levels hand over, where the 4 x 4 and the 2 x 2 fade in, and the sky's weight at a skyline, and the rest of that page; kept in the page's presets.
 - **Written by:** putting the near chunks on the card and laying out the panel. **Read by:** the far start.
 - **Files:** src/far_eye.rs and src/panel.rs.
 
@@ -674,4 +678,11 @@ flowchart TB
 - **Written by:** reading the temperatures. **Read by:** laying out the panel and measuring.
 - **Limit:** seconds between readings, 3.
 - **Files:** src/temperatures.rs.
+
+### the presets
+
+- **A store** on the disk.
+- **What it is:** A page of the panel's settings saved under a name, presets/render/<name>.toml and presets/camera/<name>.toml, plain text. The one named "default" is what the game starts with (the built-in settings till one is saved, and on a flight); a setting a file leaves out keeps its built-in value.
+- **Written by:** laying out the panel. **Read by:** laying out the panel.
+- **Files:** src/presets.rs.
 

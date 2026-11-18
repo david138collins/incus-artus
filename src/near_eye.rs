@@ -67,7 +67,10 @@ pub const MOST_FADER_CURVE: f32 = 8.0;
 /// hand over to rays [David, 2026-11-16: "i think a x-fader with curves could hide it almost completely so blocks
 /// smoothly fade into rays"]: its band's width before the faces' reach (blocks), and its curve (1 a straight fade;
 /// higher, an S that holds each side longer and crosses quicker in the middle).
-#[derive(Clone, Copy, PartialEq, Debug)]
+///
+/// Kept in the Render page's presets (`presets.rs`), all but the lantern lit or out.
+#[derive(Clone, Copy, PartialEq, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct NearLook {
     pub radius: f32,
     pub fader_width: f32,
@@ -100,6 +103,7 @@ pub struct NearLook {
     /// The lantern (build 217): a light at the eye, lit or not (the L key; the Render page's "Lantern" in "Lights"),
     /// its brightness (1 to 15: "Lantern brightness") and its colour ("Lantern colour") [David, 2026-11-17: the
     /// first moving light, the key and the controls' place his choices].
+    #[serde(skip)]
     pub lantern: bool,
     pub lantern_level: f32,
     pub lantern_colour: [f32; 3],
@@ -108,6 +112,13 @@ pub struct NearLook {
     /// 2026-11-17, of build 217: "i couldn't really see the steps in the red and green light levels"; 2026-11-06:
     /// "very clear steps in brightness"; the slider's name his choice].
     pub step: f32,
+}
+
+impl Default for NearLook {
+    /// The built-in settings (what a preset's file leaves out keeps these).
+    fn default() -> Self {
+        Self::DEFAULT
+    }
 }
 
 impl NearLook {

@@ -10,6 +10,7 @@
 //! - `clocks`: the frame's clock (how long each frame takes) and the card's (how long each of its passes takes).
 //! - `camera`: the flying camera, in the game's axes.
 //! - `panel`: the developer panel (F3), drawn over the picture.
+//! - `presets`: a page of the panel's settings saved under a name and loaded back; "default" is what the game starts with.
 //! - `editor`: the editor (F2), its pages reached by the drop-down at the top; the software map is the first.
 //! - `doorway`: the one piece that answers "what's here?" a tile at a time (the export behind it now).
 //! - `far`: the far cells, summed from the doorway's columns (cubes of 32 and every level above), on the loading lane.
@@ -38,6 +39,7 @@ mod flight;
 mod marks;
 mod memory;
 mod panel;
+mod presets;
 mod runner;
 mod near;
 mod near_eye;
