@@ -687,7 +687,8 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
           reworked later and how that could be done and leave it for now": the note is in
           `journal/docs/experiments.md` under his look at build 218 (the slider as a plain distance; no blur
           by handing over at a picture's square, by pictures with their own coarser versions, or by squares
-          fixed to the world); no word yet on the steps); then, his word the same day, **presets** ("the same
+          fixed to the world); of the steps, at build 220: "the light is alright", done enough to go on, the
+          strength left written down); then, his word the same day, **presets** ("the same
           way we did it before", in place of the panel's Default buttons) and **the software map** ("it needs
           to smart-wrap and let me scroll downwards and upwards"), each its own build; then random flicker,
           glows and far lights, night) (placed and moving lights, glows and far lights,
@@ -703,7 +704,7 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
           round the pieces, or another way
     - [ ] **Chunk optimizing where it would show:** what a player would feel (filling 64 chunks took 37 s at the
           spawn; the corners' program is half the card at 64 chunks), each only if its gain is visible
-    - [ ] **Presets and the software map** (his word, 2026-11-18, alongside the list: "we do need a preset system
+    - [x] **Presets and the software map** (his word, 2026-11-18, alongside the list: "we do need a preset system
           now ... in order for me to better check out the features as they start to grow. the same way we did it
           before"; "this can replace the defaulter buttons inside the panel"; the map "needs to smart-wrap and
           let me scroll downwards and upwards"). His answers: a bar "On each page" (Render, Camera); back to the
@@ -711,8 +712,9 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
           `presets/camera/`, the game started on each page's "default", Ctrl+S with the mouse free, the Default
           buttons out; flights fly the built-in settings unless `INCUS_START_PRESET` names a preset. Build 220,
           the map, built: the lanes flow like words, a wide lane wraps its passes, the stores flow under them,
-          the page scrolls; a hovered box's lines drawn over the rest (Builder's addition, his to keep). His
-          look at both owed
+          the page scrolls; a hovered box's lines drawn over the rest (Builder's addition). His look, the same
+          day: "presets look good, software map looks good enough, its just there for reference. i like the
+          tooltips." Done enough to go on (1d6f949)
     - Not now, by his word: very fast flight (single frames of about 20 ms at 2,000 blocks a second)
     - Not in his list, kept here as they were: water's look, objects, glass, the doorway's pieces and lights below;
       the Intel card's flight and his walk through old's world (the gate)

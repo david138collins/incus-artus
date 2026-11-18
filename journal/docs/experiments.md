@@ -9020,3 +9020,18 @@ come out a step different in a run now and then**, cause not looked for (written
 **Said to him before he looks:** the presets and the map are both in this launch; flights don't read his presets;
 going down with Ctrl needs the mouse captured now; and the lines' brightening under the mouse is mine, his to
 keep or not.
+
+### His look at build 220 (2026-11-18): presets, the software map, and the light
+
+**The session** (`logs/session-1795012815.log`): two and a half minutes, no warnings; no preset saved in it. **The
+CPU area read 100 °C as the window opened and 102 °C a minute in** (the cutoff is 105), 88 °C by the end: the heat
+was Builder's tests and the compile just before the launch, not the game's. From here a launch handed to him waits
+for the processor to cool after a run of tests.
+
+**His words:** "presets look good, software map looks good enough, its just there for reference. i like the
+tooltips. the light is alright. whats next?"
+
+**Taken as:** presets done enough to go on; the software map done enough to go on, a reference and no more (the
+lines brightening under the mouse stay, nothing said against them); the lights' even steps (build 218) "alright",
+done enough to go on: no strength slider asked for, so it stays written down, not built. Next in his order: lamps
+flickering at random, glows and far lights, night, then assess.
