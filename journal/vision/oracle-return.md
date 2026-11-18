@@ -562,6 +562,18 @@ the answers.
   rays, far rays skipped under blocks. What was set aside is listed in the plan, "For the later look back at the far
   eye", each with its document. After graphics the road is tectonics, world generation (topography, then water,
   deliberately), the Registrar and the placer, ecology.
+- **Since, for whoever reads this next** (2026-11-17, builds 207 to 217). Placed things are summed into the far
+  cells. Near light is kept apart from the faces: bricks of 8 x 8 x 8 cells behind a directory on the card, only
+  where it isn't plain daylight, each pixel looking its cell up, so faces merge whatever the light (flown: 15%
+  cheaper than light on the faces). Placed lights and a lantern at the eye use the same store (unflown). And a
+  rule of David's own for level of detail across both eyes, **the detail curve**: the smallest thing drawn at a
+  distance d is sqrt(a² + (g × d / P)²) blocks, a a size in the world, g a size on the glass, P the pixels a block
+  one block away is tall. Its near half is built: the triangles drawn into up to three pictures by bands of true
+  distance, in squares of 4, 2 and 1 screen pixels on the far eye's own grid, a nearer band's picture masking the
+  farther bands' depth, the bands fading by a stipple. Its far half (rings sized by the curve, a narrow band of
+  4-block cells at the seam) is to come. A question worth an outside eye: is drawing the near field coarsest
+  where it is nearest sound, given squares fixed to the screen crawl most there, and is there a cheaper way to
+  the same curve than three pictures and a mask?
   Does the cut by a list still beat yours (every ray cut) on a card that's full at the marks that work, and is it the
   footing for lazy rays (a far length kept, not re-marched every frame)?
 

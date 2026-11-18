@@ -101,3 +101,24 @@ waits; the engine is kept so it can be come back to ("never welded shut", the pl
    pass above), A/B on the Render page; its place and name asked first.
 2. The style pass proper (the plan, Phase 4): with figures, a workshop and combat to judge by; each style a pass
    with its own switch, measured alone, thrown away if it doesn't earn its place.
+
+## 7. Since: the detail curve (builds 212 to 215, the same day)
+
+The "smallest look" of section 6 was built that afternoon (build 212, "Near pixel size": the near picture at half
+or quarter size on the far eye's grid), and his look at it moved the picture of section 1 on. Not one fixed screen
+of 2 x 2 squares, but squares sized by distance on one curve: "4x4 feels beautiful up close, but it quickly becomes
+just blurry pixel art farther away"; "a sort of linear equivalence of detail from the back if your hand towards
+infinity ... a formula with a single flexture. triangles go 4x to 2x to 1x and then march 2x - 32x on that golden
+curve."
+
+- **The curve:** the smallest thing drawn at a distance d is sqrt(a² + (g × d / P)²) blocks (`master/plan.md`,
+  under 2.4; his words in `decisions.md`, 2026-11-17).
+- **Its near half is built** (builds 213 to 215): up to three near pictures, in squares of 4, 2 and 1 screen
+  pixels, by bands of true distance, fading into each other by a stipple; all on the screen's own grid, so the
+  squares still coincide with the far eye's. Controls in The near eye: "Largest near squares", "Detail up close
+  (blocks)", "Stipple width (share of the band)", "Picture sharpness in the squares". It launches off.
+- **Its far half** (rings that reach where the curve says, a band of 4s at the seam) comes after lights and
+  nights, priced first.
+- **What stands from this note:** the styles' place (section 3: the near pictures are still stores of their own),
+  crawl as the thing his eye judges (section 4), half size for the whole world as one setting of the same
+  machinery, and the style pass in Phase 4 (section 5).

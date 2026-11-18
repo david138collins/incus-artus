@@ -3094,6 +3094,98 @@ Reference: `Art/quartile minecraft illustration.png`
     begins inside the radius; a ring with a hole shows the far view only where near chunks aren't in yet, to be
     said to him plainly; the march has no registers put by; remaking is measured with a placing and a walk; and
     what a tree looks like at the cell size memory allows is told to him before he looks.
+- *Read from the journal at 6d6d13c* (Builder's summary to Counsel at David's asking, the same day; builds 211 to
+  217, each with its pass mark first in `experiments.md`; his words below relayed by her). **None of these builds
+  is flown.** Every price is a single run off the screen with the TV in and the processor hot (99 degrees at the
+  end of his look at build 216): each reads against itself only. Whole frames at the spawn run from 1.56 ms (build
+  214's run) to 2.50 (build 217's) with nothing in between that explains it but the day's heat, so nothing here
+  says where the frame stands against his 2 ms.
+- **[DECIDED 2026-11-17] The finer region: not much of it, focused into the seam** (David, to Builder, as build
+  211's prices came in: rings three times wider cost about 200 MB, 35 s to make the 16s from nothing and 0.4 to
+  1.1 ms a frame): "i don't think we need very much of the finer cells to blend the transition from angles to rays.
+  i was hoping that yes the crossover would now actually have an effect and i can focus it into the seam at a
+  natural grade." His look, at rings of 256 and 320: "it looks really good and i seem to have what i want but i
+  can't help thinking that the crossovers run backwards somehow, like i can fly up and make the land under me
+  chunkier than the land around that in a ring; but it works... im not asking to really look into it, maybe just
+  explain it." (Explained: within a step of cell size the finer rays come in only once a pixel is as big as the
+  cell, so outward it runs coarse, fine, coarse, fine.) So wide rings are out; what's wanted is a narrow hollow
+  band of 4s at the seam, following the radius; it's now the detail curve's far half (below), after lights and
+  nights.
+  - The same hour: "when were we going to check on cover by shape on the terrain like we did for structures and
+    trees?" (told: shelved by his word of 2026-11-16, for the final check); and on workflows, which he turned on in
+    his own settings: "we'll wait to use ultracode until we're ready to say, 'are we finished with the graphics
+    engine generally?' and confirm we've got it pretty much set-and-forget and can be creative with FX".
+- **[DECIDED 2026-11-17] The near picture's size on a slider, and the field of view back on the Camera page**
+  (David, to Builder; build 212). To the half-size switch first and the seam's band after: "i agree"; its place and
+  name his: "Near pixel size" (1, 2, 4) in The near eye. And: "ah btw, i think we need to add FOV and Panini under
+  camera again. it helps for me to be able to set low FOV and zoom into seams to inspect"; told Panini wants a talk
+  first (old's re-sampled the finished picture, which pulls against a fixed grid of squares): "ok, fov for now, we
+  can talk about some kind of panini or donut flex that compensates for higher fov. it was good last time." So the
+  field of view is a slider (5 to 130 degrees, 100 to begin). **[OPEN] Panini, or another flex for a wide field of
+  view: owed a talk** (the spec has Panini decided, 100 degrees with it on).
+- **[DECIDED 2026-11-17] The detail curve** (David, to Builder, at his look at build 212). His words, in order:
+  "to be honest ... i think we could get away with 4x4 as the base layer, but, it'd be better to have like, 9 chunks
+  of 2x2 around you, roughly ... and after that 4x4 ... i'm trying to think about the slope of cells from your own
+  hand to the farthest mountain and how we could make it like a golden ratio. i really love the looks we can get
+  here. and its all still really quick once its loaded." Then, turned round: "i almost want 4x4 *up close*, fading
+  to 2x2, fading to 1x1, which then fades back up to 32+ into the distance, like, sharpening down to fine pixels
+  *up* to the render distance the way distant lights will hold a flickering pixel past it as well ... 4x4 feels
+  beautiful up close, but it quickly becomes just blurry pixel art farther away". And: "i think what we have been
+  looking for is a sort of linear equivalence of detail from the back if your hand towards infinity, and we can
+  define it by a formula with a single flexture. triangles go 4x to 2x to 1x and then march 2x - 32x on that golden
+  curve."
+  - As defined to him (in the plan): the smallest thing drawn at a distance d is **sqrt(a² + (g × d / P)²)**
+    blocks; a a fixed size in the world up close (a quarter block to begin), g a fixed size on the glass far off,
+    P the pixels a block one block away is tall (from the picture's height and the field of view, never a number
+    written in). Flat near, a straight line far, one bend. For the triangles, with a at a quarter: 4 x 4 squares
+    to about 63 blocks, 2 x 2 to about 168, single pixels to the render distance. For the far cells at g = 2: 4s
+    from the seam to about 1,340 blocks, 8s to 2,700, 16s to 5,400. (Builder's first answer had the slope the
+    other way; his is the one built. Counsel's sums agree with the figures.)
+  - **His order:** "yes. lets do 1 and 2 and then assess": (1) the curve's near half, (2) lights and nights, then
+    assess; (3) the far half after, priced first.
+  - The controls, his choices: "Near pixel size" becomes **"Largest near squares"**; **"Detail up close (blocks)"**
+    under it. Build 213 is the near half with hard edges (three near pictures by bands of true distance).
+  - *Counsel:* this takes up the style note's "smallest look" and moves his lean of that morning on: not one
+    fixed screen of 2 x 2 squares but squares sized by distance, the triangles' and the march's on one curve.
+    `journal/docs/graphics-style.md` has a section for it. The style pass in Phase 4 still stands.
+- **[DECIDED 2026-11-17] The bands fade by a stipple** (David, offered a dissolve or a stipple): "lets try
+  stippling". The slider, his name: **"Stipple width (share of the band)"** (build 214). No word yet on whether it
+  stays.
+- **[DECIDED 2026-11-17] The blur in the coarse squares: both remedies, as sliders** (David, at build 214, his
+  settings largest squares 4 and the detail at its least): "i notice that the blocks become blurry after like 5
+  block radius around me, set to 4, why do you think that is? ... anyways, lets keep going, tell me what you think
+  about that". The cause: a block's picture is 32 squares a side, smaller than a 4-pixel square past about 5
+  blocks, so the card blends them. His answer to the two remedies: "Both sliders": "Detail up close" down to 1/64
+  of a block, and a new one, his name: **"Picture sharpness in the squares"** (build 215; at 1 the squares are
+  crisp, with a speckle in the middle distance that will crawl as he moves, said to him).
+- **[DECIDED 2026-11-17] Placed lights: red and green blocks first** (David, asked which existing block should
+  glow): "hmm just use red and green blocks for the glowing blocks". Builder took it as two plain lamp blocks, one
+  red and one green, stood about the stage, and told him so; he has looked since and not objected. Their controls
+  in a new section, his place: "Placed lights". As built (build 216): which blocks give light is a data file
+  (`data/lights.toml`); light spreads a step dimmer each block, stopped by whole blocks, red, green and blue each
+  on its own; kept in colour bricks beside the sky's light (his "C"); a pixel shows the brighter of daylight and
+  lamp light, so by day a lamp shows only in shade, caves and halls. **His look: "it looks great".** Done enough to
+  go on. Before it: "can lamps be made to flicker at random at some point?" (yes: a flicker voice a lamp, in the
+  colour bricks' spare bits; its own build, his choice, after the lantern).
+- **[DECIDED 2026-11-17] The first moving light is a lantern at the eye** (David's answers to Builder's questions):
+  switched by **the L key**; its controls **in "Placed lights", renamed "Lights"**; "Lantern alone, flicker after".
+  Build 217: its light spread on a thread of its own in a box of 32 cells round the eye, kept apart from the placed
+  light. Two things Builder changed from her mark, said to him: it begins at brightness 15, not 12 (at 12 the
+  cave's dark stone was barely lit), and its colour is turned into levels so warm orange stays orange beside it.
+  By day it shows nothing, even in the trees' shade. His look owed.
+- **[OPEN] His to say, from these builds** (no question hangs on any of them; they wait on his looks):
+  - whether the detail curve is on from the start (it launches off, "Largest near squares" at 1), and the starting
+    "Detail up close", stipple width and picture sharpness;
+  - the lantern's starting brightness and colour;
+  - lights are dim on dark stone: a placed light at its brightest is a surface's colour times 1, daylight about two
+    and a half times that; one number (a strength), a slider on his word;
+  - a coloured light reddens as it fades, each colour falling a step a block on its own; holding the colour all the
+    way out wants a different falling-off, which would change the lamps he said look great;
+  - a block placed now makes again every chunk within 16 columns (it was 8), faces and all, where only its light
+    need be: a saving for later.
+- **Next, in his order** (2026-11-17): lamps flickering at random; glows and far lights; night; then assess; then
+  the curve's far half, and the rest of his checklist (textures, listing chunks, chunks with pieces, chunk
+  optimizing).
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its

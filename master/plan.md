@@ -31,12 +31,24 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   away left out (build 209: the near faces a third cheaper on the card); light kept apart from the faces, only where
   it isn't plain daylight (build 210, his "proceed with C": 15% cheaper again with the stage on). His look at build
   210 (2026-11-17): "this looks really good, builder. the only rough part is this. i feel like we should have a
-  finer region between the triangles and the march." **So next, by his word, the fine region past the triangles**
-  ("push the fineness-grossness gradient out to the triangle radius"), moved ahead of placed lights: Builder is
-  measuring memory and making time and brings him its pass mark first. Then placed and moving lights, glows and far
-  lights, more textures, and the near eye's own costs (listing chunks, chunks with pieces, chunk optimizing where
-  it would show); "dont worry about very fast flight". The graphics style (one fixed screen of 2 x 2 squares, the
-  world at half size) waits for the style pass in Phase 4: `journal/docs/graphics-style.md`.
+  finer region between the triangles and the march." Build 211 let him look at wider rings (dear: 200 MB, half a
+  minute to make, up to 1.1 ms a frame): "i don't think we need very much of the finer cells ... i can focus it
+  into the seam at a natural grade". Then, from the near picture on squares (build 212), **his detail curve**: "a
+  sort of linear equivalence of detail from the back if your hand towards infinity ... a formula with a single
+  flexture. triangles go 4x to 2x to 1x and then march 2x - 32x on that golden curve" (the formula is under 2.4).
+  **His order: "yes. lets do 1 and 2 and then assess"**: (1) the curve's near half, (2) lights and nights, then
+  assess, (3) the curve's far half after (the seam's band of 4s with it). In so far, none flown, each priced off
+  the screen only: the near half (builds 213 to 215: three near pictures by bands of distance, the bands fading by
+  a stipple, "Largest near squares", "Detail up close", "Stipple width" and "Picture sharpness in the squares" in
+  The near eye; it launches off); placed lights (build 216, red and green lamp blocks: "it looks great"); a
+  lantern at the eye on the L key (build 217, his look owed). **Next, in his order:** lamps flickering at random;
+  glows and far lights; night; then assess. After that the curve's far half, more textures, and the near eye's
+  own costs (listing chunks, chunks with pieces, chunk optimizing where it would show); "dont worry about very
+  fast flight". **Owed at "assess":** a bracket of flights (the TV has been in and the processor hot all through
+  builds 211 to 217, so nothing says where the frame stands against his 2 ms), and his word on the starting
+  settings (whether the curve is on from the start; the lantern's brightness and colour; a strength for lights on
+  dark stone). Panini, or another flex for a wide field of view, is owed a talk. The graphics style waits for the
+  style pass in Phase 4: `journal/docs/graphics-style.md` (the detail curve has moved it on: section 7).
 - **His word on the road** (2026-11-16): "i'm pretty happy and confident with our graphics engine now"; hanging
   homework and questions are dropped (the kept Oracle's five questions among them; an outside look is his to call,
   no longer a gate); "Builder can proceed with the tests and basic fixes, i'll bring it up if i see undesirable
