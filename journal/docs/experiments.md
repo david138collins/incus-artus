@@ -8990,3 +8990,33 @@ savable; `wiring.rs`: the presets a store on the disk, `INCUS_START_PRESET` a sw
   215's differed by 12 pixels the same way, so it reads as what one run differs from the next by. Checked with
   build 220's picture, which is the same program run again.
 - **Not checked off the screen:** how the bars look and sit. His look.
+
+### Build 220 built (unflown): the software map wrapped to the screen and scrolling; checked off the screen
+
+**Built as the mark says** (`src/editor/software_map.rs`: `layout`, the map's boxes placed for a width, apart from
+its drawing so it can be tested without a card; the page in a scroll area). The lanes flow like words, a lane
+wider than the screen wraps its passes inside its box, the stores flow the same way under the lanes in the order
+of the passes they're joined to; narrower than the screen, the map sits in its middle.
+
+**One thing the mark didn't say, added in the open:** wrapped, a line can pass behind a box that isn't its own, so
+**hovering a pass or a store draws its lines over the boxes, thicker, and dims the rest.** His to keep or take
+out.
+
+**Against the mark, off the screen:**
+
+- **Tests:** all 57 pass, one new: at widths of 800, 1,280, 1,920 and 2,560 (and one wide enough for it all) every
+  box inside the width, no two lanes, passes or stores overlapping, every pass inside its lane's box under its
+  title, the stores under the lanes, the lanes and each lane's passes in their order read as a page is; wide
+  enough, the one row it was.
+- **Not checked off the screen:** how it reads, and the scroll. His look.
+
+**Build 219's picture, settled:** build 220's picture of the spawn is build 219's to the pixel (the same program
+run again: the picture doesn't change from run to run here). The 13 pixels between them and build 218's: 12 are
+one 4 x 4 square of the far eye at (652 to 655, 344 to 347), one step of 255 off in blue in build 218's run alone
+(builds 215, 219 and 220 agree there); the other is one dark pixel at (785, 221). Against build 215's picture,
+build 220's differs in that one pixel only. So nothing in the picture is build 219's doing; **a far square can
+come out a step different in a run now and then**, cause not looked for (written down here, not chased).
+
+**Said to him before he looks:** the presets and the map are both in this launch; flights don't read his presets;
+going down with Ctrl needs the mouse captured now; and the lines' brightening under the mouse is mine, his to
+keep or not.
