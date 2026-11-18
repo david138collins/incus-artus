@@ -9193,3 +9193,12 @@ lamp's block is 2 pixels across, so at the field of view of 100 on his screen fr
 zooming in brings the steady lamp back. Most of the time a far lamp is lit, and it blinks out for moments at its
 light's low points (a third of its swing near, more far off); "Flicker (share of brightness)" moves only how much its
 light dims, not how often it blinks.
+
+### His look at build 222 (2026-11-18)
+
+**His words:** "looks good". The far lamps' twinkle within the near reach is done enough to go on. The launch came up
+hot (the processor's area at 104 degrees at the start and a minute in, 91 at the end): another game was open, and a
+commit just before it had the game built again as it started. No warnings in the log.
+
+**Next, as the mark said:** lamps past the near reach (1,024 blocks), their dots hidden by the far cells along a
+line to each one (old's way), so a lamp in a cave mouth 3 km off twinkles and one behind a ridge doesn't.
