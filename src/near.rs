@@ -302,6 +302,183 @@ impl Placed {
     }
 }
 
+/// Light spread through a box of cells (`size` of them north, east and up; a cell at north + east x size[0] + up x
+/// size[0] x size[1]) from `seeds` (a cell of the box and its light: red, green, blue, each 0 to 15): a step dimmer
+/// each cell, six ways, into every cell that's `open`, each colour on its own, a cell keeping the brightest that
+/// reaches it. A seed's own cell has its light whether it's open or not (a lamp is a block; the lantern is in air).
+fn spread(size: [i32; 3], open: &[bool], seeds: &[([i32; 3], [u8; 3])]) -> Vec<[u8; 3]> {
+    let at = |cell: [i32; 3]| (cell[0] + cell[1] * size[0] + cell[2] * size[0] * size[1]) as usize;
+    let mut levels = vec![[0u8; 3]; open.len()];
+    let mut queue: std::collections::VecDeque<[i32; 3]> = Default::default();
+    for channel in 0..3 {
+        for (cell, light) in seeds {
+            if light[channel] > levels[at(*cell)][channel] {
+                levels[at(*cell)][channel] = light[channel];
+                queue.push_back(*cell);
+            }
+        }
+        while let Some(cell) = queue.pop_front() {
+            let level = levels[at(cell)][channel];
+            if level <= 1 {
+                continue;
+            }
+            for step in Facing::ALL.map(Facing::step) {
+                let next = [cell[0] + step[0], cell[1] + step[1], cell[2] + step[2]];
+                if (0..3).any(|k| next[k] < 0 || next[k] >= size[k]) {
+                    continue;
+                }
+                let k = at(next);
+                if open[k] && levels[k][channel] < level - 1 {
+                    levels[k][channel] = level - 1;
+                    queue.push_back(next);
+                }
+            }
+        }
+    }
+    levels
+}
+
+/// A moving light's box, cells a side (build 217): the brightest light reaches 14 blocks, so 16 each way holds it.
+pub const CARRIED_BOX: i32 = 32;
+
+/// A moving light's box as its thread hands it over (build 217): where the light is and what it is (as asked), the
+/// box's cells (`Blocks::carried_light`), and how long the reading of its blocks and the spreading took (ms; no
+/// reading while the light stays in one chunk and nothing changes).
+pub struct Carried {
+    pub at: [i32; 3],
+    pub light: [u8; 3],
+    pub cells: Vec<u16>,
+    pub read_ms: f32,
+    pub spread_ms: f32,
+}
+
+/// What the lantern's thread shares with the frame: the light wanted now (its cell and its light), the changes
+/// made through the game's doorway and how many times they've been told, whether there's anything new to do, and
+/// whether to stop.
+struct CarriedAsked {
+    want: Option<([i32; 3], [u8; 3])>,
+    changes: std::sync::Arc<HashMap<[i32; 2], Vec<Change>>>,
+    told: u64,
+    fresh: bool,
+    stop: bool,
+}
+
+/// The lantern's lane (build 217) [David, 2026-11-06: "moving torches are obviously necessary as well as light from
+/// fx"; 2026-11-17: a lantern at the eye first, on the L key]: a thread of its own, with a doorway of its own, that
+/// spreads a moving light through the blocks round it whenever it's asked (the light has moved a block, been
+/// changed, or a block has changed) and hands the box over. The frame never waits for it. The blocks of the light's
+/// chunk, read 16 columns out, are kept while the light stays in that chunk and nothing changes.
+pub struct LanternLane {
+    asked: std::sync::Arc<(std::sync::Mutex<CarriedAsked>, std::sync::Condvar)>,
+    made: std::sync::mpsc::Receiver<Result<Carried, String>>,
+}
+
+impl LanternLane {
+    pub fn start(folder: std::path::PathBuf, staged: bool) -> Result<Self, String> {
+        let asked = std::sync::Arc::new((std::sync::Mutex::new(CarriedAsked { want: None, changes: Default::default(), told: 0, fresh: false, stop: false }), std::sync::Condvar::new()));
+        let (sender, made) = std::sync::mpsc::channel();
+        let shared = asked.clone();
+        std::thread::Builder::new()
+            .name("the lantern".to_string())
+            .spawn(move || {
+                let mut doorway = match Doorway::open_with(&folder, staged) {
+                    Ok(doorway) => doorway,
+                    Err(error) => {
+                        let _ = sender.send(Err(error));
+                        return;
+                    }
+                };
+                let mut told = 0u64;
+                let mut tiles: HashMap<[i32; 2], Tile> = HashMap::new();
+                let mut kept: Option<Blocks> = None;
+                loop {
+                    let (want, news) = {
+                        let (lock, heard) = &*shared;
+                        let mut asked = lock.lock().unwrap();
+                        loop {
+                            if asked.stop {
+                                return;
+                            }
+                            if asked.fresh {
+                                asked.fresh = false;
+                                break (asked.want, (asked.told != told).then(|| (asked.told, asked.changes.clone())));
+                            }
+                            asked = heard.wait(asked).unwrap();
+                        }
+                    };
+                    if let Some((now, changes)) = news {
+                        doorway.set_changes((*changes).clone());
+                        told = now;
+                        kept = None;
+                    }
+                    let Some((at, light)) = want else { continue };
+                    let chunk = [at[0].div_euclid(CHUNK), at[1].div_euclid(CHUNK)];
+                    let began = std::time::Instant::now();
+                    if kept.as_ref().is_none_or(|blocks| blocks.chunk != chunk) {
+                        if tiles.len() > 6 {
+                            tiles.clear();
+                        }
+                        kept = match Blocks::read_out(&doorway, &mut tiles, chunk, LAMP_MARGIN) {
+                            Ok(blocks) => Some(blocks),
+                            Err(error) => {
+                                if sender.send(Err(error)).is_err() {
+                                    return;
+                                }
+                                continue;
+                            }
+                        };
+                    }
+                    let read_ms = began.elapsed().as_secs_f32() * 1000.0;
+                    let began = std::time::Instant::now();
+                    let cells = kept.as_ref().unwrap().carried_light(at, light);
+                    if sender.send(Ok(Carried { at, light, cells, read_ms, spread_ms: began.elapsed().as_secs_f32() * 1000.0 })).is_err() {
+                        return;
+                    }
+                }
+            })
+            .map_err(|error| format!("the lantern's thread couldn't start: {error}"))?;
+        Ok(Self { asked, made })
+    }
+
+    /// The light wanted now: its cell and its light. The last asking is the one answered.
+    pub fn ask(&self, at: [i32; 3], light: [u8; 3]) {
+        let (lock, heard) = &*self.asked;
+        let mut asked = lock.lock().unwrap();
+        asked.want = Some((at, light));
+        asked.fresh = true;
+        heard.notify_all();
+    }
+
+    /// No light wanted (the lantern put out).
+    pub fn rest(&self) {
+        let (lock, _) = &*self.asked;
+        lock.lock().unwrap().want = None;
+    }
+
+    /// The changes made through the game's doorway, as they are now: the light wanted is spread again with them.
+    pub fn changed(&self, changes: HashMap<[i32; 2], Vec<Change>>) {
+        let (lock, heard) = &*self.asked;
+        let mut asked = lock.lock().unwrap();
+        asked.changes = std::sync::Arc::new(changes);
+        asked.told += 1;
+        asked.fresh = true;
+        heard.notify_all();
+    }
+
+    /// A box made since the last taking, if any (the oldest first).
+    pub fn take(&self) -> Option<Result<Carried, String>> {
+        self.made.try_recv().ok()
+    }
+}
+
+impl Drop for LanternLane {
+    fn drop(&mut self) {
+        let (lock, heard) = &*self.asked;
+        lock.lock().unwrap().stop = true;
+        heard.notify_all();
+    }
+}
+
 /// A chunk's placed light (build 216), if a glowing block is near enough to reach it: the glowing blocks the scatter
 /// stage stood in the tiles round it (each tile's found once and kept in `lamps`) and those placed through the
 /// doorway; if any is within a light's reach of the chunk's columns, its blocks are read again 16 columns out and the
@@ -631,33 +808,8 @@ impl Blocks {
                 }
             }
         }
-        let mut levels = vec![[0u8; 3]; open.len()];
-        let mut queue: std::collections::VecDeque<[i32; 3]> = Default::default();
-        for channel in 0..3 {
-            for (cell, light) in &seeds {
-                if light[channel] > levels[at(*cell)][channel] {
-                    levels[at(*cell)][channel] = light[channel];
-                    queue.push_back(*cell);
-                }
-            }
-            while let Some(cell) = queue.pop_front() {
-                let level = levels[at(cell)][channel];
-                if level <= 1 {
-                    continue;
-                }
-                for step in Facing::ALL.map(Facing::step) {
-                    let next = [cell[0] + step[0], cell[1] + step[1], cell[2] + step[2]];
-                    if next[0] < from || next[0] >= to || next[1] < from || next[1] >= to || next[2] < low || next[2] >= high {
-                        continue;
-                    }
-                    let k = at(next);
-                    if open[k] && levels[k][channel] < level - 1 {
-                        levels[k][channel] = level - 1;
-                        queue.push_back(next);
-                    }
-                }
-            }
-        }
+        let within: Vec<([i32; 3], [u8; 3])> = seeds.iter().map(|(cell, light)| ([cell[0] - from, cell[1] - from, cell[2] - low], *light)).collect();
+        let levels = spread([wide, wide, high - low], &open, &within);
         let mut cells = vec![0u16; (CHUNK * CHUNK * (high - low)) as usize];
         let mut any = false;
         for up in low..high {
@@ -672,6 +824,28 @@ impl Blocks {
             }
         }
         any.then_some(Placed { low, high, cells })
+    }
+
+    /// A moving light's box (build 217): the light of a light at the cell `at` (the world's; the eye's, for the
+    /// lantern), spread as a placed light's is, in the 32 x 32 x 32 cells round it (`at` its middle): a cell's red,
+    /// green and blue in 4 bits each from the low bits, at north + east x 32 + up x 1,024 from the box's least
+    /// corner (`at` less 16 each way); 0 in a cell a whole block fills. (For the blocks of `at`'s chunk read
+    /// `LAMP_MARGIN` out, which the box lies within; over what's kept is air, under it solid.)
+    pub fn carried_light(&self, at: [i32; 3], light: [u8; 3]) -> Vec<u16> {
+        let side = CARRIED_BOX;
+        let least = [at[0] - side / 2 - self.chunk[0] * CHUNK, at[1] - side / 2 - self.chunk[1] * CHUNK, at[2] - side / 2];
+        let (from, to) = (-self.margin, CHUNK + self.margin);
+        let mut open = vec![false; (side * side * side) as usize];
+        for up in 0..side {
+            for east in 0..side {
+                for north in 0..side {
+                    let (n, e, z) = (least[0] + north, least[1] + east, least[2] + up);
+                    open[(north + east * side + up * side * side) as usize] = n >= from && n < to && e >= from && e < to && z >= 0 && !self.stops(n, e, z);
+                }
+            }
+        }
+        let levels = spread([side; 3], &open, &[([side / 2; 3], light)]);
+        levels.iter().zip(&open).map(|(level, open)| if *open { level[0] as u16 | (level[1] as u16) << 4 | (level[2] as u16) << 8 } else { 0 }).collect()
     }
 
     /// The chunk's light as the card keeps it (build 210), from `sky_light`'s cells, and its placed light if any
@@ -1854,5 +2028,61 @@ mod tests {
             lit_ms / lit_chunks.max(1) as f64,
             plain_ms / plain.max(1) as f64
         );
+    }
+
+    /// A moving light's box (build 217): a step dimmer each block from the light, stopped by a wall and round its
+    /// end, none past its reach; and how long the lantern's reading and spreading take at the spawn, said if asked
+    /// (`NEAR_TEST_LANTERN`).
+    #[test]
+    fn the_lantern_s_light_falls_a_step_a_block_round_the_eye() {
+        // The made-up chunk of the placed light's test, with no lamps: a stone floor, and a wall along east 13 from
+        // the south edge to north 12.
+        let (ground, margin) = (10, LAMP_MARGIN);
+        let (low, high) = (ground - 1, ground + 20);
+        let wide = (CHUNK + 2 * margin) as usize;
+        let tall = (high - low) as usize;
+        let mut cells = vec![0u16; wide * wide * tall];
+        let mut set = |north: i32, east: i32, up: i32| cells[((north + margin) as usize + (east + margin) as usize * wide) * tall + (up - low) as usize] = crate::doorway::STONE + 1;
+        for east in -margin..CHUNK + margin {
+            for north in -margin..CHUNK + margin {
+                set(north, east, ground - 1);
+                if east == 13 && north <= 12 {
+                    for up in ground..high {
+                        set(north, east, up);
+                    }
+                }
+            }
+        }
+        let blocks = Blocks { chunk: [0, 0], low, high, unit: 1, margin, cells };
+        let eye = [10, 10, ground + 1];
+        let made = blocks.carried_light(eye, [12, 6, 0]);
+        assert_eq!(made.len(), 32 * 32 * 32);
+        let at = |north: i32, east: i32, up: i32| {
+            let local = [north - (eye[0] - 16), east - (eye[1] - 16), up - (eye[2] - 16)];
+            let colour = made[(local[0] + local[1] * 32 + local[2] * 1024) as usize];
+            [(colour & 15) as u8, (colour >> 4 & 15) as u8, (colour >> 8 & 15) as u8]
+        };
+        assert_eq!(at(10, 10, ground + 1), [12, 6, 0], "the eye's own cell");
+        assert_eq!(at(15, 10, ground + 1), [7, 1, 0], "five blocks north");
+        assert_eq!(at(10, 10, ground), [11, 5, 0], "the cell under the eye, on the floor");
+        assert_eq!(at(10, 10, ground - 1), [0; 3], "the floor itself is a block: none kept");
+        assert_eq!(at(22, 10, ground + 1), [0; 3], "twelve blocks off, past its reach");
+        assert_eq!(at(10, 13, ground + 1), [0; 3], "the wall");
+        assert_eq!(at(10, 14, ground + 1)[0], 2, "behind the wall: round its end (3 north, 4 east, 3 back)");
+        // At the spawn, through the doorway, if asked: the reading and the spreading timed.
+        if std::env::var_os("NEAR_TEST_LANTERN").is_some() {
+            let doorway = Doorway::open_with(&crate::doorway::test_world(), true).unwrap();
+            let column = doorway.column(0, 0).unwrap();
+            let eye = [0, 0, doorway.surface(&column).unwrap() + 2];
+            let mut tiles = HashMap::new();
+            let began = std::time::Instant::now();
+            let blocks = Blocks::read_out(&doorway, &mut tiles, [0, 0], LAMP_MARGIN).unwrap();
+            let read = began.elapsed().as_secs_f64() * 1000.0;
+            let began = std::time::Instant::now();
+            for step in 0..20 {
+                drop(blocks.carried_light([eye[0] + step, eye[1], eye[2]], [12, 7, 3]));
+            }
+            eprintln!("The lantern at the spawn: its chunk's blocks read 16 columns out in {read:.1} ms (once a chunk, the tile in hand or not); a spreading {:.2} ms (each block the eye crosses)", began.elapsed().as_secs_f64() * 1000.0 / 20.0);
+        }
     }
 }

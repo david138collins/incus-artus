@@ -82,6 +82,7 @@ pub enum PassId {
     MakingTheFarTextures,
     MakingTheFarLight,
     MakingTheFarRing,
+    SpreadingTheLantern,
     ReadingTheTemperatures,
 }
 
@@ -178,7 +179,7 @@ pub const LANES: [Lane; 4] = [
     },
 ];
 
-pub const PASSES: [Pass; 28] = [
+pub const PASSES: [Pass; 29] = [
     Pass {
         id: PassId::HearingTheWindow,
         name: "hearing the window",
@@ -507,6 +508,17 @@ pub const PASSES: [Pass; 28] = [
         writes: &[StoreId::FarBricks, StoreId::FarTextures],
         switches: &[("INCUS_FAR_RING_SIDE", "the rings' cell columns a side, the 16s' then the 8s' (as 384,384: the 16s then reach about 3,072 blocks from the eye and the 8s 1,536; multiples of 16 from 128 to 1,024), for David's look at a finer region past the triangles (build 211); unset, 128 each: 1,024 blocks and 512"), ("INCUS_FAR_RING", "how many rings round the eye: 0 none (the far eye as it was till build 168: nothing finer than the 32s), 1 the 16s alone (build 170); unset, all of them (the 16s and the 8s)")],
         files: &["src/far_ring.rs"],
+    },
+    Pass {
+        id: PassId::SpreadingTheLantern,
+        name: "spreading the lantern",
+        lane: LaneId::Loading,
+        on: Where::Processor,
+        what: "On a thread of its own, whenever the lantern (a light at the eye, the L key) is lit, crosses into another block, is set, or a block changes: its light spread a step dimmer each block through the blocks round it, stopped by whole blocks, in a box of 32 x 32 x 32 cells, from its chunk's blocks read 16 columns out (kept while it stays in that chunk). The frame puts the box in a small buffer of its own beside the near light as it comes and never waits for it; the near faces' pixels take the brighter of it and the lamps' light [David, 2026-11-17]",
+        reads: &[StoreId::TileColumns],
+        writes: &[StoreId::NearLight],
+        switches: &[],
+        files: &["src/near.rs", "src/near_eye.rs"],
     },
     Pass {
         id: PassId::ReadingTheTemperatures,

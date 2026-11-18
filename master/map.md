@@ -45,6 +45,7 @@ flowchart TB
     pass_making_the_far_textures["making the far textures"]
     pass_making_the_far_light["making the far light"]
     pass_making_the_far_ring["making the far ring"]
+    pass_spreading_the_lantern["spreading the lantern"]
   end
   subgraph lane_the_temperatures["the temperatures (every 3 seconds, on a thread of its own)"]
     direction LR
@@ -168,6 +169,8 @@ flowchart TB
   store_a_tile_s_columns --> pass_making_the_far_ring
   pass_making_the_far_ring --> store_the_far_bricks
   pass_making_the_far_ring --> store_the_far_textures
+  store_a_tile_s_columns --> pass_spreading_the_lantern
+  pass_spreading_the_lantern --> store_the_near_light
   pass_reading_the_temperatures --> store_the_temperatures
 ```
 
@@ -197,7 +200,7 @@ flowchart TB
 
 - **Runs:** as tiles are asked for.
 - **What it is:** The world, read a tile at a time through the doorway. Going to a mark asks it for the ground under the eye; the far cells' lane will ask for tiles (2.2).
-- **Its passes, in order:** the doorway, meshing the near chunks, summing the far cells, making the far textures, making the far light and making the far ring.
+- **Its passes, in order:** the doorway, meshing the near chunks, summing the far cells, making the far textures, making the far light, making the far ring and spreading the lantern.
 - **Switch** `INCUS_SCATTER_STAGE`: 1: the scatter stage is on: test detail the doorway applies as it answers a tile (woods within 10 km of the spawn, towers, a castle, a town, a hall's entrance, cave mouths, posts, a slab, an arch), from a seed and a short list of places, for the far cells, the far light and the near eye to be judged on. An instrument, not world generation; unset, the world as the export has it.
 - **Files:** src/doorway.rs and src/scatter_stage.rs.
 
@@ -461,6 +464,14 @@ flowchart TB
 - **Cost, last measured** (`kept logs/flight-1794589790.txt`): not measured.
 - **Files:** src/far_ring.rs.
 
+### spreading the lantern
+
+- **A pass** in loading, on the processor.
+- **What it is:** On a thread of its own, whenever the lantern (a light at the eye, the L key) is lit, crosses into another block, is set, or a block changes: its light spread a step dimmer each block through the blocks round it, stopped by whole blocks, in a box of 32 x 32 x 32 cells, from its chunk's blocks read 16 columns out (kept while it stays in that chunk). The frame puts the box in a small buffer of its own beside the near light as it comes and never waits for it; the near faces' pixels take the brighter of it and the lamps' light [David, 2026-11-17]
+- **Reads:** a tile's columns. **Writes:** the near light.
+- **Cost, last measured** (`kept logs/flight-1794589790.txt`): not measured.
+- **Files:** src/near.rs and src/near_eye.rs.
+
 ### reading the temperatures
 
 - **A pass** in the temperatures, on the processor.
@@ -540,7 +551,7 @@ flowchart TB
 
 - **A store** on the processor.
 - **What it is:** A tile's answer: each column's ground, water and profile as the export holds them, its runs made when asked.
-- **Written by:** the doorway. **Read by:** going to a mark, meshing the near chunks, summing the far cells and making the far ring.
+- **Written by:** the doorway. **Read by:** going to a mark, meshing the near chunks, summing the far cells, making the far ring and spreading the lantern.
 - **Files:** src/doorway.rs.
 
 ### the marks
@@ -594,7 +605,7 @@ flowchart TB
 
 - **A store** on the card.
 - **What it is:** The near eye's light, kept apart from its faces and only where it isn't plain daylight [David, 2026-11-17]: one buffer, first a directory (an entry a chunk, at the chunk's place wrapped), then each lit chunk's bricks of 8 x 8 x 8 cells, 4 bits a cell (the sky's light, 0 to 15), a brick only where one of its cells isn't in daylight. A face's pixel looks up the cell the face looks into; no entry is plain daylight. Open land takes none.
-- **Written by:** putting the near chunks on the card. **Read by:** the near faces and the near water.
+- **Written by:** putting the near chunks on the card and spreading the lantern. **Read by:** the near faces and the near water.
 - **Limit:** chunks a side of the directory, 256.
 - **Limit:** cells a side of a brick, 8.
 - **Files:** src/near_eye.rs, src/near.rs and src/near.wgsl.

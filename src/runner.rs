@@ -218,7 +218,7 @@ impl Runner {
         self.captured = captured;
     }
 
-    /// A key pressed (not held down repeating): the editor, the panel, the screen, the mouse.
+    /// A key pressed (not held down repeating): the editor, the panel, the screen, the mouse, the lantern.
     fn pressed(&mut self, key: KeyCode) {
         match key {
             KeyCode::F2 => {
@@ -240,6 +240,12 @@ impl Runner {
                 }
             }
             KeyCode::Tab if !self.editor.open => self.capture(!self.captured),
+            // The lantern (build 217) [David, 2026-11-17: "The L key"]: lit or put out, while playing.
+            KeyCode::KeyL if self.captured && !self.editor.open => {
+                if let Some(near) = self.running.as_mut().and_then(|running| running.near.as_mut()) {
+                    near.look.lantern = !near.look.lantern;
+                }
+            }
             _ => {}
         }
     }
@@ -290,7 +296,7 @@ impl Runner {
                 PassId::HandingTheCardItsWork => self.handing_the_card_its_work(&mut work),
                 PassId::ShowingIt => self.showing_it(&mut work),
                 PassId::Measuring => self.measuring(&mut work, event_loop),
-                PassId::HearingTheWindow | PassId::TheDoorway | PassId::SummingTheFarCells | PassId::MakingTheFarTextures | PassId::MakingTheFarLight | PassId::MakingTheFarRing | PassId::MeshingTheNearChunks | PassId::ReadingTheTemperatures => unreachable!("{} isn't one of the frame's passes", pass.name),
+                PassId::HearingTheWindow | PassId::TheDoorway | PassId::SummingTheFarCells | PassId::MakingTheFarTextures | PassId::MakingTheFarLight | PassId::MakingTheFarRing | PassId::SpreadingTheLantern | PassId::MeshingTheNearChunks | PassId::ReadingTheTemperatures => unreachable!("{} isn't one of the frame's passes", pass.name),
             };
             self.timed(pass.id, started);
             if !carry_on {

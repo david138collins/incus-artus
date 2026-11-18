@@ -8713,3 +8713,43 @@ than one light in it); the lantern seen from far; a lantern as a thing held; ran
 - **Prices in one run:** a whole frame at the spawn with the lantern on and off by turns.
 - **His look** decides its brightness and colour to begin, and how the steps feel moving (they jump a block at a
   time as he walks: the spec's blocky light, said to him before he looks).
+
+### Build 217 built (unflown): the lantern; checked off the screen
+
+**Built as the mark says** (`near.rs`: `spread` (the spreading, once, for lamps and the lantern), `carried_light`,
+`LanternLane`; `near_eye.rs`: the lantern's buffer, its asking and taking each frame; `near.wgsl`: `carried_at`, the
+brighter of it and the lamps' light in `face_light`; `panel.rs`: "Lights" with "Lantern", "Lantern brightness" and
+"Lantern colour"; `runner.rs`: the L key while playing; `wiring.rs`: the pass "spreading the lantern").
+
+**Two things changed from the mark after the first picture, said plainly:**
+
+- **It begins at brightness 15, not 12.** At 12 the cave's dark stone was barely lit: a placed light at its
+  brightest is the surface's colour times 1, where daylight is about two and a half times that, and stone is dark.
+  The lamps are the same strength. If lights should be stronger overall that is one number (a strength where the
+  light is read), a slider on his word.
+- **Its colour is turned into levels by the root of each colour's share**, because a level is squared where it's
+  read: taken straight, warm orange came out deep red. Now it's the colour picked beside the lantern; farther out
+  the weaker colours end first, so it reddens towards its edge. (Kept from build 216: a step a block, squared.
+  A light that held its colour all the way out would want a different falling-off, each step a share of the last:
+  written down, not built: it would change the lamps he's said look great.)
+
+**Against the mark, off the screen (the stage on):**
+
+- **Tests:** all 50 pass (one new: the lantern's light a step a block from the eye, the floor under it, a wall
+  stopping it and its end gone round, none past its reach).
+- **Deep in the cave by the spawn, the lamps off:** black without it; with it, the floor and walls round the eye
+  lit warm orange in steps a block wide, redder farther out, black past about a dozen blocks. Dim on the dark
+  stone even at 15.
+- **In the woods at the spawn by day: nothing to see.** No pixel differs by 8 of 255 with the lantern lit:
+  daylight, even in the trees' shade, is brighter than the lantern there, and a pixel shows the brighter. (The
+  mark expected it to show in the shade. It doesn't; the lamps do only because a lamp's own block is right there.)
+- **The lantern out, build 216's picture:** 1 pixel differs, by 3 of 255 (a flip).
+- **Counts** (at the spawn, on its thread): its chunk's blocks read 16 columns out in 63 ms, once each chunk the
+  eye enters; a spreading 0.28 ms, each block the eye crosses.
+- **Prices in one run** (the spawn, 32 chunks, 2,560 by 1,600; out, lit, out, lit, out; ms a whole frame): 2.50,
+  **2.48**, 2.41, **2.40**, 2.38 (falling through the run either way). **The lantern costs nothing that shows.**
+- **A slip in the test, not the game:** the first pictures had no lantern, because the test asked for it before
+  the far eye had drawn a frame, and took "nothing asked" for "settled". The wait is now in the frame itself.
+
+**Said to him before he looks:** by day it shows only in real dark (caves, the hall); its light jumps a block at a
+time as he walks, a frame or two behind; it's dim on dark stone; it reddens towards its edge.

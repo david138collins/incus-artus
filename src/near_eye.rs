@@ -95,12 +95,27 @@ pub struct NearLook {
     /// the light is read, so nothing kept changes [the section's place David's choice, 2026-11-17].
     pub flicker: f32,
     pub flicker_speed: f32,
+    /// The lantern (build 217): a light at the eye, lit or not (the L key; the Render page's "Lantern" in "Lights"),
+    /// its brightness (1 to 15: "Lantern brightness") and its colour ("Lantern colour") [David, 2026-11-17: the
+    /// first moving light, the key and the controls' place his choices].
+    pub lantern: bool,
+    pub lantern_level: f32,
+    pub lantern_colour: [f32; 3],
 }
 
 impl NearLook {
     /// [David, 2026-11-16, asked by Counsel "Make your crossfade settings, 128 wide and curve 1, the defaults?":
     /// "yes, and 32 chunk radius."]
-    pub const DEFAULT: Self = Self { radius: RADIUS, fader_width: 128.0, fader_curve: 1.0, pixel: 1, detail: 0.25, stipple: 0.25, sharp: 0.0, flicker: 0.15, flicker_speed: 2.0 };
+    pub const DEFAULT: Self = Self { radius: RADIUS, fader_width: 128.0, fader_curve: 1.0, pixel: 1, detail: 0.25, stipple: 0.25, sharp: 0.0, flicker: 0.15, flicker_speed: 2.0, lantern: false, lantern_level: 15.0, lantern_colour: [1.0, 0.6, 0.25] };
+
+    /// The lantern's light: red, green and blue, each 0 to 15: its colour, the strongest of the three at its
+    /// brightness, the others by the root of their share of it (a level is squared where it's read, `near.wgsl`'s
+    /// `placed`, so beside the lantern the light is the colour picked; farther out the weaker colours end first and
+    /// it reddens).
+    pub fn lantern_light(&self) -> [u8; 3] {
+        let most = self.lantern_colour.iter().fold(1e-3f32, |most, v| most.max(*v));
+        self.lantern_colour.map(|v| ((v.max(0.0) / most).sqrt() * self.lantern_level.clamp(1.0, 15.0)).round() as u8)
+    }
 }
 
 /// One of the near eye's pictures (build 213): a band of distance from the eye, drawn in squares of `pixel` screen
@@ -189,6 +204,15 @@ pub struct Counts {
 
 pub struct NearEye {
     lane: Lane,
+    /// The lantern (build 217): its thread; its box on the card (32 x 32 x 32 cells of 16 bits); what was last
+    /// asked of the thread (the light's cell and its light; none, the lantern out); and what the box on the card
+    /// was made for (none: no box).
+    lantern_lane: crate::near::LanternLane,
+    lantern: wgpu::Buffer,
+    lantern_asked: Option<([i32; 3], [u8; 3])>,
+    lantern_shown: Option<([i32; 3], [u8; 3])>,
+    /// How long the last box's blocks took to read and its light to spread, on its thread (ms).
+    pub lantern_ms: (f32, f32),
     /// The render radius and the x-fader (the Render page's sliders).
     pub look: NearLook,
     chunks: HashMap<[i32; 2], Kept>,
@@ -282,6 +306,7 @@ impl NearEye {
         // [Build 195 took 12 of 24: the whole of 64 chunks in 5 s, and the processor's area at 102 degrees in David's
         // first look. Six fill it in about twice the time and leave the frame and the far eye's lanes their room.]
         let threads = std::env::var("INCUS_NEAR_THREADS").ok().and_then(|n| n.parse::<usize>().ok()).map_or_else(|| (std::thread::available_parallelism().map_or(2, |n| n.get()) / 4).clamp(2, 6), |n| n.clamp(1, 32));
+        let lantern_lane = crate::near::LanternLane::start(folder.clone(), crate::scatter_stage::on())?;
         let lane = Lane::start(folder, crate::scatter_stage::on(), threads)?;
         let module = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some("the near eye"), source: wgpu::ShaderSource::Wgsl(source().into()) });
         let both = wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT;
@@ -301,8 +326,11 @@ impl NearEye {
                 wgpu::BindGroupLayoutEntry { binding: 7, visibility: fragment, ty: wgpu::BindingType::Texture { sample_type: wgpu::TextureSampleType::Float { filterable: true }, view_dimension: wgpu::TextureViewDimension::D2Array, multisampled: false }, count: None },
                 wgpu::BindGroupLayoutEntry { binding: 8, visibility: fragment, ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering), count: None },
                 wgpu::BindGroupLayoutEntry { binding: 9, visibility: fragment, ty: wgpu::BindingType::Buffer { ty: wgpu::BufferBindingType::Storage { read_only: true }, has_dynamic_offset: false, min_binding_size: None }, count: None },
+                wgpu::BindGroupLayoutEntry { binding: 10, visibility: fragment, ty: wgpu::BindingType::Buffer { ty: wgpu::BufferBindingType::Storage { read_only: true }, has_dynamic_offset: false, min_binding_size: None }, count: None },
             ],
         });
+        // The lantern's box: 32 x 32 x 32 cells of 16 bits, nothing in it till its thread hands one over.
+        let lantern = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the lantern's light"), size: (crate::near::CARRIED_BOX as u64).pow(3) * 2, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         // The near light: its directory all "no chunk", and the rest free.
         let light_buffer = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the near light"), size: LIGHT_FIRST * 4, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::COPY_SRC, mapped_at_creation: false });
         queue.write_buffer(&light_buffer, 0, &vec![0xFFu8; LIGHT_DIRECTORY as usize * 4]);
@@ -409,7 +437,7 @@ impl NearEye {
         let cover_pass = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("near_cover"), layout: Some(&cover_pipeline_layout), module: &cover_module, entry_point: Some("near_cover"), compilation_options: Default::default(), cache: None });
         let cover_sampler = device.create_sampler(&wgpu::SamplerDescriptor { label: Some("the near cover's four at a time"), ..Default::default() });
         let cover_sizes = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the near cover's numbers"), size: 80, usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
-        let numbers = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the near eye's numbers"), size: 64, usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
+        let numbers = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the near eye's numbers"), size: 80, usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let colour_bytes: Vec<u8> = colours.iter().flatten().flat_map(|v| v.to_le_bytes()).collect();
         let colours = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the blocks' colours from far"), size: colour_bytes.len().max(32) as u64, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         queue.write_buffer(&colours, 0, &colour_bytes);
@@ -454,7 +482,7 @@ impl NearEye {
         });
         let radius = std::env::var("INCUS_NEAR_RADIUS").ok().and_then(|r| r.parse::<f32>().ok()).map_or(RADIUS, |r| r.clamp(1.0, MOST_RADIUS));
         log::info!("The near eye: faces as triangles within a render radius of {radius} chunks ({} blocks), its lane on {threads} threads", radius * CHUNK as f32);
-        Ok(Self { lane, look: NearLook { radius, ..NearLook::DEFAULT }, chunks: HashMap::new(), pages: Vec::new(), asked: None, want: Vec::new(), first_to_come: 0, touched: HashSet::new(), need: HashMap::new(), remake: HashSet::new(), waiting: Default::default(), recent_ms: Default::default(), faces, water, layout, band_layout, depths_layout, blank, blank_depth, group: None, numbers, colours, blocks_view, crisp, textured, light, turned, mask, join, join_layout, join_numbers, join_group: None, format, bands: Vec::new(), bands_for: None, cover_pass, cover_layout, cover_sizes, cover_sampler, cover_group: None, draws, counts: Counts { threads, ..Default::default() } })
+        Ok(Self { lane, lantern_lane, lantern, lantern_asked: None, lantern_shown: None, lantern_ms: (0.0, 0.0), look: NearLook { radius, ..NearLook::DEFAULT }, chunks: HashMap::new(), pages: Vec::new(), asked: None, want: Vec::new(), first_to_come: 0, touched: HashSet::new(), need: HashMap::new(), remake: HashSet::new(), waiting: Default::default(), recent_ms: Default::default(), faces, water, layout, band_layout, depths_layout, blank, blank_depth, group: None, numbers, colours, blocks_view, crisp, textured, light, turned, mask, join, join_layout, join_numbers, join_group: None, format, bands: Vec::new(), bands_for: None, cover_pass, cover_layout, cover_sizes, cover_sampler, cover_group: None, draws, counts: Counts { threads, ..Default::default() } })
     }
 
     /// Room for `count` faces: a page and where in it (a free stretch that holds them, the first found; a new page
@@ -689,6 +717,7 @@ impl NearEye {
             return;
         }
         let told = self.lane.changed(changes.clone());
+        self.lantern_lane.changed(changes.clone());
         for chunk in now.union(&self.touched) {
             self.need.insert(*chunk, told);
             if self.chunks.contains_key(chunk) {
@@ -699,6 +728,12 @@ impl NearEye {
         self.waiting.retain(|made| made.told >= need.get(&made.chunk).copied().unwrap_or(0));
         self.touched = now;
         self.asked = None;
+    }
+
+    /// Whether the lantern's box on the card is the one last asked for (or there's none and none is wanted): for
+    /// the tests, which wait for its thread.
+    pub fn lantern_settled(&self) -> bool {
+        self.lantern_asked == self.lantern_shown
     }
 
     /// The frame's numbers and draws made ready (before its passes are recorded): the depth at the picture's size, the
@@ -721,6 +756,7 @@ impl NearEye {
                     wgpu::BindGroupEntry { binding: 7, resource: wgpu::BindingResource::TextureView(&self.blocks_view) },
                     wgpu::BindGroupEntry { binding: 8, resource: wgpu::BindingResource::Sampler(&self.crisp) },
                     wgpu::BindGroupEntry { binding: 9, resource: self.light.buffer.as_entire_binding() },
+                    wgpu::BindGroupEntry { binding: 10, resource: self.lantern.as_entire_binding() },
                 ],
             });
             self.group = Some((group, made_from));
@@ -820,18 +856,45 @@ impl NearEye {
             ];
             queue.write_buffer(&band.numbers, 0, &numbers.iter().flatten().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
         }
+        // The lantern (build 217): asked of its thread when the eye's block, its light or its switch changes; its
+        // box put on the card as it comes (the frame never waits: the light follows a frame or two behind).
+        let carried_at = [camera.position.x, camera.position.y, camera.position.z].map(|v| v.floor() as i32);
+        let wanted = self.look.lantern.then(|| (carried_at, self.look.lantern_light()));
+        if wanted != self.lantern_asked {
+            self.lantern_asked = wanted;
+            match wanted {
+                Some((at, light)) => self.lantern_lane.ask(at, light),
+                None => {
+                    self.lantern_lane.rest();
+                    self.lantern_shown = None;
+                }
+            }
+        }
+        while let Some(carried) = self.lantern_lane.take() {
+            match carried {
+                Ok(carried) if self.look.lantern => {
+                    queue.write_buffer(&self.lantern, 0, &carried.cells.iter().flat_map(|cell| cell.to_le_bytes()).collect::<Vec<u8>>());
+                    self.lantern_shown = Some((carried.at, carried.light));
+                    self.lantern_ms = (carried.read_ms, carried.spread_ms);
+                }
+                Ok(_) => {}
+                Err(error) => log::error!("The lantern's light couldn't be spread: {error}"),
+            }
+        }
         // The numbers: the eye's block and how far into it the eye is (and the x-fader's curve); the reach, the
         // x-fader's band and the depths; and the placed lights' flicker, with the time (seconds, turned over each
-        // hour so it stays fine).
+        // hour so it stays fine); and the lantern's box's least corner, with whether there's a box at all.
         let eye = [camera.position.x, camera.position.y, camera.position.z];
         let cell = eye.map(|v| v.floor());
-        let mut bytes: Vec<u8> = Vec::with_capacity(64);
+        let mut bytes: Vec<u8> = Vec::with_capacity(80);
         bytes.extend(cell.iter().map(|v| *v as i32).chain([self.textured as i32 | (crate::near::light_on() as i32) << 1 | ((crate::near::lit() == crate::near::Lit::Kept) as i32) << 2]).flat_map(|v| v.to_le_bytes()));
         bytes.extend((0..3).map(|k| eye[k] - cell[k]).chain([self.look.fader_curve.clamp(1.0, MOST_FADER_CURVE)]).flat_map(|v| v.to_le_bytes()));
         bytes.extend([self.counts.reach, band_of(self.look.fader_width, self.counts.reach), DEPTHS[0], DEPTHS[1]].iter().flat_map(|v| v.to_le_bytes()));
         static BEGAN: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
         let seconds = BEGAN.get_or_init(std::time::Instant::now).elapsed().as_secs_f32() % 3600.0;
         bytes.extend([self.look.flicker.clamp(0.0, 1.0), self.look.flicker_speed.max(0.0), seconds, 0.0].iter().flat_map(|v| v.to_le_bytes()));
+        let corner = self.lantern_shown.map(|(at, _)| at.map(|v| v - crate::near::CARRIED_BOX / 2));
+        bytes.extend(corner.unwrap_or([0; 3]).iter().copied().chain([corner.is_some() as i32]).flat_map(|v| v.to_le_bytes()));
         queue.write_buffer(&self.numbers, 0, &bytes);
         // The chunks in view, for each band it lies in, a page after another: each a draw of its faces.
         let view = View::of(camera, screen);

@@ -17,6 +17,9 @@
 // The near light (build 210): kept apart from the faces, only where it isn't plain daylight (`near_eye.rs`, `Light`;
 // `near.rs`, `LightBlock`): a directory, an entry a chunk, then the chunks' bricks of 8 x 8 x 8 cells, 4 bits a cell.
 @group(0) @binding(9) var<storage, read> kept_light: array<u32>;
+// The lantern's box (build 217): a moving light's light in the 32 x 32 x 32 cells round it, two cells a word from the
+// low bits, a cell's red, green and blue in 4 bits each (`near.rs`, `Blocks::carried_light`).
+@group(0) @binding(10) var<storage, read> carried_light: array<u32>;
 // The band being drawn (build 213), and the pictures of the two bands nearer than it (the one just nearer, then the
 // one before that; a clear stand-in where there's none).
 @group(1) @binding(0) var<uniform> band: Band;
@@ -65,6 +68,8 @@ struct Near {
     // Placed lights' flicker (build 216): x: the share of a light's brightness that wavers; y: how many times a
     // second; z: the time, seconds.
     glow: vec4<f32>,
+    // The lantern's box's least corner (north, east, up; blocks); w: 1 if there's a box (the lantern lit).
+    carried: vec4<i32>,
 }
 
 // How much wider than its cells a face is drawn all round, for each block of its distance from the eye (`near_corner`).
@@ -198,6 +203,18 @@ fn kept_at(place: vec3<i32>) -> vec4<u32> {
     return vec4<u32>(sky, colour & 15u, (colour >> 4u) & 15u, (colour >> 8u) & 15u);
 }
 
+// The lantern's light in a cell (north, east, up; the world's): red, green and blue, each 0 to 15; none outside its
+// box, or with the lantern out (build 217).
+fn carried_at(place: vec3<i32>) -> vec3<u32> {
+    let local = place - near.carried.xyz;
+    if (near.carried.w == 0 || any(local < vec3<i32>(0)) || any(local >= vec3<i32>(32))) {
+        return vec3<u32>(0u);
+    }
+    let i = u32(local.x) + u32(local.y) * 32u + u32(local.z) * 1024u;
+    let colour = carried_light[i >> 1u] >> ((i & 1u) * 16u);
+    return vec3<u32>(colour & 15u, (colour >> 4u) & 15u, (colour >> 8u) & 15u);
+}
+
 // A placed light's levels (red, green, blue, each 0 to 15) as light on a surface (build 216): squared, so each step
 // from a lamp is a clear one [David, 2026-11-06: "the light from the brazieres, where its very clear steps in
 // brightness"]; and its flicker, a wobble here where it's read (every lamp in step: two waves, one the main beat).
@@ -227,7 +244,10 @@ fn face_light(corner: Corner) -> vec4<u32> {
         cell = vec3<i32>(a, into, b);
     }
     let chunk = vec2<i32>(i32(corner.what.w & 0xFFFFu) - 32768, i32(corner.what.w >> 16u) - 32768);
-    return kept_at(vec3<i32>(chunk * 32, 0) + cell);
+    // (The lamps' light and the lantern's: colour by colour, the brighter.)
+    let place = vec3<i32>(chunk * 32, 0) + cell;
+    let kept = kept_at(place);
+    return vec4<u32>(kept.x, max(kept.yzw, carried_at(place)));
 }
 
 // A surface's colour lit as the far eye lights a finished ray (`far.wgsl`'s `lit`, `sunlit` and `shaded`): the sun on

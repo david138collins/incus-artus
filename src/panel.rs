@@ -222,18 +222,26 @@ fn render(ui: &mut egui::Ui, readings: &Readings, look: Option<&mut FarLook>, ne
         ui.add_enabled(there && look.pixel > 1, egui::Slider::new(&mut look.stipple, 0.0..=crate::near_eye::MOST_STIPPLE).text("Stipple width (share of the band)"));
         ui.add_enabled(there && look.pixel > 1, egui::Slider::new(&mut look.sharp, 0.0..=1.0).text("Picture sharpness in the squares"));
     });
-    // Placed lights (build 216), a section of their own [David, 2026-11-17, asked where their controls go: "A new
-    // section \"Placed lights\""]: the flicker, a wobble where the light is read. Its Default puts the two back.
+    // Lights (build 216's "Placed lights", a section of their own by his word; renamed and the lantern put in it at
+    // build 217) [David, 2026-11-17, asked where the lantern's controls go: "In \"Placed lights\", renamed
+    // \"Lights\""]: the flicker, a wobble where the light is read; and the lantern, a light at the eye (the L
+    // key). Its Default puts them back, but leaves the lantern lit or out as it is.
     let lamps_beside = |ui: &mut egui::Ui, look: &mut NearLook| {
         let d = NearLook::DEFAULT;
-        if ui.add_enabled(there && (look.flicker != d.flicker || look.flicker_speed != d.flicker_speed), egui::Button::new("Default").small()).clicked() {
-            look.flicker = d.flicker;
-            look.flicker_speed = d.flicker_speed;
+        let differs = look.flicker != d.flicker || look.flicker_speed != d.flicker_speed || look.lantern_level != d.lantern_level || look.lantern_colour != d.lantern_colour;
+        if ui.add_enabled(there && differs, egui::Button::new("Default").small()).clicked() {
+            (look.flicker, look.flicker_speed, look.lantern_level, look.lantern_colour) = (d.flicker, d.flicker_speed, d.lantern_level, d.lantern_colour);
         }
     };
-    section(ui, "render: placed lights", "Placed lights", true, &mut *near_look, lamps_beside, |ui, look| {
+    section(ui, "render: lights", "Lights", true, &mut *near_look, lamps_beside, |ui, look| {
         ui.add_enabled(there, egui::Slider::new(&mut look.flicker, 0.0..=1.0).text("Flicker (share of brightness)"));
         ui.add_enabled(there, egui::Slider::new(&mut look.flicker_speed, 0.25..=8.0).logarithmic(true).text("Flicker speed (a second)"));
+        ui.add_enabled(there, egui::Checkbox::new(&mut look.lantern, "Lantern")).on_hover_text("The L key while playing");
+        ui.add_enabled(there, egui::Slider::new(&mut look.lantern_level, 1.0..=15.0).step_by(1.0).text("Lantern brightness"));
+        ui.horizontal(|ui| {
+            ui.add_enabled_ui(there, |ui| ui.color_edit_button_rgb(&mut look.lantern_colour));
+            ui.label("Lantern colour");
+        });
     });
     ui.separator();
     let Some(look) = look else {

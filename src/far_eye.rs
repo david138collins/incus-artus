@@ -1993,6 +1993,10 @@ mod tests {
         let view = target.create_view(&wgpu::TextureViewDescriptor::default());
         let row = (screen.0 * 4).div_ceil(256) * 256;
         let readback = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the picture read back"), size: (row * screen.1) as u64, usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
+        // (The lantern lit, if asked, `FAR_TEST_LANTERN`: its light waited for from its thread, so the picture has it.)
+        if let (Some(near), true) = (&mut near, std::env::var_os("FAR_TEST_LANTERN").is_some()) {
+            near.look.lantern = true;
+        }
         // A frame, or as many as asked (`FAR_TEST_FRAMES`; by the one dispatch a finer layer's lead is the frame
         // before's, and the first frame makes its own); the last one's picture read back.
         let frames = std::env::var("FAR_TEST_FRAMES").ok().and_then(|n| n.parse::<u32>().ok()).unwrap_or(1).max(1);
@@ -2000,6 +2004,15 @@ mod tests {
         // its cover for the far eye.
         let near_first = |near: &mut crate::near_eye::NearEye, eye: &FarEye, encoder: &mut wgpu::CommandEncoder, camera: &Camera| {
             assert!(near.prepare(&device, &queue, screen, eye, camera), "the near eye has what it reads of the far eye's");
+            // (The lantern's light comes from its thread: waited for here, so a picture or a timed frame has it.)
+            for _ in 0..5000 {
+                if near.lantern_settled() {
+                    break;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(1));
+                near.prepare(&device, &queue, screen, eye, camera);
+            }
+            assert!(near.lantern_settled(), "the lantern's light came from its thread");
             near.draw_faces(encoder, None);
             near.draw_water(encoder, None);
             if near.cover(&device, &queue, encoder, eye, None) {
@@ -2099,18 +2112,30 @@ mod tests {
             // (`FAR_TEST_PIXELS=sharp`: the pictures' sharpness in the squares, 0 and 1 by turns, the same way.)
             let stipples = std::env::var("FAR_TEST_PIXELS").as_deref() == Ok("stipple");
             let sharps = std::env::var("FAR_TEST_PIXELS").as_deref() == Ok("sharp");
-            let (stipple_was, sharp_was) = (near.look.stipple, near.look.sharp);
-            let turns: [(u32, f32, f32); 5] = if stipples {
-                [0.0, 0.25, 0.0, 0.5, 0.0].map(|width| (as_it_was, width, sharp_was))
+            // (`FAR_TEST_PIXELS=lantern`: the lantern out and lit by turns, its light waited for each time.)
+            let lanterns = std::env::var("FAR_TEST_PIXELS").as_deref() == Ok("lantern");
+            let (stipple_was, sharp_was, lantern_was) = (near.look.stipple, near.look.sharp, near.look.lantern);
+            let turns: [(u32, f32, f32, bool); 5] = if stipples {
+                [0.0, 0.25, 0.0, 0.5, 0.0].map(|width| (as_it_was, width, sharp_was, lantern_was))
             } else if sharps {
-                [0.0, 1.0, 0.0, 1.0, 0.0].map(|sharp| (as_it_was, stipple_was, sharp))
+                [0.0, 1.0, 0.0, 1.0, 0.0].map(|sharp| (as_it_was, stipple_was, sharp, lantern_was))
+            } else if lanterns {
+                [false, true, false, true, false].map(|lit| (as_it_was, stipple_was, sharp_was, lit))
             } else {
-                [1, 4, 1, 2, 1].map(|pixel| (pixel, stipple_was, sharp_was))
+                [1, 4, 1, 2, 1].map(|pixel| (pixel, stipple_was, sharp_was, lantern_was))
             };
-            for (pixel, stipple, sharp) in turns {
+            for (pixel, stipple, sharp, lantern) in turns {
                 near.look.pixel = pixel;
                 near.look.stipple = stipple;
                 near.look.sharp = sharp;
+                near.look.lantern = lantern;
+                for _ in 0..5000 {
+                    near.prepare(&device, &queue, screen, &eye, &camera);
+                    if near.lantern_settled() {
+                        break;
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(1));
+                }
                 let frames_timed = 300;
                 device.poll(wgpu::PollType::wait_indefinitely()).expect("the card finished");
                 let alone = std::time::Instant::now();
@@ -2135,11 +2160,12 @@ mod tests {
                     queue.submit([encoder.finish()]);
                 }
                 device.poll(wgpu::PollType::wait_indefinitely()).expect("the card finished");
-                eprintln!("Near pixel size {pixel}, stipple {stipple}, sharpness {sharp}: the near passes alone {alone:.0} millionths of a second a frame; a whole frame {:.0}", whole.elapsed().as_secs_f64() * 1e6 / frames_timed as f64);
+                eprintln!("Near pixel size {pixel}, stipple {stipple}, sharpness {sharp}, lantern {lantern}: the near passes alone {alone:.0} millionths of a second a frame; a whole frame {:.0}", whole.elapsed().as_secs_f64() * 1e6 / frames_timed as f64);
             }
             near.look.pixel = as_it_was;
             near.look.stipple = stipple_was;
             near.look.sharp = sharp_was;
+            near.look.lantern = lantern_was;
         }
         // The last frame drawn with the eye turned, if asked (`FAR_TEST_TURN`: degrees of facing, then of pitch): a
         // moving view's first frame, where every ray is led by another ray's frame before (the cut's lengths begin
