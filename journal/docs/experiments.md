@@ -9284,3 +9284,20 @@ with them.
 through, another game open): the far lamps' first list took 28.8 s (289 tiles read, a tenth of a second each), so
 no dot showed, near or far, for the first half minute. A flaw, not seen by him: the list could come nearest tiles
 first, a part at a time.
+
+### What's next, his answers; build 224's pass mark: the far lamps' list nearest first
+
+**Asked what's next** (2026-11-18), night, with the flaw written down at 223 before it. **His answers:** the first
+night build "Night by the sun slider" (a real night as the sun height goes under the horizon: a dark sky, faint
+moonlight on the land, lamps the only warm light; still set by hand, the look judged first); "Moonlit, with a
+slider" (as dark as a moonlit night to begin, the spec's default, a slider to tune it); the slider "In Light,
+\"night brightness\"" (the Render page's Light section, under "sun height (degrees)", whose range goes down to -90).
+Night is build 225, its pass mark after this one's look.
+
+**Build 224, the list nearest first:** the far lamps' thread reads the tiles round the eye nearest first, and hands
+the list over as it grows (no more than four times a second, and whole at the end), not only once every tile is in.
+Nothing else changes.
+
+**The mark:** tests all pass; in the session's log the first part's time (the near lamps' tiles: under two seconds
+from the thread's start) beside the whole list's (about half a minute, as at 223); his look: the near lamps' dots
+there from the start.

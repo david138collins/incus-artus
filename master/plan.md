@@ -712,7 +712,9 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
           seen by a ray marched to it through the far cells (old's way; the column tops and the far picture's
           distance tried first, too coarse), through the fog; off the screen the same lamps as the exact way, a
           lamp or three more at cave mouths; his look: "looks good", done enough to go on; written down: the
-          first list takes half a minute, no dot till then, nearest tiles first would mend it), night) (placed and moving lights, glows and far lights,
+          first list takes half a minute, no dot till then: build 224, its pass mark written, nearest tiles first),
+          night (his answers, 2026-11-18: "Night by the sun slider", "Moonlit, with a slider", the slider "In
+          Light, \"night brightness\"", the sun height down to -90; build 225)) (placed and moving lights, glows and far lights,
           night); **then assess**; (3) the far half after (rings that reach where the curve says, with a band of
           4s at the seam; at g = 2 perhaps 600 MB and the finer rays' time: priced first)
     - [ ] **Listing chunks:** the near eye's processor time is all in listing the chunks in view (0.15 to 0.27 ms a
