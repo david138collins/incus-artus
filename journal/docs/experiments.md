@@ -9308,3 +9308,34 @@ there from the start.
 the eye, the list handed over as it grows at most four times a second, whole at the end; in the log the first
 part's time and the whole list's). **Tests:** all 59 pass. **The first part's time:** from the session's log at his
 look (the test's frames don't log it).
+
+### Build 225's pass mark: night by the sun slider
+
+**His words** (2026-11-18): "i don't need to check 224. whats next?" (build 224 done enough to go on, unlooked at, at
+his word); for night, "Night by the sun slider", "Moonlit, with a slider", the slider "In Light, \"night
+brightness\"". The spec: "Light is precious: nights are very dark"; "by default night as dark as a moonlit night".
+
+**What there is already** (old's, carried at the regroup): under the horizon the sun's own light goes out by -2
+degrees and the sky's glow by -18; night's light, a fixed 0.04 of the day's sky light, lights the land as the sky
+does; the sky darkens to night's blue (a share of the day's, by that light); a dusk glow low where the sun went
+down; the fog to the sky's colour; no shadow swept for a sun under the horizon. But the slider stops at -10, where
+it's still dusk.
+
+**Built so (build 225):**
+
+1. **"sun height (degrees)" from -90 to 90** (was -10 to 90), so the sun sets whole and night comes.
+2. **"night brightness"** in the Light section under it, his name: night's light as a share of the day's sky light,
+   from 0 (pitch black but for lamps and the lantern) to 0.25, beginning at old's 0.04 (moonlit). It lights the far
+   land, the near faces, the water and the night sky alike, as the fixed number did; kept in the Render page's
+   presets.
+3. **Nothing else new:** no moon in the sky, no stars, no moon's shadow or colour, no time passing. The lamps, their
+   flicker and the far lamps' dots as they are, now against the dark.
+
+**The mark:**
+
+- **Tests** all pass.
+- **Pictures off the screen** (the stage on): with the sun at its usual 40 degrees, build 224's picture; at -30, the
+  sky dark blue and the land dim by night brightness (brighter at 0.25 than at 0.04, black at 0 outside the lamps'
+  light), the lamps and their dots bright against it.
+- **No price taken:** nothing new on the card (one number changed); the bracket at "assess".
+- **His look:** whether night reads as moonlit by default, and where he'd set "night brightness".
