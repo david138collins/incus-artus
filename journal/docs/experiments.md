@@ -9274,3 +9274,13 @@ has room for one more buffer and no more).
 
 **Said to him before he looks:** far lamps now go on past the near view's edge and fade into the fog; a lamp in a
 cave's first few blocks may show where the near view would hide it.
+
+### His look at build 223 (2026-11-18)
+
+**His words:** "looks good. whats next?" Far lamps past the near reach are done enough to go on; glows and far lights
+with them.
+
+**Written down from the session's log** (ten minutes, no warnings; the processor's area 86 to 104 degrees all
+through, another game open): the far lamps' first list took 28.8 s (289 tiles read, a tenth of a second each), so
+no dot showed, near or far, for the first half minute. A flaw, not seen by him: the list could come nearest tiles
+first, a part at a time.
