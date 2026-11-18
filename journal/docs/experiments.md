@@ -8753,3 +8753,23 @@ brighter of it and the lamps' light in `face_light`; `panel.rs`: "Lights" with "
 
 **Said to him before he looks:** by day it shows only in real dark (caves, the hall); its light jumps a block at a
 time as he walks, a frame or two behind; it's dim on dark stone; it reddens towards its edge.
+
+### David's look at build 217 (the lantern)
+
+Launched at his "launch" (the stage on, the rings 256 and 320); about 11 minutes; `logs/session-1794965221.log`,
+clean; the processor's area 77 degrees at its end. At his asking a summary of builds 212 to 217 and the next steps
+went to Counsel.
+
+- **His words: "lights look good for now. although i couldn't really see the steps in the red and green light
+  levels."** The lantern and the lamps are done enough to go on; nothing said of the lantern's brightness or
+  colour, which stay as built (15, warm orange).
+- **The steps, a flaw written down under placed lights** (his wish, 2026-11-06: "the light from the brazieres,
+  where its very clear steps in brightness"). Why they don't show, as told to him:
+  1. A level is squared where it's read, so the steps nearest a lamp are the smallest: from 15 to 14 the light
+     falls 13%, to 13 another 14%; only far out, where it's already dark, are they big (from 2 to 1, three
+     quarters).
+  2. The flicker begins at 15% of the brightness, twice a second: a bigger swing than the bright steps it's laid
+     over.
+  3. By day daylight takes over within a few blocks of a lamp, so only the first, smallest steps are seen.
+  A falling-off where each block is a fixed share dimmer than the last would make every step the same size to
+  the eye (and would keep a light's colour as it fades, the other thing written down at build 217).
