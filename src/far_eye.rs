@@ -37,8 +37,9 @@ const FOG_WARMTH: f32 = 0.3;
 const SKY_WEIGHT: f32 = 4.0;
 /// Where in a level's stretch its blend with the next begins (old's since build 109).
 const BLEND_FROM: f32 = 0.8;
-/// Night's light (old's).
+/// Night's light (old's): where "night brightness" begins (build 225), and the most it goes to.
 const NIGHT_LIGHT: f32 = 0.04;
+pub const MOST_NIGHT: f32 = 0.25;
 /// The sun: from 315° (north toward east), 40° up (old's dyno light).
 const SUN_FROM: f32 = 315.0;
 const SUN_HEIGHT: f32 = 40.0;
@@ -112,6 +113,10 @@ pub struct FarLook {
     pub sky_light: bool,
     pub sky_strength: f32,
     pub sky_tint: f32,
+    /// Night's light (build 225) [David, 2026-11-18: "Moonlit, with a slider", "In Light, \"night brightness\""]: a
+    /// share of the day's sky light, what lights the land, the faces, the water and the night sky once the sun's
+    /// glow has gone (0 pitch black but for lamps; old's 0.04, moonlit, to begin; `MOST_NIGHT` the most).
+    pub night_brightness: f32,
     /// Where each ray's steps begin within a step (the page's "Ray start"; David, 2026-11-14): the pattern (0
     /// scattered by chance, as it was; 1 woven, an even pattern; 2 blue noise; 3 woven with blue noise in it), the
     /// weave's side as a power of two, how much blue noise goes into the weave, and how far the starts spread (of a
@@ -157,6 +162,7 @@ impl FarLook {
         sky_light: true,
         sky_strength: SKY_STRENGTH,
         sky_tint: SKY_TINT,
+        night_brightness: NIGHT_LIGHT,
         start_pattern: 0,
         weave_bits: 2,
         start_blue: 0.25,
@@ -1270,6 +1276,7 @@ impl FarEye {
         let (from, height) = (look.sun_from.to_radians(), look.sun_height.to_radians());
         let sun = [height.cos() * from.cos(), height.cos() * from.sin(), height.sin()];
         let (direct, glow) = daylight(sun[2]);
+        let night = look.night_brightness.clamp(0.0, MOST_NIGHT);
         let water = WATER.map(|c| {
             let v = c as f32 / 255.0;
             if v <= 0.04045 { v / 12.92 } else { ((v + 0.055) / 1.055).powf(2.4) }
@@ -1308,7 +1315,7 @@ impl FarEye {
                 [fade[0].max(0.1), fade[1].max(0.05), look.hand_over.clamp(0.3, 0.95), look.sky_weight.max(0.0)],
                 [if look.sky_light { 1.0 } else { 0.0 }, look.sky_strength.clamp(0.0, 1.0), look.sky_tint.clamp(0.0, 1.0), self.begin.max(self.near_from)],
                 [if look.fog { 3.0 / look.fog_reach.max(10.0) } else { 0.0 }, std::f32::consts::LN_2 / look.fog_height.max(1.0), sea_level, look.fog_warmth.clamp(0.0, 1.0)],
-                [direct, NIGHT_LIGHT + (1.0 - NIGHT_LIGHT) * glow, glow, NIGHT_LIGHT],
+                [direct, night + (1.0 - night) * glow, glow, night],
                 [water[0], water[1], water[2], 20f32.ln() / WATER_CLARITY],
                 [atlas_size[0], atlas_size[1], atlas_size[2], self.atlas.as_ref().map_or(1.0, |a| a.side as f32)],
                 [window_levels, regions.1 as f32, regions.0[0] as f32, regions.0[1] as f32],
@@ -2034,6 +2041,13 @@ mod tests {
         // (The lantern lit, if asked, `FAR_TEST_LANTERN`: its light waited for from its thread, so the picture has it.)
         if let (Some(near), true) = (&mut near, std::env::var_os("FAR_TEST_LANTERN").is_some()) {
             near.look.lantern = true;
+        }
+        // (The sun's height and night's brightness, `FAR_TEST_SUN` and `FAR_TEST_NIGHT`: pictures at night, build 225.)
+        if let Some(height) = std::env::var("FAR_TEST_SUN").ok().and_then(|height| height.parse::<f32>().ok()) {
+            eye.look.sun_height = height;
+        }
+        if let Some(night) = std::env::var("FAR_TEST_NIGHT").ok().and_then(|night| night.parse::<f32>().ok()) {
+            eye.look.night_brightness = night;
         }
         // (The placed lights' clock set, `FAR_TEST_CLOCK`, seconds: pictures of the far lamps at chosen moments of
         // their twinkle, build 222.)

@@ -386,7 +386,10 @@ fn render(ui: &mut egui::Ui, readings: &Readings, look: Option<&mut FarLook>, ne
         &mut *look,
         |ui, look| {
             ui.add(egui::Slider::new(&mut look.sun_from, 0.0..=360.0).text("sun from (degrees, north to east)"));
-            ui.add(egui::Slider::new(&mut look.sun_height, -10.0..=90.0).text("sun height (degrees)"));
+            ui.add(egui::Slider::new(&mut look.sun_height, -90.0..=90.0).text("sun height (degrees)"));
+            // Night (build 225) [David, 2026-11-18: "Night by the sun slider", "Moonlit, with a slider"; "In Light,
+            // \"night brightness\""]: the sun under the horizon, the land lit by this share of the day's sky light.
+            ui.add(egui::Slider::new(&mut look.night_brightness, 0.0..=crate::far_eye::MOST_NIGHT).text("night brightness"));
             ui.add(egui::Slider::new(&mut look.ambient, 0.0..=1.0).text("sky's share of the light"));
             ui.checkbox(&mut look.shadows, "sun shadows");
             ui.checkbox(&mut look.sky_light, "sky light");

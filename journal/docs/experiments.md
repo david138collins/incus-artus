@@ -9339,3 +9339,24 @@ it's still dusk.
   light), the lamps and their dots bright against it.
 - **No price taken:** nothing new on the card (one number changed); the bracket at "assess".
 - **His look:** whether night reads as moonlit by default, and where he'd set "night brightness".
+
+### Build 225 built (unflown): night by the sun slider; checked off the screen
+
+**Built as the mark says** (`far_eye.rs`: `FarLook::night_brightness`, beginning at old's 0.04, `MOST_NIGHT` 0.25,
+in place of the fixed number; `panel.rs`: "sun height (degrees)" from -90, "night brightness" under it, his name and
+place; the test's `FAR_TEST_SUN` and `FAR_TEST_NIGHT`).
+
+**Against the mark, off the screen (the stage on):**
+
+- **Tests:** all 59 pass.
+- **The sun at its usual 40, the cave's mouth:** build 223's picture but for 9 pixels (the same dark spot at
+  (785, 254)). **Met.**
+- **The woods from the north at night (the sun at -30):** at 0.04 the sky's top (13, 21, 42), the picture's mean
+  (5, 8, 11) of 255, 43% of it black, the lamps' red and green pools and dots plain against it (5,795 pixels plainly
+  lamp-lit, 2,473 by day); at 0.25 the sky (43, 62, 105), the mean (19, 26, 33); at 0 the sky black, 94% of the
+  picture black, the lamps as bright. By day the same view's sky (144, 174, 219). **Met.**
+- **No price taken:** nothing new on the card.
+
+**Said to him before he looks:** night comes as the sun height goes under -2 (the sun's own light out) and is whole
+by -18 (the dusk's glow gone); "night brightness" sets how much the land, water and sky keep; no moon or stars yet;
+fog is still off by default, so far lamps don't fade at night unless it's on.
