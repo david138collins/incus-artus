@@ -32,6 +32,7 @@ flowchart TB
     pass_the_far_2_x_2["the far 2 x 2"]
     pass_bringing_it_up["bringing it up"]
     pass_the_x_fader["the x-fader"]
+    pass_seeing_the_far_lamps["seeing the far lamps"]
     pass_the_far_lamps["the far lamps"]
     pass_the_panel["the panel"]
     pass_handing_the_card_its_work["handing the card its work"]
@@ -153,8 +154,14 @@ flowchart TB
   pass_bringing_it_up --> store_the_screen_s_picture
   store_the_near_picture --> pass_the_x_fader
   pass_the_x_fader --> store_the_screen_s_picture
+  store_the_far_lamps__list --> pass_seeing_the_far_lamps
+  store_the_far_bricks --> pass_seeing_the_far_lamps
+  store_the_far_textures --> pass_seeing_the_far_lamps
+  store_the_camera --> pass_seeing_the_far_lamps
+  pass_seeing_the_far_lamps --> store_the_far_lamps__list
   store_the_far_lamps__list --> pass_the_far_lamps
   store_the_near_picture --> pass_the_far_lamps
+  store_the_far_layers --> pass_the_far_lamps
   store_the_camera --> pass_the_far_lamps
   pass_the_far_lamps --> store_the_screen_s_picture
   store_the_panel_s_shapes --> pass_the_panel
@@ -200,7 +207,7 @@ flowchart TB
 
 - **Runs:** once a frame.
 - **What it is:** Each frame, its passes in order: the camera goes to a mark if it's time, flies, the panels are laid out, the card draws the picture, and it's handed to the screen.
-- **Its passes, in order:** going to a mark, flying, putting the far cells on the card, putting the near chunks on the card, laying out the panel, getting the picture, the far start, listing the near chunks, the near faces, the near water, the near cover, the far 8 x 8, the far 4 x 4, the far 2 x 2, bringing it up, the x-fader, the far lamps, the panel, handing the card its work, showing it and measuring.
+- **Its passes, in order:** going to a mark, flying, putting the far cells on the card, putting the near chunks on the card, laying out the panel, getting the picture, the far start, listing the near chunks, the near faces, the near water, the near cover, the far 8 x 8, the far 4 x 4, the far 2 x 2, bringing it up, the x-fader, seeing the far lamps, the far lamps, the panel, handing the card its work, showing it and measuring.
 - **Switch** `INCUS_FLIGHT`: a measured flight: every mark in data/marks.toml in turn, 5 s settling and 20 s measured at each, uncapped with the panel hidden; a report, then quits.
 - **Switch** `INCUS_START_PRESET`: the presets the game starts with, by page and name (render/<name>, camera/<name>, a comma between); unset, each page's "default" preset, and on a flight the built-in settings, so flights stay like for like whatever is saved.
 - **Switch** `WGPU_ADAPTER_NAME`: the card, by part of its name (intel: the laptop's Intel card).
@@ -394,11 +401,19 @@ flowchart TB
 - **Cost, last measured** (`kept logs/flight-1794589790.txt`): not measured.
 - **Files:** src/near_eye.rs and src/near_join.wgsl.
 
+### seeing the far lamps
+
+- **A pass** in the frame, on the card.
+- **What it is:** For each lamp in the far lamps' list past where the far rays begin, a ray marched from the eye towards it through the far cells by the far eye's own march, as its finest layer reads them, to two far cells short of it: seen if it met no surface on the way, as old's far glows were (build 223).
+- **Reads:** the far lamps' list, the far bricks, the far textures and the camera. **Writes:** the far lamps' list.
+- **Cost, last measured** (`kept logs/flight-1794589790.txt`): not measured.
+- **Files:** src/far_eye.rs, src/far.wgsl, src/far_lamps.wgsl and src/near_eye.rs.
+
 ### the far lamps
 
 - **A pass** in the frame, on the card.
-- **What it is:** Each lamp in the far lamps' list a dot one screen pixel square at its block's middle, its light added to the picture [David, 2026-11-18: "the single pixels of light don't twinkle quite the way they did in old incus, from a distance"; "About a pixel"]: from where its block is 2 pixels across, whole at 1; shown only while its light is up its swing past a bar (a third, rising to nearly the top 1,500 blocks on, old's), so far off it pops in at its peaks alone; dimmer under a pixel, by the x-fader, and hidden where the near picture has something nearer at its pixel. Within the near reach (build 222).
-- **Reads:** the far lamps' list, the near picture and the camera. **Writes:** the screen's picture.
+- **What it is:** Each lamp in the far lamps' list a dot one screen pixel square at its block's middle, its light added to the picture [David, 2026-11-18: "the single pixels of light don't twinkle quite the way they did in old incus, from a distance"; "About a pixel"]: from where its block is 2 pixels across, whole at 1; shown only while its light is up its swing past a bar (a third, rising to nearly the top 1,500 blocks on, old's), so far off it pops in at its peaks alone; dimmer under a pixel, and hidden where the near picture has something nearer at its pixel (build 222). Past the near reach (build 223) as much of it as the x-fader gives the far picture, hidden where the ray seeing it met a surface on the way, and through the fog: it fades into the fog, never snapping off.
+- **Reads:** the far lamps' list, the near picture, the far layers and the camera. **Writes:** the screen's picture.
 - **Switch** `INCUS_FAR_LAMPS`: 0: no dots, as to build 221 (for measuring against); unset, a lamp's dot twinkles from where its block is about a pixel.
 - **Cost, last measured** (`kept logs/flight-1794589790.txt`): not measured.
 - **Files:** src/near_eye.rs and src/near.wgsl.
@@ -498,7 +513,7 @@ flowchart TB
 ### listing the lamps
 
 - **A pass** in loading, on the processor.
-- **What it is:** On a thread of its own, whenever the eye has moved 64 blocks, the render radius changes or a block is placed: every lamp within the radius and a chunk more, those the scatter stage stood (each tile's found once and kept) and those placed through the doorway, with its light and its voice, the nearest first. The frame puts the list on the card as it comes and never waits for it (build 222).
+- **What it is:** On a thread of its own, whenever the eye has moved 64 blocks or a block is placed: every lamp within 4,096 blocks (build 223), those the scatter stage stood (each tile's found once and kept) and those placed through the doorway, with its light and its voice, the nearest first. The frame puts the list on the card as it comes and never waits for it (build 222).
 - **Reads:** a tile's columns and what changed. **Writes:** the far lamps' list.
 - **Cost, last measured** (`kept logs/flight-1794589790.txt`): not measured.
 - **Files:** src/near.rs and src/near_eye.rs.
@@ -524,7 +539,7 @@ flowchart TB
 
 - **A store** on the processor.
 - **What it is:** Where the eye is (north, east, up, in blocks) and where it looks (facing from north toward east, pitch up from level).
-- **Written by:** hearing the window, going to a mark, flying and laying out the panel. **Read by:** putting the far cells on the card, putting the near chunks on the card, laying out the panel, the far start, listing the near chunks, the near faces, the near water and the far lamps.
+- **Written by:** hearing the window, going to a mark, flying and laying out the panel. **Read by:** putting the far cells on the card, putting the near chunks on the card, laying out the panel, the far start, listing the near chunks, the near faces, the near water, seeing the far lamps and the far lamps.
 - **Files:** src/camera.rs.
 
 ### the clocks
@@ -645,7 +660,7 @@ flowchart TB
 
 - **A store** on the card.
 - **What it is:** The far cells on the card, the whole world as old's bake kept it: each level's columns' bands (the lowest cell and how many: solid below, empty above), and the bands' cells in bricks of 8 x 8 x 8 found by arithmetic. The pool grows as it fills. After the bands, the height table: for every column of every level, the height in blocks of the highest thing in it and in the eight columns round it, which lets a ray clear a coarse column in one hop (the bands' own rounded tops till every region is in, then the true ones, worked out on a thread and sent whole).
-- **Written by:** putting the far cells on the card and making the far ring. **Read by:** the far start, the far 8 x 8, the far 4 x 4 and the far 2 x 2.
+- **Written by:** putting the far cells on the card and making the far ring. **Read by:** the far start, the far 8 x 8, the far 4 x 4, the far 2 x 2 and seeing the far lamps.
 - **Limit:** levels, cells of 32 to 65,536, 12.
 - **Limit:** cells a brick at most, 512.
 - **Limit:** the largest buffer asked of the card (MB), 2047.
@@ -655,7 +670,7 @@ flowchart TB
 
 - **A store** on the card.
 - **What it is:** The screen pyramid's pictures (8 x 8, 4 x 4 and 2 x 2 screen pixels a pixel), each with how far its rays first touched anything and how much the layer below is worth; and where each tile's rays start.
-- **Written by:** the far start, the far 8 x 8, the far 4 x 4 and the far 2 x 2. **Read by:** the far 8 x 8, the far 4 x 4, the far 2 x 2 and bringing it up.
+- **Written by:** the far start, the far 8 x 8, the far 4 x 4 and the far 2 x 2. **Read by:** the far 8 x 8, the far 4 x 4, the far 2 x 2, bringing it up and the far lamps.
 - **Limit:** layers, 3.
 - **Files:** src/far_eye.rs.
 
@@ -670,7 +685,7 @@ flowchart TB
 
 - **A store** on the card.
 - **What it is:** The far bricks again as 3D textures for the card's texture hardware to blend (change 1): how solid and how watery (16-bit), and the colour and faces spread into empty neighbours (8-bit); each brick's slot beside its place in the bricks' index. A brick's texels a side: its cells a side and a border (9 at bricks of 8).
-- **Written by:** putting the far cells on the card, making the far textures and making the far ring. **Read by:** the far 8 x 8, the far 4 x 4 and the far 2 x 2.
+- **Written by:** putting the far cells on the card, making the far textures and making the far ring. **Read by:** the far 8 x 8, the far 4 x 4, the far 2 x 2 and seeing the far lamps.
 - **Limit:** bricks a side of an atlas layer, 64.
 - **Files:** src/atlas.rs.
 
@@ -716,8 +731,8 @@ flowchart TB
 ### the far lamps' list
 
 - **A store** on the card.
-- **What it is:** The lamps round the eye, the nearest first (build 222): each its cell, and its light (red, green and blue, 4 bits each) with its voice over them, four words a lamp. Written whole as each list comes from its thread.
-- **Written by:** listing the lamps. **Read by:** the far lamps.
+- **What it is:** The lamps round the eye, the nearest first (build 222): each its cell, and its light (red, green and blue, 4 bits each) with its voice over them, four words a lamp. Written whole as each list comes from its thread. Beside it (build 223), a word a lamp: whether it's seen past the near reach.
+- **Written by:** seeing the far lamps and listing the lamps. **Read by:** seeing the far lamps and the far lamps.
 - **Limit:** lamps at most, 4096.
 - **Files:** src/near_eye.rs and src/near.rs.
 

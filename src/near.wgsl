@@ -446,11 +446,13 @@ fn near_water(corner: Corner) -> @location(0) vec4<f32> {
 // distance"; old's far glows, 2026-11-09: "pixels of green that popped in and out as they twinkled, less and less as
 // you got farther away"; where it begins: "About a pixel".] After the x-fader, each lamp in the list (`near.rs`,
 // `LampsLane`) is a dot one screen pixel square at its block's middle, its light added to the picture: none while
-// its block is `from.x` pixels across or more, whole at `from.y`; shown only while its light is up its swing past a
-// bar that rises with distance, so far off it pops in at its peaks alone (with no flicker, shown steadily); dimmer by
-// the share of the pixel its block covers under a pixel; by how much of the near picture shows there (the x-fader);
-// and hidden where the near picture has something nearer at its pixel. (In a group of its own, the fourth: the
-// near eye's other passes' groups take the second and third.)
+// its block is `begins.x` pixels across or more, whole at `begins.y`; shown only while its light is up its swing past
+// a bar that rises with distance, so far off it pops in at its peaks alone (with no flicker, shown steadily); dimmer
+// by the share of the pixel its block covers under a pixel; and hidden where the near picture has something nearer
+// at its pixel. Across the x-fader (build 223) it's two parts: the near part by how much of the near picture shows
+// there; the far part by the rest, hidden where a ray marched to it through the far cells met a surface short of
+// it (`far_lamps.wgsl`), and dimmed by the fog; so it goes on past the near reach and fades into the fog, never snapping off. (In a group of its own, the
+// fourth: the near eye's other passes' groups take the second and third.)
 
 struct Twinkle {
     // x, y: the screen's size; z: the full-size band's pixel's side in screen pixels; w: how many screen pixels a
@@ -460,17 +462,33 @@ struct Twinkle {
     // over where it begins (a share of its swing); w: how much the bar rises.
     begins: vec4<f32>,
     // x: over how many blocks past where it's whole the bar rises; y: how far behind its block's middle something
-    // may be at its pixel and not hide it (blocks).
+    // may be at its pixel in the near picture and not hide it (blocks).
     rest: vec4<f32>,
 }
 
 @group(3) @binding(0) var<uniform> twinkle: Twinkle;
 // The lamps: each its cell (north, east, up; the world's) and its light, red, green and blue in 4 bits each from the
-// low bits, with its voice over them (`<< 12`).
+// low bits, with its voice over them (`<< 12`), and over that (`<< 16`, build 223) whether it's seen past the near
+// reach (`far_lamps.wgsl`: a ray marched to it through the far cells).
 @group(3) @binding(1) var<storage, read> lamps: array<vec4<i32>>;
 // The full-size band's depth (the near eye's farthest picture; where a nearer band covers a pixel its mask is in it,
 // the nearest there is).
 @group(3) @binding(2) var t_whole_depth: texture_depth_2d;
+// How much of a light the fog lets through to the eye over `t` blocks along `d` (`far.wgsl`'s `fogged`, its amount
+// turned round).
+fn fog_leaves(d: vec3<f32>, t: f32) -> f32 {
+    if (camera.fog.x <= 0.0) {
+        return 1.0;
+    }
+    let thins = camera.fog.y;
+    let at_eye = camera.fog.x * exp(clamp(-thins * (camera.position.z - camera.fog.z), -80.0, 80.0));
+    let climb = thins * d.z;
+    var along = t;
+    if (abs(climb * t) > 1e-4) {
+        along = (1.0 - exp(-clamp(climb * t, -80.0, 80.0))) / climb;
+    }
+    return exp(-at_eye * along);
+}
 
 struct Dot {
     @builtin(position) clip: vec4<f32>,
@@ -507,8 +525,19 @@ fn lamp_dot(@builtin(vertex_index) k: u32, @builtin(instance_index) which: u32) 
     if (depth > 0.0 && near.reach.z / depth < ahead - twinkle.rest.y) {
         return dot_out;
     }
+    // The near part, by how much of the near picture shows there; the far part, the rest, unless the far cells stand
+    // in the way, through the fog.
     let shows = near_shows(from_eye);
-    if (shows <= 0.0) {
+    var far_part = 1.0 - shows;
+    if (far_part > 0.0) {
+        if (((lamp.w >> 16u) & 1) == 0) {
+            far_part = 0.0;
+        } else {
+            far_part *= fog_leaves(normalize(from_eye), length(from_eye));
+        }
+    }
+    let seen = shows + far_part;
+    if (seen <= 0.0) {
         return dot_out;
     }
     // Its twinkle: shown while its light is up its swing past the bar (1 less its wave), the bar rising from where
@@ -521,7 +550,7 @@ fn lamp_dot(@builtin(vertex_index) k: u32, @builtin(instance_index) which: u32) 
     }
     let levels = vec3<u32>(u32(lamp.w) & 15u, (u32(lamp.w) >> 4u) & 15u, (u32(lamp.w) >> 8u) & 15u);
     let share = min(across * across, 1.0);
-    dot_out.colour = to_srgb(clamp(steady(levels) * begun * share * shows, vec3<f32>(0.0), vec3<f32>(1.0)));
+    dot_out.colour = to_srgb(clamp(steady(levels) * begun * share * seen, vec3<f32>(0.0), vec3<f32>(1.0)));
     let corners = array<vec2<f32>, 6>(vec2<f32>(0.0, 0.0), vec2<f32>(1.0, 0.0), vec2<f32>(0.0, 1.0), vec2<f32>(0.0, 1.0), vec2<f32>(1.0, 0.0), vec2<f32>(1.0, 1.0));
     let at = pixel + corners[k % 6u];
     dot_out.clip = vec4<f32>(at.x / twinkle.screen.x * 2.0 - 1.0, 1.0 - at.y / twinkle.screen.y * 2.0, 0.0, 1.0);

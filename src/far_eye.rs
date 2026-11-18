@@ -250,6 +250,9 @@ pub struct FarEye {
     eye: [f32; 2],
     start: wgpu::ComputePipeline,
     march: wgpu::ComputePipeline,
+    /// Seeing the far lamps (build 223): its program, and what its own group is made by.
+    lamp_sight: wgpu::ComputePipeline,
+    pub sight_layout: wgpu::BindGroupLayout,
     up: wgpu::RenderPipeline,
     layout: wgpu::BindGroupLayout,
     up_layout: wgpu::BindGroupLayout,
@@ -416,6 +419,13 @@ impl FarEye {
         };
         let start = pipeline("start_pass");
         let march = pipeline("march_pass");
+        // Seeing the far lamps (build 223): the whole march's text with `far_lamps.wgsl` after it, a ray to each lamp;
+        // the march's own group, and one of its own (the numbers, and the lamps, whether each is seen written in
+        // them: the march's program has room for one more buffer, no more).
+        let sight_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor { label: Some("seeing the far lamps"), entries: &[uniform(0, compute), storage(1, false)] });
+        let sight_module = device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some("seeing the far lamps"), source: wgpu::ShaderSource::Wgsl(format!("{far_source}\n{}", include_str!("far_lamps.wgsl")).into()) });
+        let sight_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor { label: Some("seeing the far lamps"), bind_group_layouts: &[Some(&layout), Some(&sight_layout)], immediate_size: 0 });
+        let lamp_sight = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor { label: Some("lamp_sight"), layout: Some(&sight_pipeline_layout), module: &sight_module, entry_point: Some("lamp_sight"), compilation_options: Default::default(), cache: None });
         let fragment = wgpu::ShaderStages::FRAGMENT;
         let up_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("bringing it up"),
@@ -616,7 +626,7 @@ impl FarEye {
         let tally_counts = LAYERS.iter().map(|_| device.create_buffer(&wgpu::BufferDescriptor { label: Some("a far layer's longest ray"), size: 4 * TALLY as u64, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false })).collect();
         let tally_back = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the longest rays read back"), size: 4 * (TALLY * (LAYERS.len() + 1)) as u64, usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let tally_state = std::sync::Arc::new(std::sync::atomic::AtomicU8::new(0));
-        Self { near_from: 0.0, targets_made: 0, cover_on, placed_job: None, placed_ready: None, placed_regions: std::collections::HashSet::new(), relight: false, placed_asked: None, store, lane, rings, eye: [0.0; 2], start, march, up, layout, up_layout, sampler, targets: None, look, textures, atlas: None, building: None, stand_ins, light: None, lighting: None, sweeping: None, sun_asked, light_stand_ins, blue, blue_bytes, edge, layers, one, one_loaded, one_loaded_other, faces_asked, one_start, one_join, cut_at, long, loaded_off: std::env::var("INCUS_FAR_LOADED").as_deref() == Ok("0"), loaded_said: std::sync::atomic::AtomicBool::new(false), audit, parity: 0, fresh: false, haze_step, most_steps, tops_making: None, tops_made: None, tops_off: false, reach, begin, tally, tally_counts, tally_back, tally_state, waiting, waiting_counts }
+        Self { near_from: 0.0, targets_made: 0, cover_on, placed_job: None, placed_ready: None, placed_regions: std::collections::HashSet::new(), relight: false, placed_asked: None, store, lane, rings, eye: [0.0; 2], start, march, lamp_sight, sight_layout, up, layout, up_layout, sampler, targets: None, look, textures, atlas: None, building: None, stand_ins, light: None, lighting: None, sweeping: None, sun_asked, light_stand_ins, blue, blue_bytes, edge, layers, one, one_loaded, one_loaded_other, faces_asked, one_start, one_join, cut_at, long, loaded_off: std::env::var("INCUS_FAR_LOADED").as_deref() == Ok("0"), loaded_said: std::sync::atomic::AtomicBool::new(false), audit, parity: 0, fresh: false, haze_step, most_steps, tops_making: None, tops_made: None, tops_off: false, reach, begin, tally, tally_counts, tally_back, tally_state, waiting, waiting_counts }
     }
 
     /// Whether every region is on the card, the window's regions round the eye too, and the far textures if they're made.
@@ -649,6 +659,22 @@ impl FarEye {
         let (shadow, sky) = self.light.as_ref().map_or((&self.light_stand_ins[0], &self.light_stand_ins[1]), |l| (&l.shadow_views[l.shown], &l.sky));
         let light = self.light.as_ref().map_or(0, |l| 1 + l.generation as u64 * 2 + l.shown as u64);
         Some((&targets.layers.first()?.camera, &self.store.table, shadow, sky, &self.sampler, self.targets_made << 32 | light << 8 | self.store.generation as u64 & 0xFF))
+    }
+
+    /// Seeing the far lamps (build 223): a ray from the eye to each of `count` lamps through the far cells, as the
+    /// finest layer's rays read them (`far_lamps.wgsl`), with `group` (made by `sight_layout`). False, and nothing
+    /// recorded, before the far eye has its targets.
+    pub fn see_lamps(&self, encoder: &mut wgpu::CommandEncoder, group: &wgpu::BindGroup, count: u32, timestamps: Option<wgpu::ComputePassTimestampWrites<'_>>) -> bool {
+        let Some(finest) = self.targets.as_ref().and_then(|targets| targets.layers.last()) else { return false };
+        let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("seeing the far lamps"), timestamp_writes: timestamps });
+        if count == 0 {
+            return true;
+        }
+        pass.set_pipeline(&self.lamp_sight);
+        pass.set_bind_group(0, &finest.group, &[]);
+        pass.set_bind_group(1, group, &[]);
+        pass.dispatch_workgroups(count.div_ceil(64), 1, 1);
+        true
     }
 
     /// Whether the Render page's cover-by-faces switch can do anything now: there's a second program, and the march
@@ -2217,8 +2243,15 @@ mod tests {
         }
         if let Some(near) = &mut near {
             near.join(&mut encoder, &view, None);
+            near.see_lamps(&mut encoder, &eye, None);
             near.draw_lamps(&mut encoder, &view, None);
             eprintln!("The near eye drew: {:?}; far lamps listed: {}", near.counts, near.lamps_count);
+            // (`FAR_TEST_LAMPS_PAST`: the lamps listed past so many blocks across the ground, the nearest twenty.)
+            if let Some(past) = std::env::var("FAR_TEST_LAMPS_PAST").ok().and_then(|past| past.parse::<f32>().ok()) {
+                let off = |lamp: &&crate::near::Lamp| ((lamp.cell[0] as f32 - camera.position.x).powi(2) + (lamp.cell[1] as f32 - camera.position.y).powi(2)).sqrt();
+                let far: Vec<String> = near.lamps_listed.iter().filter(|lamp| off(lamp) > past).take(20).map(|lamp| format!("{:?} {:.0}", lamp.cell, off(&lamp))).collect();
+                eprintln!("Far lamps past {past}: {}", far.join("; "));
+            }
         }
         encoder.copy_texture_to_buffer(
             wgpu::TexelCopyTextureInfo { texture: &target, mip_level: 0, origin: wgpu::Origin3d::ZERO, aspect: wgpu::TextureAspect::All },

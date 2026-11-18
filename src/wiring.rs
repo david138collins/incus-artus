@@ -72,6 +72,7 @@ pub enum PassId {
     TheFar2,
     BringingItUp,
     TheXFader,
+    SeeingTheFarLamps,
     TheFarLamps,
     ThePanel,
     HandingTheCardItsWork,
@@ -184,7 +185,7 @@ pub const LANES: [Lane; 4] = [
     },
 ];
 
-pub const PASSES: [Pass; 31] = [
+pub const PASSES: [Pass; 32] = [
     Pass {
         id: PassId::HearingTheWindow,
         name: "hearing the window",
@@ -403,12 +404,23 @@ pub const PASSES: [Pass; 31] = [
         files: &["src/near_eye.rs", "src/near_join.wgsl"],
     },
     Pass {
+        id: PassId::SeeingTheFarLamps,
+        name: "seeing the far lamps",
+        lane: LaneId::Frame,
+        on: Where::Card,
+        what: "For each lamp in the far lamps' list past where the far rays begin, a ray marched from the eye towards it through the far cells by the far eye's own march, as its finest layer reads them, to two far cells short of it: seen if it met no surface on the way, as old's far glows were (build 223).",
+        reads: &[StoreId::FarLamps, StoreId::FarBricks, StoreId::FarTextures, StoreId::Camera],
+        writes: &[StoreId::FarLamps],
+        switches: &[],
+        files: &["src/far_eye.rs", "src/far.wgsl", "src/far_lamps.wgsl", "src/near_eye.rs"],
+    },
+    Pass {
         id: PassId::TheFarLamps,
         name: "the far lamps",
         lane: LaneId::Frame,
         on: Where::Card,
-        what: "Each lamp in the far lamps' list a dot one screen pixel square at its block's middle, its light added to the picture [David, 2026-11-18: \"the single pixels of light don't twinkle quite the way they did in old incus, from a distance\"; \"About a pixel\"]: from where its block is 2 pixels across, whole at 1; shown only while its light is up its swing past a bar (a third, rising to nearly the top 1,500 blocks on, old's), so far off it pops in at its peaks alone; dimmer under a pixel, by the x-fader, and hidden where the near picture has something nearer at its pixel. Within the near reach (build 222).",
-        reads: &[StoreId::FarLamps, StoreId::NearPicture, StoreId::Camera],
+        what: "Each lamp in the far lamps' list a dot one screen pixel square at its block's middle, its light added to the picture [David, 2026-11-18: \"the single pixels of light don't twinkle quite the way they did in old incus, from a distance\"; \"About a pixel\"]: from where its block is 2 pixels across, whole at 1; shown only while its light is up its swing past a bar (a third, rising to nearly the top 1,500 blocks on, old's), so far off it pops in at its peaks alone; dimmer under a pixel, and hidden where the near picture has something nearer at its pixel (build 222). Past the near reach (build 223) as much of it as the x-fader gives the far picture, hidden where the ray seeing it met a surface on the way, and through the fog: it fades into the fog, never snapping off.",
+        reads: &[StoreId::FarLamps, StoreId::NearPicture, StoreId::FarLayers, StoreId::Camera],
         writes: &[StoreId::ScreenPicture],
         switches: &[("INCUS_FAR_LAMPS", "0: no dots, as to build 221 (for measuring against); unset, a lamp's dot twinkles from where its block is about a pixel")],
         files: &["src/near_eye.rs", "src/near.wgsl"],
@@ -541,7 +553,7 @@ pub const PASSES: [Pass; 31] = [
         name: "listing the lamps",
         lane: LaneId::Loading,
         on: Where::Processor,
-        what: "On a thread of its own, whenever the eye has moved 64 blocks, the render radius changes or a block is placed: every lamp within the radius and a chunk more, those the scatter stage stood (each tile's found once and kept) and those placed through the doorway, with its light and its voice, the nearest first. The frame puts the list on the card as it comes and never waits for it (build 222).",
+        what: "On a thread of its own, whenever the eye has moved 64 blocks or a block is placed: every lamp within 4,096 blocks (build 223), those the scatter stage stood (each tile's found once and kept) and those placed through the doorway, with its light and its voice, the nearest first. The frame puts the list on the card as it comes and never waits for it (build 222).",
         reads: &[StoreId::TileColumns, StoreId::Changes],
         writes: &[StoreId::FarLamps],
         switches: &[],
@@ -773,7 +785,7 @@ pub const STORES: [Store; 27] = [
         id: StoreId::FarLamps,
         name: "the far lamps' list",
         on: Where::Card,
-        what: "The lamps round the eye, the nearest first (build 222): each its cell, and its light (red, green and blue, 4 bits each) with its voice over them, four words a lamp. Written whole as each list comes from its thread.",
+        what: "The lamps round the eye, the nearest first (build 222): each its cell, and its light (red, green and blue, 4 bits each) with its voice over them, four words a lamp. Written whole as each list comes from its thread. Beside it (build 223), a word a lamp: whether it's seen past the near reach.",
         limits: &[("lamps at most", crate::near::MOST_LAMPS as u64)],
         files: &["src/near_eye.rs", "src/near.rs"],
     },

@@ -9236,3 +9236,41 @@ stage stands lamps in cave mouths out to 4 km.
   face the eye, none for a lamp behind a ridge or deep in its cave; the far lamps off, the far picture as it was.
 - **Its price:** owed with builds 221's and 222's at "assess". The list's first making, from the log.
 - **His look:** far lamps twinkling out past a kilometre and fading into the fog.
+
+### Build 223 built (unflown): far lamps past the near reach; checked off the screen
+
+**Built** (`near.rs`: `LAMPS_REACH` 4,096, the first list's making in the log; `far_lamps.wgsl`, new: seeing the far
+lamps; `far_eye.rs`: its program from the whole march's text, `see_lamps`; `near_eye.rs`: its numbers and group,
+`see_lamps`; `near.wgsl`: the dot's near part and far part, `fog_leaves`; the wiring: the pass "seeing the far
+lamps" before "the far lamps"). The test can list the lamps past a distance (`FAR_TEST_LAMPS_PAST`).
+
+**Against the mark, the hiding not as written:** the mark's way, the far cells' column tops along the line to a
+lamp, was built first and judged by the pictures, as the mark said: against the same view with the near eye reaching
+far enough to hide every lamp by its exact depth, the tops showed three lamps deep in a cave (the two columns let
+off at the lamp's end, 64 blocks, are most of a cave) and hid a line of five the exact way shows (a top is the
+highest of three columns by three, 96 blocks across). Next the far picture's own distance at a lamp's pixel: it
+hid nearly every far lamp, read off a switch for the purpose (since taken out): that distance is where the pixel's
+ray first touched anything, a cave mouth's soft fringe 45 blocks short of a lamp the exact way shows, an 8 x 8 ray's
+ridge 240 blocks short of another; nothing tells those from a lamp deep in its cave. So what build 222's mark first
+said, old's way: **a ray marched from the eye to each lamp** past where the far rays begin, by the far eye's own
+march with its finest layer's camera, to two far cells short of the lamp; seen if it meets no surface. A pass of its
+own on the card, "seeing the far lamps", writing whether each is seen into the lamps' own words (the march's program
+has room for one more buffer and no more).
+
+**Off the screen (the stage on; the test's near eye reaching 512 blocks):**
+
+- **Tests:** all 59 pass, the list's grown (a lamp 4,000 blocks off kept).
+- **From 1,000 up over the spawn, towards the caves 1.2 km off, against the exact way** (the near eye reaching
+  1,536): the same lamps at the same places; at two cave mouths the ray shows 5 and 3 where the exact way shows 2
+  (the lamps in a mouth's last two far cells, 34 blocks), at a third 2 of a line of 5; the 10 lamps in the woods
+  under the eye the same; none behind a ridge, none deep in a cave. **Met, with that much give at the mouths.**
+- **Build 222's views:** the cave's mouth up close, 1 pixel by 9; the woods from the north, one new red dot (a lamp
+  past the test's near reach, on the mountain behind) and four dots in the x-fader's band a little brighter (the far
+  part's share there). **As they were, but for the far lamps now drawn.**
+- **The far lamps off, the far picture as it was:** not taken again with the final code (with the lamps off the
+  sight pass marches nothing).
+- **Its price:** owed with 221's and 222's at "assess" (a ray to each lamp past the near reach in front of the eye,
+  633 lamps listed round the spawn); the first list's making, in the session's log at his look.
+
+**Said to him before he looks:** far lamps now go on past the near view's edge and fade into the fog; a lamp in a
+cave's first few blocks may show where the near view would hide it.

@@ -530,6 +530,9 @@ pub const MOST_LAMPS: usize = 4096;
 /// How far the eye moves (blocks, north or east) before the far lamps' list is asked for again.
 pub const LAMPS_STEP: i32 = 64;
 
+/// How far out the far lamps' list reaches (blocks; build 223): where the scatter stage's cave mouths stop.
+pub const LAMPS_REACH: i32 = 4096;
+
 /// The lamps within `reach` columns of `eye` (north, east), the nearest first, at most `MOST_LAMPS`: those the
 /// scatter stage stood (`stood`, each with its block) and the whole blocks placed through the doorway (`placed`) that
 /// give light; a cell once, whichever way it came.
@@ -600,6 +603,7 @@ impl LampsLane {
                 };
                 let mut told = 0u64;
                 let mut stood: HashMap<[i32; 2], Vec<([i32; 3], Block)>> = HashMap::new();
+                let mut first = true;
                 'asked: loop {
                     let (want, news) = {
                         let (lock, heard) = &*shared;
@@ -623,6 +627,8 @@ impl LampsLane {
                     let (least, _) = doorway.place(eye[0] - reach, eye[1] - reach);
                     let (most, _) = doorway.place(eye[0] + reach, eye[1] + reach);
                     let (mut round, mut placed) = (Vec::new(), Vec::new());
+                    let began = std::time::Instant::now();
+                    let read_before = stood.len();
                     if !glows.none() {
                         for tx in least[0]..=most[0] {
                             for ty in least[1]..=most[1] {
@@ -645,7 +651,12 @@ impl LampsLane {
                             }
                         }
                     }
-                    if sender.send(Ok(lamps_round(eye, reach, &round, &placed, &glows))).is_err() {
+                    let list = lamps_round(eye, reach, &round, &placed, &glows);
+                    if first {
+                        log::info!("The far lamps' first list: {} lamps within {reach} blocks, {} tiles read in {:.1} s", list.len(), stood.len() - read_before, began.elapsed().as_secs_f32());
+                        first = false;
+                    }
+                    if sender.send(Ok(list)).is_err() {
                         return;
                     }
                 }
@@ -2315,6 +2326,7 @@ mod tests {
         let stood: Vec<([i32; 3], Block)> = vec![([100, 0, 50], 1), ([10, 0, 50], 2), ([0, 300, 50], 1), ([5, 5, 50], 0)];
         let placed = [Change::Block { cell: [0, 20, 60], block: 1 }, Change::Block { cell: [10, 0, 50], block: 2 }, Change::Block { cell: [3, 3, 3], block: 0 }];
         let list = lamps_round([0, 0], 200, &stood, &placed, &glows);
+        assert_eq!(lamps_round([0, 0], LAMPS_REACH, &[([4000, 0, 50], 1)], &[], &glows).len(), 1, "a lamp 4,000 blocks off kept");
         assert_eq!(list.iter().map(|lamp| lamp.cell).collect::<Vec<_>>(), vec![[10, 0, 50], [0, 20, 60], [100, 0, 50]], "nearest first, the one 300 off left out, a cell once, no plain blocks");
         assert_eq!(list[0].light, [1, 15, 2], "the green lamp's light");
         assert_eq!(list[1], Lamp { cell: [0, 20, 60], light: [15, 1, 0], voice: voice_of([0, 20, 60]) }, "a placed lamp with its light and voice");
