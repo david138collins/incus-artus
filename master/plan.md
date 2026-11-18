@@ -723,7 +723,12 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
           Light, \"night brightness\"", the sun height down to -90; build 225, built: the slider's range, and night's light, old's fixed
           0.04, as the slider; off the screen a dark blue sky, the land dim, the lamps plain; his look: "looks good",
           done enough to go on)) (placed and moving lights, glows and far lights,
-          night); **then assess**; (3) the far half after (rings that reach where the curve says, with a band of
+          night); **then assess** (flown 2026-11-18, five flights, lamps on against off: seeing the far lamps
+          0.10 ms on the plain, 0.20 high over the spawn, the dearest new thing; the dots and the near faces' light
+          under 0.1; high over the spawn 2.39 ms on the card, the one mark over his 2 ms (2.24 with lamps off, 2.11
+          at build 210); the near faces grown since 210 apart from the lamps, most in thick scatter. Ways down,
+          dearest first: the far lamps seen in turns, a quarter a frame (about 0.15 off); then the near faces'
+          growth found. In `journal/docs/experiments.md`); (3) the far half after (rings that reach where the curve says, with a band of
           4s at the seam; at g = 2 perhaps 600 MB and the finer rays' time: priced first)
     - [ ] **Listing chunks:** the near eye's processor time is all in listing the chunks in view (0.15 to 0.27 ms a
           frame at 32 chunks, about 1 ms at 64)

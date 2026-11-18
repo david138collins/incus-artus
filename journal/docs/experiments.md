@@ -9369,3 +9369,40 @@ nights, the second of his three ("lets do 1 and 2 and then assess"). Next: asses
 **From the session's log** (thirteen minutes, no warnings; the processor's area 69 to 103 degrees): build 224's
 mend shows: the far lamps' first part, 281 lamps from the two tiles nearest, 0.3 s after the thread began; the
 whole list in 29.4 s as before.
+
+### Assess at build 225 (2026-11-18): the bracket
+
+**Flown:** five flights back to back, the stage on, the TV unplugged: the game as it is (1, 3, 5) and with lamps off
+(`INCUS_NEAR_LAMPS=0`: no block gives light, no lamps stood, no far lamps; 2, 4). Reports
+`logs/flight-1795040291.txt`, `-1795041255`, `-1795042230`, `-1795043208`, `-1795044190`. The processor's area at 104
+degrees at most marks; the card's clock held down at "fast across the world" in all five (the card waiting on the
+processor) and at the scatter at 100000 in three, so those marks' numbers are loose.
+
+**The prices (the card's clock, medians, ms):**
+
+- **Seeing the far lamps** (build 223's ray to each lamp): 0.10 on the plain and in the scatter, 0.11 in the hall,
+  0.13 at the town by the spawn, **0.20 high over the spawn**; 0.004 over the sea, 0.003 at the town on the plain,
+  nothing where no lamp is listed. The dearest new thing, and the same in all three flights to the thousandth.
+- **The far lamps** (the dots): 0.002 to 0.005. Nothing to speak of.
+- **The near faces with the light in them:** on the ground at the spawn 1.02, 1.03, 0.95 against 0.90 and 0.93 off,
+  about 0.08 dearer; elsewhere within the flights' spread.
+- **The card's whole, on against off:** high over the spawn 2.38 to 2.40 against 2.24; the town by the spawn 1.93
+  against 1.83; the plain 1.07 against 0.97. Most of it is the seeing.
+
+**Against build 210's bracket** (`logs/flight-1794927683.txt`, the stage on, before the near half and the lights): the
+dearest mark, high over the spawn, 2.11 then, 2.24 now with lamps off, 2.39 with them. The near faces there 1.11 then,
+1.19 to 1.21 now either way; in the scatter at 10000 0.30 then, 0.38 to 0.41 now; at 100000 0.58 then, 0.68 to 1.15
+now, either way. So the near faces grew between builds 211 and 221 apart from the lamps (the near half's bands, most
+likely: more pictures drawn where the scatter is thick); not yet pinned to a build.
+
+**Against his 2 ms:** one mark over, high over the spawn, the card's whole 2.39 and the frame 2.43; the town by the
+spawn under, 1.93 (frame 1.97). Every other mark under 1.7.
+
+**What would bring the high spot down, dearest first:**
+
+1. **See the far lamps in turns:** a quarter of the list each frame, each lamp's answer kept till its turn. Whether
+   a lamp is behind a hill changes slowly; at 600 frames a second a quarter is under 7 ms late. About 0.15 off high
+   over the spawn, 0.08 off the plain. Small, and its own build.
+2. **Find the near faces' growth since 210** (0.1 high over the spawn, more in thick scatter): a flight with the near
+   half's bands off against on, then the cause.
+3. The rest of high over the spawn is the near faces (1.2) and the far 8 x 8 (0.7), as before.
