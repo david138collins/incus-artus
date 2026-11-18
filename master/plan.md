@@ -638,11 +638,12 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
       with the stage, the light 20 MB at 32 chunks of it and nothing on bare land; flown in a bracket with the
       stage on (2026-11-17): the near faces' time on the card 15% less than build 208's way over 20 marks, at no
       mark dearer. Done enough to go on; his look at builds 208 to 210 owed (the cut and the floor are his by eye)
-    - [ ] **Near light:** the near eye's own light, per face, blocky and quantised (the spec); placed lights in 16
+    - [x] **Near light:** the near eye's own light, per face, blocky and quantised (the spec); placed lights in 16
           clear steps a block, coloured, flooding through air and stopped by walls, flickering; moving lights (a
           held lantern, effects); caves and interiors dark unless lit ("i want light to be precious")
-    - [ ] **Glows and far lights:** lights seen from far off, sparkling, their glow shrinking and fading into fog,
-          never snapping off
+    - [x] **Glows and far lights:** lights seen from far off, sparkling, their glow shrinking and fading into fog,
+          never snapping off. With night, builds 216 to 225 (his looks at 222, 223 and 225: "looks good"); done enough
+          to go on, the prices owed at assess
     - [ ] **Textures:** bars wearing their own side and end pictures along each bar, joins seamless; the grass's
           shared edge; pictures for the blocks that have none (the stage's seven), placeholders or his art
     - [ ] **A finer region between the triangles and the march** (his words at build 210, 2026-11-17: "i feel like
