@@ -3308,6 +3308,45 @@ Reference: `Art/quartile minecraft illustration.png`
 - **Next, in his order** (2026-11-18, after build 225): assess, with the bracket of flights owed there (the TV
   in and the processor hot all through builds 211 to 225, none flown); how it's flown is his to say, Builder
   asking. Then the curve's far half and the rest of his checklist.
+- **Assess at build 225: the bracket, flown** (2026-11-18; read from the journal at 02d936a, `experiments.md`,
+  "Assess at build 225"; every figure here checked by Counsel against `logs/flight-1795040291.txt`, `-1795041255`,
+  `-1795042230`, `-1795043208` and `-1795044190`). Five flights back to back, the stage on, the TV unplugged: the
+  game as it is (1, 3, 5) and with lamps off (`INCUS_NEAR_LAMPS=0`; 2, 4). The first flights since build 210.
+  - **Against his 2 ms, a frame's median:** one mark over, high over the spawn, 2.43 in all three (the card's
+    whole 2.38 to 2.40), against 2.28 and 2.29 with lamps off. The town by the spawn 1.96 to 1.98 (1.87 and 1.88 off).
+    Every other mark under 1.7.
+  - **What lights and nights cost** (the card's medians, on against off, the one session): seeing the far lamps,
+    build 223's ray to each, 0.10 on the plain and in the scatter, 0.13 at the town by the spawn, 0.20 high over
+    the spawn, the same in all three flights to a thousandth; the dearest new thing. The dots 0.002 to 0.005. The
+    near faces with light in them, on the ground at the spawn, 1.02, 1.03 and 0.95 against 0.90 and 0.93: about
+    0.08, no more than those flights' own spread.
+  - **Loose marks:** the card's clock was held down all through "fast across the world" in every flight and for a
+    second or three at the scatter at 100000 in some, so those marks' numbers are loose. The processor's area
+    read 104 degrees at most marks with the TV out: the heat isn't the TV's alone.
+  - **Builder's ways down, dearest first** (her words to Counsel; David asked by her whether they come before the
+    curve's far half): (1) see the far lamps in turns, a quarter of the list each frame, about 0.15 off the high
+    spot, a small build of its own; (2) find why the near faces seem to have grown since build 210.
+  - *Counsel, what the bracket didn't measure:*
+    - **It flew the built-in settings, which aren't quite the game he looks at.** "Largest near squares" begins at
+      1, so the curve's near half (builds 213 to 215) was off in all five flights and is still unpriced by a
+      flight. The rings flew at 128 a side; his looks launch with wider rings (his session's log at build 225:
+      4,253 bricks of 8s on the card, where a flight's has 637), which build 211 priced off the screen at 0.4 to
+      1.1 ms a frame for rings three times wider. He has no "default" preset saved (the same log). So "one mark
+      over" is the built-in game's answer.
+    - **"The near faces grew since build 210" is a strong lead, not yet a finding.** Its 210 side is one flight
+      of another day (`logs/flight-1794927683.txt`), with the TV in, a switch more (`INCUS_FAR_SIDE=1`) and a
+      wide spread (high over the spawn, the whole's 95th 2.95 against today's 2.44). The faces on the card, then
+      against now: high over the spawn 1.11 against 1.19 to 1.21; the scatter at 10000 0.30 against 0.38 to
+      0.41; the scatter at 100000 0.58 against 0.93 to 1.16; the scatter of pieces at 100000 0.51 against 0.68
+      to 0.90 (Builder's "0.68 to 1.15" runs those last two marks together). Lamps off makes no odds to it.
+      **The triangles are the same to the hundredth of a million at every one of those marks** (0.80 million in
+      the scatter at 100000, 3.92 high over the spawn), so nothing more is drawn: if the growth is real it is
+      more work for each pixel in the faces' own program, dearest where faces lie thick over one another. And
+      since the bands were off in these flights, bands off against on can't find it: what would is build 210's
+      code and build 225's flown back to back in one session (210 from a build folder of its own), or each
+      thing added to the faces' program since 210 switched out in turn.
+  - **[OPEN] His to say:** whether the ways down come before the curve's far half; and whether a flight should
+    also fly the game as he looks at it (the wider rings, the near squares at 4).
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its

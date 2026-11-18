@@ -137,3 +137,33 @@ change and we can proceed. but we may have to leave it and work towards world ge
 judge it properly." So it waits with the style pass (section 5), and is the first thing to take up there. The
 cheaper middle way, to weigh against it then: block pictures that carry their own coarser versions (16, 8 and 4
 squares a side, drawn or picked, never averaged).
+
+## 9. Since: a fourth way to steady the chunky look, and Builder's recommendation (2026-11-18)
+
+Sent by Builder at David's asking, with her account of the graphics so far, as the assess bracket flew. All of it
+is parked by his word (section 8); nothing built, nothing priced.
+
+**Why the 4x band shimmers as he turns:** the band is drawn at a quarter size, and each 4x4 square takes its
+colour from one point of a block's picture at the square's middle. The squares are fixed to the screen, so as the
+world slides under the grid each square reads a slightly different spot and changes colour.
+
+**The cure, either way, is to make the chunky squares belong to the faces and not the screen:**
+
+1. **Chunky by the picture, drawn at the screen's own size** (new here; section 8's "pictures that carry their own
+   coarser versions" taken a step further). The near band is drawn full size, but each face wears a coarse version
+   of its picture (8 squares a block, each a 4x "pixel"), read without blending. Every chunky square is then a
+   fixed patch of the block's face and moves with it: no crawl on turning. The coarse versions are drawn by him or
+   made by keeping each patch's commonest colour, never an average. **The trade: silhouettes and the edges between
+   blocks come out crisp at full resolution, not in 4x stairs.** The cost is the near band drawn full size in
+   place of a quarter (to measure). Fairly small to build.
+2. **Texel splatting** (section 4): each square of a face's picture drawn as its own small square, snapped to
+   whole screen pixels. The chunky look then takes in the silhouettes too, still fixed to the world. The largest
+   change of the lot, the card's cost unmeasured, care at seams and steep angles, moving figures unsolved.
+
+**Builder's recommendation, for when he un-parks it:** try the first on one patch of ground, drawn both ways and
+priced, because it takes the crawl away for little; go to the second only if he wants the edges chunky too.
+
+*Counsel:* the fork between the two is one question for his eye, and it can't be answered from here: when he said
+"i like the look with 4x4 base up close" (2026-11-18), was it the chunky squares on the faces, or the stairs on
+the edges as well? The first way keeps the one and loses the other. A patch drawn both ways answers it for the
+price of a look. It also bears on figures: a figure's edge in the first way is crisp, in the second chunky.

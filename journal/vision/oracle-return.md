@@ -576,6 +576,20 @@ the answers.
   the same curve than three pictures and a mask?
   Does the cut by a list still beat yours (every ray cut) on a card that's full at the marks that work, and is it the
   footing for lazy rays (a far length kept, not re-marched every frame)?
+- **Since** (2026-11-18, builds 218 to 225, and the first flights since build 210). Placed light falls in even
+  steps and each lamp flickers on a beat of its own; far lamps are single twinkling pixels from where a lamp is
+  about a pixel, and past the triangles' reach each is hidden or shown by a ray of its own through the far cells,
+  in a pass apart from the march (which has room for one more buffer and no more); night is the sun's height
+  under the horizon with a "night brightness" number, no moon or clock yet. The curve's near half is left as it
+  is: he likes 4 x 4 squares up close and dislikes both the blur and the speckle that sharpening trades it for;
+  squares fixed to the world are "the last big change", waiting for world and content to judge by
+  (`journal/docs/graphics-style.md`, sections 8 and 9). **Flown at build 225** (five flights, lamps on against
+  off): one mark over 2 ms, high over the spawn, 2.43 ms a frame; the lamps' rays 0.10 to 0.20 ms. Those flights
+  flew the built-in settings, with the near half off and the smaller rings.
+  **Worth an outside eye:** a ray per lamp each frame for 633 lamps is the dearest new thing; is a quarter of the
+  list a frame the right cut, or should a lamp's answer live in the far cells themselves? And the processor's
+  area sits at 104 degrees (cutoff 105) through looks and flights alike, with the frame at 400 to 700 a second
+  uncapped: does anything here depend on a number taken that hot?
 
 ## 6. The message to send at the fork
 

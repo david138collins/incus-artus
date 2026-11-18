@@ -53,13 +53,19 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   leave it for now" (the note is in `journal/docs/experiments.md`, his look at build 218). Squares fixed to the
   world, the crawl's cure, are "the last big change": "we may have to leave it and work towards world gen/content
   for a bit to be able to judge it properly". **Lights and nights, the second of his three, are done enough to go on.
-  Next, in his order:** assess (how the bracket is flown is his to say).
-  After that the curve's far half, more textures, and the near eye's own costs (listing chunks, chunks with
-  pieces, chunk optimizing where it would show); "dont worry about very fast flight". **Owed at "assess":** a
-  bracket of flights (the TV in and the processor hot all through builds 211 to 225, and none flown, so nothing
-  says where the frame stands against his 2 ms); and his starting settings, now his to save as "default" presets
-  (whether the curve is on from the start, the lantern, the stipple), then named to the bracket or made the
-  built-in ones, since a flight flies the built-in settings. Panini, or another flex for a wide field of view,
+  Assess is flown** (build 225, 2026-11-18: five flights, lamps on against off, the TV out, the processor still at
+  104 degrees): against his 2 ms one mark is over, high over the spawn, 2.43 ms a frame (2.28 with lamps off);
+  the town by the spawn 1.97; every other mark under 1.7. Seeing the far lamps is the dearest new thing (0.10 to
+  0.20 ms on the card). The bracket flew the built-in settings: the curve's near half off, and rings of 128 where
+  his looks launch with wider ones, so the near half is still unpriced by a flight and the game he looks at
+  unmeasured. **His to say, asked by Builder:** whether the ways down come before the curve's far half (seeing
+  the far lamps in turns, about 0.15 off the high spot; and whether the near faces have grown since build 210: the same
+  triangles, dearer on the card, by one flight of another day, so it wants both builds flown in one session).
+  After that the curve's far half (priced first), more textures, placed things in the far view (unticked; build
+  207 did part), and the near eye's own costs (listing chunks, chunks with pieces, chunk optimizing where it
+  would show); "dont worry about very fast flight". **Still owed:** his starting settings, his to save as
+  "default" presets (whether the curve is on from the start, the lantern, the stipple, the rings' size), then
+  named to a flight or made the built-in ones, since a flight flies the built-in settings. Panini, or another flex for a wide field of view,
   is owed a talk. The graphics style waits for the style pass in Phase 4, squares fixed to the world with it:
   `journal/docs/graphics-style.md` (the detail curve has moved it on: section 7).
 - **His word on the road** (2026-11-16): "i'm pretty happy and confident with our graphics engine now"; hanging
