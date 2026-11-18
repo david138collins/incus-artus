@@ -122,3 +122,18 @@ curve."
 - **What stands from this note:** the styles' place (section 3: the near pictures are still stores of their own),
   crawl as the thing his eye judges (section 4), half size for the whole world as one setting of the same
   machinery, and the style pass in Phase 4 (section 5).
+
+## 8. Since: the near half left as it is, and squares fixed to the world (2026-11-18)
+
+His look at the curve's near half (build 218): "i like the look with 4x4 base up close"; what he doesn't want is
+the blur where a 4x square holds several of a block picture's squares, nor the speckle that sharpening trades it
+for. "there shouldn't be any blur beneath the march, and the march should be all averages." He left it: "make a
+note that this could be reworked later and how that could be done and leave it for now." The note is in
+`journal/docs/experiments.md` (his look at build 218): the slider as a plain distance; and three ways to no blur,
+the last of them section 4's squares fixed to the world.
+
+On that last: "i guess right now the work is doing the little things until whats left is really the last big
+change and we can proceed. but we may have to leave it and work towards world gen/content for a bit to be able to
+judge it properly." So it waits with the style pass (section 5), and is the first thing to take up there. The
+cheaper middle way, to weigh against it then: block pictures that carry their own coarser versions (16, 8 and 4
+squares a side, drawn or picked, never averaged).

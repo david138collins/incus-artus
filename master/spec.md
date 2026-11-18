@@ -403,6 +403,7 @@ Where the sources disagree. Each version is given with its ref; nothing here is 
 - Crunchy 2×2 pixels may be a good look. [idea] (regroup.md:900; handoff.md:45)
 - One fixed screen of 2×2 squares ("macropixels") that everything feeds: the far march's adaptive cells underneath, masked by the triangle field, the world drawn at half the window's size (1,280 × 800 on the laptop's 2,560 × 1,600) and shown without smoothing; the UI on the same grid, or a finer one over it with transparency; 3D styles tried between the triangles and that screen: "a good artistic interface i could work around". [idea] (decisions.md, the rebuild, 2026-11-17)
 - The detail curve: the smallest thing drawn at a distance d is sqrt(a² + (g × d / P)²) blocks (a a size in the world up close, g a size on the glass far off, P the pixels a block one block away is tall); the triangles go 4 × 4 squares to 2 × 2 to single pixels outward, then the march's cells grow from 2 to 32 and beyond on the same curve: "a sort of linear equivalence of detail from the back if your hand towards infinity ... a formula with a single flexture". The near half is built (builds 213 to 215: "Largest near squares", "Detail up close", the bands fading by a stipple, "Picture sharpness in the squares"), off at the start until he says; the far half after lights and nights. [decided; near half built] (decisions.md, the rebuild, 2026-11-17)
+- Squares fixed to the world instead of the screen (texel splatting), so the look is "crunchy up close without the noise in detail when you move": "the last big change", left until there is world and content to judge it by; block pictures that carry their own coarser versions are the cheaper middle way. [idea, waiting] (decisions.md, the rebuild, 2026-11-18)
 - A mosaic snap filter; a world-anchored dome for far pixels, where a far dragon may lag. [idea] (proposal:327, 335)
 - Pixel horizon: a crisp, low-resolution pixel-art far band lit from the true slope. [idea] (watch-list.md:299-304)
 - Far people and animals as animated sprites; crowds as sprites past about 60 to 100 blocks. [idea] (watch-list.md:310; proposal:87)
@@ -419,7 +420,8 @@ Where the sources disagree. Each version is given with its ref; nothing here is 
 - Placed light falls off in clear steps per block, 16 levels as in Minecraft (smooth only as an option): "very clear steps in brightness". [decided] (decisions.md:1462-1464; regroup.md:1246)
 - Placed lights flood through air, coloured, stopped by walls, and flicker; per colour the brighter of two wins. [decided] (regroup.md:1092)
 - Which blocks give light is a data file (`data/lights.toml`: a block's name and its red, green and blue, 0 to 15 each); the first lamps are two plain blocks, red and green; a pixel shows the brighter of daylight and lamp light, so by day a lamp shows only in shade, caves and halls: "it looks great". [built, build 216] (decisions.md, the rebuild, 2026-11-17)
-- Lamps flicker at random, each on its own pattern (asked for "at some point"). [wanted] (decisions.md, the rebuild, 2026-11-17)
+- Lamps flicker each on its own beat (one of 16, fixed by where a lamp stands; asked for "at some point"). [built, build 221; his look owed] (decisions.md, the rebuild, 2026-11-17 and 11-18)
+- Each block from a lamp or a lantern is a fixed share dimmer than the last (a quarter to begin; "Light step (share dimmer each block)" in Lights), so every step is the same size to the eye and a light keeps its colour as it fades: "the light is alright". [built, build 218] (decisions.md, the rebuild, 2026-11-17)
 - Coloured, flickering placed lights (the brazier) sparkle from far away: "i can see them from far away sparkling." [decided] (objects.md:342; handoff.md:203-204)
 - Far lights: their glow and twinkle shrink and fade into fog, never snapping off. [decided] (regroup.md:1292)
 - Coloured light carries meaning. [decided] (caves.md:477)
@@ -1194,6 +1196,7 @@ Where the sources disagree. Each version is given with its ref; nothing here is 
 
 ### Debug and instruments
 - A debug panel where every tunable is exposed, with named presets and an "everything" preset; live resources listed; spawn a tree or an item; behaviours tweaked while watching them: "these variables should be added in pages of the debug screen". [decided] (decisions.md:832-838; conv:398, 445)
+- In the new game's panel, presets are kept a page at a time (Render and Camera apart): a bar with a dot that is green while on the "default" preset, a name box, Save, Load and Folder; a preset saved as "default" is what the game starts with; Ctrl+S saves; they replace the Default buttons: "presets look good". Flights and tests fly the built-in settings unless a preset is named to them. [built, build 219] (decisions.md, the rebuild, 2026-11-18)
 - Debug pages cost nothing while closed. [decided] (regroup.md:53)
 - Urges shown as vertical volume-meter bars with a channel strip, like a mixing desk. [decided] (jobs.md:45-46)
 - Build numbers, kept out of sight on the debug panel's Overview page. [decided] (caves.md:553; mem/build-numbers:11-15)

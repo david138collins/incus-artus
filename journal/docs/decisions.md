@@ -3186,6 +3186,72 @@ Reference: `Art/quartile minecraft illustration.png`
 - **Next, in his order** (2026-11-17): lamps flickering at random; glows and far lights; night; then assess; then
   the curve's far half, and the rest of his checklist (textures, listing chunks, chunks with pieces, chunk
   optimizing).
+- *Read from the journal at c7b7f44* (builds 218 to 221 and his looks, `experiments.md`; his words relayed by
+  Builder; none of these builds flown, and no price taken for any).
+- **[DECIDED 2026-11-17] Even steps in placed light** (David, at his look at build 217, the lantern): "lights look
+  good for now. although i couldn't really see the steps in the red and green light levels." Why: a level was
+  squared where it's read, so the steps nearest a lamp were the smallest, and the flicker's swing was bigger than
+  they were. His answer: "Even steps first", before random flicker; the slider's name his: **"Light step (share
+  dimmer each block)"**, in Lights. Build 218: each block from a lamp or the lantern a fixed share dimmer than the
+  last (a quarter to begin), so every step is the same size to the eye; the lantern's colour holds as it fades (the
+  reddening written down at build 217 is gone with it); the flicker begins at a twentieth. Everything lit is
+  dimmer than he'd seen it, said to him. **His look (2026-11-18, at build 220): "the light is alright."** Done
+  enough to go on; no strength for lights asked for, so it stays written down, not built.
+- **[DECIDED 2026-11-18] The detail curve's near half is left as it is, its rework written down** (David, to
+  Builder, at his look at build 218). His words, in order: "i feel like whatever detail up close is doing, it
+  shouldn't be doing it at all; is there a way we can set that to zero? what does it do?"; "ok, but i like the look
+  with 4x4 base up close. and all that 'detail up close' does as i move it up, is make it *blurry*. that should be
+  the distance at which it stops being 4x and starts being 2x, shouldn't it?"; "i think what i actually want is for
+  the detail to go like this, 4x <-> 2x <-> 1x <-> 2x march <-> 4x march <-> 8x march etc etc etc. idk how far it
+  actually goes, up to 64x64 cells? not sure. but there shouldn't be any blur beneath the march, and the march
+  should be all averages ... as i understand it the edges of mountains arent huge cells, thats why the edges are
+  both crispy and smooth"; and after trying the sharpness at 1: "i tried your suggestions and understand it a bit.
+  i see the tradeoff with the speckling effect. i think we should make a note that this could be reworked later and
+  how that could be done and leave it for now."
+  - What he was told: "Detail up close" is that distance already; the blur is a second thing (a block's picture is
+    32 squares a side, and past about 5 blocks a 4x square holds several of them, which the card averages); the
+    sharpness slider picks one square in place of the average, which speckles. His reading of the march was right.
+  - The rework on file (`experiments.md`, his look at build 218), none built: the slider as a plain distance, its
+    name and place his; and three ways to no blur beneath the march: hand over where a picture's square is as big
+    as the screen's (the coarse squares then cover little); pictures that carry their own coarser versions, made
+    on purpose and never averaged (a job for the textures' step and the Registrar); squares fixed to the world
+    (texel splatting), the crawl's cure and the largest change.
+- **[DECIDED 2026-11-18] Squares fixed to the world: the last big change, left until there's content to judge it
+  by** (David, to Builder; relayed to Counsel by her). He asked: "did you say there was a way to fix things to the
+  world so it could be crunchy up close without the noise in detail when you move?" Told: yes, the last of the
+  rework's ways, the largest change, the card's work unmeasured, seams at steep angles, moving figures unsolved;
+  pictures with their own coarser versions the cheaper middle way. **His word: "i guess right now the work is doing
+  the little things until whats left is really the last big change and we can proceed. but we may have to leave it
+  and work towards world gen/content for a bit to be able to judge it properly."** Nothing built, nothing priced.
+  - *Counsel:* this agrees with his word of 2026-11-17 on the style pass ("come back to this when we have enough
+    content to work on style") and puts squares fixed to the world there with it, in Phase 4. The little things
+    first: lights and nights, assess, the curve's far half.
+- **[DECIDED 2026-11-18] Presets on the panel's pages, and the software map wrapped and scrolling** (David, to
+  Builder, in the same message as his look at build 218): "we do need a preset system now, i think, in order for me
+  to better check out the features as they start to grow. the same way we did it before, where there's a 'default'
+  preset, and if you save a preset named default, it becomes the default, and there's a little dot that turns green
+  when you are on the default preset. this can replace the defaulter buttons inside the panel. additionally, we
+  need to give some love to the software map; it needs to smart-wrap and let me scroll downwards and upwards." His
+  answers: the bar **"On each page"** (the Render page's presets and the Camera page's apart, so loading a look
+  never changes how fast he flies); back to the default **"From the Load list only"**. Build 219: the bar (the dot,
+  a name box, Save, Load, Folder), `presets/render` and `presets/camera` as plain text, Ctrl+S, the Default buttons
+  gone; the lantern lit or out isn't kept. Build 220: the software map's lanes flow like words and scroll.
+  **His look: "presets look good, software map looks good enough, its just there for reference. i like the
+  tooltips. the light is alright. whats next?"** All done enough to go on.
+  - **Flights and tests don't read his presets** (Builder's rule, said to him): they fly the built-in settings, so
+    brackets stay like for like, unless `INCUS_START_PRESET` names one, which the flight's header then shows. So
+    once he saves a "default", a flight no longer measures the game as it starts for him unless that's given: at
+    "assess" his starting settings are either named to the bracket or made the built-in ones. *Counsel:* this is
+    also how the starting settings left open on 2026-11-17 (the curve on or off, the lantern, the stipple) get
+    said: he saves them.
+  - A launch handed to him now waits for the processor to cool after Builder's tests (build 220's came up at 100
+    degrees, 102 a minute in; the cutoff is 105).
+- **Lamps flickering each on its own: built, his look owed** (build 221; his question of 2026-11-17, "can lamps be
+  made to flicker at random at some point?", and "whats next?"): 16 voices, a lamp's picked from where it stands
+  and kept in a colour cell's four spare bits, the lantern a voice of its own, no new control. The flicker still
+  begins at a twentieth, so it may want moving up to be seen.
+- **Next, in his order** (2026-11-18): glows and far lights; night; then assess; then the curve's far half and the
+  rest of his checklist.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its

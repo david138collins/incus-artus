@@ -41,14 +41,22 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   the screen only: the near half (builds 213 to 215: three near pictures by bands of distance, the bands fading by
   a stipple, "Largest near squares", "Detail up close", "Stipple width" and "Picture sharpness in the squares" in
   The near eye; it launches off); placed lights (build 216, red and green lamp blocks: "it looks great"); a
-  lantern at the eye on the L key (build 217, his look owed). **Next, in his order:** lamps flickering at random;
-  glows and far lights; night; then assess. After that the curve's far half, more textures, and the near eye's
-  own costs (listing chunks, chunks with pieces, chunk optimizing where it would show); "dont worry about very
-  fast flight". **Owed at "assess":** a bracket of flights (the TV has been in and the processor hot all through
-  builds 211 to 217, so nothing says where the frame stands against his 2 ms), and his word on the starting
-  settings (whether the curve is on from the start; the lantern's brightness and colour; a strength for lights on
-  dark stone). Panini, or another flex for a wide field of view, is owed a talk. The graphics style waits for the
-  style pass in Phase 4: `journal/docs/graphics-style.md` (the detail curve has moved it on: section 7).
+  lantern at the eye on the L key (build 217: "lights look good for now"); even steps in placed light (build 218,
+  "Light step" in Lights: "the light is alright"); presets on the Render and Camera pages and the software map
+  wrapped (builds 219 and 220: "presets look good, software map looks good enough"); each lamp flickering on its
+  own (build 221, his look owed). **His look at the curve's near half (2026-11-18):** "i like the look with 4x4
+  base up close"; left as it is, "make a note that this could be reworked later and how that could be done and
+  leave it for now" (the note is in `journal/docs/experiments.md`, his look at build 218). Squares fixed to the
+  world, the crawl's cure, are "the last big change": "we may have to leave it and work towards world gen/content
+  for a bit to be able to judge it properly". **Next, in his order:** glows and far lights; night; then assess.
+  After that the curve's far half, more textures, and the near eye's own costs (listing chunks, chunks with
+  pieces, chunk optimizing where it would show); "dont worry about very fast flight". **Owed at "assess":** a
+  bracket of flights (the TV in and the processor hot all through builds 211 to 221, and none flown, so nothing
+  says where the frame stands against his 2 ms); and his starting settings, now his to save as "default" presets
+  (whether the curve is on from the start, the lantern, the stipple), then named to the bracket or made the
+  built-in ones, since a flight flies the built-in settings. Panini, or another flex for a wide field of view,
+  is owed a talk. The graphics style waits for the style pass in Phase 4, squares fixed to the world with it:
+  `journal/docs/graphics-style.md` (the detail curve has moved it on: section 7).
 - **His word on the road** (2026-11-16): "i'm pretty happy and confident with our graphics engine now"; hanging
   homework and questions are dropped (the kept Oracle's five questions among them; an outside look is his to call,
   no longer a gate); "Builder can proceed with the tests and basic fixes, i'll bring it up if i see undesirable
