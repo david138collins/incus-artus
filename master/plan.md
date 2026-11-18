@@ -716,7 +716,8 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
           need to check 224", done enough to go on),
           night (his answers, 2026-11-18: "Night by the sun slider", "Moonlit, with a slider", the slider "In
           Light, \"night brightness\"", the sun height down to -90; build 225, built: the slider's range, and night's light, old's fixed
-          0.04, as the slider; off the screen a dark blue sky, the land dim, the lamps plain; his look owed)) (placed and moving lights, glows and far lights,
+          0.04, as the slider; off the screen a dark blue sky, the land dim, the lamps plain; his look: "looks good",
+          done enough to go on)) (placed and moving lights, glows and far lights,
           night); **then assess**; (3) the far half after (rings that reach where the curve says, with a band of
           4s at the seam; at g = 2 perhaps 600 MB and the finer rays' time: priced first)
     - [ ] **Listing chunks:** the near eye's processor time is all in listing the chunks in view (0.15 to 0.27 ms a

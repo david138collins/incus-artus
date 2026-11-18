@@ -9360,3 +9360,12 @@ place; the test's `FAR_TEST_SUN` and `FAR_TEST_NIGHT`).
 **Said to him before he looks:** night comes as the sun height goes under -2 (the sun's own light out) and is whole
 by -18 (the dusk's glow gone); "night brightness" sets how much the land, water and sky keep; no moon or stars yet;
 fog is still off by default, so far lamps don't fade at night unless it's on.
+
+### His look at build 225 (2026-11-18)
+
+**His words:** "looks good. whats next?" Night by the sun slider is done enough to go on, and with it lights and
+nights, the second of his three ("lets do 1 and 2 and then assess"). Next: assess.
+
+**From the session's log** (thirteen minutes, no warnings; the processor's area 69 to 103 degrees): build 224's
+mend shows: the far lamps' first part, 281 lamps from the two tiles nearest, 0.3 s after the thread began; the
+whole list in 29.4 s as before.
