@@ -9115,3 +9115,50 @@ properly."
 **Taken as:** squares fixed to the world are the last big change to the look, left for now; the little things go on
 first (lights and nights, assess, the far half), and it may wait past them until there is world and content enough
 to judge it by. Nothing built, nothing priced.
+
+### His look at build 221, and build 222's pass mark: far lamps twinkle
+
+**His look at build 221** (2026-11-18): "the single pixels of light don't twinkle quite the way they did in old
+incus, from a distance." Old's far glows (build 100, `old/src/sight/lights.rs`, his words then, 2026-11-09:
+"pixels of green that popped in and out as they twinkled, less and less as you got farther away"): past the loaded
+chunks each light a dot of its colour, a pixel or so, shown only while its flicker was high, the bar rising with
+distance, so far off it showed only at its peaks; smaller and dimmer far off, the fog taking it. Here nothing of
+that is built yet: a far lamp is its lit blocks, which dim a little and swell back but never go out. The plan's
+next step, glows and far lights, is this. **His answer** to where it begins: "About a pixel" (from where a lamp's
+block shrinks to about a pixel on the screen; so it follows the field of view, and zooming in brings back the
+steady flame).
+
+**Built so (build 222), within the near eye's reach:**
+
+1. **A list of the lamps round the eye**, made on a thread of its own with a doorway of its own (the lantern's
+   way): every lamp the scatter stage stood in the tiles within the near eye's reach (each tile's lamps found once
+   and kept, the tile not kept) and every one placed through the doorway, with its light and its voice (build
+   221's); asked again when the eye has moved 64 blocks, the reach changes or something is placed; the nearest
+   4,096 kept. The frame never waits for it.
+2. **A pass of its own after the x-fader, "the far lamps"**: each lamp a dot one screen pixel square at its
+   block's middle, its light's colour added to the picture:
+   - **from where:** none while its block is 2 pixels across or more, whole at a pixel, faded in between;
+   - **when:** while its voice's wave (the one its light flickers to, build 221) is over a bar: a third of the way
+     up its swing where it begins, rising to nearly its top 1,500 blocks farther on (old's numbers), so it pops in
+     with its light's peaks and, far off, only at the highest; with the flicker at 0 it doesn't twinkle (old's
+     rule: shown steadily);
+   - **how bright:** under a pixel, dimmer by the share of the pixel its block covers; through the fog as a face
+     there is; and by how much of the near picture shows there (the x-fader), so it fades with the blocks at the
+     near reach and never snaps off;
+   - **hidden** where something nearer covers its pixel, by the near picture's own depth there (its block's own
+     faces and what's within a block and a half behind them don't hide it).
+3. **Past the near reach** (1,024 blocks as it starts) nothing yet: the next build, a lamp's line of sight read
+   through the far cells (old's way, a ray to it), as the far picture's depth is too coarse to hide a pixel by.
+4. **No new control.** "Flicker (share of brightness)" and "Flicker speed (a second)" drive it; the numbers above
+   are the code's, for his look to move.
+
+**The mark:**
+
+- **Tests** all pass, one new: the lamps' list (each tile's lamps and the placed ones, nearest first, none past the
+  reach, the most kept).
+- **Pictures off the screen** (the stage on), from far enough that the cave's or the woods' lamps are a pixel:
+  with the far lamps off (a switch, for measuring against) build 221's picture; on, dots of red and green at lamps
+  that show, none where the lamp is hidden; at two times, some on in one and off in the other.
+- **Its price**: the pass's time on the card from the card's clock, in the frame's report; a bracket owed at
+  "assess".
+- **His look:** whether far lamps pop in and out as old's did, and from where.

@@ -702,8 +702,11 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
           way we did it before", in place of the panel's Default buttons) and **the software map** ("it needs
           to smart-wrap and let me scroll downwards and upwards"), each its own build; then random flicker (build 221, built: 16 voices, a lamp's picked from where it
           stands, kept in a colour cell's four spare bits, the lantern a voice of its own; no new control; off
-          the screen the lamps dimmed by different amounts in one picture; his look owed),
-          glows and far lights, night) (placed and moving lights, glows and far lights,
+          the screen the lamps dimmed by different amounts in one picture; his look: "the single pixels of light
+          don't twinkle quite the way they did in old incus, from a distance"), glows and far lights (build 222,
+          its pass mark written: within the near reach, each lamp a dot at a pixel that pops in at its flicker's
+          peaks from where its block is about a pixel, his answer "About a pixel"; past the near reach the next
+          build), night) (placed and moving lights, glows and far lights,
           night); **then assess**; (3) the far half after (rings that reach where the curve says, with a band of
           4s at the seam; at g = 2 perhaps 600 MB and the finer rays' time: priced first)
     - [ ] **Listing chunks:** the near eye's processor time is all in listing the chunks in view (0.15 to 0.27 ms a
