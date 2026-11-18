@@ -3370,6 +3370,13 @@ Reference: `Art/quartile minecraft illustration.png`
   - **[OPEN] What "the editor stuff" begins with.** Phase 3 is the editor's pages, and his order for it
     (2026-11-16) begins with tectonics, then world generation, the Registrar and the placer, ecology. Whether
     that is what he means here, or the editor's own frame and pages first, is his to say.
+- **The chunky look's edges: a first, unsure answer; nothing decided** (David, to Builder, 2026-11-18, after
+  reading a piece on texel splatting with her; relayed by her): "i like the stairstepped edges i think. its hard
+  to say without seeing it."; "im just not sure what the two ways would look like. hence thinking maybe i should
+  let it lie and move on for a while, maybe." Builder's reading: stairs that hold still come only from a grid
+  fixed to directions round the eye, the dearest way; squares fixed to the faces give crisp straight edges. She
+  recommends letting it lie, with a look at Ebert's demo as the free way to see it. Filed in
+  `journal/docs/graphics-style.md`, section 10; still parked by his word of the same day.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its

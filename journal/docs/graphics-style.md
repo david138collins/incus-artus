@@ -167,3 +167,25 @@ priced, because it takes the crawl away for little; go to the second only if he 
 "i like the look with 4x4 base up close" (2026-11-18), was it the chunky squares on the faces, or the stairs on
 the edges as well? The first way keeps the one and loses the other. A patch drawn both ways answers it for the
 price of a look. It also bears on figures: a figure's edge in the first way is crisp, in the second chunky.
+
+## 10. Since: his first answer on the edges, and letting it lie (2026-11-18, the same evening)
+
+He read a piece on texel splatting with Builder (one he pasted; her reading: it looks like an AI's answer to a
+description of this engine; its sound part is section 9's first way; its speeds have no source, and it takes
+4x, 2x and 1x for squares a block, where here they are screen pixels a square). His words after, relayed by her:
+
+- "i like the stairstepped edges i think. its hard to say without seeing it."
+- "im just not sure what the two ways would look like. hence thinking maybe i should let it lie and move on for a
+  while, maybe."
+
+So section 9's question has a first, unsure answer: the stairs on the edges are part of what he likes. **Nothing
+is decided.**
+
+**What that answer would rule in and out, by Builder's reading:** on blocks, squares fixed to a face give
+straight, crisp edges (section 9's first way, and plain splatting too, since a block's edge lies along its
+squares' edges). Stair-stepped edges that also hold still as he turns come only from a grid fixed to directions
+round the eye (the probe grid in Ebert's own write-up, section 4), the part the pasted piece says to skip. So if
+the stairs stay wanted, the cheap way doesn't give them, and the way that does is the dearest.
+
+**Where it rests:** Builder recommends letting it lie, as he leans, with a look at Ebert's own demo as the free
+way to see the second look. It stays parked with section 8, to be taken up with world and content to judge by.
