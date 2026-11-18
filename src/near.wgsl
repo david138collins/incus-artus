@@ -171,9 +171,10 @@ fn looks(facing: u32) -> vec3<f32> {
     }
 }
 
-// The light kept for a cell (north, east, up; blocks, the world's): x, the sky's, 15, plain daylight, where nothing is
-// kept for it; y, z, w, the placed light's red, green and blue (build 216), each 0 to 15, none where no colour brick
-// is kept (`near.rs`, `LightBlock::at` and `placed_at`, are this in Rust, for the tests).
+// The light kept for a cell (north, east, up; blocks, the world's): x, the sky's in its low 4 bits, 15, plain daylight,
+// where nothing is kept for it, and over them the voice the placed light there flickers to (build 221; 0 to 15); y, z,
+// w, the placed light's red, green and blue (build 216), each 0 to 15, none where no colour brick is kept (`near.rs`,
+// `LightBlock::at`, `placed_at` and `voice_at`, are this in Rust, for the tests).
 fn kept_at(place: vec3<i32>) -> vec4<u32> {
     let chunk = place.xy >> vec2<u32>(5u);
     let entry = (u32(chunk.x & 255) + u32(chunk.y & 255) * 256u) * 2u;
@@ -200,7 +201,7 @@ fn kept_at(place: vec3<i32>) -> vec4<u32> {
     if (tinted != 0xFFFFFFFFu) {
         colour = kept_light[first + tinted + (i >> 1u)] >> ((i & 1u) * 16u);
     }
-    return vec4<u32>(sky, colour & 15u, (colour >> 4u) & 15u, (colour >> 8u) & 15u);
+    return vec4<u32>(sky | (((colour >> 12u) & 15u) << 4u), colour & 15u, (colour >> 4u) & 15u, (colour >> 8u) & 15u);
 }
 
 // The lantern's light in a cell (north, east, up; the world's): red, green and blue, each 0 to 15; none outside its
@@ -222,20 +223,40 @@ fn carried_at(place: vec3<i32>) -> vec3<u32> {
 // every step is the same size to the eye, the bright ones beside a lamp as plain as the dim ones at its edge, and
 // colours whose levels fall together keep their mix [David, 2026-11-17: "i couldn't really see the steps in the red
 // and green light levels"].)
-fn placed(levels: vec3<u32>) -> vec3<f32> {
+// (Build 221: each lamp flickers on its own [David, 2026-11-17: "can lamps be made to flicker at random at some
+// point?"]. `voice`: whose light it is, one of 16 for a lamp (`near.rs`, `voice_of`, kept with the cell's levels) or
+// the lantern's own. A voice has its own pace, a quarter slower to a quarter quicker than the flicker's speed, its own
+// place in the beat, and three waves that never line up, so it wavers unevenly, as a flame does. Not chance: a
+// lamp's beat is fixed by where it stands. Where no light reaches, nothing is worked out.)
+fn placed(levels: vec3<u32>, voice: u32) -> vec3<f32> {
+    if (all(levels == vec3<u32>(0u))) {
+        return vec3<f32>(0.0);
+    }
     let light = select(vec3<f32>(0.0), pow(vec3<f32>(1.0 - near.glow.w), 15.0 - vec3<f32>(levels)), levels > vec3<u32>(0u));
-    let turn = near.glow.z * near.glow.y * 6.2832;
-    let wave = 0.5 + 0.3 * sin(turn) + 0.2 * sin(turn * 2.7 + 1.3);
+    let v = f32(voice);
+    let turn = near.glow.z * near.glow.y * 6.2832 * (0.75 + 0.5 * fract(v * 0.618034)) + v * 2.399963;
+    let wave = 0.5 + 0.25 * sin(turn) + 0.15 * sin(turn * 2.7 + 1.3 + v) + 0.1 * sin(turn * 5.3 + 0.7 * v);
     return light * (1.0 - near.glow.x * wave);
 }
 
-// The light on a face at a pixel (x the sky's; y, z, w the placed light's red, green and blue): the sky's its own
-// (build 208's way, and no placed light); or, kept apart from the faces (build 210), that of the cell the face looks
-// into there: the cell its place on its block's picture falls in, along the two ways the face spreads, and the one it
-// looks into along the third.
-fn face_light(corner: Corner) -> vec4<u32> {
+// The lantern's voice (build 221): one of its own, apart from the lamps' 16.
+const LANTERN_VOICE: u32 = 16u;
+
+// The light on a face at a pixel.
+struct FaceLight {
+    // The sky's, 0 to 15.
+    sky: u32,
+    // The placed light's red, green and blue as light on a surface (`placed`): the lamps' and the lantern's, colour by
+    // colour the brighter.
+    placed: vec3<f32>,
+}
+
+// The light on a face at a pixel: the sky's its own (build 208's way, and no placed light); or, kept apart from the
+// faces (build 210), that of the cell the face looks into there: the cell its place on its block's picture falls in,
+// along the two ways the face spreads, and the one it looks into along the third.
+fn face_light(corner: Corner) -> FaceLight {
     if ((near.cell.w & 4) == 0) {
-        return vec4<u32>((corner.what.z >> 16u) & 15u, 0u, 0u, 0u);
+        return FaceLight((corner.what.z >> 16u) & 15u, vec3<f32>(0.0));
     }
     let facing = corner.what.x;
     let a = i32(floor(corner.on_picture.x));
@@ -248,10 +269,10 @@ fn face_light(corner: Corner) -> vec4<u32> {
         cell = vec3<i32>(a, into, b);
     }
     let chunk = vec2<i32>(i32(corner.what.w & 0xFFFFu) - 32768, i32(corner.what.w >> 16u) - 32768);
-    // (The lamps' light and the lantern's: colour by colour, the brighter.)
+    // (The lamps' light and the lantern's, each flickering to its own voice: colour by colour, the brighter.)
     let place = vec3<i32>(chunk * 32, 0) + cell;
     let kept = kept_at(place);
-    return vec4<u32>(kept.x, max(kept.yzw, carried_at(place)));
+    return FaceLight(kept.x & 15u, max(placed(kept.yzw, kept.x >> 4u), placed(carried_at(place), LANTERN_VOICE)));
 }
 
 // A surface's colour lit as the far eye lights a finished ray (`far.wgsl`'s `lit`, `sunlit` and `shaded`): the sun on
@@ -372,7 +393,7 @@ fn near_face(corner: Corner) -> @location(0) vec4<f32> {
     // By placed light (build 216) a surface is its colour times the light there; a pixel shows the brighter, colour
     // by colour, of that and its daylight: so by day a lamp shows only in shade, caves and halls.
     let kept = face_light(corner);
-    let seen = max(near_lit(colour, light, corner.from_eye, kept.x), colour * placed(kept.yzw));
+    let seen = max(near_lit(colour, light, corner.from_eye, kept.sky), colour * kept.placed);
     return vec4<f32>(to_srgb(clamp(seen, vec3<f32>(0.0), vec3<f32>(1.0))) * shows, shows);
 }
 
@@ -406,6 +427,6 @@ fn near_water(corner: Corner) -> @location(0) vec4<f32> {
     let dimmed = 1.0 - exp(-camera.water.w * through);
     let covers = dimmed * shows;
     let kept = face_light(corner);
-    let seen = max(near_lit(camera.water.rgb, 1.0, corner.from_eye, kept.x), camera.water.rgb * placed(kept.yzw));
+    let seen = max(near_lit(camera.water.rgb, 1.0, corner.from_eye, kept.sky), camera.water.rgb * kept.placed);
     return vec4<f32>(to_srgb(clamp(seen, vec3<f32>(0.0), vec3<f32>(1.0))) * covers, covers);
 }

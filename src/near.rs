@@ -220,6 +220,21 @@ impl LightBlock {
         let colour = self.words[brick as usize + (i >> 1)] >> ((i & 1) * 16);
         [(colour & 15) as u8, (colour >> 4 & 15) as u8, (colour >> 8 & 15) as u8]
     }
+
+    /// The voice the placed light in a cell of the chunk flickers to (build 221; 0 to 15), read as the card reads
+    /// it: 0 where there's no colour brick.
+    pub fn voice_at(&self, cell: [i32; 3]) -> u8 {
+        let layer = (cell[2] >> 3) - self.low as i32;
+        if layer < 0 || layer >= self.layers as i32 {
+            return 0;
+        }
+        let brick = self.words[(self.layers as i32 * 16 + layer * 16 + (cell[0] >> 3) + (cell[1] >> 3) * 4) as usize];
+        if brick == NO_BRICK {
+            return 0;
+        }
+        let i = ((cell[0] & 7) + (cell[1] & 7) * 8 + (cell[2] & 7) * 64) as usize;
+        (self.words[brick as usize + (i >> 1)] >> ((i & 1) * 16 + 12) & 15) as u8
+    }
 }
 
 /// A colour brick's words on the card (512 cells of 16 bits).
@@ -284,8 +299,9 @@ impl Glows {
 }
 
 /// The placed light in a chunk's own columns (build 216), a cell a whole block, from `low` up to `high`: its red,
-/// green and blue in 4 bits each from the low bits, at north + east x 32 + (up - low) x 1,024; 0 in a cell no light
-/// reaches, or that a whole block fills.
+/// green and blue in 4 bits each from the low bits, and in the top 4 the voice it flickers to (build 221: that of the
+/// lamp that lights it brightest), at north + east x 32 + (up - low) x 1,024; 0 in a cell no light reaches, or that a
+/// whole block fills.
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Placed {
     pub low: i32,
@@ -302,23 +318,40 @@ impl Placed {
     }
 }
 
+/// How many voices placed lights flicker to (build 221): a colour cell's four spare bits hold one.
+pub const VOICES: u32 = 16;
+
+/// The voice a lamp flickers to (build 221) [David, 2026-11-17: "can lamps be made to flicker at random at some
+/// point?"]: one of `VOICES`, from where it stands (its cell, the world's), so the same lamp has the same voice
+/// whichever chunk's light is being made, and every time.
+pub fn voice_of(lamp: [i32; 3]) -> u8 {
+    let mixed = (lamp[0] as u32).wrapping_mul(0x9E37_79B1) ^ (lamp[1] as u32).wrapping_mul(0x85EB_CA77) ^ (lamp[2] as u32).wrapping_mul(0xC2B2_AE3D);
+    (((mixed ^ mixed >> 15).wrapping_mul(0x2C1B_3C6D) >> 28) % VOICES) as u8
+}
+
 /// Light spread through a box of cells (`size` of them north, east and up; a cell at north + east x size[0] + up x
-/// size[0] x size[1]) from `seeds` (a cell of the box and its light: red, green, blue, each 0 to 15): a step dimmer
-/// each cell, six ways, into every cell that's `open`, each colour on its own, a cell keeping the brightest that
-/// reaches it. A seed's own cell has its light whether it's open or not (a lamp is a block; the lantern is in air).
-fn spread(size: [i32; 3], open: &[bool], seeds: &[([i32; 3], [u8; 3])]) -> Vec<[u8; 3]> {
+/// size[0] x size[1]) from `seeds` (a cell of the box, its light: red, green, blue, each 0 to 15, and its voice): a
+/// step dimmer each cell, six ways, into every cell that's `open`, each colour on its own, a cell keeping the
+/// brightest that reaches it. A seed's own cell has its light whether it's open or not (a lamp is a block; the
+/// lantern is in air). With each cell's levels, its voice (build 221): that of the seed its brightest colour came
+/// from (the first of red, green and blue where they're level); of two seeds as bright in a cell, the lower voice,
+/// so the answer doesn't hang on the order the seeds are given in.
+fn spread(size: [i32; 3], open: &[bool], seeds: &[([i32; 3], [u8; 3], u8)]) -> (Vec<[u8; 3]>, Vec<u8>) {
     let at = |cell: [i32; 3]| (cell[0] + cell[1] * size[0] + cell[2] * size[0] * size[1]) as usize;
     let mut levels = vec![[0u8; 3]; open.len()];
+    let mut whose = vec![[0u8; 3]; open.len()];
     let mut queue: std::collections::VecDeque<[i32; 3]> = Default::default();
     for channel in 0..3 {
-        for (cell, light) in seeds {
-            if light[channel] > levels[at(*cell)][channel] {
-                levels[at(*cell)][channel] = light[channel];
+        for (cell, light, voice) in seeds {
+            let k = at(*cell);
+            if light[channel] > levels[k][channel] || (light[channel] > 0 && light[channel] == levels[k][channel] && *voice < whose[k][channel]) {
+                levels[k][channel] = light[channel];
+                whose[k][channel] = *voice;
                 queue.push_back(*cell);
             }
         }
         while let Some(cell) = queue.pop_front() {
-            let level = levels[at(cell)][channel];
+            let (level, voice) = (levels[at(cell)][channel], whose[at(cell)][channel]);
             if level <= 1 {
                 continue;
             }
@@ -328,14 +361,16 @@ fn spread(size: [i32; 3], open: &[bool], seeds: &[([i32; 3], [u8; 3])]) -> Vec<[
                     continue;
                 }
                 let k = at(next);
-                if open[k] && levels[k][channel] < level - 1 {
+                if open[k] && (levels[k][channel] < level - 1 || (levels[k][channel] == level - 1 && voice < whose[k][channel])) {
                     levels[k][channel] = level - 1;
+                    whose[k][channel] = voice;
                     queue.push_back(next);
                 }
             }
         }
     }
-    levels
+    let voices = levels.iter().zip(&whose).map(|(level, whose)| whose[(0..3).max_by_key(|&channel| (level[channel], 2 - channel)).unwrap_or(0)]).collect();
+    (levels, voices)
 }
 
 /// A moving light's box, cells a side (build 217): the brightest light reaches 14 blocks, so 16 each way holds it.
@@ -782,7 +817,7 @@ impl Blocks {
     pub fn placed_light(&self, lamps: &[[i32; 3]], glows: &Glows) -> Option<Placed> {
         let least = [self.chunk[0] * CHUNK, self.chunk[1] * CHUNK];
         let (from, to) = (-self.margin, CHUNK + self.margin);
-        let seeds: Vec<([i32; 3], [u8; 3])> = lamps
+        let seeds: Vec<([i32; 3], [u8; 3], u8)> = lamps
             .iter()
             .filter_map(|lamp| {
                 let local = [lamp[0] - least[0], lamp[1] - least[1], lamp[2]];
@@ -793,7 +828,7 @@ impl Blocks {
                 if cell == 0 {
                     return None;
                 }
-                glows.of(cell - 1).map(|light| (local, light))
+                glows.of(cell - 1).map(|light| (local, light, voice_of(*lamp)))
             })
             .collect();
         let low = (seeds.iter().map(|seed| seed.0[2]).min()? - LAMP_REACH).max(self.low);
@@ -808,8 +843,8 @@ impl Blocks {
                 }
             }
         }
-        let within: Vec<([i32; 3], [u8; 3])> = seeds.iter().map(|(cell, light)| ([cell[0] - from, cell[1] - from, cell[2] - low], *light)).collect();
-        let levels = spread([wide, wide, high - low], &open, &within);
+        let within: Vec<([i32; 3], [u8; 3], u8)> = seeds.iter().map(|(cell, light, voice)| ([cell[0] - from, cell[1] - from, cell[2] - low], *light, *voice)).collect();
+        let (levels, voices) = spread([wide, wide, high - low], &open, &within);
         let mut cells = vec![0u16; (CHUNK * CHUNK * (high - low)) as usize];
         let mut any = false;
         for up in low..high {
@@ -817,7 +852,7 @@ impl Blocks {
                 for north in 0..CHUNK {
                     let k = at([north, east, up]);
                     if open[k] && levels[k] != [0; 3] {
-                        cells[(north + east * CHUNK + (up - low) * CHUNK * CHUNK) as usize] = levels[k][0] as u16 | (levels[k][1] as u16) << 4 | (levels[k][2] as u16) << 8;
+                        cells[(north + east * CHUNK + (up - low) * CHUNK * CHUNK) as usize] = levels[k][0] as u16 | (levels[k][1] as u16) << 4 | (levels[k][2] as u16) << 8 | (voices[k] as u16) << 12;
                         any = true;
                     }
                 }
@@ -830,7 +865,8 @@ impl Blocks {
     /// lantern), spread as a placed light's is, in the 32 x 32 x 32 cells round it (`at` its middle): a cell's red,
     /// green and blue in 4 bits each from the low bits, at north + east x 32 + up x 1,024 from the box's least
     /// corner (`at` less 16 each way); 0 in a cell a whole block fills. (For the blocks of `at`'s chunk read
-    /// `LAMP_MARGIN` out, which the box lies within; over what's kept is air, under it solid.)
+    /// `LAMP_MARGIN` out, which the box lies within; over what's kept is air, under it solid. No voice is kept in the
+    /// box: a moving light's is the card's to say, `near.wgsl`'s `LANTERN_VOICE`.)
     pub fn carried_light(&self, at: [i32; 3], light: [u8; 3]) -> Vec<u16> {
         let side = CARRIED_BOX;
         let least = [at[0] - side / 2 - self.chunk[0] * CHUNK, at[1] - side / 2 - self.chunk[1] * CHUNK, at[2] - side / 2];
@@ -844,7 +880,7 @@ impl Blocks {
                 }
             }
         }
-        let levels = spread([side; 3], &open, &[([side / 2; 3], light)]);
+        let (levels, _) = spread([side; 3], &open, &[([side / 2; 3], light, 0)]);
         levels.iter().zip(&open).map(|(level, open)| if *open { level[0] as u16 | (level[1] as u16) << 4 | (level[2] as u16) << 8 } else { 0 }).collect()
     }
 
@@ -1967,12 +2003,23 @@ mod tests {
         assert_eq!(at(10, 14, ground)[0], 5, "round the wall's end, not through it");
         // Ten steps from each lamp: both colours.
         assert_eq!(at(15, 15, ground), [5, 5, 0], "red and green mix");
+        // Each lamp's own voice in the cells it lights brightest (build 221); where they're level, red's (the first
+        // colour); nothing where no light reaches; and the same whichever order the lamps are given in.
+        let (voice_red, voice_green) = (voice_of([10, 10, ground]), voice_of([20, 20, ground]));
+        assert_ne!(voice_red, voice_green, "the test's two lamps have different voices");
+        let voice = |north: i32, east: i32, up: i32| (placed.at(north, east, up) >> 12) as u8;
+        assert_eq!([voice(11, 10, ground), voice(10, 10, ground + 3), voice(14, 14, ground)], [voice_red; 3], "round the red lamp, its voice");
+        assert_eq!([voice(21, 20, ground), voice(20, 20, ground + 3), voice(16, 16, ground)], [voice_green; 3], "round the green lamp, its voice");
+        assert_eq!(voice(15, 15, ground), voice_red, "level: the first colour's");
+        assert_eq!(placed.at(31, 0, ground), 0, "no light, nothing kept");
+        assert_eq!(blocks.placed_light(&[[20, 20, ground], [10, 10, ground]], &glows).as_ref(), Some(&placed), "the lamps the other way round: the same light");
         // As the card keeps it.
         let block = blocks.light_block(&blocks.sky_light(), Some(&placed)).expect("light kept");
         for up in low..high {
             for east in 0..CHUNK {
                 for north in 0..CHUNK {
                     assert_eq!(block.placed_at([north, east, up]), at(north, east, up), "at {north} {east} {up}");
+                    assert_eq!(block.voice_at([north, east, up]), voice(north, east, up), "the voice at {north} {east} {up}");
                 }
             }
         }
@@ -2084,5 +2131,23 @@ mod tests {
             }
             eprintln!("The lantern at the spawn: its chunk's blocks read 16 columns out in {read:.1} ms (once a chunk, the tile in hand or not); a spreading {:.2} ms (each block the eye crosses)", began.elapsed().as_secs_f64() * 1000.0 / 20.0);
         }
+    }
+
+    /// Two lamps of one colour as bright in a cell (build 221): the lower voice, whichever is given first; and the
+    /// voices spread over all 16 for lamps standing in a row, as the scatter stage's do.
+    #[test]
+    fn a_tie_between_lamps_goes_to_the_lower_voice_and_the_voices_are_spread() {
+        let size = [9, 1, 1];
+        let open = vec![true; 9];
+        for (first, second) in [(3u8, 11u8), (11, 3)] {
+            let (levels, voices) = spread(size, &open, &[([0, 0, 0], [9, 0, 0], first), ([8, 0, 0], [9, 0, 0], second)]);
+            assert_eq!(levels.iter().map(|level| level[0]).collect::<Vec<_>>(), [9, 8, 7, 6, 5, 6, 7, 8, 9]);
+            assert_eq!(voices, [first, first, first, first, 3, second, second, second, second]);
+        }
+        let mut seen = [0u32; VOICES as usize];
+        for k in 0..160 {
+            seen[voice_of([512 + k * 10, 128, 508]) as usize] += 1;
+        }
+        assert!(seen.iter().all(|&count| (3..=20).contains(&count)), "160 lamps in a row, ten apart, over the 16 voices: {seen:?}");
     }
 }

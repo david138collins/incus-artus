@@ -690,8 +690,9 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
           fixed to the world); of the steps, at build 220: "the light is alright", done enough to go on, the
           strength left written down); then, his word the same day, **presets** ("the same
           way we did it before", in place of the panel's Default buttons) and **the software map** ("it needs
-          to smart-wrap and let me scroll downwards and upwards"), each its own build; then random flicker (build 221, its pass mark written: 16 voices, a lamp's picked
-          from where it stands, kept in a colour cell's four spare bits; no new control),
+          to smart-wrap and let me scroll downwards and upwards"), each its own build; then random flicker (build 221, built: 16 voices, a lamp's picked from where it
+          stands, kept in a colour cell's four spare bits, the lantern a voice of its own; no new control; off
+          the screen the lamps dimmed by different amounts in one picture; his look owed),
           glows and far lights, night) (placed and moving lights, glows and far lights,
           night); **then assess**; (3) the far half after (rings that reach where the curve says, with a band of
           4s at the seam; at g = 2 perhaps 600 MB and the finer rays' time: priced first)

@@ -9071,3 +9071,30 @@ time. Once an hour the beats jump for a frame (the clock they read turns over).
   different amounts in the one picture, where build 218 dimmed them all alike.
 - **No price taken** (a pixel's sum, and less of it where there's no lamp): a bracket is owed at "assess".
 - **His look:** whether the lamps read as wavering on their own, and where the flicker's share should begin.
+
+### Build 221 built (unflown): each lamp flickers on its own; checked off the screen
+
+**Built as the mark says** (`near.rs`: `VOICES`, `voice_of`, `spread` carrying whose light each cell's brightest
+colour is, the voice in a colour cell's top four bits, `LightBlock::voice_at` for the tests; `near.wgsl`: `kept_at`
+hands the voice over with the sky's light, `placed` takes a voice and skips the sum where no light reaches, the
+lantern's `LANTERN_VOICE`, `face_light` hands back the light as it falls on a surface).
+
+**Against the mark, off the screen (the stage on):**
+
+- **Tests:** all 58 pass. The placed light's test grown (each of two lamps' voice in the cells it lights
+  brightest, red's where they're level, nothing where no light reaches, the same light with the lamps the other
+  way round, the card's copy reading back the same voices), and one new: two lamps as bright in a cell give the
+  lower voice whichever is given first, and 160 lamps in a row ten blocks apart fall over all 16 voices (3 to 20
+  each).
+- **The flicker at 0, the cave's mouth, against build 218's picture:** 10 pixels of 1.6 million differ, 4 by 8 or
+  more, the most 10, all about (785, 254). **Missed as written** ("build 218's picture, a far square aside"): the
+  same single dark spot as at build 220's check (there at (785, 221) from the spawn), a run's difference and not
+  the lamps', which are pixel for pixel the same.
+- **The flicker at 1, the same view:** the lamps dimmed by different amounts in the one picture, where build 218
+  dimmed every lamp alike. Of the pixels a red lamp plainly lights, 95% at nine tenths of the still picture, 2% at
+  0.45 and 1% at 0.65; of the green-lit, 40% at three quarters and 59% at four fifths: **met.**
+- **No price taken**, as the mark says.
+
+**Said to him before he looks:** each lamp wavers on its own beat; the flicker still begins at a twentieth, so it
+may want "Flicker (share of brightness)" moved up to be seen; the beat is fixed by where a lamp stands, not drawn
+by chance each time.
