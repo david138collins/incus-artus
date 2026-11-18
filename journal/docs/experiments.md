@@ -9098,3 +9098,20 @@ lantern's `LANTERN_VOICE`, `face_light` hands back the light as it falls on a su
 **Said to him before he looks:** each lamp wavers on its own beat; the flicker still begins at a twentieth, so it
 may want "Flicker (share of brightness)" moved up to be seen; the beat is fixed by where a lamp stands, not drawn
 by chance each time.
+
+### His word on squares fixed to the world (2026-11-18)
+
+**Asked:** "did you say there was a way to fix things to the world so it could be crunchy up close without the noise
+in detail when you move?" Answered: yes, the last of the detail curve's rework options (texel splatting): each of a
+picture's squares drawn on the block's face, so it moves with the surface and doesn't crawl; the largest change,
+the card's work unmeasured, seams at steep angles, moving figures unsolved; pictures with their own coarser versions
+the cheaper middle way, most of the crawl gone but not all. If wanted sooner, a small test first: one patch of
+ground both ways, priced.
+
+**His word:** "i guess right now the work is doing the little things until whats left is really the last big change
+and we can proceed. but we may have to leave it and work towards world gen/content for a bit to be able to judge it
+properly."
+
+**Taken as:** squares fixed to the world are the last big change to the look, left for now; the little things go on
+first (lights and nights, assess, the far half), and it may wait past them until there is world and content enough
+to judge it by. Nothing built, nothing priced.

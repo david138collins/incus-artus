@@ -687,7 +687,9 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
           reworked later and how that could be done and leave it for now": the note is in
           `journal/docs/experiments.md` under his look at build 218 (the slider as a plain distance; no blur
           by handing over at a picture's square, by pictures with their own coarser versions, or by squares
-          fixed to the world); of the steps, at build 220: "the light is alright", done enough to go on, the
+          fixed to the world; of the last, the same day: "i guess right now the work is doing the little things
+          until whats left is really the last big change and we can proceed. but we may have to leave it and
+          work towards world gen/content for a bit to be able to judge it properly"); of the steps, at build 220: "the light is alright", done enough to go on, the
           strength left written down); then, his word the same day, **presets** ("the same
           way we did it before", in place of the panel's Default buttons) and **the software map** ("it needs
           to smart-wrap and let me scroll downwards and upwards"), each its own build; then random flicker (build 221, built: 16 voices, a lamp's picked from where it
