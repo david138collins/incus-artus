@@ -8659,3 +8659,20 @@ the lamps standing as plain blocks "the file naming no block" would not have bee
 **Said to him before he looks:** by day a lamp shows only in shade, caves and halls; past the near faces' reach
 its light isn't drawn yet; every lamp flickers in step; a block placed now makes again every chunk within 16
 columns of it (it was 8).
+
+### David's look at build 216 (placed lights, with build 215's two sliders in it)
+
+Launched at his "go ahead and launch" (the stage on, the rings 256 and 320); about 14 minutes;
+`logs/session-1794959653.log`, clean. The processor's area read 99 degrees near its end (87 at the look before):
+Builder's off-screen runs came just before it, the TV in; nothing about speed is read from this session.
+
+- **Before it, his question: "can lamps be made to flicker at random at some point?"** Builder's answer: yes, and
+  cheaply as the light is kept: a colour brick's cell has 4 bits spare of its 16, enough for one of 16 flicker
+  "voices" a lamp; a cell takes the voice of the lamp that lights it most, each voice wavering on its own uneven
+  pattern; a faint line may show where two lamps' light meets and the voice changes. Offered with the next lights
+  build.
+- **After it, his words: "it looks great".** Nothing named to change: the lamps' steps, reach and brightness, the
+  flicker's starting places (0.15 of the brightness, twice a second) and build 215's two sliders (the detail's
+  least 1/64, the sharpness beginning at 0) stay as built. Done enough to go on; whether the detail curve is on
+  from the start is still his to say.
+- **Next, by his order:** moving lights, then glows and far lights, then night; then assess.
