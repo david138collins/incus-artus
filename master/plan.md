@@ -680,7 +680,16 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
           down, a fixed share dimmer each block would even them; his choice: "Even steps first", build 218, built:
           the slider "Light step (share dimmer each block)", his name, a quarter to begin; bands plainly
           stepped off the screen, the lantern keeping its colour, and all of it dimmer: the lights' strength
-          wants his word; his look owed); then random flicker,
+          wants his word; his look, 2026-11-18, was of the near half: "i like the look with 4x4 base up close",
+          but "Detail up close" read to him as blur, not as the distance the 4x hands to the 2x (it is that
+          distance; the blur is the card averaging a picture's squares inside a screen square past about 5
+          blocks; sharpness at 1 trades it for a speckle, which he saw): "make a note that this could be
+          reworked later and how that could be done and leave it for now": the note is in
+          `journal/docs/experiments.md` under his look at build 218 (the slider as a plain distance; no blur
+          by handing over at a picture's square, by pictures with their own coarser versions, or by squares
+          fixed to the world); no word yet on the steps); then, his word the same day, **presets** ("the same
+          way we did it before", in place of the panel's Default buttons) and **the software map** ("it needs
+          to smart-wrap and let me scroll downwards and upwards"), each its own build; then random flicker,
           glows and far lights, night) (placed and moving lights, glows and far lights,
           night); **then assess**; (3) the far half after (rings that reach where the curve says, with a band of
           4s at the seam; at g = 2 perhaps 600 MB and the finer rays' time: priced first)

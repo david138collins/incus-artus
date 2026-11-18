@@ -8830,3 +8830,67 @@ twentieth; `panel.rs`: "Light step (share dimmer each block)" in "Lights" above 
 **Said to him before he looks:** every step is now the same size, so the steps show, and everything lit by a lamp
 or the lantern is dimmer than he last saw it; the slider trades the steps' plainness for reach (a smaller share:
 brighter and farther, the steps fainter); a strength for lights overall is one number, on his word.
+
+### His look at build 218 (2026-11-18): the detail curve's near half left as it is, its rework written down
+
+**The session** (`logs/session-1795006402.log`): 27 minutes, no warnings; the CPU area 75 to 81 °C, the card 73 to
+75 °C; the card's memory 1,258 MB in use, the main memory 3.6 GB.
+
+**His words, in order:**
+
+- "i feel like whatever detail up close is doing, it shouldn't be doing it at all; is there a way we can set that
+  to zero? what does it do?"
+- "ok, but i like the look with 4x4 base up close. and all that 'detail up close' does as i move it up, is make it
+  *blurry*. that should be the distance at which it stops being 4x and starts being 2x, shouldn't it?"
+- "i think what i actually want is for the detail to go like this, 4x <-> 2x <-> 1x <-> 2x march <-> 4x march <->
+  8x march etc etc etc. idk how far it actually goes, up to 64x64 cells? not sure. but there shouldn't be any blur
+  beneath the march, and the march should be all averages ... as i understand it the edges of mountains arent huge
+  cells, thats why the edges are both crispy and smooth"
+- After trying "Picture sharpness in the squares" at 1: "i tried your suggestions and understand it a bit. i see
+  the tradeoff with the speckling effect. i think we should make a note that this could be reworked later and how
+  that could be done and leave it for now."
+
+**What he was told:**
+
+- "Detail up close" *is* the distance the 4x squares hand to the 2x and the 2x to single pixels (4x to a P / sqrt 7,
+  2x to a P: at a quarter block about 63 and 168 blocks, at 1/64 about 4 and 10). The blur is a second thing: a
+  block's picture is 32 squares a side, and past about 5 blocks several of them fall in one 4x square, where the
+  card averages them. Moving the slider up pushes the 4x squares out over ground where they must average.
+- "Picture sharpness in the squares" at 1 picks one of the picture's squares in place of the average: no blur, and
+  a speckle that may crawl. He saw the trade.
+- The march: every cell an average of its blocks; a ray reads the level whose cells are about its screen square's
+  size at that distance, so cells double as distance doubles (levels on file to cells of 65,536); a ray reads a
+  smooth blend of the eight cells round each point and each 2 x 2 screen square has its own ray, so an edge is a
+  gradient through the cells drawn at the screen's grain, not the cells' outlines. His understanding was right.
+- Where the chain falls short today: on the screen it is 4x, 2x, 1x, then the march's 2 x 2 all the way out; the
+  cells in the world are what double. The 2s and 4s aren't built, the 8s reach about 1,280 blocks and the 16s
+  about 2,048 (as launched, `INCUS_FAR_RING_SIDE=256,320`), the 32s past that: just past the triangles the rule
+  wants cells of 2 or 3 blocks and gets 8s. That is the seam of build 210 and the curve's far half.
+
+**Left for now, by his word. How it could be reworked, for when it's taken up:**
+
+1. **The slider as a plain distance:** "Detail up close (blocks)" replaced by where the 4x squares end, in blocks
+   (the 2x following at the curve's ratio, 2.65 times farther, or on a slider of its own). The same number under
+   a name that says what he sees. Its name and place his.
+2. **No blur beneath the march, three ways, none built:**
+   - *Hand over where a picture's square is as big as the screen's* (a = one of the picture's squares, 1/32 of a
+     block: the 4x to about 5 blocks, the 2x to about 10 at a field of view of 100 and 1,600 pixels tall). Nothing
+     is averaged and nothing speckles, but the coarse squares cover little of the view.
+   - *Pictures that carry their own coarser versions, made on purpose* (16, 8 and 4 squares a side, drawn by him
+     or made by picking the commonest colour, never an average), each band reading the version whose squares
+     match its own on the glass. Crisp at any distance and steady as he moves. A job for the textures' step and
+     the Registrar; the sharpness slider's place is then taken by it.
+   - *Squares fixed to the world, not the screen* (texel splatting, `journal/docs/graphics-style.md` section 4):
+     the crawl's cure, and the largest change.
+3. **The march's side of his chain** needs no new rule: it is the curve's far half as planned (the finer cells at
+   the seam), priced first.
+
+**Not said in this look:** whether the lights' steps now read as he means, the lantern, a strength for lights. To
+be asked once, with the next lights build.
+
+**Asked for in the same message, each its own build, pass mark first:** "we do need a preset system now, i think,
+in order for me to better check out the features as they start to grow. the same way we did it before, where
+there's a 'default' preset, and if you save a preset named default, it becomes the default, and there's a little
+dot that turns green when you are on the default preset. this can replace the defaulter buttons inside the panel.
+additionally, we need to give some love to the software map; it needs to smart-wrap and let me scroll downwards and
+upwards."
