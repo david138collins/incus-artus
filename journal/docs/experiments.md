@@ -9035,3 +9035,39 @@ tooltips. the light is alright. whats next?"
 lines brightening under the mouse stay, nothing said against them); the lights' even steps (build 218) "alright",
 done enough to go on: no strength slider asked for, so it stays written down, not built. Next in his order: lamps
 flickering at random, glows and far lights, night, then assess.
+
+### Build 221's pass mark: each lamp flickers on its own
+
+**His words:** "can lamps be made to flicker at random at some point?" (2026-11-17); his order then: the lantern,
+even steps, "flicker after"; and at build 220, "the light is alright. whats next?"
+
+**Built so:**
+
+1. **Every lamp has one of 16 voices**, picked from where it stands (the same lamp, the same voice, every time
+   the world is read). A voice is a beat of its own: its own pace (a quarter slower to a quarter quicker than
+   "Flicker speed") and its own place in the beat, three waves that never line up, so it wavers unevenly like a
+   flame and no two neighbouring lamps move together unless they share a voice (one pair in 16).
+2. **A lit cell remembers whose light it is:** the voice of the lamp that lights it brightest, in the four spare
+   bits a colour cell has had since build 216. No more memory, nothing new on the card. Where two lamps' light
+   meets, each cell follows the brighter (the lower voice where they tie), so the seam between two beats lies where
+   both are dim.
+3. **The lantern has a voice of its own**, apart from the 16.
+4. **No new control:** "Flicker (share of brightness)" and "Flicker speed (a second)" as they are, in "Lights",
+   and in the Render page's presets. The flicker still begins at a twentieth; his look says whether random flicker
+   wants more.
+5. **A pixel no placed light reaches skips the sum** (the power and the waves), where build 218 worked it out and
+   multiplied by nothing.
+
+**Said plainly:** it isn't chance in the strict sense: each lamp's beat is fixed by where it stands and repeats in
+time. Once an hour the beats jump for a frame (the clock they read turns over).
+
+**The mark:**
+
+- **Tests** all pass, with the placed light's test grown: the cells round each of two lamps carry that lamp's
+  voice, a cell no light reaches carries nothing, the same cells whichever order the lamps are given in, and what
+  the card keeps reads back the same voice.
+- **Pictures off the screen** (the stage on): with the flicker at 0, the cave's mouth is build 218's picture (a
+  far square aside, as written at build 220); with the flicker at 1, the lamps down the cave are dimmed by
+  different amounts in the one picture, where build 218 dimmed them all alike.
+- **No price taken** (a pixel's sum, and less of it where there's no lamp): a bracket is owed at "assess".
+- **His look:** whether the lamps read as wavering on their own, and where the flicker's share should begin.
