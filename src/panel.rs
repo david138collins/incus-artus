@@ -228,12 +228,14 @@ fn render(ui: &mut egui::Ui, readings: &Readings, look: Option<&mut FarLook>, ne
     // key). Its Default puts them back, but leaves the lantern lit or out as it is.
     let lamps_beside = |ui: &mut egui::Ui, look: &mut NearLook| {
         let d = NearLook::DEFAULT;
-        let differs = look.flicker != d.flicker || look.flicker_speed != d.flicker_speed || look.lantern_level != d.lantern_level || look.lantern_colour != d.lantern_colour;
+        let differs = look.step != d.step || look.flicker != d.flicker || look.flicker_speed != d.flicker_speed || look.lantern_level != d.lantern_level || look.lantern_colour != d.lantern_colour;
         if ui.add_enabled(there && differs, egui::Button::new("Default").small()).clicked() {
-            (look.flicker, look.flicker_speed, look.lantern_level, look.lantern_colour) = (d.flicker, d.flicker_speed, d.lantern_level, d.lantern_colour);
+            (look.step, look.flicker, look.flicker_speed, look.lantern_level, look.lantern_colour) = (d.step, d.flicker, d.flicker_speed, d.lantern_level, d.lantern_colour);
         }
     };
     section(ui, "render: lights", "Lights", true, &mut *near_look, lamps_beside, |ui, look| {
+        let steps = crate::near_eye::STEPS;
+        ui.add_enabled(there, egui::Slider::new(&mut look.step, steps.0..=steps.1).text("Light step (share dimmer each block)"));
         ui.add_enabled(there, egui::Slider::new(&mut look.flicker, 0.0..=1.0).text("Flicker (share of brightness)"));
         ui.add_enabled(there, egui::Slider::new(&mut look.flicker_speed, 0.25..=8.0).logarithmic(true).text("Flicker speed (a second)"));
         ui.add_enabled(there, egui::Checkbox::new(&mut look.lantern, "Lantern")).on_hover_text("The L key while playing");

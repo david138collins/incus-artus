@@ -66,7 +66,7 @@ struct Near {
     // behind" is taken to be, for the water.
     reach: vec4<f32>,
     // Placed lights' flicker (build 216): x: the share of a light's brightness that wavers; y: how many times a
-    // second; z: the time, seconds.
+    // second; z: the time, seconds; w: a light's step, the share dimmer each block from it is than the last (build 218).
     glow: vec4<f32>,
     // The lantern's box's least corner (north, east, up; blocks); w: 1 if there's a box (the lantern lit).
     carried: vec4<i32>,
@@ -218,11 +218,15 @@ fn carried_at(place: vec3<i32>) -> vec3<u32> {
 // A placed light's levels (red, green, blue, each 0 to 15) as light on a surface (build 216): squared, so each step
 // from a lamp is a clear one [David, 2026-11-06: "the light from the brazieres, where its very clear steps in
 // brightness"]; and its flicker, a wobble here where it's read (every lamp in step: two waves, one the main beat).
+// (Build 218: a level under 15 is a fixed share dimmer for each step under, where build 216 squared the level: so
+// every step is the same size to the eye, the bright ones beside a lamp as plain as the dim ones at its edge, and
+// colours whose levels fall together keep their mix [David, 2026-11-17: "i couldn't really see the steps in the red
+// and green light levels"].)
 fn placed(levels: vec3<u32>) -> vec3<f32> {
-    let level = vec3<f32>(levels) / 15.0;
+    let light = select(vec3<f32>(0.0), pow(vec3<f32>(1.0 - near.glow.w), 15.0 - vec3<f32>(levels)), levels > vec3<u32>(0u));
     let turn = near.glow.z * near.glow.y * 6.2832;
     let wave = 0.5 + 0.3 * sin(turn) + 0.2 * sin(turn * 2.7 + 1.3);
-    return level * level * (1.0 - near.glow.x * wave);
+    return light * (1.0 - near.glow.x * wave);
 }
 
 // The light on a face at a pixel (x the sky's; y, z, w the placed light's red, green and blue): the sky's its own

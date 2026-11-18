@@ -8806,3 +8806,27 @@ quarters of full where it was 87%.
 - **No price taken:** one power in a pixel's program where there was a multiply; a flight would say, not a
   bracket.
 - **His look** decides the share to begin, and whether the steps now read as he means them.
+
+### Build 218 built (unflown): even steps in placed light; checked off the screen
+
+**Built as the mark says** (`near.wgsl`: `placed`, a level as (1 - the step) to the power of the steps it's under
+15; `near_eye.rs`: `NearLook::step`, `STEPS`, `lantern_light` by steps under its brightness, the flicker begun at a
+twentieth; `panel.rs`: "Light step (share dimmer each block)" in "Lights" above the flicker).
+
+**Against the mark, off the screen (the stage on, the flicker 0, the step a quarter):**
+
+- **Tests:** all 51 pass (one new: warm orange at 15 is levels 15, 13 and 10; a colour with none of it gives none).
+- **From the cave's mouth looking in:** the lamps' red and green in bands a block wide down the cave, each band
+  plainly darker than the one before, the bright bands beside a lamp as marked as the dim ones. Against build
+  216's picture of the same view 508 thousand pixels differ by 8 of 255 or more: **the whole of it is dimmer**, as
+  the mark said it would be through the middle of a lamp's reach.
+- **The lantern deep in the cave, the lamps off:** the same warm colour from the eye to its edge, no reddening.
+  **And dim:** on the cave's dark stone it reads as a dull brown, the walls four blocks off at a third of full.
+  Dimmer than build 217's picture, which was already dim. The strength written down at build 217 (a placed light
+  at its brightest is a surface's colour times 1, daylight about two and a half times) now matters more.
+- **With no placed light at all** (the lamps off, the lantern out), build 215's picture: 12 pixels differ, by 1.
+- **No price taken**, as the mark says.
+
+**Said to him before he looks:** every step is now the same size, so the steps show, and everything lit by a lamp
+or the lantern is dimmer than he last saw it; the slider trades the steps' plainness for reach (a smaller share:
+brighter and farther, the steps fainter); a strength for lights overall is one number, on his word.

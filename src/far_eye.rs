@@ -1939,6 +1939,10 @@ mod tests {
             if let Some(flicker) = std::env::var("FAR_TEST_FLICKER").ok().and_then(|flicker| flicker.parse::<f32>().ok()) {
                 near.look.flicker = flicker;
             }
+            // (And a light's step, `FAR_TEST_STEP`.)
+            if let Some(step) = std::env::var("FAR_TEST_STEP").ok().and_then(|step| step.parse::<f32>().ok()) {
+                near.look.step = step;
+            }
             // (`FAR_TEST_GROUPS=0`: every group of a chunk's faces listed, the card's own dropping of faces turned away
             // left as it is: to see the listing's rule alone change nothing.)
             if std::env::var("FAR_TEST_GROUPS").as_deref() == Ok("0") {

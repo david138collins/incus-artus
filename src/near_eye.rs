@@ -35,6 +35,8 @@ const LIGHT_FIRST: u64 = 1 << 20;
 /// one of them only to about 5 blocks, which is the 4s' reach at 1/48; so the slider goes under that, build 215.)
 pub const DETAILS: (f32, f32) = (0.015625, 1.0);
 pub const MOST_STIPPLE: f32 = 0.5;
+/// The least and most of a light's step: the share dimmer each block from a lamp is than the last.
+pub const STEPS: (f32, f32) = (0.05, 0.5);
 
 /// The near eye's bands by the detail curve (build 213), the nearest first: each its squares' side in screen pixels,
 /// the distance from the eye (true, not level) nearer than which it draws nothing, and the distance it draws to.
@@ -101,20 +103,27 @@ pub struct NearLook {
     pub lantern: bool,
     pub lantern_level: f32,
     pub lantern_colour: [f32; 3],
+    /// How much dimmer each block from a lamp or the lantern is than the last, a share (the Render page's "Light
+    /// step (share dimmer each block)" in "Lights", build 218): every step the same size to the eye [David,
+    /// 2026-11-17, of build 217: "i couldn't really see the steps in the red and green light levels"; 2026-11-06:
+    /// "very clear steps in brightness"; the slider's name his choice].
+    pub step: f32,
 }
 
 impl NearLook {
     /// [David, 2026-11-16, asked by Counsel "Make your crossfade settings, 128 wide and curve 1, the defaults?":
     /// "yes, and 32 chunk radius."]
-    pub const DEFAULT: Self = Self { radius: RADIUS, fader_width: 128.0, fader_curve: 1.0, pixel: 1, detail: 0.25, stipple: 0.25, sharp: 0.0, flicker: 0.15, flicker_speed: 2.0, lantern: false, lantern_level: 15.0, lantern_colour: [1.0, 0.6, 0.25] };
+    pub const DEFAULT: Self = Self { radius: RADIUS, fader_width: 128.0, fader_curve: 1.0, pixel: 1, detail: 0.25, stipple: 0.25, sharp: 0.0, flicker: 0.05, flicker_speed: 2.0, lantern: false, lantern_level: 15.0, lantern_colour: [1.0, 0.6, 0.25], step: 0.25 };
 
     /// The lantern's light: red, green and blue, each 0 to 15: its colour, the strongest of the three at its
-    /// brightness, the others by the root of their share of it (a level is squared where it's read, `near.wgsl`'s
-    /// `placed`, so beside the lantern the light is the colour picked; farther out the weaker colours end first and
-    /// it reddens).
+    /// brightness, each of the others as many steps under that as its share of the strongest comes to (a step is a
+    /// fixed share dimmer where a level is read, `near.wgsl`'s `placed`: so the three fall together and the light
+    /// keeps its colour as it fades, till the weakest runs out).
     pub fn lantern_light(&self) -> [u8; 3] {
         let most = self.lantern_colour.iter().fold(1e-3f32, |most, v| most.max(*v));
-        self.lantern_colour.map(|v| ((v.max(0.0) / most).sqrt() * self.lantern_level.clamp(1.0, 15.0)).round() as u8)
+        let level = self.lantern_level.clamp(1.0, 15.0);
+        let kept = (1.0 - self.step.clamp(STEPS.0, STEPS.1)).ln();
+        self.lantern_colour.map(|v| (level - (v.max(0.0) / most).max(1e-6).ln() / kept).round().clamp(0.0, 15.0) as u8)
     }
 }
 
@@ -882,7 +891,7 @@ impl NearEye {
             }
         }
         // The numbers: the eye's block and how far into it the eye is (and the x-fader's curve); the reach, the
-        // x-fader's band and the depths; and the placed lights' flicker, with the time (seconds, turned over each
+        // x-fader's band and the depths; and the placed lights' flicker and step, with the time (seconds, turned over each
         // hour so it stays fine); and the lantern's box's least corner, with whether there's a box at all.
         let eye = [camera.position.x, camera.position.y, camera.position.z];
         let cell = eye.map(|v| v.floor());
@@ -892,7 +901,7 @@ impl NearEye {
         bytes.extend([self.counts.reach, band_of(self.look.fader_width, self.counts.reach), DEPTHS[0], DEPTHS[1]].iter().flat_map(|v| v.to_le_bytes()));
         static BEGAN: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
         let seconds = BEGAN.get_or_init(std::time::Instant::now).elapsed().as_secs_f32() % 3600.0;
-        bytes.extend([self.look.flicker.clamp(0.0, 1.0), self.look.flicker_speed.max(0.0), seconds, 0.0].iter().flat_map(|v| v.to_le_bytes()));
+        bytes.extend([self.look.flicker.clamp(0.0, 1.0), self.look.flicker_speed.max(0.0), seconds, self.look.step.clamp(STEPS.0, STEPS.1)].iter().flat_map(|v| v.to_le_bytes()));
         let corner = self.lantern_shown.map(|(at, _)| at.map(|v| v - crate::near::CARRIED_BOX / 2));
         bytes.extend(corner.unwrap_or([0; 3]).iter().copied().chain([corner.is_some() as i32]).flat_map(|v| v.to_le_bytes()));
         queue.write_buffer(&self.numbers, 0, &bytes);
@@ -1116,5 +1125,20 @@ impl View {
         let middle = [(chunk[0] as f32 + 0.5) * side - self.eye[0], (chunk[1] as f32 + 0.5) * side - self.eye[1], (low + high) as f32 * 0.5 - self.eye[2]];
         let half = [side * 0.5, side * 0.5, (high - low) as f32 * 0.5];
         self.sides.iter().all(|out| (0..3).map(|k| middle[k] * out[k] - half[k] * out[k].abs()).sum::<f32>() <= 0.0)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The lantern's colour as levels (build 218): the strongest at its brightness, the others as many steps under
+    /// it as their shares come to at the step, so the three fall together.
+    #[test]
+    fn the_lantern_s_colour_keeps_its_shares_as_it_fades() {
+        let look = NearLook::DEFAULT;
+        assert_eq!(look.lantern_light(), [15, 13, 10], "warm orange at 15, a quarter a step: 0.6 is two steps under, 0.25 five");
+        assert_eq!(NearLook { lantern_colour: [0.0, 1.0, 0.0], lantern_level: 9.0, ..look }.lantern_light(), [0, 9, 0], "a colour with none of it gives none");
+        assert_eq!(NearLook { lantern_colour: [1.0, 1.0, 1.0], ..look }.lantern_light(), [15, 15, 15]);
     }
 }
