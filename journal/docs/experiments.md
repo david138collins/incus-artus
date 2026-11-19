@@ -9645,3 +9645,10 @@ card's clock, medians, ms:
 **What would take it back:** a whole block's face (part 0) needn't read the colour table or lay a bar's picture; the
 read and the sums only where a face is a piece's. Small, and the next build touches the same fragment (the grass's
 edge), so it goes in there and is measured with it.
+
+**His words on build 227's price and the next build (2026-11-19):** "go ahead. make a note of that fix for later." The
+fix (whole blocks' faces skip the bars' work) is in plan 2.4, "The bars' work for whole blocks' faces", with the near
+eye's own costs, not in the next build. Asked of the grass's shared edge (in this world grass is one block over stone,
+with no soil under it, so a shared overlay would look as today's grass side until world generation gives soils): "Move
+it to the soils"; its picture, when it's built, "Placeholder from grass side". Moved to 3.2's Surface. The next build
+is the lamps' strength on dark stone.

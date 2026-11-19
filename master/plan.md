@@ -669,9 +669,12 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
     - [ ] **Textures:** bars wearing their own side and end pictures along each bar, joins seamless (build 227,
           built: off the screen each bar's side one brick along it, its ends the end's, only the bars changed; his
           look: "it looks right", done enough to go on; flown: the near faces about a twentieth dearer at most
-          marks, 0.05 ms high over the spawn, most likely the fragment's new work done for every face; a whole
-          block's face to skip it, in the next build); the grass's shared edge; pictures for the blocks that have none (the stage's
-          seven), placeholders or his art
+          marks, 0.05 ms high over the spawn, most likely the fragment's new work done for every face. The fix,
+          noted for later by his word ("make a note of that fix for later", 2026-11-19): a whole block's face skips
+          the bars' work (the colour table's read and the sums), with the near eye's own costs); the grass's shared edge moved to the soils (3.2, Surface; his answer,
+          2026-11-19: "Move it to the soils"; in this world grass is one block over stone, so a shared edge would
+          look as today's grass side); pictures for the blocks that have none (the stage's seven), placeholders or
+          his art
     - [ ] **A finer region between the triangles and the march** (his words at build 210, 2026-11-17: "i feel like
           we should have a finer region between the triangles and the march"; "push the fineness-grossness gradient
           out to the triangle radius"; and "i don't think we need very much of the finer cells to blend the
@@ -787,6 +790,10 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
           back to the graphics": the far light's sweep again at a block a column round the eye, made on a thread
           when the sun moves, a shadow's edge a block coarse. The moons follow it ("once that's answered, im not
           worried about how the moons are implemented"). When the engine is finished out
+    - [ ] **The bars' work for whole blocks' faces** (build 227's price, noted for later by his word, 2026-11-19:
+          "make a note of that fix for later"): the fragment reads the colour table and lays a bar's picture by sums
+          for every face, though nearly every face is a whole block's; the near faces about a twentieth dearer, 0.05
+          ms high over the spawn. The fix: a face of part 0 skips both. Flown alone, against build 227
     - [ ] **Listing chunks:** the near eye's processor time is all in listing the chunks in view (0.15 to 0.27 ms a
           frame at 32 chunks, about 1 ms at 64)
     - [x] **Faces turned away** from the eye left out: build 209 (ff0c6b2), the card drops them and a chunk's
@@ -852,6 +859,10 @@ way, because it gets pretty crowded, so we'll use space a little better" (2026-1
         after topography, so that we can get flush beaches and cliffs that make more sense"; sea level, cliffs and
         beaches, lakes, rivers (his idea of 2026-11-14 in the spec: hollows filled, an easing stage, then rivers)
   - [ ] Surface, then blocks (caves; later ores and strata)
+    - [ ] **The grass's shared edge** (moved here from 2.4, his answer of 2026-11-19: "Move it to the soils"): each
+          soil its own texture, the grass edge one shared see-through overlay drawn over any soil's side (decided,
+          `journal/docs/decisions.md`, Textures & Assets). Its first picture a placeholder cut from today's
+          `grass_side.png` (its green fringe, the dirt made clear), by his answer the same day, till he draws one
   - [ ] Sums and light; the tablet written
   - *Gate, each stage:* David's eye, old beside new, on his default preset; the same result on both of the
     laptop's cards
