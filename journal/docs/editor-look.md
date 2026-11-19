@@ -175,6 +175,23 @@ What the pictures show, for when that point comes (Counsel's reading of them):
   for it by hand.
 - OK stays greyed until every blank is filled.
 
+### The Registrar's library panel: his direction (2026-11-19; he is pasting it together in Aseprite)
+
+Not decided; his mock-up is to come. With a sixth StarCraft picture (its Unit and Hero Settings window: a tree
+on the left, a unit's numbers on the right, greyed while "Use defaults" is ticked), which he shows as what
+does NOT suit: "this pic is the window where you can adjust the stats of units and buildings. you weren't able to create new ones like our registrar can, and the file tree doesn't really suit for a big library/asset window on the left that can be sorted by tags that we can expand on. Asset types would be hardcoded, i think; blocks, compound blocks, animated blocks, objects, fx, blueprints, weapons, armor, clothing, etc etc. types would be tags but tags wouldn't be types, for the purpose of library sorting, vs just alphabetically scrolling through every asset in the game. think of it like a really well made online shopping filter, compact and sitting on top of the list. Not sure if the library panel, on the left, would need for tabs at all, or just search filters on top of a list. im working through pasting things together until i get the idea in aseprite."
+
+- **The library is on the left:** a big list of every asset, with filters sitting compactly on top of it, "like
+  a really well made online shopping filter". Not a tree of folders.
+- **Asset types are hardcoded:** blocks, compound blocks, animated blocks, objects, fx, blueprints, weapons,
+  armor, clothing, and so on. **A type is a tag, but a tag is not a type:** tags are his to add to; types are
+  the program's.
+- **New assets are made in the Registrar,** which StarCraft's window could not do.
+- **Tabs in the library panel, or only filters over one list:** he isn't sure.
+- An older line of the spec has the Registrar's tabs as Blocks, Objects, Blueprints. If types become filter
+  tags over one list, that line is overtaken; his to say when his mock-up shows it.
+- Of creator windows that nest (the block above): "right, some things would be complex enough that making a new one takes you through a russian doll of menus."
+
 ### Open
 
 | Question | Whose |

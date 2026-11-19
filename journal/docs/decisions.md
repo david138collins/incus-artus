@@ -3863,6 +3863,17 @@ Reference: `Art/quartile minecraft illustration.png`
   - What the pictures show is set down on the shared page (`journal/docs/editor-look.md`, "For later"): a list
     of triggers as plain sentences; properties in three tabs; a type picked from a drop-down and shown as a
     sentence with underlined blanks; a small window for each blank's value. Nothing is to be drawn or built now.
+  - Then, of the nesting: "right, some things would be complex enough that making a new one takes you through a russian doll of menus."
+- **The Registrar's library panel: his direction (2026-11-19)** (David, to Counsel, with a sixth StarCraft
+  picture, its Unit and Hero Settings window, kept with the others; not a decision, his mock-up in Aseprite to
+  come): "this pic is the window where you can adjust the stats of units and buildings. you weren't able to create new ones like our registrar can, and the file tree doesn't really suit for a big library/asset window on the left that can be sorted by tags that we can expand on. Asset types would be hardcoded, i think; blocks, compound blocks, animated blocks, objects, fx, blueprints, weapons, armor, clothing, etc etc. types would be tags but tags wouldn't be types, for the purpose of library sorting, vs just alphabetically scrolling through every asset in the game. think of it like a really well made online shopping filter, compact and sitting on top of the list. Not sure if the library panel, on the left, would need for tabs at all, or just search filters on top of a list. im working through pasting things together until i get the idea in aseprite."
+  - So: the library on the left is one big list with compact filters on top, not a tree; asset types are the
+    program's own and fixed (blocks, compound blocks, animated blocks, objects, fx, blueprints, weapons, armor,
+    clothing and more), each also a tag, while his own tags are not types; new assets are made in the Registrar.
+    Whether the panel has tabs at all he hasn't settled.
+  - *Counsel:* the spec holds an older decision, "Registrar tabs: Blocks, Objects, Blueprints" (from old's
+    records, before the rebuild). Types as filter tags over one list would overtake it; left standing until his
+    mock-up shows which.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
