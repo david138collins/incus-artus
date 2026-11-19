@@ -37,6 +37,7 @@ Until 2026-11-11 this was the record of what's decided and built; since then `ma
 | `lazy-rays.md` | Lazy rays, shelved by David on 2026-11-16 ("keep that in our back pocket"): the Oracle's rules, what's been measured, the design Builder proposed, the decisions left with him, and how to pick it up. |
 | `cover-by-height.md` | The land's own edge by a height table (crisp land against land and sky), shelved by David on 2026-11-16 beside lazy rays: what it is, the Oracle's description, what the march already has, what isn't known, and how to pick it up. |
 | `graphics-style.md` | The graphics style talked through on 2026-11-17, for the style pass: one fixed screen of 2 × 2 squares that the march, the triangles and the UI all feed, the styles to try between the triangles and that screen, and where each part sits in the frame's passes. |
+| `editor-look.md` | Counsel's brief for Builder on the editor's look (Windows 95's, drawn by us), 2026-11-19: David's words, the three ways weighed, the palette, every edge and mark as Windows' classic painter gives it (pixel maps), sizes, the controls he picked, the fonts, scale, and what is Builder's to price. A leaning; his mock-ups overrule it. |
 | `march-by-parts.md` | The far march at build 194 by its parts: a tree of its program with each part's size, the 98 values it holds in hand (its size on the card), what the audits measured, and what could later come out to make room. How to take it again is at its end; the script and the kept trees are in `kept logs/march/`. |
 
 **The engine, in old**

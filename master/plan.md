@@ -13,7 +13,9 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
 - **Now (2026-11-19):** the engine's loose ends are tied up at build 227 and **the editor is next** (Phase 3), by
   his word. What it begins with is his to answer, and Builder is asking: tectonics (3.1, his order of 2026-11-16),
   or the editor's own frame and look first (Windows 95's, drawn by us, to his mock-ups; still a leaning, and
-  unpriced). The engine goes on as it stands: two marks over his 2 ms (high over the spawn 2.42, the town by the
+  unpriced). His word of 2026-11-19: "i'm going to mock up what the editor should look like after going
+  through old incus and we'll start from there"; Counsel's brief for Builder on the look is
+  `journal/docs/editor-look.md`. The engine goes on as it stands: two marks over his 2 ms (high over the spawn 2.42, the town by the
   spawn 2.01), Phase 2's gate unflown, the game he looks at unmeasured, and a list for "when the engine is
   finished out" (under 2.4). How it came here is the next bullet.
 - **Working on:** Phase 2, *Restart*, step 2.3, the near eye (experiment 6), from 2026-11-16. Builder is reading

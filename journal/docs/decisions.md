@@ -3618,6 +3618,17 @@ Reference: `Art/quartile minecraft illustration.png`
   - **The editor is next** ("after we've tied up the loose ends we should focus on the editor stuff and start
     making some headway from the other end of the program", 2026-11-18). What it begins with, tectonics (3.1, his
     order of 2026-11-16) or the editor's own frame and look first, is his to answer; Builder is asking him.
+- **The editor's look: a brief for Builder, and his mock-ups first** (David, to Counsel, 2026-11-19): "please
+  compile for builder all the technical information re. win95 shell implementation we've come to discuss about
+  the win95 look. i'm going to mock up what the editor should look like after going through old incus and we'll
+  start from there." The brief is `journal/docs/editor-look.md`: his words, the three ways weighed, the palette,
+  each edge and mark as Windows' own classic painter gives it (printed pixel for pixel), sizes, the controls he
+  picked, fonts, scale, and the questions that are Builder's to price. So the order is: he goes through old's
+  editor, mocks the new one up, and the editor's frame and look start from his mock-ups. Still a leaning until
+  his go; nothing built.
+  - *Counsel, one thing to settle before he draws:* the size he mocks the editor up at. The interface's rule
+    (x3 on his laptop) leaves an editor only 853 x 533; suggested, 1,280 x 800 (his laptop at x2), or 1,280 x
+    720 to fit more screens. His to say.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
