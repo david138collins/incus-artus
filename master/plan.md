@@ -664,7 +664,8 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
           never snapping off. With night, builds 216 to 225 (his looks at 222, 223 and 225: "looks good"); done enough
           to go on, the prices owed at assess
     - [ ] **Textures:** bars wearing their own side and end pictures along each bar, joins seamless (build 227,
-          its pass mark written); the grass's shared edge; pictures for the blocks that have none (the stage's
+          built: off the screen each bar's side one brick along it, its ends the end's, only the bars changed; his
+          look owed, its price owed by a flight); the grass's shared edge; pictures for the blocks that have none (the stage's
           seven), placeholders or his art
     - [ ] **A finer region between the triangles and the march** (his words at build 210, 2026-11-17: "i feel like
           we should have a finer region between the triangles and the march"; "push the fineness-grossness gradient

@@ -542,7 +542,15 @@ impl NearEye {
         let cover_sampler = device.create_sampler(&wgpu::SamplerDescriptor { label: Some("the near cover's four at a time"), ..Default::default() });
         let cover_sizes = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the near cover's numbers"), size: 80, usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let numbers = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the near eye's numbers"), size: 80, usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
-        let colour_bytes: Vec<u8> = colours.iter().flatten().flat_map(|v| v.to_le_bytes()).collect();
+        // (Each block's sides' fourth number: 0, or where its bars' own pictures are, the side's place and one, build
+        // 227: `textures.rs`.)
+        let colour_bytes: Vec<u8> = colours
+            .iter()
+            .enumerate()
+            .map(|(k, colour)| if k % 2 == 1 { [colour[0], colour[1], colour[2], textures.bars.get(k / 2).copied().unwrap_or(0) as f32] } else { *colour })
+            .flatten()
+            .flat_map(|v| v.to_le_bytes())
+            .collect();
         let colours = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the blocks' colours from far"), size: colour_bytes.len().max(32) as u64, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         queue.write_buffer(&colours, 0, &colour_bytes);
         let draws = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the near eye's draws"), size: MOST_DRAWN * 8 * 16, usage: wgpu::BufferUsages::INDIRECT | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });

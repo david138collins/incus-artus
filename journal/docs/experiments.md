@@ -9595,3 +9595,32 @@ block's picture by the grid. Here only stone brick has them (`data/textures/bars
 
 **Not in this build:** the grass's shared edge (the next build); pictures for the blocks that have none; the far eye,
 which keeps its colours; turning pictures by a bar's facing beyond old's way.
+
+### Build 227 built: bars wearing their own side and end pictures; checked off the screen
+
+**Built as the mark says:** `near.rs`: in a chunk in half blocks each octant keeps what it's part of (`parts`,
+`Blocks::part`: a bar's axis and one, `PART_ODD` where it begins at an odd half block, `PART_LONE` an eighth; a whole
+block placed over a piece makes those octants whole again); faces merge only where it's the same (`Face::part`);
+packed in three bits of the second word, the block in the twelve under them. `textures.rs`: `bars/<name>_side.png`
+and `_end.png`, where a block has both, as two pictures after the blocks' (`Textures::bars`); only stone brick has
+them. `near_eye.rs`: the sides' fourth number in the colour table says where they are. `near.wgsl`: `face_picture`,
+old's `bar_uv` by sums: a long side along the bar from its own end, the ends and an eighth's faces the end's. No
+switch, no control; the wiring unchanged.
+
+**Against the mark, off the screen** (`scratchpad/bars-227.sh`; build 226's pictures from the spare copy at c8ec665):
+
+- **Tests:** all 59 pass (the pieces test now asks each octant and face what it's part of, a bar begun at an odd half
+  block across a chunk's edge, and a whole block put over a piece; the packed face its part; the textures test stone
+  brick's two). **Met.**
+- **His build, build 205's eye and a nearer one:** each bar's long side is one brick a block long with its rim, along
+  the bar whichever way it lies; its ends the end's square. Build 226 cut them at the block grid (a bar's side two
+  squares of a block's bricks). Every pixel that differs is on the stone-brick build (36% of the far picture, 13% of
+  the near, the build filling that much of each); the grass, the ground, the gabbro and the sky are build 226's.
+  **Met.**
+- **The scatter of pieces at 10,000:** differs from build 226's at 391 pixels, 2 by 4 or more of 255 (the near
+  picture's own). **Met.**
+- **No gap** in any of the three.
+- **The price:** owed, one flight, his leave first.
+
+**Said to him before he looks:** only stone brick has bars' own pictures (old's placeholders); a bar of any other block
+wears its block's picture as before; whole stone-brick blocks still wear the bar side laid side by side.

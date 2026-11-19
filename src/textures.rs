@@ -11,14 +11,18 @@ use crate::far::FarColours;
 /// A picture's side, pixels (old's).
 pub const SIDE: u32 = 32;
 
-/// Every block's two pictures, its top's and then its sides', by the block's number, at each size: `sizes[k]` holds
-/// all of them at 32 >> k a side, one after another, four bytes a pixel as stored (red, green, blue, how opaque).
+/// Every block's two pictures, its top's and then its sides', by the block's number, and after them the bars' own
+/// (build 227), at each size: `sizes[k]` holds all of them at 32 >> k a side, one after another, four bytes a pixel as
+/// stored (red, green, blue, how opaque).
 pub struct Textures {
     pub sizes: Vec<Vec<u8>>,
-    /// How many pictures: two a block.
+    /// How many pictures: two a block, and two for each block whose bars have their own.
     pub pictures: u32,
-    /// How many of them were found as files (the rest are flat).
+    /// How many of the blocks' two were found as files (the rest are flat).
     pub found: u32,
+    /// For each block, by its number: 0, or where its bars' own pictures are, a long side's and then an end's, as the
+    /// side's picture's place and one (only where both are found).
+    pub bars: Vec<u32>,
 }
 
 /// A PNG as red, green, blue and opacity, a byte each.
@@ -115,7 +119,21 @@ pub fn load(doorway: &Doorway, colours: &FarColours) -> Textures {
             None => whole.extend([stored(flat[0]), stored(flat[1]), stored(flat[2]), 255].repeat((SIDE * SIDE) as usize)),
         }
     }
-    let pictures = light.len() as u32;
+    // The bars' own (build 227): `bars/<name>_side.png` (16 across, 32 long: laid up a bar's length) and `_end.png`
+    // (16 by 16: a bar's ends, and every face of a lone eighth), each side by side till it fills a picture, as old's
+    // `assets/textures/bars/`. A block with only one of them keeps its own picture on its bars.
+    let mut bars = vec![0u32; light.len() / 2];
+    for (block, bar) in bars.iter_mut().enumerate() {
+        let name = doorway.block_name(block as Block);
+        let base = name.rsplit(':').next().unwrap_or(name);
+        let [side, end] = ["side", "end"].map(|way| picture(&folder.join("bars").join(format!("{base}_{way}.png"))));
+        if let (Some(side), Some(end)) = (side, end) {
+            *bar = (whole.len() / (SIDE * SIDE * 4) as usize) as u32 + 1;
+            whole.extend(side);
+            whole.extend(end);
+        }
+    }
+    let pictures = (whole.len() / (SIDE * SIDE * 4) as usize) as u32;
     let mut sizes = vec![whole];
     let mut side = SIDE;
     while side > 1 {
@@ -124,8 +142,8 @@ pub fn load(doorway: &Doorway, colours: &FarColours) -> Textures {
         sizes.push((0..pictures as usize).flat_map(|k| halved(&before[k * each..(k + 1) * each], side)).collect());
         side /= 2;
     }
-    log::info!("The blocks' textures: {found} pictures of {pictures} found in data/textures, the rest flat in their far colour; {} sizes each", sizes.len());
-    Textures { sizes, pictures, found }
+    log::info!("The blocks' textures: {found} pictures of {} found in data/textures, the rest flat in their far colour; {} blocks' bars with their own side and end; {} sizes each", light.len(), bars.iter().filter(|bar| **bar > 0).count(), sizes.len());
+    Textures { sizes, pictures, found, bars }
 }
 
 #[cfg(test)]
@@ -139,9 +157,16 @@ mod tests {
         let mut doorway = Doorway::open(&crate::doorway::test_world()).unwrap();
         let colours = FarColours::load(&mut doorway).unwrap();
         let textures = load(&doorway, &colours);
+        let light = colours.as_light();
         assert!(textures.found >= 14, "the pictures carried from old are found: {} of {}", textures.found, textures.pictures);
         assert_eq!(textures.sizes.len(), 6, "32 down to 1");
-        let light = colours.as_light();
+        // Stone brick's bars wear their own side and end (build 227), as the two pictures after the blocks'; no other
+        // block has them.
+        let brick = doorway.block("incus:stone_brick") as usize;
+        let blocks = light.len() as u32;
+        assert_eq!(textures.bars[brick], blocks + 1, "stone brick's bars' side is the first picture after the blocks'");
+        assert_eq!(textures.bars.iter().filter(|bar| **bar > 0).count(), 1, "only stone brick has bars' own pictures");
+        assert_eq!(textures.pictures, blocks + 2, "the blocks' two each, and stone brick's bars' two");
         let smallest = textures.sizes.last().unwrap();
         let as_light = |v: u8| {
             let v = v as f32 / 255.0;

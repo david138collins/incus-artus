@@ -7,7 +7,8 @@
 @group(0) @binding(2) var t_shadow: texture_2d<f32>;
 @group(0) @binding(3) var t_sky: texture_2d<f32>;
 @group(0) @binding(4) var soft: sampler;
-// Each block's colour from far, as light: its top's, then its sides' (the far colours' table).
+// Each block's colour from far, as light: its top's, then its sides' (the far colours' table). A sides' fourth
+// number: 0, or where the block's bars' own pictures are, the long side's layer and one (the end's is the next).
 @group(0) @binding(5) var<storage, read> colours: array<vec4<f32>>;
 @group(0) @binding(6) var<uniform> near: Near;
 // The blocks' pictures (build 205): a layer a picture, a block's top's then its sides', each with its shrunk sizes;
@@ -83,9 +84,10 @@ struct Corner {
     @builtin(position) clip: vec4<f32>,
     // From the eye (north, east, up).
     @location(0) from_eye: vec3<f32>,
-    // The facing (0 north, 1 south, 2 east, 3 west, 4 up, 5 down); the block; the cell it looks into along the way it
-    // looks, in its chunk, in whole blocks and one added (north or east -1 to 32, or up), with its own sky light
-    // (`<< 16`, 0 to 15: build 208's way, `INCUS_NEAR_LIGHT=faces`); its chunk, as the face's third word has it.
+    // The facing (0 north, 1 south, 2 east, 3 west, 4 up, 5 down); the block, with what it's part of over 16 bits
+    // up (`near.rs`, `Face::part`); the cell it looks into along the way it looks, in its chunk, in whole blocks and
+    // one added (north or east -1 to 32, or up), with its own sky light (`<< 16`, 0 to 15: build 208's way,
+    // `INCUS_NEAR_LIGHT=faces`); its chunk, as the face's third word has it.
     @location(1) @interpolate(flat) what: vec4<u32>,
     // How far along the eye's own way.
     @location(2) ahead: f32,
@@ -150,7 +152,7 @@ fn near_corner(@builtin(vertex_index) corner: u32, @location(0) face: vec3<u32>)
     let own = vec3<i32>(i32(face.x & 63u), i32((face.x >> 6u) & 63u), i32(((face.x >> 12u) & 1023u) | (((face.y >> 26u) & 1u) << 10u)));
     let along = select(select(own.z, own.y, facing < 4u), own.x, facing < 2u);
     let into = (along + select(-1, 1, greater)) >> (face.x >> 31u);
-    corner_out.what = vec4<u32>(facing, (face.y >> 10u) & 0xFFFFu, u32(into + 1) | (((face.y >> 27u) & 15u) << 16u), face.z);
+    corner_out.what = vec4<u32>(facing, ((face.y >> 10u) & 0xFFFu) | (((face.y >> 22u) & 7u) << 16u), u32(into + 1) | (((face.y >> 27u) & 15u) << 16u), face.z);
     // Where the corner is on its block's picture: its place in its chunk along the two ways the face spreads, in
     // blocks. So a merged face wears the picture once a block, in step with every face beside it; a side's picture
     // stands upright (the picture's first row is its top).
@@ -368,17 +370,51 @@ fn nearer_has(corner: Corner, covered: f32) -> bool {
     return false;
 }
 
+// Which picture a face wears, and where on it (build 227): its block's, a block at a time (`on_picture`); or, for a
+// piece of a block whose bars have their own pictures (`bars`: the long side's layer and one), old's way
+// (`old/src/sight/march.wgsl`, `bar_uv`): a bar's long sides the side's picture, its length up the bar from the
+// bar's own end (half a block on where it begins at an odd half block) and a half block across; its ends, and every
+// face of a lone eighth, the end's, a half block each way. (The pictures are laid side by side in their layers, so
+// a block's measure reads them a half block a time.) By sums only, no branch: the card's reading wants its
+// neighbours' places.
+fn face_picture(facing: u32, which: u32, part: u32, bars: u32, on_picture: vec2<f32>) -> vec3<f32> {
+    // The way the bar lies (0 north, 1 east, 2 up; 3 for no bar) and the way the face looks.
+    let kind = part & 3u;
+    let axis = select(3u, kind - 1u, kind != 0u);
+    let looks_along = facing / 2u;
+    let own = bars != 0u && part != 0u;
+    let end = kind == 0u || axis == looks_along;
+    // The face spreads along `a` then `b` (north and south: east, up; east and west: north, up; up and down: north,
+    // east); `on_picture` is its place along them, in blocks, up turned down on a side.
+    let along_a = (facing < 2u && axis == 1u) || (facing >= 2u && axis == 0u);
+    let start = select(0.0, 0.5, (part & 4u) != 0u);
+    let flip = select(1.0, -1.0, facing < 4u);
+    let a = on_picture.x;
+    let b = on_picture.y * flip;
+    let side = select(vec2<f32>(a, -(b - start)), vec2<f32>(b, -(a - start)), along_a);
+    let uv = select(on_picture, side, own && !end);
+    let layer = select(which, select(bars - 1u, bars, end), own);
+    return vec3<f32>(uv, f32(layer));
+}
+
 @fragment
 fn near_face(corner: Corner) -> @location(0) vec4<f32> {
     let facing = corner.what.x;
-    // The block's picture here (its top's looking up, its sides' otherwise), read first of all: the card finds how
-    // small the picture is here from this pixel's neighbours' readings, before any pixel is left out.
-    let which = corner.what.y * 2u + select(1u, 0u, facing == 4u);
+    let block = corner.what.y & 0xFFFFu;
+    // The block's picture here (its top's looking up, its sides' otherwise; a bar's own, build 227), read first of
+    // all: the card finds how small the picture is here from this pixel's neighbours' readings, before any pixel is
+    // left out.
+    let which = block * 2u + select(1u, 0u, facing == 4u);
     let pictures = textureNumLayers(t_blocks);
+    var bars = 0u;
+    if (block * 2u + 1u < arrayLength(&colours)) {
+        bars = u32(colours[block * 2u + 1u].w);
+    }
+    let laid = face_picture(facing, which, corner.what.y >> 16u, bars, corner.on_picture);
     // (In a coarse band the card finds the picture small sooner, by its bigger pixels, and blends it: read finer by
     // the sharpness, a coarse square shows one square of the picture for as long as the screen's own pixels would,
     // build 215.)
-    let picture = textureSampleBias(t_blocks, crisp, corner.on_picture, min(which, pictures - 1u), band.behind.w);
+    let picture = textureSampleBias(t_blocks, crisp, laid.xy, min(u32(laid.z), pictures - 1u), band.behind.w);
     // (What a nearer band's picture covers never gets here: the mask in the band's depth drops it first.)
     if (out_of_band(corner) || stippled_out(corner)) {
         discard;

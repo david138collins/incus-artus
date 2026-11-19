@@ -107,6 +107,24 @@ pub struct Face {
     pub water: bool,
     /// The sky's light in the cell it looks into, 0 to 15 (build 208; 15 with `INCUS_NEAR_LIGHT=0`).
     pub light: u8,
+    /// What its cells are part of (build 227; `Blocks::part`): 0 a whole block; a bar's axis and one (1 north, 2
+    /// east, 3 up), with `PART_ODD` where it begins at an odd half block along it; `PART_LONE` a lone eighth.
+    pub part: u8,
+}
+
+/// A part (build 227): a bar that begins at an odd half block along its axis (its picture laid from there); and a
+/// lone eighth (an octant of no bar), which wears its block's bar end on every face, as old's did.
+pub const PART_ODD: u8 = 4;
+pub const PART_LONE: u8 = 4;
+
+/// A bar's part: its axis and one, and whether it begins at an odd half block along it (`from`, in half blocks).
+fn bar_part(axis: crate::doorway::Axis, from: [i32; 3]) -> u8 {
+    let k = match axis {
+        crate::doorway::Axis::NorthSouth => 0,
+        crate::doorway::Axis::EastWest => 1,
+        crate::doorway::Axis::Upright => 2,
+    };
+    (k as u8 + 1) | if from[k].rem_euclid(2) == 1 { PART_ODD } else { 0 }
 }
 
 /// A chunk's blocks with a column of its neighbours all round (so a side at the chunk's edge knows what it looks
@@ -124,6 +142,9 @@ pub struct Blocks {
     /// Columns of its neighbours read on each side: `MARGIN`, or `LAMP_MARGIN` for a placed light's spread.
     margin: i32,
     cells: Vec<u16>,
+    /// Where it's in half blocks, what each octant is part of (`Face::part`), laid out as the cells are (build 227:
+    /// a bar's own pictures are laid along it); empty in whole blocks.
+    parts: Vec<u8>,
 }
 
 /// Columns read round a chunk on each side: enough for its faces (one) and for the sky's light, which spreads into
@@ -847,6 +868,7 @@ impl Blocks {
         let high = (high + 1).min(height).max(low + 1);
         let (u, wide, tall) = (unit as usize, across * unit as usize, ((high - low) * unit) as usize);
         let mut cells = vec![0u16; wide * wide * tall];
+        let mut parts = if unit == 2 { vec![0u8; wide * wide * tall] } else { Vec::new() };
         for (k, column) in columns.iter().enumerate() {
             if let Column::Here { runs, .. } = column {
                 let (north, east) = (k % across, k / across);
@@ -870,7 +892,11 @@ impl Blocks {
                     for dz in 0..u {
                         for de in 0..u {
                             for dn in 0..u {
-                                cells[(north * u + dn + (east * u + de) * wide) * tall + z * u + dz] = block + 1;
+                                let at = (north * u + dn + (east * u + de) * wide) * tall + z * u + dz;
+                                cells[at] = block + 1;
+                                if let Some(part) = parts.get_mut(at) {
+                                    *part = 0;
+                                }
                             }
                         }
                     }
@@ -878,6 +904,10 @@ impl Blocks {
                 // A piece: each of its octants that's empty (air or water): it doesn't displace ground, and where two
                 // pieces would share an octant the first placed keeps it.
                 Some((octants, block)) => {
+                    let part = match change {
+                        Change::Bar { from, axis, .. } => bar_part(axis, from),
+                        _ => PART_LONE,
+                    };
                     for octant in octants {
                         let local = [octant[0] - least[0] * 2, octant[1] - least[1] * 2, octant[2] - low * 2];
                         if local[0] < 0 || local[1] < 0 || local[2] < 0 || local[0] >= wide as i32 || local[1] >= wide as i32 || local[2] >= tall as i32 {
@@ -886,12 +916,13 @@ impl Blocks {
                         let at = (local[0] as usize + local[1] as usize * wide) * tall + local[2] as usize;
                         if cells[at] == 0 || cells[at] == WATER + 1 {
                             cells[at] = block + 1;
+                            parts[at] = part;
                         }
                     }
                 }
             }
         }
-        Ok(Self { chunk, low, high, unit, margin, cells })
+        Ok(Self { chunk, low, high, unit, margin, cells, parts })
     }
 
     /// Columns a side of what's read: the chunk's and its margin's.
@@ -912,6 +943,17 @@ impl Blocks {
         }
         let tall = ((self.high - self.low) * u) as usize;
         self.cells[((north + self.margin * u) as usize + (east + self.margin * u) as usize * self.wide() * u as usize) * tall + (up - self.low * u) as usize]
+    }
+
+    /// What the cell at `north`, `east`, `up` (as `cell` takes them) is part of (`Face::part`, build 227): 0 for a
+    /// whole block, and for every cell of a chunk in whole blocks.
+    pub fn part(&self, north: i32, east: i32, up: i32) -> u8 {
+        let u = self.unit;
+        if self.parts.is_empty() || up < self.low * u || up >= self.high * u {
+            return 0;
+        }
+        let tall = ((self.high - self.low) * u) as usize;
+        self.parts[((north + self.margin * u) as usize + (east + self.margin * u) as usize * self.wide() * u as usize) * tall + (up - self.low * u) as usize]
     }
 
     /// Whether a cell stops the eye: a block, not air and not water.
@@ -1192,7 +1234,8 @@ impl Blocks {
             let step = facing.step();
             let (wide, high) = (size[a] as usize, size[b] as usize);
             // What shows at each place of the plane: 0 nothing; a block's number and one; water's top marked by the
-            // highest bit.
+            // highest bit; the light it looks into over 20 bits up, and what it's part of over 24 (so a bar's sides
+            // merge only with sides laid the same way).
             let mut mask = vec![0u32; wide * high];
             for plane in 0..size[along] {
                 let mut any = false;
@@ -1208,7 +1251,7 @@ impl Blocks {
                         // (The world's floor shows no underside.)
                         let lit = || light_at(north + step[0], east + step[1], up + step[2]) << 20;
                         let shows = if Self::solid(cell) {
-                            if !Self::solid(beyond) && !(facing == Facing::Down && up == 0) { cell as u32 | lit() } else { 0 }
+                            if !Self::solid(beyond) && !(facing == Facing::Down && up == 0) { cell as u32 | lit() | (self.part(north, east, up) as u32) << 24 } else { 0 }
                         } else if cell == WATER + 1 && facing == Facing::Up && beyond == 0 {
                             1 << 31 | cell as u32 | lit()
                         } else {
@@ -1249,7 +1292,7 @@ impl Blocks {
                         at[b] = v as i32;
                         at[along] = plane;
                         at[2] += self.low * unit;
-                        faces.push(Face { at, facing, wide: across as i32, high: down as i32, block: (shows & 0xFFFF) as Block - 1, water: shows >> 31 == 1, light: ((shows >> 20) & 15) as u8 });
+                        faces.push(Face { at, facing, wide: across as i32, high: down as i32, block: (shows & 0xFFFF) as Block - 1, water: shows >> 31 == 1, light: ((shows >> 20) & 15) as u8, part: ((shows >> 24) & 7) as u8 });
                         u += across;
                     }
                 }
@@ -1326,13 +1369,14 @@ fn touched_cell(cell: [i32; 3]) -> Vec<[i32; 2]> {
 /// A face as the card is given it, three words: its place in its chunk, its facing and its width; its height and
 /// its block; its chunk. (North and east in 6 bits each, up in 10, the facing in 3, the width less one in 5, water's
 /// top marked, and the top bit set where it's all in half blocks (`unit` 2: north and east then 0 to 63, and up to
-/// 2,047, its eleventh bit kept in the second word); the height less one in 10, the block in 16, up's eleventh bit;
-/// the chunk's north and east, each with 32,768 added, in 16 bits each.)
+/// 2,047, its eleventh bit kept in the second word); the height less one in 10, the block in 12 (to 4,095), what it's
+/// part of in 3 (build 227), up's eleventh bit, the light in 4; the chunk's north and east, each with 32,768 added,
+/// in 16 bits each.)
 pub fn packed(face: &Face, chunk: [i32; 2], unit: i32) -> [u32; 3] {
     let facing = Facing::ALL.iter().position(|f| *f == face.facing).unwrap() as u32;
     let up = face.at[2] as u32;
     let a = face.at[0] as u32 | (face.at[1] as u32) << 6 | (up & 1023) << 12 | facing << 22 | ((face.wide - 1) as u32) << 25 | (face.water as u32) << 30 | ((unit == 2) as u32) << 31;
-    let b = (face.high - 1) as u32 | (face.block as u32) << 10 | (up >> 10 & 1) << 26 | (face.light as u32 & 15) << 27;
+    let b = (face.high - 1) as u32 | (face.block as u32 & 0xFFF) << 10 | (face.part as u32 & 7) << 22 | (up >> 10 & 1) << 26 | (face.light as u32 & 15) << 27;
     let c = (chunk[0] + 32768) as u32 | ((chunk[1] + 32768) as u32) << 16;
     [a, b, c]
 }
@@ -1731,12 +1775,19 @@ mod tests {
         assert_eq!(bar.iter().filter(|face| face.wide * face.high == 1).count(), 2, "two ends, half by half");
         assert_eq!(bar.iter().filter(|face| face.wide * face.high == 2).count(), 4, "four sides, one by a half");
         assert_eq!(of(sand).len(), 6, "an eighth is six faces");
+        // What each is part of (build 227): the bar's octants and faces its axis (north and one, begun at an even half
+        // block); the eighth lone; the ground whole.
+        assert_eq!([blocks.part(32, 33, z * 2), blocks.part(33, 33, z * 2), blocks.part(41, 32, z * 2 + 1), blocks.part(32, 33, 0)], [1, 1, PART_LONE, 0], "the bar's two octants, the eighth, the ground");
+        assert!(bar.iter().all(|face| face.part == 1), "every face of the bar says its bar: {bar:?}");
+        assert!(of(sand).iter().all(|face| face.part == PART_LONE), "every face of the eighth is a lone eighth's");
+        assert!(faces.iter().filter(|face| face.at[2] < z * 2).all(|face| face.part == 0), "the ground's faces are whole blocks'");
         // A second bar put across the first's north octant: the first keeps it, the second shows only its other half.
         doorway.make(Change::Bar { cell: [16, 16, z], from: [33, 33, z * 2], axis: Axis::Upright, block: sand }).unwrap();
         let blocks = Blocks::read(&doorway, &mut HashMap::new(), [0, 0]).unwrap();
         exact(&blocks);
         assert_eq!(blocks.cell(33, 33, z * 2), stone + 1, "the first bar keeps the octant they'd share");
         assert_eq!(blocks.cell(33, 33, z * 2 + 1), sand + 1, "the second fills its other octant");
+        assert_eq!([blocks.part(33, 33, z * 2), blocks.part(33, 33, z * 2 + 1)], [1, 3], "each octant says its own bar: the first's north, the second's upright");
         // A bar across the chunk's north edge (its second octant in the chunk to the north): both chunks have it.
         doorway.forget_changes();
         let edge = Change::Bar { cell: [CHUNK - 1, 5, z], from: [CHUNK * 2 - 1, 10, z * 2], axis: Axis::NorthSouth, block: stone };
@@ -1749,6 +1800,12 @@ mod tests {
         assert_eq!(south.cell(CHUNK * 2 - 1, 10, z * 2), stone + 1, "its south half is the south chunk's");
         assert_eq!(north.cell(0, 10, z * 2), stone + 1, "its north half is the north chunk's");
         assert_eq!(south.cell(CHUNK * 2, 10, z * 2), stone + 1, "and each chunk knows the other's half beside its own (no face between them)");
+        // (Begun at an odd half block, 63: each half says so, so its picture is laid from its own end in both chunks.)
+        assert_eq!([south.part(CHUNK * 2 - 1, 10, z * 2), north.part(0, 10, z * 2)], [1 | PART_ODD; 2], "both halves say their bar begins at an odd half block");
+        // A whole block put in the bar's south cell afterwards: those octants are a whole block's.
+        doorway.make(Change::Block { cell: [CHUNK - 1, 5, z], block: sand }).unwrap();
+        let south = Blocks::read(&doorway, &mut HashMap::new(), [0, 0]).unwrap();
+        assert_eq!([south.cell(CHUNK * 2 - 1, 10, z * 2), south.part(CHUNK * 2 - 1, 10, z * 2) as u16], [sand + 1, 0], "a whole block over a piece is whole");
         assert_eq!(Blocks::read(&doorway, &mut HashMap::new(), [0, 1]).unwrap().unit, 1, "a chunk the bar doesn't touch stays in whole blocks");
     }
 
@@ -2015,7 +2072,7 @@ mod tests {
                     }
                 }
             }
-            Blocks { chunk: [0, 0], low, high, unit: 1, margin: MARGIN, cells }
+            Blocks { chunk: [0, 0], low, high, unit: 1, margin: MARGIN, cells, parts: Vec::new() }
         };
         let at = |blocks: &Blocks, light: &[u8], north: i32, east: i32, up: i32| {
             let tall = (blocks.high - blocks.low) as usize;
@@ -2151,16 +2208,16 @@ mod tests {
     /// A face's three words hold what it is.
     #[test]
     fn a_packed_face_unpacks() {
-        let face = Face { at: [31, 7, 1000], facing: Facing::West, wide: 32, high: 1024, block: 513, water: false, light: 9 };
+        let face = Face { at: [31, 7, 1000], facing: Facing::West, wide: 32, high: 1024, block: 513, water: false, light: 9, part: 3 | PART_ODD };
         let [a, b, c] = packed(&face, [-1125, 990], 1);
         assert_eq!([a & 63, (a >> 6) & 63, (a >> 12) & 1023, (a >> 22) & 7, ((a >> 25) & 31) + 1, (a >> 30) & 1, a >> 31], [31, 7, 1000, 3, 32, 0, 0]);
-        assert_eq!([(b & 1023) + 1, (b >> 10) & 0xFFFF, (b >> 26) & 1, b >> 27], [1024, 513, 0, 9]);
+        assert_eq!([(b & 1023) + 1, (b >> 10) & 0xFFF, (b >> 22) & 7, (b >> 26) & 1, b >> 27], [1024, 513, 7, 0, 9]);
         assert_eq!([(c & 0xFFFF) as i32 - 32768, (c >> 16) as i32 - 32768], [-1125, 990]);
         // A face in half blocks: north and east to 63, up to 2,047 (its eleventh bit in the second word).
-        let half = Face { at: [63, 40, 2047], facing: Facing::Up, wide: 2, high: 1, block: 7, water: false, light: 15 };
+        let half = Face { at: [63, 40, 2047], facing: Facing::Up, wide: 2, high: 1, block: 4095, water: false, light: 15, part: PART_LONE };
         let [a, b, _] = packed(&half, [3, -4], 2);
         assert_eq!([a & 63, (a >> 6) & 63, ((a >> 12) & 1023) | ((b >> 26) & 1) << 10, (a >> 22) & 7, ((a >> 25) & 31) + 1, a >> 31], [63, 40, 2047, 4, 2, 1]);
-        assert_eq!([(b & 1023) + 1, (b >> 10) & 0xFFFF], [1, 7]);
+        assert_eq!([(b & 1023) + 1, (b >> 10) & 0xFFF, (b >> 22) & 7, b >> 27], [1, 4095, PART_LONE as u32, 15]);
     }
 
     /// Placed light (build 216): a step dimmer each block from a lamp, round a wall's end and not through it, two
@@ -2188,7 +2245,7 @@ mod tests {
         }
         set(10, 10, ground, red);
         set(20, 20, ground, green);
-        let blocks = Blocks { chunk: [0, 0], low, high, unit: 1, margin, cells };
+        let blocks = Blocks { chunk: [0, 0], low, high, unit: 1, margin, cells, parts: Vec::new() };
         let mut glows = Glows { blocks: vec![[0; 3]; 9] };
         glows.blocks[red as usize] = [15, 0, 0];
         glows.blocks[green as usize] = [0, 15, 0];
@@ -2304,7 +2361,7 @@ mod tests {
                 }
             }
         }
-        let blocks = Blocks { chunk: [0, 0], low, high, unit: 1, margin, cells };
+        let blocks = Blocks { chunk: [0, 0], low, high, unit: 1, margin, cells, parts: Vec::new() };
         let eye = [10, 10, ground + 1];
         let made = blocks.carried_light(eye, [12, 6, 0]);
         assert_eq!(made.len(), 32 * 32 * 32);
