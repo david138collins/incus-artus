@@ -3755,6 +3755,12 @@ Reference: `Art/quartile minecraft illustration.png`
 - **[DECIDED 2026-11-19] The wheel scrolls the panel, but not inside a number box** (David, to Counsel):
   "additionally note i need the mousewheel to scroll the panel unless the mouse is inside a number box."
   What the wheel does inside a number box (changes the number, or nothing) he didn't say: open, his.
+  - **Answered the same day** (David, to Counsel): "oh, when its over a number box, it increments/decrements. otherwise, when its in the panel, it scrolls the panel. when its in the viewport, for tectonics or world gen, it zooms. the zoom was pixels per chunk in tectonics, and 1/2x, 1x, 2x, 4x, 8x for the world gen."
+    So the wheel goes by where the pointer is: over a number box it steps the number; elsewhere in the panel it
+    scrolls the panel; in the Tectonic Sim's or World Gen's viewport it zooms. He gives the zooms as old had
+    them ("was"): pixels per chunk in the Tectonic Sim; 1/2x, 1x, 2x, 4x and 8x in World Gen. Left open: how
+    much one notch changes each number; whether the new viewports keep those zooms as they were; the wheel over
+    the Software map and other views.
 - **The Software map in the editor: two examples, Counsel's, at his asking; neither answered** (2026-11-19; in
   `Art/editor reference/`). "this one is a tall order; the software map in the editor is a lot. i want it to be
   there though for studying, with the highlighting and hierarchy it has now, possibly with a panel on the left, a
