@@ -9503,3 +9503,7 @@ over the land's column tops (`far_light.rs`), columns many blocks wide, so a hil
 near faces' own light (build 208) is how open a face is to the sky, straight up, with no sun's way in it. A tree's
 shadow wants a sweep of the same kind at a block a column round the eye, or the card drawing the near blocks from
 the sun: not built, his to place.
+
+**His choice for trees' shadows (2026-11-18):** "i think we'd do the first, when we come back to the graphics": the
+far light's sweep at a block a column round the eye. In plan 2.4 as "The sun's shadows up close", with the things
+for when the engine is finished out.

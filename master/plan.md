@@ -758,6 +758,13 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
         the rest of placed things in the far view, the near eye's own costs, water's far look, the polish
         passes, the gate. Then the editor (his word: "after we've tied up the loose ends we should focus on the
         editor stuff and start making some headway from the other end of the program")
+    - [ ] **The sun's shadows up close** (his question, 2026-11-18: "why don't trees cast shadows directionally
+          like the mountains do?"): the sun's shadows are the far light's, swept over column tops many blocks
+          wide, so a hill casts one and a tree, a wall or a house can't; the near faces' own light is how open a
+          face is to the sky, straight up. His choice of the two ways: "i think we'd do the first, when we come
+          back to the graphics": the far light's sweep again at a block a column round the eye, made on a thread
+          when the sun moves, a shadow's edge a block coarse. The moons follow it ("once that's answered, im not
+          worried about how the moons are implemented"). When the engine is finished out
     - [ ] **Listing chunks:** the near eye's processor time is all in listing the chunks in view (0.15 to 0.27 ms a
           frame at 32 chunks, about 1 ms at 64)
     - [x] **Faces turned away** from the eye left out: build 209 (ff0c6b2), the card drops them and a chunk's
