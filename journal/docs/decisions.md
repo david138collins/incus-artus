@@ -3640,6 +3640,105 @@ Reference: `Art/quartile minecraft illustration.png`
     specifications and methodology". *Counsel's reading:* that is his go on the method (the look drawn by us to
     the recipes, at whole pixels and whole scales, to his mock-ups), no longer only a leaning. Builder's price,
     her answers to the brief's questions, and his mock-ups are still to come; nothing is built.
+- **The Tectonic Sim's pages, from his notes going through old's editor** (David, to Counsel, 2026-11-19, pasted
+  with his first mock-up: a 1,280 x 800 window, the menus, the page's drop-down and the toolbar on one row, a
+  tabbed panel on the left about 550 wide, the map's viewport on the right, a status bar). His notes, whole:
+  - "settings panel (presets, show, world, tectonics, bake) this is settings stuff. It includes the preset, the
+    seed, the tickboxes for showing things like deleted cells, vertices, straight lines before wobbling, arrows
+    for heading and spin, their length, boundries. this would include the bake settings, such as total steps."
+  - "(plates, wobbly edges, heights(and water), ) we won't actually be putting real water into the tectonics sim.
+    the simulation will just show an estimated water/sea level in the viewport so i know what i'm working with.
+    water will be placed entirely by the world gen section, ultimately.this section will include all the
+    variables that effect the pre-simulation configuration of the world. that means number of plates, the
+    coverage (this needs rework), spread evenly (rework), rings of ocean plates and ocean plates amongst the
+    land (rework) and the inside from edge slider. it will include the wobbly edges settings, the heights and
+    water will be reworked more deliberately. we'll probably expose the grid of 'balls and springs' each plate is
+    made of."
+  - "(land plates, ocean plates, simulation) two identical sections, one for land plates and one for ocean
+    plates, which will basically be the higher plates and lower plates as we configure it this time. we'll dive
+    into the settings in these panels to refine their use. the 'simulation' page will control both, as it does
+    now."
+  - "so pages would be, Main settings, Plate settings, Land plates, Ocean plates, Simulation".
+  - So, of the new Tectonic Sim: five pages, as tabs in his mock-up; no real water in it, only an estimated sea
+    level shown in the viewport, water placed by World Gen; land and ocean plates are "the higher plates and
+    lower plates"; coverage, spread evenly, the rings of ocean plates and ocean plates among the land, and the
+    heights and water are marked by him for rework; the plates' grid of balls and springs perhaps shown.
+  - **An example page, Counsel's, at his asking** ("Can you mock up an example left side panel for these
+    parameters into this mockup?"): old's Ocean plates settings drawn into his mock-up in the 95 look, pixel for
+    pixel, in `Art/editor reference/` (off GitHub): the five tabs, three group boxes with old's own names (How
+    they move; Heights (change at any time); Their rock (can change while it runs, except patchiness)), and
+    each setting a row of its name, a slider, a number field, and the spread field where old had one. The
+    arrangement is Counsel's guess for him to mark up: names on the left in one column, the spread fields in a
+    column of their own on the right where old had them before the slider. Nothing in it is decided.
+- **[DECIDED 2026-11-19] In the editor's panels: a setting on two lines, a scrollbar, one-word tabs if need be,
+  no description text** (David, to Counsel, across the day, each on seeing an example).
+  - Of the first example, with a sketch of his own (a setting's name and tick boxes on one line; its slider,
+    number and spread field on the line under): "can you redo this part with a scrollbar on the right and the
+    variables arranged like so for each one rather than in long rows?" Of the redraw: "very nice."
+  - "for the tabs, we can always go to 1 word labels if we need more i suppose. if good sets of words for them
+    are to be found".
+  - Of a box of description text at the bottom of the World Gen example: "Can you remove the text description
+    at the bottom (these are unnecessary going forward)? we can use the yellow tooltip boxes for any mouseover
+    info." So panels carry no describing paragraphs; mouseover information is in tooltips. Old's descriptions
+    run to five lines and a 95 tooltip was one short line: wrapped tooltips or the texts cut down is open, his.
+- **Three more examples, Counsel's, at his asking; none answered, nothing in them decided** (2026-11-19; all in
+  `Art/editor reference/`, off GitHub).
+  - World Gen: "can you take a stab at the 'world gen' editor page that would follow after tectonics from the
+    drop down menu at the top, and theorize how windows 95 would have done collapsing subsections in the panel
+    for things like this that go on and on and on? I think we'd do the tabs in the panel like before, but we may
+    run out of space for more tabs, if we can't condense the individual panels vertically." Drawn (example 3):
+    old's World Compiler, its stages as one-word tabs (Main, Landmass, Topography, Climate, Mineralogy,
+    Interpreter), its sections as bars that fold with a tree's plus-or-minus box, in a scrolling pane. What he
+    was told: Windows 95 itself had no folding sections inside a panel (it had tabs in rows, the tree, an
+    "Advanced..." button, a "More >>" button); the folding bars are 3D Studio MAX's of 1996, from Counsel's
+    memory and not from a source found that day.
+  - The debug panel and the palette: "builder suggested we 86 egui. can you look through historical examples and
+    draw up a floating 95 debug panel, and also a sophisticated 95 style palette device? obviously a bit beyond
+    ms-paint, but how would ms-paint have implemented our specced master palette with the crush/regulate
+    features?" Drawn: the F3 panel as a floating window (example 4: tabs Overview, Camera, Render; the passes
+    as a list with column heads; Render's nine sections as folding bars), and the master palette (example 5:
+    splines as named rows of sunken wells in folding groups; "Not on a spline" a box of loose wells; a
+    right-click menu on a spline; a Crush dialog after Paint's Edit Colors with old's own controls; a curve
+    window). The splines' names, the numbers and some menu words are stand-ins.
+- **[DECIDED 2026-11-19] egui leaves; our own text; the viewports; the window, F2 and F11; the debug panel; a
+  scale setting** (David, to Builder, the same day; relayed whole by her message to Counsel, and not heard by
+  Counsel from him).
+  - egui, which Builder had suggested dropping: "yeah! lets trash egui." Not kept as plumbing either; clicks,
+    typing, scrolling and layout are ours. This overrules the leaning of 2026-11-18, which kept egui as unseen
+    plumbing.
+  - Text: "i am confident you can spin up a text placer and entry device for both the editor and game."
+  - Viewports: "the viewports we had in the end in old incus were good, there were some vestigial readouts and
+    displays left over for precious iterations of them. theyll just slot into the 95gui as squares (at
+    1280x800, it doesnt have to stay square as the window is resized or on other screens)".
+  - The panel: "the panel with tabs will be a fixed 1/2 to 1/4 size on the left in tectonics and world gen."
+  - The window: "the editor will run windowed, so it stays snapped above the taskbar unless i hit f11. the game
+    will be borderless fullscreen like it is now ... when you hit f2 itll go back to the editor, windowed or
+    fullscreen, and f2 back again." Then: "f11 would only effect the editor, the game will stay borderless
+    fullscreen. we can put a setting somewhere to enable it to be windowed just like the editor, with its 95
+    title bar and borders."
+  - The debug panel: "youll have a 95 style floating debug panel mockup when im done" and "ill have a mockup for
+    the debug panel too when its time to switch." So Counsel's example 4 is only an offer; today's F3 panel
+    stays until his own mock-up.
+  - Scale: "there should also be a setting for the scale of the panel, with it being set to auto for standard
+    ratios." Then: "we will figure out scaling for different cases when its important, the general rule with a
+    scale setting should be good enough until shipping. we can always just have counsel make a whole set of
+    images to select the default scale for each standard screen size/res". **[OPEN] Which panel:** he said it
+    unprompted, after Builder had laid out the game-windowed setting and the floating debug panel; the editor as
+    a whole is Builder's reading "and nothing more". His to say. Counsel had asked him the same day what scale
+    the debug panel floats at over the game, unanswered.
+  - Mock-ups: "i am working on a thorough set of mockups now that should make it easy for you."
+  - Builder's plan from these, hers and not yet his go: each font from a glyph sheet of our own at its true
+    size; the window made without Windows' frame, its dragging, resizing and maximise ours; Auto as the largest
+    whole number at which 1,280 x 800 fits; an order of building (the painter and the bare frame compared pixel
+    for pixel with his picture; the frame's behaviour; the controls drawn, then working; the viewports; then the
+    debug panel and egui out of `Cargo.toml`). She builds nothing until his mock-ups come.
+- **One shared page for Counsel and Builder** (David, to each of us, 2026-11-19): "At this point, i'd like for
+  you to reach out to builder and put together a doc with what we've decided for you to go off of as i work up
+  these mockups, so you two are on the same page starting now." It is "Where we stand", at the head of
+  `journal/docs/editor-look.md`: what he has decided with his words, what is only drawn, what the decisions
+  overrule further down the brief, Builder's plan kept apart from his words, and what is open. Builder read it
+  whole and works from it ("nothing wrong in substance"). Counsel brings it up to date in the same commit as
+  each thing he decides. For this he had the two of us write to each other directly.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its

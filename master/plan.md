@@ -11,11 +11,12 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
 ## Where we are
 
 - **Now (2026-11-19):** the engine's loose ends are tied up at build 227 and **the editor is next** (Phase 3), by
-  his word. What it begins with is his to answer, and Builder is asking: tectonics (3.1, his order of 2026-11-16),
-  or the editor's own frame and look first (Windows 95's, drawn by us, to his mock-ups; still a leaning, and
-  unpriced). His word of 2026-11-19: "i'm going to mock up what the editor should look like after going
-  through old incus and we'll start from there"; Counsel's brief for Builder on the look is
-  `journal/docs/editor-look.md`. The engine goes on as it stands: two marks over his 2 ms (high over the spawn 2.42, the town by the
+  his word. It begins with his mock-ups: he is drawing the editor at 1,280 x 800, in
+  Windows 95's look drawn by us, and Builder builds nothing until they come; then, by her proposed order (not yet
+  his go), the painter and the frame, the frame's behaviour, the controls, the viewports. **egui leaves the
+  project** ("yeah! lets trash egui."): the controls and the text are ours, for the editor and the game. What is
+  decided, what is only drawn and what is open on the editor is one shared page, kept by Counsel and worked from
+  by Builder: "Where we stand", at the head of `journal/docs/editor-look.md`. The engine goes on as it stands: two marks over his 2 ms (high over the spawn 2.42, the town by the
   spawn 2.01), Phase 2's gate unflown, the game he looks at unmeasured, and a list for "when the engine is
   finished out" (under 2.4). How it came here is the next bullet.
 - **Working on:** Phase 2, *Restart*, step 2.3, the near eye (experiment 6), from 2026-11-16. Builder is reading
@@ -934,8 +935,8 @@ way, because it gets pretty crowded, so we'll use space a little better" (2026-1
 | People far off: sharper than the squares behind them, or drawn into them? | 2.4 |
 | Leaves far off: a little see-through, as the averages make them, or solid? "leaves are a bit see-through, so far leaves may be a bit? we'll have to see how it comes out once we're there" (2026-11-18) | His eye, when far leaves are there to see |
 | ~~The near faces grew since build 210 (1.19 against 1.11 ms high over the spawn, flown 2026-11-19), the cause not found: hunt it now, or with the near eye's own costs when the engine is finished out?~~ | Answered 2026-11-19: later, with the speed work ("i agree, go on") |
-| What "the editor stuff" begins with: tectonics (3.1, his order of 2026-11-16), or the editor's own frame and look first, now that he is mocking it up | David |
-| The editor's look (Windows 95's, drawn by us): his go, after his mock-ups, and Builder's price | David's mock-ups, then Builder |
+| ~~What "the editor stuff" begins with: tectonics, or the editor's own frame and look first?~~ | Answered 2026-11-19: his mock-ups first, the frame and look built from them ("we'll start from there") |
+| ~~The editor's look (Windows 95's, drawn by us): his go, and Builder's price~~ | Answered 2026-11-19: his go on the method; egui out; Builder has answered the brief. The editor's open questions are kept on the shared page (`journal/docs/editor-look.md`, "Where we stand", Open) |
 | The interface on screens under 1,080 tall (x2 leaves 360 to 400 rows, under his 480): x1 there, or a smaller layout for windows in the middle | David, when the interface is built |
 | Which font takes which part: the logo splash, important text and menus, small functional text | David, as he paints them |
 | Decree's licence (no licence file in `Art/fonts/`) | Before the game ships with it |

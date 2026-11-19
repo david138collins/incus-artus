@@ -6,10 +6,127 @@ the editor should look like after going through old incus and we'll start from t
 
 **Standing:** a leaning from 2026-11-18 (`journal/docs/decisions.md`, the rebuild). On 2026-11-19, after this
 brief was written, he spoke of the method as decided ("what we've decided technically on how to implement a
-win95 gui"), which Counsel reads as his go on the method. Nothing is built and nothing is priced. His mock-ups come first; they overrule anything here. What is asked of Builder now is a
-price and her own reading of section 8, not a build.
+win95 gui"), which Counsel reads as his go on the method. Nothing is built. Builder has since answered this brief and given her order
+of building (under "Builder's plan" below); she builds nothing until his mock-ups come. His mock-ups come first;
+they overrule anything here.
 
 What is measured here is marked *measured*; what is Counsel's suggestion or a thing nobody has tried is marked so.
+
+## Where we stand (the shared page, kept by Counsel; last brought up to date 2026-11-19)
+
+David, 2026-11-19: "At this point, i'd like for you to reach out to builder and put together a doc with what
+we've decided for you to go off of as i work up these mockups, so you two are on the same page starting now."
+This section is that page. The sections under it are the reference it rests on. Builder's corrections go in
+here in the open.
+
+### Decided by him
+
+| What | His words | When |
+|---|---|---|
+| The editor looks like a Windows 95 program, drawn by us to its recipes; every control's look is his | "id rather have something of my own"; then "what we've decided technically on how to implement a win95 gui" | 2026-11-18, 19 |
+| His mock-ups come first and overrule this brief | "i'm going to mock up what the editor should look like after going through old incus and we'll start from there" | 2026-11-19 |
+| The editor is mocked up at 1,280 x 800 (his laptop at x2); the editor's scale is its own | chosen of two offered | 2026-11-19 |
+| The frame, from his first mock-up: a title bar; the menus, the page's drop-down and the toolbar's buttons on one row; a tabbed panel on the left (x 4 to 552); the viewport on the right; a status bar | his picture, in `Art/editor reference/` | 2026-11-19 |
+| Pages are reached by the drop-down at the top; inside a page the panel has tabs | "I think we'd do the tabs in the panel like before" | 2026-11-19 |
+| Tab names can shrink to one word if more tabs are needed | "we can always go to 1 word labels if we need more i suppose. if good sets of words for them are to be found" | 2026-11-19 |
+| The Tectonic Sim's pages: Main settings, Plate settings, Land plates, Ocean plates, Simulation | his notes, whole in `journal/docs/decisions.md` (the rebuild, 2026-11-19) | 2026-11-19 |
+| No real water in the Tectonic Sim: an estimated sea level shown in the viewport; water is World Gen's | "water will be placed entirely by the world gen section, ultimately" | 2026-11-19 |
+| A setting is two lines: its name and tick boxes above; its slider, number and spread field below | asked for "the variables arranged like so for each one rather than in long rows"; of the redraw, "very nice" | 2026-11-19 |
+| A panel longer than its page scrolls, the scrollbar on its right | "with a scrollbar on the right" | 2026-11-19 |
+| No description text in the panels; mouseover information in yellow tooltips | "these are unnecessary going forward ... we can use the yellow tooltip boxes for any mouseover info" | 2026-11-19 |
+| The controls: the plain 1995 set, the small pictures on buttons his; only the viewports special | section 7 | 2026-11-18 |
+| Ironquill at 15 pixels is the editor's font on every sheet and mock-up | "a wonderfull standard font" | 2026-11-18 |
+| The game's own interface is a separate thing: mocked up at 640 x 480, anchored, x2 at 1080p, x3 at 2K, x4 at 4K | section 10 | 2026-11-18 |
+| **egui leaves the project.** Not kept as plumbing either: clicks, typing, scrolling and layout are ours | to Builder, who had suggested it: "yeah! lets trash egui." | 2026-11-19 |
+| One text placer and one text-entry box of our own, shared by the editor and the game | to Builder: "i am confident you can spin up a text placer and entry device for both the editor and game." | 2026-11-19 |
+| The viewports are old's final ones (their results, not their code), the leftover readouts dropped; square at 1,280 x 800, free to change shape when the window is resized or on other screens | to Builder: "the viewports we had in the end in old incus were good, there were some vestigial readouts and displays left over for precious iterations of them. theyll just slot into the 95gui as squares (at 1280x800, it doesnt have to stay square as the window is resized or on other screens)" | 2026-11-19 |
+| The tabbed panel is fixed on the left, between a half and a quarter of the width, in the Tectonic Sim and World Gen | to Builder: "the panel with tabs will be a fixed 1/2 to 1/4 size on the left in tectonics and world gen." | 2026-11-19 |
+| One program, F2 both ways. The editor runs windowed, filling the screen above the taskbar, in our own 95 title bar and borders; F11 makes it full screen, the editor only. The game is borderless full screen, with a setting to run it windowed in the same 95 frame | to Builder: "the editor will run windowed, so it stays snapped above the taskbar unless i hit f11. the game will be borderless fullscreen like it is now ... when you hit f2 itll go back to the editor, windowed or fullscreen, and f2 back again."; "f11 would only effect the editor, the game will stay borderless fullscreen. we can put a setting somewhere to enable it to be windowed just like the editor, with its 95 title bar and borders." | 2026-11-19 |
+| The debug panel becomes a floating 95 window over the game, from a mock-up of his own; today's F3 panel stays until then | to Builder: "youll have a 95 style floating debug panel mockup when im done"; "ill have a mockup for the debug panel too when its time to switch." | 2026-11-19 |
+| A scale setting, Auto by default; the general rule is enough until shipping, when each standard screen's default is picked from a set of pictures Counsel makes | to Builder: "there should also be a setting for the scale of the panel, with it being set to auto for standard ratios."; "we will figure out scaling for different cases when its important, the general rule with a scale setting should be good enough until shipping. we can always just have counsel make a whole set of images to select the default scale for each standard screen size/res" | 2026-11-19 |
+| A thorough set of mock-ups is on its way | to Builder: "i am working on a thorough set of mockups now that should make it easy for you." | 2026-11-19 |
+
+### Drawn by Counsel at his asking, not yet answered by him (guesses; nothing here is decided)
+
+- **The World Gen page** (example 3): the stages as one-word tabs (Main, Landmass, Topography, Climate,
+  Mineralogy, Interpreter); sections that fold, each a bar with a tree's plus-or-minus box; "Show over the map"
+  as one drop-down; old's "show ... on the map" buttons as tick boxes; land and compile time in the status bar;
+  the settings that don't apply greyed, not hidden. He asked for the description box out and said no more of it.
+- **The F3 debug panel as a floating window** (example 4; only an offer: his own mock-up of it is to come): tabs Overview, Camera, Render, its names from
+  `src/panel.rs`; the passes as a list with column heads; Render's nine sections as folding bars.
+- **The master palette** (example 5): splines as named rows of sunken wells, darkest first, in folding groups;
+  "Not on a spline" as a box of loose wells; picked colours framed; a right-click menu on a spline; old's counts
+  in a status bar; a Crush dialog after Paint's Edit Colors with old's own controls; a curve window.
+- In all of them the arrangement, the numbers, and in the palette the splines' names and the menu's words are
+  Counsel's stand-ins.
+
+### What the rows above overrule further down this brief
+
+- Section 2, way 3: "egui is kept only as unseen plumbing". **Overruled:** egui goes.
+- Section 8: its three levels (written for egui) and its questions on egui as plumbing, on the pixel font
+  through egui, and on the outer title bar. **Answered:** our own controls; our own text; and, by his word, our
+  own 95 title bar and borders on the window ("with its 95 title bar and borders"). How that is done is
+  Builder's plan, below. Its other questions stand.
+- Section 10: "the editor's scale is not chosen" on other screens. **Answered until shipping:** a scale
+  setting, Auto by default.
+- Section 13: the rows on the price of egui against her own controls, on the pixel font through egui, and on
+  where the editor begins (his mock-ups come first).
+- His words to Builder are relayed by her (her message to Counsel, 2026-11-19) and are whole in
+  `journal/docs/decisions.md` (the rebuild, 2026-11-19).
+
+### Builder's plan from them (hers; not his word, and not yet his go)
+
+- **Text:** each font drawn from a glyph sheet of our own at its true size (Ironquill at 15) and whole
+  multiples. A baked glyph sheet may also be how bought fonts reach the build without their files: his and
+  hers to confirm.
+- **The window:** made without Windows' frame; the dragging, the resizing by the edges and maximise above the
+  taskbar are ours; the editor's mode (windowed or full screen) is remembered across F2.
+- **Auto scale:** the largest whole number at which 1,280 x 800 fits: x2 on his laptop, x1 on 1080p and 1440p.
+- **The panel's width:** at 1,280 x 800 a square viewport under the bars is about 720 across, leaving the panel
+  about 560, just under half; his mock-ups set it exactly (his first has the panel at x 4 to 552 and the
+  viewport's frame from 555, about 721 for the viewport: the same reading).
+- **Her order, proposed:** A, the painter and the bare frame, compared pixel for pixel with his picture; B, the
+  frame's behaviour (drag, resize, maximise above the taskbar, F11, F2); C1, the controls drawn, compared with
+  the control sheet; C2, the controls working, the text-entry box among them; D, the viewports. Then the debug
+  panel from its own mock-up, and egui out of `Cargo.toml`.
+- **She builds nothing until his mock-ups come.**
+
+### Open
+
+| Question | Whose |
+|---|---|
+| Which panel "the scale of the panel" is (he said it unprompted, after Builder had laid out the game-windowed setting and the floating debug panel, so it could be either): the editor as a whole (Builder's reading, "and nothing more"), or the debug panel floating over the game; and so what scale the debug panel floats at (at the interface's x3 his laptop gives 853 x 533, which won't hold a Render page as tall as example 4's) | David (Builder is telling him it's open) |
+| Where the two settings go and what they are called: the game windowed; the scale | David: his mock-ups, or Builder asks |
+| Still wanted from him, by Builder's answer to this brief: the mock-ups as lossless 1,280 x 800 PNGs in `Art/editor reference/`; the title font; the toolbar's five buttons; what fills the status bar's panes; the open menus and the Tectonic Sim page; which of old's viewport readouts go | David |
+| Screens with less room than 1,280 x 800 | David, near shipping |
+| A smaller font for a floating window's short title bar (Ironquill has one size; Antiquity Print at 13 is his smallest), or the full-height bar | David |
+| Tooltips: old's descriptions run to five lines and a 95 tooltip was one short line: wrapped tooltips, or the texts cut down | David, when it comes up |
+| Folding sections: the bars as drawn, or a tree that shows one section at a time | David |
+| Where the Field size, pixel size and bake controls of old's top bar go in World Gen (Counsel assumed a Main tab) | David |
+| The rest are in section 13 | |
+
+### The pictures, all in `Art/editor reference/` (off GitHub; on this machine)
+
+- The control sheets (Ironquill and the plain font, numbered and clean) and the probe's pixel maps (the appendix).
+- `David's mock-up as pasted 2026-11-19.png`: his frame. The truth where it differs from anything else.
+- Example 1: the Ocean plates page in long rows. **Overtaken** by example 2.
+- Example 2: the Ocean plates page, two-line settings, scrolling: the whole mock-up, the panel alone (549 x 723,
+  at 4, 48), and the page's whole contents (529 x 1,036).
+- Example 3: World Gen, the Climate tab, folding sections: the same three pictures (contents 529 x 882).
+- Example 4: the F3 debug panel, floating. Example 5: the master palette, crush and curve.
+- Each drawer's source beside its pictures (`*.cs`, run from PowerShell); every edge in them is drawn to
+  section 4's recipes, so they are also a worked example of the recipes in code.
+
+### How the two of us work from this
+
+- His mock-ups are the specification. Counsel reads each one he hands over, records what it decides in his
+  words, and brings this page up to date in the same commit.
+- Where a mock-up and this page differ, the mock-up wins and this page is corrected.
+- Counsel's examples are offers for him to mark up. Builder builds nothing from an example he hasn't answered.
+- Builder prices and builds from his mock-ups and section 4's recipes, a pass mark first as always, and asks him
+  where each control goes and what it is called before placing it.
+- Either of us who hears a word of his on the editor passes it to the other whole.
+
 
 ## 1. What he wants, in his words
 
@@ -168,7 +285,8 @@ contain a preview and multiple fields like in the registrar."
 | 18 | List, one row selected | liked |
 | 19 | Subwindow with its own title bar | liked; its buttons' pictures his |
 | 20 | Viewport | fixed in the window, a sunken frame, no title bar; "only the viewports need to be special" |
-| 21, 22 | Tooltip, status bar | added in the redraw; not yet spoken to |
+| 21 | Tooltip | wanted, 2026-11-19: "we can use the yellow tooltip boxes for any mouseover info" |
+| 22 | Status bar | in his own first mock-up, 2026-11-19 |
 | 23 | A list of richer rows: a preview, a name, fields, a check box, with a scrollbar | his idea, "like in the registrar"; drawn once as a guess |
 
 Where a small picture is his to supply, the sheets carry a dotted placeholder or Windows' stock mark.
@@ -262,6 +380,12 @@ An idea beside it, not asked for: a small desktop window before the game starts,
 - `Art/editor reference/` (off GitHub with the rest of `Art/`): the control sheet at one screen pixel to one
   sheet pixel, in Ironquill at 15 and in MS Sans Serif, each numbered and clean (680 pixels wide); the drawer's
   source; the probe that printed the appendix.
+- Also in `Art/editor reference/`, from 2026-11-19: his first mock-up as he pasted it (1,280 x 800: the menus,
+  the page's drop-down and the toolbar on one row; a tabbed panel on the left, x 4 to 552; the viewport on the
+  right; a status bar); Counsel's example of one page drawn into it, the Tectonic Sim's Ocean plates page, with
+  the panel alone as a second picture and its drawer's source. The example's arrangement is a guess for him to
+  mark up; his notes on the Tectonic Sim's five pages are in `journal/docs/decisions.md` (the rebuild,
+  2026-11-19).
 - `Art/font reference/`: every font at its true size; title bases; the menu mock-up's pieces; his HUD at three
   scales on three screens.
 - *The Windows Interface Guidelines for Software Design* (Microsoft, 1995; on the Internet Archive): spacing,
@@ -282,7 +406,7 @@ An idea beside it, not asked for: a small desktop window before the game starts,
 | Where the editor begins: Tectonic Sim, or the frame and look first | David (Builder is asking) |
 | The pixel font crisp through egui, or a glyph sheet of our own | Builder, by a test |
 | How bought fonts reach the build without their files being passed on | David and Builder |
-| Tooltip, status bar and the richer list (21 to 23): wanted as drawn? | David, in his mock-ups |
+| The richer list (23): wanted as drawn? | David, in his mock-ups |
 
 ## Appendix: the pixels, as Windows' classic painter gives them
 
