@@ -3719,6 +3719,8 @@ Reference: `Art/quartile minecraft illustration.png`
   - The debug panel: "youll have a 95 style floating debug panel mockup when im done" and "ill have a mockup for
     the debug panel too when its time to switch." So Counsel's example 4 is only an offer; today's F3 panel
     stays until his own mock-up.
+    - *Correction (Builder's check of every quote here against his messages, 2026-11-19):* he typed "... floating
+      debug panelmockup when im done", without the space; her relay added it. Nothing else is off.
   - Scale: "there should also be a setting for the scale of the panel, with it being set to auto for standard
     ratios." Then: "we will figure out scaling for different cases when its important, the general rule with a
     scale setting should be good enough until shipping. we can always just have counsel make a whole set of
@@ -3726,6 +3728,11 @@ Reference: `Art/quartile minecraft illustration.png`
     unprompted, after Builder had laid out the game-windowed setting and the floating debug panel; the editor as
     a whole is Builder's reading "and nothing more". His to say. Counsel had asked him the same day what scale
     the debug panel floats at over the game, unanswered.
+    - **[DECIDED 2026-11-19] Answered** (David, to Counsel, asked which panel): "the scale setting i mentioned was for inside the editor, referring to the parameters panel on the left. if someone doesn't like the scale, or wants to use half a screen or something, they can select a different scale from the menu. The debug panel will also have a scale setting somewhere, with the auto being standard."
+      So the setting spoken of is the editor's, for the parameters panel on the left, chosen from the menu; the
+      debug panel over the game has a scale setting of its own, Auto its standard. Still open, for when it is
+      built: whether the editor's setting sizes the panel alone or the frame's bars with it, and where the debug
+      panel's setting sits.
   - Mock-ups: "i am working on a thorough set of mockups now that should make it easy for you."
   - Builder's plan from these, hers and not yet his go: each font from a glyph sheet of our own at its true
     size; the window made without Windows' frame, its dragging, resizing and maximise ours; Auto as the largest
