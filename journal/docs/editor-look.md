@@ -26,7 +26,7 @@ here in the open.
 | The editor looks like a Windows 95 program, drawn by us to its recipes; every control's look is his | "id rather have something of my own"; then "what we've decided technically on how to implement a win95 gui" | 2026-11-18, 19 |
 | His mock-ups come first and overrule this brief | "i'm going to mock up what the editor should look like after going through old incus and we'll start from there" | 2026-11-19 |
 | The editor is mocked up at 1,280 x 800 (his laptop at x2); the editor's scale is its own | chosen of two offered | 2026-11-19 |
-| The frame, from his first mock-up: a title bar; the menus, the page's drop-down and the toolbar's buttons on one row; a tabbed panel on the left (x 4 to 552); the viewport on the right; a status bar | his picture, in `Art/editor reference/` | 2026-11-19 |
+| The frame, from his first mock-up: a title bar; the menus, the page's drop-down and the toolbar's buttons on one row; a tabbed panel on the left (x 4 to 552); the viewport on the right; a status bar | his picture, in `Art/References/editor reference/` | 2026-11-19 |
 | Pages are reached by the drop-down at the top; inside a page the panel has tabs | "I think we'd do the tabs in the panel like before" | 2026-11-19 |
 | Tab names can shrink to one word if more tabs are needed | "we can always go to 1 word labels if we need more i suppose. if good sets of words for them are to be found" | 2026-11-19 |
 | The Tectonic Sim's pages: Main settings, Plate settings, Land plates, Ocean plates, Simulation | his notes, whole in `journal/docs/decisions.md` (the rebuild, 2026-11-19) | 2026-11-19 |
@@ -133,7 +133,7 @@ mock-up of the Registrar's right-hand palette panel is in hand. What he has said
 - He likes NEOchrome Master's colour grid: "the hue-by-lum-by-sat in a sort of diamond pattern into a grid".
 
 **The references** (114 pictures gathered for him that day, with a manifest for each group and one index page):
-`Art/palette reference/index.html` (off GitHub; on this machine). Five groups: Atari ST and Amiga; professional
+`Art/References/palette reference/index.html` (off GitHub; on this machine). Five groups: Atari ST and Amiga; professional
 and workstation; Japan and Asia; Europe, the Soviet bloc and South America; PC game art and modern tools. What
 they show that bears on his direction, each from a source named in its manifest:
 
@@ -160,7 +160,7 @@ they show that bears on his direction, each from a source named in its manifest:
 ### For later: creator windows that nest, after StarCraft's trigger editor (his reference, 2026-11-19)
 
 Not for now. He installed the original StarCraft and shared five pictures of its editor's trigger windows
-(`Art/editor reference/StarCraft triggers (his reference)/`): "I found and installed the original starcraft, and have been looking through its editor. I wanted to share the trigger window. I think that may be useful at the point that we're setting the GUI up to add new placement fields in ecology or civilization, where it shouldn't be hardcoded so i can keep expanding the content. Some types of features, like the way a tree type is placed, may get pretty complex to make a new type of rather than just adjusting a given type, so we may wind up with nesting creator windows for big things like placement fields, or behaviors, as we'd apply them to a entity/mob/actor in the registrar when im making bad guys and types of villagers."
+(`Art/palettes/editor reference/StarCraft triggers (his reference)/`): "I found and installed the original starcraft, and have been looking through its editor. I wanted to share the trigger window. I think that may be useful at the point that we're setting the GUI up to add new placement fields in ecology or civilization, where it shouldn't be hardcoded so i can keep expanding the content. Some types of features, like the way a tree type is placed, may get pretty complex to make a new type of rather than just adjusting a given type, so we may wind up with nesting creator windows for big things like placement fields, or behaviors, as we'd apply them to a entity/mob/actor in the registrar when im making bad guys and types of villagers."
 
 What the pictures show, for when that point comes (Counsel's reading of them):
 
@@ -203,7 +203,7 @@ does NOT suit: "this pic is the window where you can adjust the stats of units a
 | The wheel's step in a number box (how much one notch changes each setting); whether the new viewports keep old's zooms as they were ("the zoom was ..."), and what the wheel does over the Software map and the other pages' views | Builder to propose from old; David |
 | The Software map: black and magenta as now (example 6), or the 95 scheme on teal (example 7); every wire drawn dimmed, or only the chosen box's; whether a box's describing text stays in its card, the one place a panel would carry such text | David |
 | Where the two settings go and what they are called: the game windowed; the scale | David: his mock-ups, or Builder asks |
-| Still wanted from him, by Builder's answer to this brief: the mock-ups as lossless 1,280 x 800 PNGs in `Art/editor reference/`; the title font; the toolbar's five buttons; what fills the status bar's panes; the open menus and the Tectonic Sim page; which of old's viewport readouts go | David |
+| Still wanted from him, by Builder's answer to this brief: the mock-ups as lossless 1,280 x 800 PNGs in `Art/References/editor reference/`; the title font; the toolbar's five buttons; what fills the status bar's panes; the open menus and the Tectonic Sim page; which of old's viewport readouts go | David |
 | Screens with less room than 1,280 x 800 | David, near shipping |
 | A smaller font for a floating window's short title bar (Ironquill has one size; Antiquity Print at 13 is his smallest), or the full-height bar | David |
 | Tooltips: old's descriptions run to five lines and a 95 tooltip was one short line: wrapped tooltips, or the texts cut down | David, when it comes up |
@@ -211,7 +211,41 @@ does NOT suit: "this pic is the window where you can adjust the stats of units a
 | Where the Field size, pixel size and bake controls of old's top bar go in World Gen (Counsel assumed a Main tab) | David |
 | The rest are in section 13 | |
 
-### The pictures, all in `Art/editor reference/` (off GitHub; on this machine)
+### His mock-ups: `Art/95gui mockups/` (his own folder, from 2026-11-19; in progress, not yet handed over)
+
+He rearranged `Art/` on 2026-11-19: his mock-ups are in `Art/95gui mockups/`, the references in
+`Art/References/` (`editor reference`, `font reference`, `palette reference`, `menu mockup`), his palettes in
+`Art/palettes/` (`95.gpl` and its Aseprite file among them). As seen there on 2026-11-19, each 1,280 x 800:
+
+- `tectonics.png`: the Ocean plates page with two-line settings and a scrollbar (Counsel's example 2, his now).
+- `world gen.png`: the Climate tab with folding sections (example 3, his now).
+- `software map.png`: the 95 scheme on teal (example 7, his now), its left panel blanked to a dark box for
+  him to fill.
+- `registrar.png`: his own frame for the Registrar (below).
+- `blank.png`: the bare frame. `old*.png`: his screenshots of old's pages.
+- The title bar now carries the build's number at its right, before the buttons ("Build 238").
+- That he took examples 2, 3 and 7 into his folder says they are his starting points, not that every part of
+  them is answered: until he hands a mock-up over, what is unanswered above stays unanswered.
+
+### The Registrar's frame: his mock-up in progress (2026-11-19)
+
+`Art/95gui mockups/registrar.png`. Three boxes side by side under the bars, outlined in magenta as placeholders:
+
+- **Left, about 255 wide:** on top a box 96 tall for the search filter; under it the library's list with its
+  scrollbar. A row as he has it: the name large, a line of tags greyed ("rock, block, natural"), a greyed
+  "Regulated" tick box, a thumbnail of 32 x 32 in a sunken frame; rows 51 tall, twelve showing.
+- **Middle, about 615 wide:** the registry editor.
+- **Right, 400 wide:** the palette, fixed: "I'd reserve probably 400 pixels like shown for the palette so it can
+  be immobile, but the size of the 3 box areas on the left can be messed with."
+- His question to Counsel, with it: "I can't think of anything the list needs to show except for the name, thumbnails (how many? if it's multiple can they be leafed?) and the relevant tags each block can be found by. And the type, too i guess. the small space above that list can be for the search filter. the middle box is obviously the registry editor and the right is the palette. I'd reserve probably 400 pixels like shown for the palette so it can be immobile, but the size of the 3 box areas on the left can be messed with. Got any ideas?"
+- Counsel's ideas, offered in answer and none of them his yet: one thumbnail a row (a block as a small cube
+  seen corner-on, its top and two sides in one picture; leafing left to the middle box); rows of two lines
+  (name; type then tags) with the thumbnail at the left edge, about seventeen showing; "regulated" shown only
+  as a mark on the rows that aren't, and as a filter; the filter box as four rows (find by name, type, tags,
+  unregulated only, with a count); a second view of the list as a grid of thumbnails; the bar between list
+  and editor draggable.
+
+### The pictures, all in `Art/References/editor reference/` (off GitHub; on this machine)
 
 - The control sheets (Ironquill and the plain font, numbered and clean) and the probe's pixel maps (the appendix).
 - `David's mock-up as pasted 2026-11-19.png`: his frame. The truth where it differs from anything else.
@@ -314,7 +348,7 @@ form; the radio button (12 x 12, a shaded ring, a 4 x 4 dot with its corners off
 small arrows (3 and 1 pixels); the title bar's close, maximise and minimise marks (16 x 14 buttons); the size
 grip (14 x 14, diagonal lines of white, shadow, shadow).
 
-**Drawn by Counsel to the same rules** (in `Art/editor reference/control sheet drawer.cs`; the 95 originals were
+**Drawn by Counsel to the same rules** (in `Art/References/editor reference/control sheet drawer.cs`; the 95 originals were
 followed from memory and from the 98.css page, so check these against his mock-ups first):
 
 - **A button held down** (a dialog's kind): flat; a black box, a shadow box inside it, the label moved one pixel
@@ -484,16 +518,16 @@ An idea beside it, not asked for: a small desktop window before the game starts,
 
 ## 12. Where the references are
 
-- `Art/editor reference/` (off GitHub with the rest of `Art/`): the control sheet at one screen pixel to one
+- `Art/References/editor reference/` (off GitHub with the rest of `Art/`): the control sheet at one screen pixel to one
   sheet pixel, in Ironquill at 15 and in MS Sans Serif, each numbered and clean (680 pixels wide); the drawer's
   source; the probe that printed the appendix.
-- Also in `Art/editor reference/`, from 2026-11-19: his first mock-up as he pasted it (1,280 x 800: the menus,
+- Also in `Art/References/editor reference/`, from 2026-11-19: his first mock-up as he pasted it (1,280 x 800: the menus,
   the page's drop-down and the toolbar on one row; a tabbed panel on the left, x 4 to 552; the viewport on the
   right; a status bar); Counsel's example of one page drawn into it, the Tectonic Sim's Ocean plates page, with
   the panel alone as a second picture and its drawer's source. The example's arrangement is a guess for him to
   mark up; his notes on the Tectonic Sim's five pages are in `journal/docs/decisions.md` (the rebuild,
   2026-11-19).
-- `Art/font reference/`: every font at its true size; title bases; the menu mock-up's pieces; his HUD at three
+- `Art/References/font reference/`: every font at its true size; title bases; the menu mock-up's pieces; his HUD at three
   scales on three screens.
 - *The Windows Interface Guidelines for Software Design* (Microsoft, 1995; on the Internet Archive): spacing,
   when edges are raised or sunken, status bars, subwindows.
@@ -517,7 +551,7 @@ An idea beside it, not asked for: a small desktop window before the game starts,
 
 ## Appendix: the pixels, as Windows' classic painter gives them
 
-Printed by `Art/editor reference/edge and mark probe.cs` on 2026-11-19 (`DrawEdge` and `DrawFrameControl` onto a
+Printed by `Art/References/editor reference/edge and mark probe.cs` on 2026-11-19 (`DrawEdge` and `DrawFrameControl` onto a
 face-coloured picture; today's system colours read back as 1995's). F face, W white, L light, S shadow, K black.
 Inside a check box and a radio button the W is the white of the field.
 

@@ -3874,6 +3874,20 @@ Reference: `Art/quartile minecraft illustration.png`
   - *Counsel:* the spec holds an older decision, "Registrar tabs: Blocks, Objects, Blueprints" (from old's
     records, before the rebuild). Types as filter tags over one list would overtake it; left standing until his
     mock-up shows which.
+- **His `Art/` folder rearranged, and his mock-ups begun (2026-11-19)** (seen on disk; not announced). The
+  references Counsel had saved as `Art/editor reference/`, `Art/font reference/` and `Art/palette reference/`
+  are now under `Art/References/`; the entries above name them by their old places. His mock-ups are in
+  `Art/95gui mockups/` (`tectonics.png`, `world gen.png`, `software map.png`, `registrar.png`, `blank.png`,
+  and screenshots of old's pages): he took Counsel's examples 2, 3 and 7 as his starting points and edited
+  them, and the title bar now carries the build's number. The StarCraft pictures lie in
+  `Art/palettes/editor reference/` (Counsel saved them to the old path after the folder had moved).
+- **The Registrar's frame, his mock-up in progress (2026-11-19)** (David, to Counsel, with the picture and old's
+  Registrar beside it): "I can't think of anything the list needs to show except for the name, thumbnails (how many? if it's multiple can they be leafed?) and the relevant tags each block can be found by. And the type, too i guess. the small space above that list can be for the search filter. the middle box is obviously the registry editor and the right is the palette. I'd reserve probably 400 pixels like shown for the palette so it can be immobile, but the size of the 3 box areas on the left can be messed with. Got any ideas?"
+  - As drawn: a filter box over the library's list on the left (about 255 wide), the registry editor in the
+    middle (about 615), the palette on the right, fixed at 400. A list row: the name large, its tags, a
+    "Regulated" tick box, one thumbnail of 32 x 32.
+  - Counsel's ideas in answer are on the shared page (`journal/docs/editor-look.md`, "The Registrar's frame"),
+    marked as not his.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
