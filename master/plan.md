@@ -60,20 +60,19 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   the town by the spawn 1.97; every other mark under 1.7. Seeing the far lamps is the dearest new thing (0.10 to
   0.20 ms on the card). The bracket flew the built-in settings: the curve's near half off, and rings of 128 where
   his looks launch with wider ones, so the near half is still unpriced by a flight and the game he looks at
-  unmeasured. **His word on them (2026-11-18):** "make a note of those to add to the
-  things we need to check"; the three checks are under 2.4, not built now. **Next, in his order:** Builder lists
-  "the loose ends we still haven't gotten to"; he reads "some content re. splats" with her, toward refining the
-  near and far view "when we're ready to"; "we'll decide between loose ends to tie up now and what we will
-  try/test/work up when we're ready to finish out the engine more"; and "after we've tied up the loose ends we
-  should focus on the editor stuff and start making some headway from the other end of the program" (Phase 3;
-  what it begins with is his to say: tectonics, by his order of 2026-11-16). So 2.4 isn't worked to its end
-  first. Its loose ends, his to sort: the three checks from assess, the curve's far half (priced first), more textures, placed things in the far view (unticked; build
-  207 did part), and the near eye's own costs (listing chunks, chunks with pieces, chunk optimizing where it
-  would show); "dont worry about very fast flight". **Still owed:** his starting settings, his to save as
-  "default" presets (whether the curve is on from the start, the lantern, the stipple, the rings' size), then
-  named to a flight or made the built-in ones, since a flight flies the built-in settings. Panini, or another flex for a wide field of view,
-  is owed a talk. The graphics style waits for the style pass in Phase 4, squares fixed to the world with it:
-  `journal/docs/graphics-style.md` (the detail curve has moved it on: section 7).
+  unmeasured. **The loose ends sorted with him (2026-11-18):** "we dont need to save my presets because
+  im not certain about anything eith them yet. already saw 208 and 210. other than that i agree." **Now:** the far
+  lamps seen in turns (build 226, built, its price owed); one test sitting (that price, and builds 210 and 225 in
+  one session for whether the near faces grew); the bars' pictures and the grass's edge; the lamps' strength on
+  dark stone. **When the engine is finished out:** the curve's far half and the seam, squares fixed to the world,
+  Panini, the rest of placed things in the far view, the near eye's own costs, water's far look, the polish
+  passes, the open questions, and Phase 2's gate. **Waiting on him:** the game he looks at, measured, once he
+  has starting presets; pictures for the stage's seven blocks. **Then the editor:** "after we've tied up the
+  loose ends we should focus on the editor stuff and start making some headway from the other end of the
+  program" (Phase 3; from tectonics, 3.1, by his order of 2026-11-16, unless he says otherwise). So Phase 3
+  begins with Phase 2's gate unflown. **His to place:** a near sun shadow, so trees cast shadows by the sun's
+  way as hills do ("why don't trees cast shadows directionally like the mountains do?"); not built. The graphics
+  style waits for the style pass in Phase 4: `journal/docs/graphics-style.md` (sections 7 to 11).
 - **His word on the road** (2026-11-16): "i'm pretty happy and confident with our graphics engine now"; hanging
   homework and questions are dropped (the kept Oracle's five questions among them; an outside look is his to call,
   no longer a gate); "Builder can proceed with the tests and basic fixes, i'll bring it up if i see undesirable
@@ -876,9 +875,10 @@ way, because it gets pretty crowded, so we'll use space a little better" (2026-1
 | ~~One budget at the fork (the Oracle's split: far 1.2 typical and 2 worst, near 1.5, finishing 0.4, 0.9 left), read moving at the 99th?~~ | Dropped as a question 2026-11-16; the later look back at the engine, if wanted |
 | ~~At the skyline's look: haze, as now, or cover (with the column-height table, and the sheet flown as rival if cover)?~~ | Answered 2026-11-16: cover by faces for what stands, in ("looks good"); the land's own edge by a height table, and the sheet with it, shelved (`journal/docs/cover-by-height.md`) |
 | Lazy rays' far squares fixed to the world or to the screen? And refreshed all at once or piece by piece? | If lazy rays are taken up (shelved 2026-11-16, `journal/docs/lazy-rays.md`) |
-| The moons: does the brighter one cast shadows? | 2.4 |
+| A near sun shadow, so trees cast shadows by the sun's way as hills do ("why don't trees cast shadows directionally like the mountains do?", 2026-11-18): tied up now, or when the engine is finished out? Not built: a sweep at a block a column round the eye, or the near blocks drawn from the sun | David, asked by Builder |
+| The moons: does the brighter one cast shadows? "once that's answered, im not worried about how the moons are implemented" (2026-11-18): it follows the trees' answer | The near sun shadow |
 | People far off: sharper than the squares behind them, or drawn into them? | 2.4 |
-| Leaves far off: a little see-through, as the averages make them, or solid? | 2.4 |
+| Leaves far off: a little see-through, as the averages make them, or solid? "leaves are a bit see-through, so far leaves may be a bit? we'll have to see how it comes out once we're there" (2026-11-18) | His eye, when far leaves are there to see |
 | "1 always equals 1" as one stored answer everything reads, in David's words | The tablet |
 | Rivers and the shore: carried over first, or rearranged on the way? | Answered 2026-11-16: water added deliberately, after topography (3.2) |
 | The rejector: what makes one world better than another? | Making a world |

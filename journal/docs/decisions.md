@@ -3389,6 +3389,35 @@ Reference: `Art/quartile minecraft illustration.png`
     branch in the shared folder moves the other session, and a shared build folder once left him on a stale
     program. Summed in `journal/docs/graphics-style.md`, section 11. Next with him: sorting the loose ends, then
     the editor.
+- **[DECIDED 2026-11-18] The loose ends sorted: a few now, the rest "when we finish the engine", then the
+  editor** (David, to Builder, of her split; read from the journal and the plan at 3943f38): "we dont need to save
+  my presets because im not certain about anything eith them yet. already saw 208 and 210. other than that i
+  agree."
+  - **Now:** the far lamps seen in turns (build 226, built: build 225's pictures off the screen but for a few
+    pixels; its price owed); one test sitting (that price, and builds 210 and 225 flown in one session for
+    whether the near faces grew); the bars' side and end pictures and the grass's shared edge; the lamps'
+    strength on dark stone.
+  - **When the engine is finished out:** the curve's far half and the seam; squares fixed to the world (the
+    experimental folder), the near picture on squares with it; Panini; the rest of placed things in the far
+    view; the near eye's own costs; water's far look; the polish passes and the open questions; the small flaws
+    written down; the gate (4.2 ms at the 99th, the Intel card, his walk through old's world).
+  - **Waiting on him:** the game he looks at, measured, till he has starting presets (he isn't sure of his
+    settings yet, so none are saved); pictures for the stage's seven blocks, as he makes them.
+  - **Then the editor.** Builder has it "from 3.1", tectonics, by his order of 2026-11-16; he hasn't said so
+    himself since, so the open line above stands until he does.
+  - *Counsel:* Phase 2's gate is among the things put off, by his word. So Phase 3 begins with the gate unflown,
+    one mark over his 2 ms unless build 226 brings it under, and the cost of his own settings unmeasured. That is
+    his call and a fair one (2026-11-16: "there may be a final check pass against the engine later anyways");
+    it's written here so the later pass knows what it inherits.
+- **Trees' shadows, the moons, far leaves** (David, to Builder, the same evening): "why don't trees cast shadows
+  directionally like the mountains do? once that's answered, im not worried about how the moons are implemented.
+  leaves are a bit see-through, so far leaves may be a bit? we'll have to see how it comes out once we're there".
+  - Builder's answer: the sun's shadows are the far light's, swept over the land's column tops, columns many
+    blocks wide, so a hill casts one and a tree can't; the near faces' own light is how open a face is to the
+    sky, straight up, with no sun's way in it. A tree's shadow wants a sweep of the same kind at a block a column
+    round the eye, or the near blocks drawn from the sun: not built.
+  - **[OPEN] A near sun shadow: which pile, now or when the engine is finished out?** His to place; Builder
+    asking. The moons' question follows it; far leaves wait to be seen.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
