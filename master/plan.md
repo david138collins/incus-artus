@@ -663,8 +663,9 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
     - [x] **Glows and far lights:** lights seen from far off, sparkling, their glow shrinking and fading into fog,
           never snapping off. With night, builds 216 to 225 (his looks at 222, 223 and 225: "looks good"); done enough
           to go on, the prices owed at assess
-    - [ ] **Textures:** bars wearing their own side and end pictures along each bar, joins seamless; the grass's
-          shared edge; pictures for the blocks that have none (the stage's seven), placeholders or his art
+    - [ ] **Textures:** bars wearing their own side and end pictures along each bar, joins seamless (build 227,
+          its pass mark written); the grass's shared edge; pictures for the blocks that have none (the stage's
+          seven), placeholders or his art
     - [ ] **A finer region between the triangles and the march** (his words at build 210, 2026-11-17: "i feel like
           we should have a finer region between the triangles and the march"; "push the fineness-grossness gradient
           out to the triangle radius"; and "i don't think we need very much of the finer cells to blend the

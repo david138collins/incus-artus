@@ -9556,3 +9556,42 @@ far 8 x 8, bringing it up; the x-fader 0.002 dearer).
 **High over the spawn, build 210 to build 226, the card's whole 2.10 to 2.37:** seeing the far lamps 0.20 (new), the
 near faces 0.08, the dots 0.005; the far 8 x 8 0.02 less. It was over his 2 ms at build 210 too. What it is made of
 now: the near faces 1.19, the far 8 x 8 0.69, seeing the far lamps 0.21, bringing it up 0.11, the near cover 0.08.
+
+### Build 227's pass mark (2026-11-19): bars wearing their own side and end pictures
+
+**Why now:** his word on the sitting's results and the hunt for the near faces' growth left for the speed work:
+"i agree, go on", the next of the loose ends to tie up now (Textures, plan 2.4). Since build 205 a bar wears its
+block's picture by the block grid, like any piece, so a stone-brick bar shows a block's bricks cut off at the grid
+and its end shows a quarter of a block's side. Old laid a bar's own pictures along each bar (`old/src/sight/march.wgsl`,
+`bar_uv`, from the old renderer's): the long side's picture (16 across, 32 long) up the bar's length whichever way it
+lies, measured from the bar's own end, so a bar placed across two cells wears it whole; the end's (16 by 16) on the
+half by half ends; a lone eighth wears the end's on every face. Only blocks with both pictures; the rest keep their
+block's picture by the grid. Here only stone brick has them (`data/textures/bars/`).
+
+**What's built** (written before the code):
+
+1. **The octants know their piece** (`near.rs`): in a chunk meshed in half blocks each octant keeps beside its block
+   what it is part of: a whole block; a bar, its axis and whether it begins at an odd half block along it (so the
+   picture is laid from the bar's own end); or a lone eighth. Faces merge only where that's the same, so bars end to
+   end of one block and one start merge as now and wear their pictures a block at a time.
+2. **On the card:** a face's part in three bits of its second word (the block in the twelve bits under them, to
+   4,095); the bars' own pictures as layers after the blocks', each block's side and end where it has both; which
+   blocks have them in the near eye's colour table. The fragment lays the picture: a long side along the bar from its
+   own end, the end on the ends and on every face of an eighth; any other face as now.
+3. **No switch:** nothing temporary. `INCUS_NEAR_TEXTURES=0` still gives flat colours.
+
+**The mark:**
+
+- **Tests:** a bar's two octants say its axis and its start's half, an eighth is lone, a whole block placed among
+  pieces is whole; a face packed with its part unpacks; stone brick's side and end are found as their own layers. All
+  tests pass (the map's redrawn if the wiring changes).
+- **Pictures, off the screen** (the eye at his build that build 205's picture used, `-3987,-1190,139.5,150,-12`, and
+  a nearer one on the bars): the stone-brick bars show their courses running along each bar and their end picture
+  on the ends, unbroken where a bar crosses a cell's side; against build 226's picture every pixel that differs is on
+  a stone-brick bar or eighth; the scatter of pieces (its blocks are the land's, none with bar pictures) the same as
+  build 226's to within the near picture's own few pixels. No gap.
+- **The price:** the fragment does a few sums more for every face. Said after one flight, his leave asked first.
+- **For his look, not mine to judge:** the bars at his build up close.
+
+**Not in this build:** the grass's shared edge (the next build); pictures for the blocks that have none; the far eye,
+which keeps its colours; turning pictures by a bar's facing beyond old's way.
