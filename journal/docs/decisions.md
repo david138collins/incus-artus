@@ -3564,6 +3564,32 @@ Reference: `Art/quartile minecraft illustration.png`
     mark, where the far lamps' 0.21 is the bigger piece and as little understood; and his order of 2026-11-08
     is the look first, then the speed. A lead for whoever hunts: `src/near.wgsl` changed by some 340 lines
     between the two builds, and the mountain top is the one near mark that didn't grow.
+    - **[DECIDED 2026-11-19] Answered: later, with the speed work.** David, to Builder, of leaving the hunt for
+      the speed work and going on to the bars' pictures: "i agree, go on".
+- **Bars wearing their own pictures: build 227, looked at and flown (2026-11-19)** (David, to Builder; read from
+  the journal and the plan at b371b67, the flight checked against `logs/flight-1795093824.txt`). Bars wear their
+  own side and end pictures, laid along each bar from its own end as old did; only stone brick has such pictures
+  yet. His look, 17 minutes at his build with the stage on: "you can go ahead and measure, it looks right". Done
+  enough to go on.
+  - **Its price, one flight against build 226's three of the morning:** the near faces about a twentieth dearer at
+    most marks, on the same triangles: high over the spawn 1.231 ms against 1.182 to 1.190; the town by the
+    spawn 1.112 against 1.039 to 1.073; the bare plain 0.198 against 0.187 to 0.189. The card's whole high over
+    the spawn 2.42 against 2.36 to 2.37. Builder's reading: the fragment's new bar work (its sums and a read of
+    the colour table) is done for every face, though nearly every face on the screen is a whole block's. Her
+    remedy: whole blocks' faces skip it, in the next build (the grass's edge, the same fragment).
+  - *Counsel's check:* her figures match the log. The logs add: (1) **the town by the spawn is now over his 2 ms
+    too**, the card's whole 2.009 against 1.93 to 1.94, the second mark over with high over the spawn; (2) the
+    card's clock was no slower in this flight high over the spawn (2,287 MHz against 1,980 to 2,055), so the
+    growth there isn't the card's heat; (3) the scatter at 10000 (0.443 against 0.37 to 0.38) had the clock held
+    down as well, so it is loose with the 100000s; (4) the passes the bars didn't touch (the far 8 x 8, seeing
+    the far lamps) are the same to a few thousandths, so the two builds were flown on a like card, though 110
+    minutes and a look apart, not turn about.
+  - *Counsel, of the next build:* it carries three things at once (the grass's shared edge, the far lamps back to
+    every frame, whole blocks' faces skipping the bars' work). The lamps' part has its switch and a known price.
+    The other two are in one fragment, so unless the skip has a switch of its own, the flight will show their
+    sum and not what the grass's edge costs or what the skip gives back. Put to Builder.
+  - **What's left before the editor, as Builder told him:** the grass's shared edge, then the lamps' strength on
+    dark stone.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its

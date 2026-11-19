@@ -464,6 +464,7 @@ Where the sources disagree. Each version is given with its ref; nothing here is 
 - Thin cut-out lines never vanish in the distance. [decided] (decisions.md:572-573)
 - Textures crisp up close, mipmapped as they shrink, shrinking toward the far colour: "they look good." [decided] (regroup.md:936; handoff.md:27, 48-50)
 - Joined bars are seamless, the texture running across the join; bars wear their own side and end textures (his bar art later). [decided] (quartile.md:72, 191; regroup.md:1024; handoff.md:31-35)
+- In the new eye bars wear their own side and end pictures, laid along each bar from its own end; only stone brick has them yet. [built, build 227: "it looks right"] (decisions.md, the rebuild, 2026-11-19)
 - Later: distant textures made small by Claude and touched up by David; random texture variants; animated textures. [wanted] (decisions.md:559-560)
 - Overlays (ore, moss) as flat decoration, random sets (grass sprites, moss patterns), and alternative textures for one stone: "id like to be able to make different kinds of the same stone too". [wanted] (objects.md:392-396, 436)
 - Glass far better than Minecraft's. [wanted] (proposal:121)
