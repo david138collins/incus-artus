@@ -744,8 +744,8 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
     - [ ] **Checks owed from assess** (build 225's bracket, 2026-11-18; his word: "make a note of those to add to
           the things we need to check"):
       - [ ] **The far lamps seen in turns:** a quarter of the list each frame, each lamp's answer kept till its
-            turn; about 0.15 ms off high over the spawn, the one mark over his 2 ms. Build 226, its pass mark
-            written
+            turn; about 0.15 ms off high over the spawn, the one mark over his 2 ms. Build 226, built: off the
+            screen build 225's pictures but for a few pixels; its price owed by the test sitting
       - [ ] **Whether the near faces grew since build 210:** the same triangles at every mark, dearer on the card
             by one flight of another day (high over the spawn 1.11 to 1.20 ms; thick scatter more); both builds
             flown in one session before anything is looked for

@@ -408,10 +408,10 @@ pub const PASSES: [Pass; 32] = [
         name: "seeing the far lamps",
         lane: LaneId::Frame,
         on: Where::Card,
-        what: "For each lamp in the far lamps' list past where the far rays begin, a ray marched from the eye towards it through the far cells by the far eye's own march, as its finest layer reads them, to two far cells short of it: seen if it met no surface on the way, as old's far glows were (build 223).",
+        what: "For each lamp in the far lamps' list past where the far rays begin, a ray marched from the eye towards it through the far cells by the far eye's own march, as its finest layer reads them, to two far cells short of it: seen if it met no surface on the way, as old's far glows were (build 223). In turns (build 226): a quarter of the list a frame, each lamp's answer kept on the card till its turn; the whole list in the frame a new one is put on the card.",
         reads: &[StoreId::FarLamps, StoreId::FarBricks, StoreId::FarTextures, StoreId::Camera],
         writes: &[StoreId::FarLamps],
-        switches: &[],
+        switches: &[("INCUS_FAR_LAMP_TURNS", "1: every lamp seen to every frame, as to build 225 (for measuring against); another number, up to 64, the list seen in so many turns; unset, 4")],
         files: &["src/far_eye.rs", "src/far.wgsl", "src/far_lamps.wgsl", "src/near_eye.rs"],
     },
     Pass {

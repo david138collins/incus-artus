@@ -51,6 +51,11 @@ const DOT_SLACK: f32 = 1.5;
 /// Past the near reach (build 223): how many far cells (at the size the far eye reads at a lamp's distance) short of
 /// a lamp the ray seeing it stops (the hill a cave mouth is cut into, the lamp's own cell).
 const DOT_FAR_SLACK: f32 = 2.0;
+/// Seeing the far lamps in turns (build 226): the list is seen to over so many frames, a share of it each (lamp k
+/// on frame k mod this), a lamp's answer kept on the card till its turn; the whole list in the frame a new one is put
+/// on the card. [David, 2026-11-18, of assess's checks: "make a note of those to add to the things we need to
+/// check"; seeing every lamp every frame was the dearest new thing, 0.10 to 0.20 ms on the card.]
+const SIGHT_TURNS: u32 = 4;
 
 /// The near eye's bands by the detail curve (build 213), the nearest first: each its squares' side in screen pixels,
 /// the distance from the eye (true, not level) nearer than which it draws nothing, and the distance it draws to.
@@ -270,6 +275,14 @@ pub struct NearEye {
     /// each lamp is seen is written into the lamps' own words.
     sight_numbers: wgpu::Buffer,
     sight_group: Option<wgpu::BindGroup>,
+    /// In turns (build 226): how many turns the list is seen in (`SIGHT_TURNS`; `INCUS_FAR_LAMP_TURNS` for
+    /// another, 1 as to build 225); the frame's count, which gives its turn; whether the next pass recorded sees to
+    /// the whole list (a new list is on the card; put out when that pass is recorded); and the turns and the
+    /// threads of the pass the numbers were last written for.
+    sight_turns: u32,
+    sight_frame: u32,
+    sight_whole: std::cell::Cell<bool>,
+    sight_threads: u32,
     pub far_lamps: bool,
     /// The render radius and the x-fader (the Render page's sliders).
     pub look: NearLook,
@@ -503,7 +516,9 @@ impl NearEye {
             multiview_mask: None,
             cache: None,
         });
-        let sight_numbers = device.create_buffer(&wgpu::BufferDescriptor { label: Some("seeing the far lamps' numbers"), size: 16, usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
+        let sight_numbers = device.create_buffer(&wgpu::BufferDescriptor { label: Some("seeing the far lamps' numbers"), size: 32, usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
+        let sight_turns = std::env::var("INCUS_FAR_LAMP_TURNS").ok().and_then(|turns| turns.parse::<u32>().ok()).filter(|turns| (1..=64).contains(turns)).unwrap_or(SIGHT_TURNS);
+        log::info!("Seeing the far lamps: {}", if sight_turns == 1 { "every lamp every frame".to_string() } else { format!("in {sight_turns} turns, a share of the list a frame") });
         let dots_numbers = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the far lamps' numbers"), size: 48, usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let lamps = device.create_buffer(&wgpu::BufferDescriptor { label: Some("the far lamps' list"), size: crate::near::MOST_LAMPS as u64 * 16, usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false });
         let far_lamps = std::env::var("INCUS_FAR_LAMPS").as_deref() != Ok("0");
@@ -571,7 +586,7 @@ impl NearEye {
         });
         let radius = std::env::var("INCUS_NEAR_RADIUS").ok().and_then(|r| r.parse::<f32>().ok()).map_or(RADIUS, |r| r.clamp(1.0, MOST_RADIUS));
         log::info!("The near eye: faces as triangles within a render radius of {radius} chunks ({} blocks), its lane on {threads} threads", radius * CHUNK as f32);
-        Ok(Self { lane, lantern_lane, lantern, lantern_asked: None, lantern_shown: None, lantern_ms: (0.0, 0.0), lamps_lane, clock: None, lamps_asked: None, lamps_come: false, lamps, lamps_count: 0, lamps_listed: Vec::new(), dots, dots_layout, dots_numbers, sight_numbers, sight_group: None, dots_group: None, far_lamps, look: NearLook { radius, ..NearLook::DEFAULT }, chunks: HashMap::new(), pages: Vec::new(), asked: None, want: Vec::new(), first_to_come: 0, touched: HashSet::new(), need: HashMap::new(), remake: HashSet::new(), waiting: Default::default(), recent_ms: Default::default(), faces, water, layout, band_layout, depths_layout, blank, blank_depth, group: None, numbers, colours, blocks_view, crisp, textured, light, turned, mask, join, join_layout, join_numbers, join_group: None, format, bands: Vec::new(), bands_for: None, cover_pass, cover_layout, cover_sizes, cover_sampler, cover_group: None, draws, counts: Counts { threads, ..Default::default() } })
+        Ok(Self { lane, lantern_lane, lantern, lantern_asked: None, lantern_shown: None, lantern_ms: (0.0, 0.0), lamps_lane, clock: None, lamps_asked: None, lamps_come: false, lamps, lamps_count: 0, lamps_listed: Vec::new(), dots, dots_layout, dots_numbers, sight_numbers, sight_group: None, sight_turns, sight_frame: 0, sight_whole: std::cell::Cell::new(true), sight_threads: 0, dots_group: None, far_lamps, look: NearLook { radius, ..NearLook::DEFAULT }, chunks: HashMap::new(), pages: Vec::new(), asked: None, want: Vec::new(), first_to_come: 0, touched: HashSet::new(), need: HashMap::new(), remake: HashSet::new(), waiting: Default::default(), recent_ms: Default::default(), faces, water, layout, band_layout, depths_layout, blank, blank_depth, group: None, numbers, colours, blocks_view, crisp, textured, light, turned, mask, join, join_layout, join_numbers, join_group: None, format, bands: Vec::new(), bands_for: None, cover_pass, cover_layout, cover_sizes, cover_sampler, cover_group: None, draws, counts: Counts { threads, ..Default::default() } })
     }
 
     /// Room for `count` faces: a page and where in it (a free stretch that holds them, the first found; a new page
@@ -1002,7 +1017,6 @@ impl NearEye {
                 ],
             }));
         }
-        queue.write_buffer(&self.sight_numbers, 0, &[self.lamps_count as f32, far.near_from, DOT_FAR_SLACK, 0.0].iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
         let column = [camera.position.x.floor() as i32, camera.position.y.floor() as i32];
         let lamps_reach = crate::near::LAMPS_REACH;
         if self.lamps_asked.is_none_or(|(at, reach)| reach != lamps_reach || (at[0] - column[0]).abs() >= crate::near::LAMPS_STEP || (at[1] - column[1]).abs() >= crate::near::LAMPS_STEP) {
@@ -1019,10 +1033,17 @@ impl NearEye {
                     self.lamps_count = list.len() as u32;
                     self.lamps_listed = list;
                     self.lamps_come = true;
+                    self.sight_whole.set(true);
                 }
                 Err(error) => log::error!("The far lamps couldn't be listed: {error}"),
             }
         }
+        // Seeing them, in turns (build 226): this frame's turn of the list, or the whole of a list new on the card
+        // (after the list is taken, so the numbers are of the list the pass reads).
+        self.sight_frame = self.sight_frame.wrapping_add(1);
+        let turns = if self.sight_whole.get() { 1 } else { self.sight_turns };
+        self.sight_threads = self.lamps_count.div_ceil(turns);
+        queue.write_buffer(&self.sight_numbers, 0, &[self.lamps_count as f32, far.near_from, DOT_FAR_SLACK, 0.0, (self.sight_frame % turns) as f32, turns as f32, 0.0, 0.0].iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
         let whole_pixel = self.bands.last().map_or(1, |band| band.pixel) as f32;
         let dot_numbers = [[screen.0.max(1) as f32, screen.1.max(1) as f32, whole_pixel, per_block], [DOT_FROM, DOT_WHOLE, DOT_BAR, DOT_BAR_RISES], [DOT_BAR_OVER, DOT_SLACK, 0.0, 0.0]];
         queue.write_buffer(&self.dots_numbers, 0, &dot_numbers.iter().flatten().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>());
@@ -1225,10 +1246,13 @@ impl NearEye {
     }
 
     /// Seeing the far lamps (build 223): whether each lamp past where the far rays begin is seen, by a ray marched to
-    /// it through the far cells (the far eye's pass), for the dots after the x-fader.
+    /// it through the far cells (the far eye's pass), for the dots after the x-fader; this frame's turn of the list
+    /// (build 226), as `prepare` wrote its numbers.
     pub fn see_lamps(&self, encoder: &mut wgpu::CommandEncoder, far: &FarEye, timestamps: Option<wgpu::ComputePassTimestampWrites<'_>>) {
         let Some(group) = &self.sight_group else { return };
-        far.see_lamps(encoder, group, if self.far_lamps { self.lamps_count } else { 0 }, timestamps);
+        if far.see_lamps(encoder, group, if self.far_lamps { self.sight_threads } else { 0 }, timestamps) {
+            self.sight_whole.set(false);
+        }
     }
 
     /// The far lamps (build 222): a dot a lamp added to the picture (`view`), after the x-fader.

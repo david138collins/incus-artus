@@ -9478,3 +9478,28 @@ the screen). `INCUS_FAR_LAMP_TURNS=1` for every lamp every frame, as to build 22
   spawn); the card's whole high over the spawn at least 0.1 ms down. **Missed** if the pass is over half of what
   it was, or the whole isn't down.
 - **By his eye, when he next looks:** the far lamps as they were, none blinking as he walks.
+
+### Build 226 built (unflown): the far lamps seen in turns; checked off the screen
+
+**Built as the mark says** (`far_lamps.wgsl`: thread j sees to lamp j times the turns plus the frame's turn, a lamp
+behind the eye keeps its answer; `near_eye.rs`: `SIGHT_TURNS` 4, the numbers written after the list is taken (they
+were a frame behind a new list before), the whole list in the pass after a new list is put on the card, a quarter of
+the threads sent otherwise; `INCUS_FAR_LAMP_TURNS` in the wiring, the map redrawn).
+
+**Against the mark, off the screen (the stage on, six frames each, so one whole pass and five turns):**
+
+- **Tests:** all 59 pass (the map's once redrawn).
+- **The cave's mouth by day:** every lamp every frame (`INCUS_FAR_LAMP_TURNS=1`) is build 225's picture to the
+  pixel; in turns it differs at 10 pixels, the most by 10 of 255, at (785, 254), the dark spot that has wandered
+  from run to run since build 223. **Met.**
+- **The woods from the north at night:** in turns and every frame both differ from build 225's at 3 pixels (the
+  most 7), and from each other at 2 (the most 3). **Met.**
+- **The price:** owed, by the test sitting (in turns against `INCUS_FAR_LAMP_TURNS=1`).
+
+**His questions the same evening:** "why don't trees cast shadows directionally like the mountains do? once that's
+answered, im not worried about how the moons are implemented. leaves are a bit see-through, so far leaves may be a
+bit? we'll have to see how it comes out once we're there". Answered: the sun's shadows are the far light's, swept
+over the land's column tops (`far_light.rs`), columns many blocks wide, so a hill casts one and a tree can't; the
+near faces' own light (build 208) is how open a face is to the sky, straight up, with no sun's way in it. A tree's
+shadow wants a sweep of the same kind at a block a column round the eye, or the card drawing the near blocks from
+the sun: not built, his to place.

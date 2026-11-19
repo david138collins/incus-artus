@@ -404,8 +404,9 @@ flowchart TB
 ### seeing the far lamps
 
 - **A pass** in the frame, on the card.
-- **What it is:** For each lamp in the far lamps' list past where the far rays begin, a ray marched from the eye towards it through the far cells by the far eye's own march, as its finest layer reads them, to two far cells short of it: seen if it met no surface on the way, as old's far glows were (build 223).
+- **What it is:** For each lamp in the far lamps' list past where the far rays begin, a ray marched from the eye towards it through the far cells by the far eye's own march, as its finest layer reads them, to two far cells short of it: seen if it met no surface on the way, as old's far glows were (build 223). In turns (build 226): a quarter of the list a frame, each lamp's answer kept on the card till its turn; the whole list in the frame a new one is put on the card.
 - **Reads:** the far lamps' list, the far bricks, the far textures and the camera. **Writes:** the far lamps' list.
+- **Switch** `INCUS_FAR_LAMP_TURNS`: 1: every lamp seen to every frame, as to build 225 (for measuring against); another number, up to 64, the list seen in so many turns; unset, 4.
 - **Cost, last measured** (`kept logs/flight-1794589790.txt`): not measured.
 - **Files:** src/far_eye.rs, src/far.wgsl, src/far_lamps.wgsl and src/near_eye.rs.
 

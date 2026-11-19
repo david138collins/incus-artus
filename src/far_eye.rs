@@ -667,9 +667,9 @@ impl FarEye {
         Some((&targets.layers.first()?.camera, &self.store.table, shadow, sky, &self.sampler, self.targets_made << 32 | light << 8 | self.store.generation as u64 & 0xFF))
     }
 
-    /// Seeing the far lamps (build 223): a ray from the eye to each of `count` lamps through the far cells, as the
-    /// finest layer's rays read them (`far_lamps.wgsl`), with `group` (made by `sight_layout`). False, and nothing
-    /// recorded, before the far eye has its targets.
+    /// Seeing the far lamps (build 223): a ray from the eye to a lamp through the far cells, as the finest layer's
+    /// rays read them (`far_lamps.wgsl`), with `group` (made by `sight_layout`), by `count` threads (a thread a
+    /// lamp of this frame's turn, build 226). False, and nothing recorded, before the far eye has its targets.
     pub fn see_lamps(&self, encoder: &mut wgpu::CommandEncoder, group: &wgpu::BindGroup, count: u32, timestamps: Option<wgpu::ComputePassTimestampWrites<'_>>) -> bool {
         let Some(finest) = self.targets.as_ref().and_then(|targets| targets.layers.last()) else { return false };
         let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: Some("seeing the far lamps"), timestamp_writes: timestamps });

@@ -14,6 +14,9 @@ struct Sight {
     // x: how many lamps; y: where the far rays begin (blocks from the eye); z: how many far cells short of a lamp the
     // ray stops (the hill a cave mouth is cut into, the lamp's own cell).
     numbers: vec4<f32>,
+    // In turns (build 226): x: this frame's turn; y: how many turns the list is seen in (1: every lamp this frame).
+    // Thread j sees to lamp j * turns + turn; the others keep the answer of their own turn.
+    turns: vec4<f32>,
 }
 
 @group(1) @binding(0) var<uniform> sight: Sight;
@@ -24,7 +27,7 @@ struct Sight {
 
 @compute @workgroup_size(64)
 fn lamp_sight(@builtin(global_invocation_id) id: vec3<u32>) {
-    let k = id.x;
+    let k = id.x * u32(sight.turns.y) + u32(sight.turns.x);
     if (k >= u32(sight.numbers.x)) {
         return;
     }
@@ -33,7 +36,12 @@ fn lamp_sight(@builtin(global_invocation_id) id: vec3<u32>) {
     let d = to / max(off, 0.001);
     let end = off - sight.numbers.z * exp2(f32(level_at(off))) - 2.0;
     let kept = sight_lamps[k].w & 0xFFFF;
-    if (end <= sight.numbers.y || dot(d, camera.forward.xyz) <= 0.0) {
+    // (A lamp behind the eye keeps its answer: the half of the world ahead is far wider than the view, so its turn
+    // comes round again before it can be on the screen.)
+    if (dot(d, camera.forward.xyz) <= 0.0) {
+        return;
+    }
+    if (end <= sight.numbers.y) {
         sight_lamps[k].w = kept | (1 << 16u);
         return;
     }
