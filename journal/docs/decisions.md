@@ -3786,6 +3786,74 @@ Reference: `Art/quartile minecraft illustration.png`
   panel. Her reading of his answer, hers and not his word: the editor's scale is the whole frame, the panel's the
   parameters panel; the reset puts the panel's scale back to match the editor's, or to Auto; "unavailable" means
   the panel at that scale wouldn't fit the window.
+- **The master palette manager: his direction, a contemplation (2026-11-19)** (David, to Counsel; not a
+  decision, and its words may shift). His message, whole but for its thanks:
+
+  > "i am contemplating the form of a spline based master palette manager. Firstly, i've thought about what is a spline
+  > and why not just call it a row or set, and i think its because a spline implies it arches? and we can show the arch
+  > procedurally with hue, sat, or lum.
+  >
+  > So, i think the look i want is a compromise between the logic of late 70s-late 80s hardware-based utilities/editors,
+  > and high-density conventions that more modern software uses in programs where the concept of not having millions of
+  > colors never even came to mind.
+  >
+  > part of it is i want to be able to see all the regulated colors in the master palette in an arranged fashion, instead
+  > of by spline; arranged according to various orders, like hue by lum by sat, so that it lists each hue in order in rows
+  > and groups colors down the rows by lum and sat comes last when deciding by some override-ratio where more than a
+  > difference in sat is equal to such a difference in lum, because lum and sat are sort of siblings. but i'd want to be
+  > able to tick boxes and see the 'dense' palette arrange itself in patterns readable to the eye, so i can bounce that to
+  > gpl and paint with it and not have to run between splines. but, i still need the more explicit features that old incus
+  > registrar has, for the most part.
+  >
+  > I would like for you to go out and find a lot of examples of the palettes from NEOchrome, or any other multi-bank or
+  > raster line palettes; anything you can find from ham-e / digiview amiga stuff, and its palette operator features,
+  > which may be the closest thing to have been created like the master palette i'm designing. it seems the functionality
+  > i want was more tangibly present in very early and professional stuff most hobbyists would never have heard of or even
+  > have a chance to use, ever, most likely, as it was often tied directly to hardware and memory. look over SGI silicon
+  > graphics, Alias Poweranimator, Softimage, which had material-bound color ramps. SGI called 'unregulated' as 'orphan
+  > colors' and put them into a bin, with a one click 'fit to nearest ramp' or 'promote to new ramp' buttons. note that
+  > some of the lexicon we've used on the master palette may shift as we rework it, and note that working through this
+  > stuff to draw perfect mockups for builder seems to me the soundest way to make sure we get it just right, so some
+  > features, terminology, and behavior may derive backwards from how we go about researching and designing these mockups.
+  > ... check on Wally, a quake 1/half-life texture editor. for more modern systems to review and get snapshots of, look
+  > into cosmigo pro motion, it had a 'multimode palette'. please look far and wide for the most obscure stuff you can,
+  > including foreign software, from european, slavic, south american, and asian software markets from the 80s/90s when
+  > they would have begun having some of their own homespun software.
+  >
+  > we need to consider ways to make the larger part of the right-hand palette panel in the registrar, whose mockup im
+  > working on, not scroll as a whole. since the palette is of arbitrary size and there's an arbitrary number of splines,
+  > there will need to be some scrolling internally, obviously.
+  >
+  > for now, don't try to mock anything up yourself, just focus on getting me snipshots of all the most sophisticated,
+  > professional, obscure, and old palette tooling you can find. im gonna be dissapointed if japan never had a very nice
+  > drawing program that never got exported with some elegant and different features."
+  >
+  > Then: "i really like how neochrome master seemed to arrange the hue-by-lum-by-sat in a sort of diamond pattern into a
+  > grid. i bet they had a clever way of sorting any pile of colors into readable groupings"
+
+  - **What Counsel takes from it:** why "spline" (it arches; the arch shown from hue, saturation or lightness);
+    the look between hardware-era editors and dense modern tools; a dense view of every regulated colour,
+    arranged by orders switched with tick boxes (hue by lightness by saturation, saturation deciding last by an
+    override ratio), bounced to GPL to paint with; old's Registrar's explicit features kept for the most part;
+    the Registrar's right-hand palette panel not scrolling as a whole; mock-ups first, the features and the
+    words free to come backwards out of the research. Counsel draws nothing of it for now.
+  - **Done that day:** 114 pictures gathered by five searchers, each picture looked at before it was kept, a
+    manifest for each group with every picture's source and what its program could do (marked as from a source
+    or from memory), and one index page: `Art/palette reference/` (off GitHub). Counsel looked over all of them
+    on contact sheets and at several whole.
+  - **What was found, shortly** (the shared page, `journal/docs/editor-look.md`, has it at length): NEOchrome
+    Master's diamond is the machine's whole colour space by one fixed rule, not a sort of a picture's colours
+    (two manuals, and the searcher's own reading of the screen's pixels); sorting in place without changing the
+    picture is old and real (Deluxe PhotoLab, 1988; Sega Painter; Pro Motion); ramps as units are in Autodesk
+    Animator's clusters, Pro Motion's gradients and Animo's colour models; DawnBringer's Analyze Palette is the
+    nearest thing to his dense arranged view; Japan had what he hoped (Graph Saurus 2's eight palette tracks,
+    Sega's own tools, EDGE2's banks).
+  - **A correction to what he had been told elsewhere:** that SGI called unregulated colours "orphan colors",
+    kept them in a bin and had "fit to nearest ramp" and "promote to new ramp" buttons. No source was found for
+    any of it; SGI's colour tools worked on raw runs of colour-table entries. "Material-bound ramps" are real on
+    SGI as a programmer's convention (each material a run of colour-table entries), not an artist's tool. Pro
+    Motion has no feature named a "multimode palette": the real ones are a palette for each layer or frame, and
+    colour constraints with tile-based sub-palettes.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its

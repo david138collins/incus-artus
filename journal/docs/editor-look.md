@@ -109,6 +109,54 @@ here in the open.
   panel from its own mock-up, and egui out of `Cargo.toml`.
 - **She builds nothing until his mock-ups come.**
 
+### The master palette in the Registrar: his direction (2026-11-19; a contemplation, its words may shift)
+
+Not decided, and Counsel draws nothing of it for now ("for now, don't try to mock anything up yourself"). His
+mock-up of the Registrar's right-hand palette panel is in hand. What he has said, whole in
+`journal/docs/decisions.md`:
+
+- **Why "spline":** "a spline implies it arches? and we can show the arch procedurally with hue, sat, or lum."
+- **The look:** "a compromise between the logic of late 70s-late 80s hardware-based utilities/editors, and
+  high-density conventions that more modern software uses".
+- **A dense view of every regulated colour, not by spline,** arranged by orders he can switch with tick boxes:
+  "like hue by lum by sat, so that it lists each hue in order in rows and groups colors down the rows by lum
+  and sat comes last when deciding by some override-ratio ... because lum and sat are sort of siblings"; "see
+  the 'dense' palette arrange itself in patterns readable to the eye, so i can bounce that to gpl and paint
+  with it and not have to run between splines".
+- **Old's Registrar's explicit features stay,** "for the most part".
+- **The panel doesn't scroll as a whole:** "we need to consider ways to make the larger part of the right-hand
+  palette panel in the registrar ... not scroll as a whole ... there will need to be some scrolling internally".
+- **The method:** "working through this stuff to draw perfect mockups for builder seems to me the soundest way
+  to make sure we get it just right, so some features, terminology, and behavior may derive backwards from how
+  we go about researching and designing these mockups"; "some of the lexicon we've used on the master palette
+  may shift as we rework it".
+- He likes NEOchrome Master's colour grid: "the hue-by-lum-by-sat in a sort of diamond pattern into a grid".
+
+**The references** (114 pictures gathered for him that day, with a manifest for each group and one index page):
+`Art/palette reference/index.html` (off GitHub; on this machine). Five groups: Atari ST and Amiga; professional
+and workstation; Japan and Asia; Europe, the Soviet bloc and South America; PC game art and modern tools. What
+they show that bears on his direction, each from a source named in its manifest:
+
+- NEOchrome Master's diamond is the machine's whole colour space laid out by one fixed rule and dragged about
+  (black in the middle, brightness in rings outward, hue round each ring); it does not sort a picture's own
+  colours. Spectrum 512 drew all 512 colours as eight hexagons, the cube seen corner-on.
+- Sorting a palette in place while the picture keeps its look: Deluxe PhotoLab's Colors (by red, green, blue,
+  hue, saturation, value or pixel count), Sega Painter (by use, unused colours to the end), Pro Motion.
+- Ramps as units: Autodesk Animator's clusters; Pro Motion's named gradients and its palette shown as rows of
+  ramps; Deluxe Paint IV's ranges; Animo's named wells in a character's colour model.
+- A whole palette re-plotted many ways on one screen (hue against brightness among them): DawnBringer's
+  Analyze Palette for GrafX2.
+- Several banks at once: Graph Saurus 2's eight palette tracks; EDGE2's palette banks; NEOchrome Master's up
+  to 200 palettes a picture by scan line; Graph2Font's palette for every raster line.
+- One palette for many pictures: Animator's One Palette; Personal Paint's merge of two pictures' and nine
+  brushes' palettes; Wally's one master palette a game.
+- **The "orphan colors" bin he had heard was SGI's** (with "fit to nearest ramp" and "promote to new ramp"):
+  no source found for the term, the bin or the buttons; SGI's tools worked on raw runs of colour-table entries.
+  The nearest real things: Animator's Unused Colors and Fit; Animo's choice to discard or create wells that
+  don't match. The idea stands on its own; it has no precedent to lean on.
+- Not found at all: HAM-E's software; Alias and Softimage ramps before 1998; anything from Korea, Taiwan,
+  China or South America; period screens of DeBabelizer and Director's palette window.
+
 ### Open
 
 | Question | Whose |
