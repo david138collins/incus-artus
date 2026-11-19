@@ -157,6 +157,24 @@ they show that bears on his direction, each from a source named in its manifest:
 - Not found at all: HAM-E's software; Alias and Softimage ramps before 1998; anything from Korea, Taiwan,
   China or South America; period screens of DeBabelizer and Director's palette window.
 
+### For later: creator windows that nest, after StarCraft's trigger editor (his reference, 2026-11-19)
+
+Not for now. He installed the original StarCraft and shared five pictures of its editor's trigger windows
+(`Art/editor reference/StarCraft triggers (his reference)/`): "I found and installed the original starcraft, and have been looking through its editor. I wanted to share the trigger window. I think that may be useful at the point that we're setting the GUI up to add new placement fields in ecology or civilization, where it shouldn't be hardcoded so i can keep expanding the content. Some types of features, like the way a tree type is placed, may get pretty complex to make a new type of rather than just adjusting a given type, so we may wind up with nesting creator windows for big things like placement fields, or behaviors, as we'd apply them to a entity/mob/actor in the registrar when im making bad guys and types of villagers."
+
+What the pictures show, for when that point comes (Counsel's reading of them):
+
+- Four windows deep, each small. **Triggers:** a list in which each trigger is a block of plain sentences
+  under CONDITIONS and ACTIONS, with New, Modify, Copy, Delete, Load and Save, and Move Up and Move Down for
+  their order. **Trigger Properties:** three tabs, Players, Conditions, Actions. **New Condition:** one
+  drop-down of condition types, and under it the chosen type as a sentence with underlined words ("Player
+  accumulates quantity resources"). **Qualified Number:** the small window an underlined word opens (At
+  least, At most, Exactly; a number).
+- The part that answers "it shouldn't be hardcoded": a type is a sentence with blanks, and each blank opens a
+  small window for its own kind of value. A new type is a new sentence and its blanks, with no window drawn
+  for it by hand.
+- OK stays greyed until every blank is filled.
+
 ### Open
 
 | Question | Whose |

@@ -3854,6 +3854,15 @@ Reference: `Art/quartile minecraft illustration.png`
     SGI as a programmer's convention (each material a run of colour-table entries), not an artist's tool. Pro
     Motion has no feature named a "multimode palette": the real ones are a palette for each layer or frame, and
     colour constraints with tile-based sub-palettes.
+- **A reference for later: StarCraft's trigger editor, for creator windows that nest** (David, to Counsel,
+  2026-11-19, with five pictures of it, kept in `Art/editor reference/StarCraft triggers (his reference)/`). Of
+  the palette references: "this is excellent and very helpful. thank you." Then: "I found and installed the original starcraft, and have been looking through its editor. I wanted to share the trigger window. I think that may be useful at the point that we're setting the GUI up to add new placement fields in ecology or civilization, where it shouldn't be hardcoded so i can keep expanding the content. Some types of features, like the way a tree type is placed, may get pretty complex to make a new type of rather than just adjusting a given type, so we may wind up with nesting creator windows for big things like placement fields, or behaviors, as we'd apply them to a entity/mob/actor in the registrar when im making bad guys and types of villagers."
+  - So, when placement fields (ecology, civilization) and behaviours (for the Registrar's entities) get their
+    windows: new types made in the editor, not hardcoded; windows that nest for the big things. It agrees with
+    the spec's older line (the FX Lab and zone designer "modelled on the StarCraft editor's triggers").
+  - What the pictures show is set down on the shared page (`journal/docs/editor-look.md`, "For later"): a list
+    of triggers as plain sentences; properties in three tabs; a type picked from a drop-down and shown as a
+    sentence with underlined blanks; a small window for each blank's value. Nothing is to be drawn or built now.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
