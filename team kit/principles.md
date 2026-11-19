@@ -37,6 +37,9 @@ facts say so, and say which one and why.
   believes it. An outside audit is welcome once the plan stops changing every flight, and its findings are measured too.
 - **Know the noise.** A repeat flight can differ by a percent or two; a warm-up can make the first half minute of a
   session slower. Measure settled, and read one flight with its noise.
+- **Try an old build before it is measured.** A copy of an old build made for a comparison is run once, and the
+  first lines of its report read, before the measuring begins: a copy missing one folder can run empty and spoil
+  the whole sitting. Both sides of a comparison come from one session, turn about where they can.
 
 - **No megakernels.** Build card work as small passes over shared per-pixel stores, each timed on its own, not one
   giant program: in a register-bound giant, code added costs every pixel even when switched off, and the compiler's

@@ -3418,6 +3418,10 @@ Reference: `Art/quartile minecraft illustration.png`
     round the eye, or the near blocks drawn from the sun: not built.
   - **[OPEN] A near sun shadow: which pile, now or when the engine is finished out?** His to place; Builder
     asking. The moons' question follows it; far leaves wait to be seen.
+  - **[DECIDED 2026-11-18] Answered: "i think we'd do the first, when we come back to the graphics"** (David, to
+    Builder; read from the plan at c8ec665). The first is the far light's kind of sweep at a block a column round
+    the eye. It's in plan 2.4 as "The sun's shadows up close", with the things for when the engine is finished
+    out. The moons' question waits there with it.
 - **[LEANING 2026-11-18] The editor's look: Windows 95's, drawn by us, and his own** (David, to Counsel, over
   four messages; nothing built, nothing priced, Builder not yet asked).
   - He asked: "how much of a pain would it be to make the new editor look like a windows 95 app". Then, of using
@@ -3450,6 +3454,116 @@ Reference: `Art/quartile minecraft illustration.png`
     Apply); a launcher before the game an idea beside it. First step proposed: a sheet of every control, drawn
     once, for him to mark up or redraw himself, before the editor's first new page. **His go, and Builder's
     price, still owed.**
+- **The editor's look, its first step: a sheet of every control, and his picks** (David, to Counsel, 2026-11-18;
+  nothing built, Builder not yet asked). Of the sheet proposed: "to be honest a control sheet seems intimidating
+  because its so much stuff and i don't think i can draw it from memory... i guess i need at least references of
+  exactly what you mean, like show me a control sheet just like it, so i can look at the types i want and can
+  look at other images from win 95 and focus in on the exact build i want". Counsel drew one, each kind of
+  control numbered. His answer: "i like 4, 5, 6, 7, 8, 9, 10, 11 but i'll get the right button, 12, 13, 14, 15,
+  16, 17, 18, 19 (but i'll get the right buttons), 20 but it'd be fixed in the window no title bar. i'd get the
+  right buttons for 1, 2 looks right. 3, i'd get the right buttons; and we'd need some rich features done our
+  way up there *possibly*. i think only the viewports need to be special, and possibly richer boxes in a window
+  list with a scrollbar, that contain a preview and multiple fields like in the registrar. overall you did a
+  great job with that picture."
+  - By the sheet's numbers: 1 the title bar, 2 the menu bar, 3 the toolbar with the page's drop-down, 4 to 7
+    buttons (plain, the default one, a greyed one), 8 check boxes, 9 radio buttons, 10 a text field, 11 a
+    drop-down, 12 a number field with its arrows, 13 a slider, 14 a scrollbar, 15 a progress bar, 16 tabs, 17 a
+    group box, 18 a list, 19 a subwindow with its own title bar, 20 a viewport. So he keeps them all; the small
+    pictures on the buttons of 1, 3, 11 and 19 are his to supply; the viewport sits fixed in the window; the
+    toolbar may want things of our own. Added at his word in the redraw: 21 a tooltip, 22 a status bar, 23 a
+    list of richer boxes, each a preview and several fields.
+  - The sheet was drawn again at his asking ("make sure its to pixel scale so i can use it for slicing out
+    layers and replacing them with my own layers so i have a perfect reference"), one screen pixel to one sheet
+    pixel, in Ironquill at 15 pixels and in a plain font (MS Sans Serif), each numbered and clean:
+    `Art/editor reference/` (off GitHub with the rest of `Art/`), the drawer's source beside them. The edges,
+    marks and arrows are painted by Windows' own classic painter and recoloured to the 1995 palette; the text
+    is unsmoothed.
+  - Next, his: "I'm gonna spend some time mocking up the editor pixel-perfect so builder knows just what to do."
+    So the editor's look waits on his mock-ups, then Builder's price. Still a leaning until he says go.
+- **The game's fonts: Ironquill the standard, six more bought** (David, to Counsel, 2026-11-18). "i think
+  ironquill is a wonderfull standard font that is about as simple as it gets while having a style, that being
+  medieval chisel tip/brush instruments. im looking for a more ornate font to be its sibling, to purchase ...
+  you see i've experimented with Sorcery code, but its a bit frolicky and overly tolkienized, like a paperback
+  cover font published in the UK in the 70s of tolkien. I'm looking for something a little more stone age,
+  sumerian, heavy. it would be for the title and menu screen, for capital names, possibly in game books on
+  pages, etc."
+  - Counsel found no heavy pixel font in a Sumerian manner; from a shortlist he bought six: "i purchased
+    abracadabra, darinia, rvstica, troll, antiquity print, and decree." The files are in `Art/fonts/` (off
+    GitHub).
+  - How he means to use them: "i think i can at least choose one of them for the basis of the logo splash, and
+    do art from it, and then use another for important text/menus and one of them for the small functional
+    fonts for all the little things. left to my own devices i'd use them all completely at random and it'd be
+    chaos." Which font takes which part is not chosen; he'll try painting over each ("i can try painting them
+    all and see what takes best").
+  - **Each font's true pixel size, measured** (the height at which one of its pixels is one screen pixel; found
+    as the size whose drawing at twice the height is the same drawing doubled): Antiquity Print 13, Ironquill
+    15, Troll 16, Sorcery Code 16, Darinia 20, RVSTICA 26, Abracadabra 28, Decree 32. A pixel font is drawn only
+    at that size and its whole multiples; any other size smears it.
+  - **Their licences, as read 2026-11-18:** Abracadabra, Darinia and RVSTICA (Valiegraphie): use in a sold game
+    and changing them allowed, the font files not to be passed on, credit welcome and not required (licence
+    files in `Art/fonts/`). Antiquity Print: CC BY 4.0, credit required. Troll (somepx): credit asked for.
+    Ironquill (Francisco Cidade): bought by him earlier. **[OPEN] Decree's licence:** no licence file in his
+    folder; to be read before the game ships with it.
+  - Reference pictures, Counsel's, in `Art/font reference/`: every font at its true size; each font's name
+    doubled and quadrupled, blocky and smoothed, as a base to paint a title over; and the menu mock-up's pieces.
+- **[DECIDED 2026-11-18] The interface: mocked up at 640 x 480, its pieces anchored, scaled whole by the screen**
+  (David, to Counsel).
+  - He asked: "do you think i should just do it on a mockup menu that is 1920x1080, since i think that's the most
+    common resolution, and we scale it from there?" Told that a small picture scaled by whole numbers keeps
+    every pixel square on every screen, and a 1,920-wide one doesn't: "so, 640x480 for the main menu and the UI
+    elements? can you show me how this hud might scale for the layout?", with a HUD sketched on 640 x 480: three
+    large slots bottom left; blue, red and green orbs bottom middle; ten small slots, two rows of five, bottom
+    right; the strip 77 pixels tall.
+  - Then: "well, we're probably going to anchor it and have it adapt to the corners, so we're gonna use 640x480
+    as the basic 'screen mockup' and elements from inside the mockups will be what we actually draw/scale to the
+    screen".
+  - Shown the three pieces at x2, x3 and x4 on three screens: **"my opinion is that 2x @ 1080p, 3x @ 2k, and 4x @
+    4k is the right scaling."**
+  - What follows from it: the room the interface is laid out in is 960 x 540 at 1,920 x 1,080, 853 x 480 at
+    2,560 x 1,440, 960 x 540 at 3,840 x 2,160, and 853 x 533 on his laptop (2,560 x 1,600, x3). It is never
+    under 480 tall on those, so anything drawn inside 640 x 480 fits whole, with room at the sides for the
+    anchored pieces to spread into. His HUD strip is 14 to 16 in a hundred of the screen's height on all of them.
+  - It agrees with what the spec already held as decided (interface art at 640 x 480, scaled by whole numbers;
+    the equip section left, three glass spheres in the middle, the quickbar right). New here: the pieces
+    anchored each to its own corner or edge, and the scale named for each screen.
+  - **[OPEN] Screens under 1,080 tall** (1,280 x 720 or 800, 1,366 x 768): x2 leaves 360 to 400 rows, under his
+    480. Either they run at x1, or windows in the middle of the screen get a smaller layout there. His, when
+    the interface is built.
+  - Builder not yet asked for its price.
+- **The test sitting at build 226, flown (2026-11-19)** (David, to Builder: "go ahead"; read from the journal and
+  the plan at 3f43094 and checked against the five flights: build 226 in turns `logs/flight-1795085046.txt`,
+  every lamp every frame `-1795085933`, in turns `-1795087248`; build 210 `-1795088243` and `-1795089132`).
+  - **The far lamps in turns missed their mark.** Seeing the far lamps, the card's clock, medians: high over
+    the spawn 0.214 and 0.213 ms in turns against 0.191 every frame; on the plain and the scatter 0.081 to
+    0.085 against 0.098 to 0.101; the town by the spawn 0.149 and 0.148 against 0.128. The card's whole high
+    over the spawn 2.364 and 2.370 against 2.363. So a quarter of the list a frame buys nothing: the pass's
+    price doesn't follow how many lamps it sees to (633 in the list), and what it does follow isn't found
+    (Builder's guess, not shown: its longest ray's walk). The turns go back to every lamp every frame in the
+    next build that touches the pass.
+  - **The near faces did grow since build 210, a little.** High over the spawn 1.185, 1.190 and 1.182 against
+    1.107 and 1.105 (0.08 ms, 7 in a hundred); the plain with his build 0.206 against 0.189; the scatter at
+    1000 0.234 against 0.215; the mountain top 0.40 either way. Not the lamps' light: assess's lamps-off
+    flights had it too. The cause isn't found.
+  - **High over the spawn was over his 2 ms at build 210 too:** the card's whole 2.10 there, 2.37 now: seeing
+    the far lamps 0.21 new, the near faces 0.08 dearer, the far 8 x 8 0.02 less. Made now of the near faces
+    1.19, the far 8 x 8 0.69, seeing the far lamps 0.21, bringing it up 0.11, the near cover 0.08.
+  - **Builder's mistake, told to him:** her copy of build 210 lacked `exports/nice25 test`, so its first two
+    flights flew an empty world, unseen because the copy hadn't been run before the sitting. She copied the
+    folder in and flew build 210 twice after the fifth flight: the two builds are in one session but not turn
+    about, and the sitting ran 93 minutes against the 85 he was told.
+  - *Counsel's check:* every figure of hers matches the logs. Three things the logs add. (1) Build 210 flew
+    last, with the card as warm and its clock no faster (1,920 MHz high over the spawn against 1,980 to
+    2,055), and the triangles drawn the same at every mark, so the order didn't flatter build 210 and the
+    growth is real. (2) In a hundred the stage's marks grew most: the castle 0.172 to 0.180 against 0.144 and
+    0.147, the town on the plain 0.125 to 0.136 against 0.106 and 0.111; her "5 to 12 in a hundred" is the
+    plain and the scatter. (3) Both builds marched the far eye the same way (build 210's `INCUS_FAR_SIDE=1`
+    is what build 226 does with nothing set).
+  - **[OPEN] Hunting the near faces' growth: now, or with the near eye's own costs when the engine is finished
+    out?** His to place. Builder's price: about four more builds, made and flown by halves between 210 and
+    225. *Counsel's recommendation:* later, with the near eye's own costs. It is 0.08 of 2.37 ms at the dearest
+    mark, where the far lamps' 0.21 is the bigger piece and as little understood; and his order of 2026-11-08
+    is the look first, then the speed. A lead for whoever hunts: `src/near.wgsl` changed by some 340 lines
+    between the two builds, and the mountain top is the one near mark that didn't grow.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its

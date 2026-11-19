@@ -590,6 +590,15 @@ the answers.
   list a frame the right cut, or should a lamp's answer live in the far cells themselves? And the processor's
   area sits at 104 degrees (cutoff 105) through looks and flights alike, with the frame at 400 to 700 a second
   uncapped: does anything here depend on a number taken that hot?
+- **Since** (2026-11-19, the test sitting at build 226: builds 226 and 210 flown in one session). Seeing a
+  quarter of the far lamps a frame bought nothing: the pass costs 0.21 ms high over the spawn in turns and 0.19
+  every frame, so its price doesn't follow the count of lamps (633), and what it does follow isn't found. The
+  near faces are 0.08 ms dearer than at build 210 on the same triangles (1.19 against 1.11), the cause not found.
+  High over the spawn is 2.37 ms against his 2 (2.10 at build 210): the near faces 1.19, the far 8 x 8 0.69, the
+  lamps' rays 0.21. His order stands: the look first, the speed later; next the few loose ends, then the editor
+  (Phase 3), with Phase 2's gate unflown. Beside it he is designing the editor's look himself (Windows 95's
+  controls, drawn by us to his mock-ups) and the interface (mocked up at 640 x 480, scaled by whole numbers).
+  **Worth an outside eye:** why would a pass of one short ray per lamp cost the same for 158 lamps as for 633?
 
 ## 6. The message to send at the fork
 
