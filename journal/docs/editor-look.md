@@ -4,7 +4,9 @@ Counsel's brief for Builder, 2026-11-19, at David's asking: "please compile for 
 information re. win95 shell implementation we've come to discuss about the win95 look. i'm going to mock up what
 the editor should look like after going through old incus and we'll start from there."
 
-**Standing:** a leaning, not a decision (`journal/docs/decisions.md`, the rebuild, 2026-11-18). Nothing is built
+**Standing:** a leaning when written (`journal/docs/decisions.md`, the rebuild, 2026-11-18); later the same
+day he spoke of the method as decided ("what we've decided technically on how to implement a win95 gui"), which
+Counsel reads as his go on the method. Nothing is built
 and nothing is priced. His mock-ups come first; they overrule anything here. What is asked of Builder now is a
 price and her own reading of section 8, not a build.
 

@@ -3634,6 +3634,12 @@ Reference: `Art/quartile minecraft illustration.png`
     What follows, Counsel's reading and not yet his word: the editor is shown at the largest whole scale that
     leaves at least 1,280 x 800 of room: x2 on his laptop and on a 4K screen, x1 on 1,920 x 1,080 and on
     2,560 x 1,440. So the editor's scale is its own, apart from the game interface's.
+  - **He speaks of the method as decided** (David, to Counsel, 2026-11-19, the same day, after starting his
+    first mock-up at 1,280 x 800): "please give me a prompt that explains what we've decided technically on how
+    to implement a win95 gui for incus artus, so i can take it to the builder and make sure she understands our
+    specifications and methodology". *Counsel's reading:* that is his go on the method (the look drawn by us to
+    the recipes, at whole pixels and whole scales, to his mock-ups), no longer only a leaning. Builder's price,
+    her answers to the brief's questions, and his mock-ups are still to come; nothing is built.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
