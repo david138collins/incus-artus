@@ -3733,6 +3733,12 @@ Reference: `Art/quartile minecraft illustration.png`
       debug panel over the game has a scale setting of its own, Auto its standard. Still open, for when it is
       built: whether the editor's setting sizes the panel alone or the frame's bars with it, and where the debug
       panel's setting sits.
+    - **Answered the same day, with a "probably"** (David, to Counsel): "probably both have their own scale in the menu, with the editor scale resetting the panel scale when its changed, and unavailable scales greyed based on the editor scale if not auto. the debug panel would just have its own scale, 1x 2x 3x 4x 5x auto".
+      So in the editor's menu there are two scales, the editor's and the panel's; a change of the editor's
+      resets the panel's; panel scales that can't be had at the editor's scale are greyed, not hidden, unless
+      the editor's is Auto. The debug panel has a single scale of its own: 1x, 2x, 3x, 4x, 5x or Auto. Left for
+      Builder to propose and him to say: which panel scales count as unavailable at each editor scale, what
+      the reset sets the panel's scale to, and where the debug panel's setting sits.
   - Mock-ups: "i am working on a thorough set of mockups now that should make it easy for you."
   - Builder's plan from these, hers and not yet his go: each font from a glyph sheet of our own at its true
     size; the window made without Windows' frame, its dragging, resizing and maximise ours; Auto as the largest
