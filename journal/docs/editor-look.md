@@ -46,6 +46,7 @@ here in the open.
 | A scale setting, Auto by default; the general rule is enough until shipping, when each standard screen's default is picked from a set of pictures Counsel makes | to Builder: "there should also be a setting for the scale of the panel, with it being set to auto for standard ratios."; "we will figure out scaling for different cases when its important, the general rule with a scale setting should be good enough until shipping. we can always just have counsel make a whole set of images to select the default scale for each standard screen size/res" | 2026-11-19 |
 | That scale setting is the editor's, for the parameters panel on the left, picked from the menu; the debug panel has a scale setting of its own somewhere, Auto its standard | to Counsel, asked which panel he meant: "the scale setting i mentioned was for inside the editor, referring to the parameters panel on the left. if someone doesn't like the scale, or wants to use half a screen or something, they can select a different scale from the menu. The debug panel will also have a scale setting somewhere, with the auto being standard." | 2026-11-19 |
 | Probably two scales in the editor's menu, the editor's and the panel's: changing the editor's resets the panel's; panel scales that can't be had at the editor's scale are greyed, unless it is Auto. The debug panel has one scale of its own: 1x, 2x, 3x, 4x, 5x, Auto | to Counsel, asked whether the setting sizes the panel alone or the frame with it: "probably both have their own scale in the menu, with the editor scale resetting the panel scale when its changed, and unavailable scales greyed based on the editor scale if not auto. the debug panel would just have its own scale, 1x 2x 3x 4x 5x auto" | 2026-11-19 |
+| The mouse wheel scrolls the panel, unless the pointer is inside a number box | to Counsel: "additionally note i need the mousewheel to scroll the panel unless the mouse is inside a number box." | 2026-11-19 |
 | A thorough set of mock-ups is on its way | to Builder: "i am working on a thorough set of mockups now that should make it easy for you." | 2026-11-19 |
 
 ### Drawn by Counsel at his asking, not yet answered by him (guesses; nothing here is decided)
@@ -59,6 +60,20 @@ here in the open.
 - **The master palette** (example 5): splines as named rows of sunken wells, darkest first, in folding groups;
   "Not on a spline" as a box of loose wells; picked colours framed; a right-click menu on a spline; old's counts
   in a status bar; a Crush dialog after Paint's Edit Colors with old's own controls; a curve window.
+- **The Software map** (examples 6 and 7), asked for "for studying, with the highlighting and hierarchy it has now,
+  possibly with a panel on the left, a bit narrower than most, that shows the info about each module when it is
+  clicked". Both are laid out from the code's own list (`src/wiring.rs`: 4 lanes, 32 passes, 27 stores, every
+  wire). A panel 300 wide holds a name box (its drop-down jumps to any box) and the chosen box's card in folding
+  sections: What it does, Wires (two lists), Now, Switches, Files. The chosen box wears eight handles; its wires
+  are drawn over the rest with arrowheads the way the data goes; the status bar counts passes and stores.
+  - Example 6 keeps the map's look as it is (his word of 2026-11-12: a black screen, magenta boxes).
+  - Example 7, at his asking ("try to redraw the software map using the basic 95 scheme colors and box styles,
+    with a teal background"): each lane a small window with a title bar (navy for the chosen pass's lane, grey
+    for the rest; its minimise button would fold it), the passes push buttons, the stores sunken white wells,
+    the chosen pass held down, its stores picked out in navy, on the 95 desktop's teal. The dimmed wires are a
+    dark teal, the one colour outside the scheme.
+  - Counsel's own in them, not his: white for the wires a pass writes; the folding of lanes; a click in the
+    Reads or Writes list jumping to that store; the times (stand-ins from a flight).
 - In all of them the arrangement, the numbers, and in the palette the splines' names and the menu's words are
   Counsel's stand-ins.
 
@@ -99,7 +114,9 @@ here in the open.
 |---|---|
 | ~~Which panel "the scale of the panel" is~~ | Answered 2026-11-19: the parameters panel on the left, inside the editor; the debug panel has its own (the row above in "Decided by him") |
 | ~~Whether the editor's scale setting sizes the panel alone or the frame's bars with it~~ | Answered 2026-11-19, with a "probably": each has its own scale in the menu (the row in "Decided by him") |
-| Which panel scales count as unavailable at each editor scale (the rule behind the greying), what "reset" sets the panel's scale to, and where the debug panel's scale setting sits | Builder to propose; David |
+| Which panel scales count as unavailable at each editor scale (the rule behind the greying); what "reset" sets the panel's scale to; whether the editor's scale has the debug panel's steps (1x to 5x and Auto); what Auto means for the debug panel; where the debug panel's scale setting sits | Builder to put to him when the menu is built; David |
+| What the wheel does when the pointer is inside a number box (changes the number, or nothing) | David (Builder to ask when she builds it) |
+| The Software map: black and magenta as now (example 6), or the 95 scheme on teal (example 7); every wire drawn dimmed, or only the chosen box's; whether a box's describing text stays in its card, the one place a panel would carry such text | David |
 | Where the two settings go and what they are called: the game windowed; the scale | David: his mock-ups, or Builder asks |
 | Still wanted from him, by Builder's answer to this brief: the mock-ups as lossless 1,280 x 800 PNGs in `Art/editor reference/`; the title font; the toolbar's five buttons; what fills the status bar's panes; the open menus and the Tectonic Sim page; which of old's viewport readouts go | David |
 | Screens with less room than 1,280 x 800 | David, near shipping |
@@ -118,6 +135,7 @@ here in the open.
   at 4, 48), and the page's whole contents (529 x 1,036).
 - Example 3: World Gen, the Climate tab, folding sections: the same three pictures (contents 529 x 882).
 - Example 4: the F3 debug panel, floating. Example 5: the master palette, crush and curve.
+- Example 6: the Software map, black and magenta, with a card panel. Example 7: the same in the 95 scheme on teal.
 - Each drawer's source beside its pictures (`*.cs`, run from PowerShell); every edge in them is drawn to
   section 4's recipes, so they are also a worked example of the recipes in code.
 

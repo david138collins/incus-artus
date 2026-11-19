@@ -3752,6 +3752,34 @@ Reference: `Art/quartile minecraft illustration.png`
   overrule further down the brief, Builder's plan kept apart from his words, and what is open. Builder read it
   whole and works from it ("nothing wrong in substance"). Counsel brings it up to date in the same commit as
   each thing he decides. For this he had the two of us write to each other directly.
+- **[DECIDED 2026-11-19] The wheel scrolls the panel, but not inside a number box** (David, to Counsel):
+  "additionally note i need the mousewheel to scroll the panel unless the mouse is inside a number box."
+  What the wheel does inside a number box (changes the number, or nothing) he didn't say: open, his.
+- **The Software map in the editor: two examples, Counsel's, at his asking; neither answered** (2026-11-19; in
+  `Art/editor reference/`). "this one is a tall order; the software map in the editor is a lot. i want it to be
+  there though for studying, with the highlighting and hierarchy it has now, possibly with a panel on the left, a
+  bit narrower than most, that shows the info about each module when it is clicked. how would the earliest
+  spreadsheet and diagram editors have handled this? give me something to work with on that".
+  - What he was told: a spreadsheet's grid shows only the short thing, and the one chosen cell has its name in
+    a box and its whole contents on a line at the top (VisiCalc's from the start; Excel's Name box and formula
+    bar); Excel's auditing arrows run from every cell a formula reads and to every cell that reads it; its
+    outline folds groups with a plus or minus in the margin. Diagram editors (MacDraw, Visio, Access's
+    Relationships window) put eight small handles on the chosen shape and name it in the status bar. From
+    Counsel's memory, not from sources looked up that day.
+  - Example 6: the map as it is (his word of 2026-11-12, "a black screen with magenta boxes"), laid out from
+    `src/wiring.rs`, with a panel 300 wide: a name box, and the chosen box's card in folding sections (What it
+    does, Wires, Now, Switches, Files); eight handles; arrowheads on the chosen box's wires.
+  - Then: "try to redraw the software map using the basic 95 scheme colors and box styles, with a teal
+    background". Example 7: each lane a small window with a title bar, the passes push buttons, the stores
+    sunken white wells, the chosen pass held down and its stores picked out in navy, on the 95 desktop's teal.
+  - Counsel's own in them, not his: white for the wires a pass writes; folding a lane; a click in the Reads or
+    Writes list jumping to that store. Put to him: with every wire drawn, even dimmed, the middle of the map is
+    a thicket; and the card carries a box's describing text, which he ruled out of panels that morning.
+- **The scales, two points more, Builder's to put to him when the menu is built** (her message after 515dbbe):
+  whether the editor's scale has the debug panel's steps (1x to 5x and Auto), and what Auto means for the debug
+  panel. Her reading of his answer, hers and not his word: the editor's scale is the whole frame, the panel's the
+  parameters panel; the reset puts the panel's scale back to match the editor's, or to Auto; "unavailable" means
+  the panel at that scale wouldn't fit the window.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
