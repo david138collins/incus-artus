@@ -3629,6 +3629,11 @@ Reference: `Art/quartile minecraft illustration.png`
   - *Counsel, one thing to settle before he draws:* the size he mocks the editor up at. The interface's rule
     (x3 on his laptop) leaves an editor only 853 x 533; suggested, 1,280 x 800 (his laptop at x2), or 1,280 x
     720 to fit more screens. His to say.
+  - **[DECIDED 2026-11-19] The editor is mocked up at 1,280 x 800** (David, to Counsel, asked which of the two:
+    "1,280 x 800"). That is his laptop's screen at x2, so on it one editor pixel is two screen pixels each way.
+    What follows, Counsel's reading and not yet his word: the editor is shown at the largest whole scale that
+    leaves at least 1,280 x 800 of room: x2 on his laptop and on a 4K screen, x1 on 1,920 x 1,080 and on
+    2,560 x 1,440. So the editor's scale is its own, apart from the game interface's.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its

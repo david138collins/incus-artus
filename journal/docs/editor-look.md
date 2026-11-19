@@ -237,11 +237,11 @@ renderer and `pixels_per_point`. Nothing in it is styled, so there is nothing to
 - **The game's interface, decided 2026-11-18:** mocked up on 640 x 480, its pieces each anchored to a corner or
   edge, "2x @ 1080p, 3x @ 2k, and 4x @ 4k". The room it is laid out in is then 960 x 540, 853 x 480 and
   960 x 540, and 853 x 533 on his laptop (2,560 x 1,600 at x3). Screens under 1,080 tall are open.
-- **The editor's scale is not chosen.** By that rule his laptop would give the editor 853 x 533 of room, small
-  for an editor; at x2 it has 1,280 x 800, and a 1,920 x 1,080 screen at x1 has all of it. *Counsel's
-  suggestion, not his word:* the editor mocked up at 1,280 x 800 and shown at the largest whole scale that
-  leaves at least that much room (1,280 x 720 would also fit a 2,560 x 1,440 screen at x2 and a 4K screen at
-  x3). His to say before he draws.
+- **The editor is mocked up at 1,280 x 800** (his choice, 2026-11-19, asked which of 1,280 x 800 and 1,280 x
+  720). That is his laptop at x2; the interface's rule would have left the editor 853 x 533 there, small for an
+  editor, so the editor's scale is its own. *Counsel's reading, not yet his word:* the editor is shown at the
+  largest whole scale that leaves at least 1,280 x 800 of room: x2 on his laptop and on a 4K screen, x1 on
+  1,920 x 1,080 and 2,560 x 1,440. What the editor does on a screen with less room than that is open.
 
 ## 11. Behaviour: his, a convention at a time
 
@@ -276,7 +276,8 @@ An idea beside it, not asked for: a small desktop window before the game starts,
 |---|---|
 | His go on the look itself (a leaning until then) | David, after his mock-ups |
 | The price: egui as plumbing against controls of her own; the outer title bar both ways | Builder |
-| The editor's scale and the size he mocks it up at | David, before he draws |
+| ~~The size he mocks the editor up at~~ | Answered 2026-11-19: 1,280 x 800 |
+| The editor's scale on each screen (Counsel's reading: the largest whole scale leaving 1,280 x 800), and on screens with less room | David, when it is built |
 | Where the editor begins: Tectonic Sim, or the frame and look first | David (Builder is asking) |
 | The pixel font crisp through egui, or a glyph sheet of our own | Builder, by a test |
 | How bought fonts reach the build without their files being passed on | David and Builder |
