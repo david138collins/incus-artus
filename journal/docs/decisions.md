@@ -3418,6 +3418,38 @@ Reference: `Art/quartile minecraft illustration.png`
     round the eye, or the near blocks drawn from the sun: not built.
   - **[OPEN] A near sun shadow: which pile, now or when the engine is finished out?** His to place; Builder
     asking. The moons' question follows it; far leaves wait to be seen.
+- **[LEANING 2026-11-18] The editor's look: Windows 95's, drawn by us, and his own** (David, to Counsel, over
+  four messages; nothing built, nothing priced, Builder not yet asked).
+  - He asked: "how much of a pain would it be to make the new editor look like a windows 95 app". Then, of using
+    Windows' own controls: "my heart says, 'why not just use the actual code libraries that a programmer from 1995
+    would use to get the exact look and conventions', because its not just a look; its how i understand
+    complicated software working, and gives me a handle for how to think about organizing features for ergonomics
+    and power." And: "i don't really love E-gui and *would* probably love win95 .net style debug panel and even
+    desktop app wrapping for the game before it launches ... like dungeon keeper did. idk if that's necessary at
+    all but that's how i'd like to set up the editor."
+  - Then, stepping back from the real controls: "im not sure i care about mac and linux use"; "i think i may
+    overstate how deep i recognize the .net conventions you mention with thousands of small behavior rules. that
+    makes me think, how do you emulate the look exactly, so i can use my own behaviors. could we just gank the way
+    the apps are drawn, and call it from rust as we please? and yes, we'd have windows in the app for our own
+    things like previews and the map."
+  - Asked whether it's egui's look or its behaviour he doesn't love: "part of it is the generic look which is half
+    vanity, and half just reacting to something *i didnt choose* which is also half vanity but also half genuine
+    will to make everything per-fectus, and not slop. id rather have something of my own just because basically".
+  - **What he was told.** The 1995 libraries are Windows' own and still ship in it, callable from Rust: genuine
+    controls and all their behaviour, but Windows only, placed by hand, their sharpness on his screen unknown,
+    and the views we draw on the card living in child windows. The look alone is a dozen recipes of one-pixel
+    lines (raised, sunken and etched edges, the check and radio marks, scrollbar arrows and the dithered track,
+    the navy title bar, the dotted focus box), a palette and a font, so our own drawing to the same recipes
+    gives the same pixels, on any system, doubled whole for sharpness. Windows' own painter draws onto its own
+    surfaces, not the card's picture, so calling it is more work than following the recipes. Microsoft's files
+    and font aren't taken; a free lookalike font, its licence checked.
+  - **Where it rests, Counsel's reading:** it is the look, and that it be chosen by him, not the behaviour. So:
+    the 95 look drawn by us to the recipes, every control's look his to choose or change; egui kept only as the
+    unseen plumbing (clicks, typing, scrolling) unless Builder prices its own as worth it; the 95 conventions he
+    notices added one at a time (a menu bar, subwindows with title bars, a status bar, tabs, OK, Cancel and
+    Apply); a launcher before the game an idea beside it. First step proposed: a sheet of every control, drawn
+    once, for him to mark up or redraw himself, before the editor's first new page. **His go, and Builder's
+    price, still owed.**
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
