@@ -9652,3 +9652,9 @@ eye's own costs, not in the next build. Asked of the grass's shared edge (in thi
 with no soil under it, so a shared overlay would look as today's grass side until world generation gives soils): "Move
 it to the soils"; its picture, when it's built, "Placeholder from grass side". Moved to 3.2's Surface. The next build
 is the lamps' strength on dark stone.
+
+**The lamps' strength on dark stone (2026-11-19):** asked where a strength slider for all placed light would go and
+what it would start at (a lamp at its brightest lights a surface to its colour times 1, daylight about two and a half
+times, so on dark stone lamps read dull: build 217's note), his answer to both: "dont worry about this one." Dropped;
+nothing built. So the loose ends sorted on 2026-11-18 are tied up, and the editor is next by his word ("after we've
+tied up the loose ends we should focus on the editor stuff").

@@ -782,7 +782,9 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
             not certain about anything eith them yet"
       - **The loose ends sorted with him** (2026-11-18: "other than that i agree"). Now: the two checks above in
         one test sitting, the bars' pictures and the grass's edge (Textures), the lamps' strength on dark stone.
-        When the engine is finished out: the curve's far half and the seam, squares fixed to the world, Panini,
+        **Tied up, 2026-11-19:** the sitting flown; the bars' pictures built (227, "it looks right"); the grass's
+        edge moved to the soils (3.2); the lamps' strength dropped by his word, asked where its slider went and
+        what it started at: "dont worry about this one." When the engine is finished out: the curve's far half and the seam, squares fixed to the world, Panini,
         the rest of placed things in the far view, the near eye's own costs, water's far look, the polish
         passes, the gate. Then the editor (his word: "after we've tied up the loose ends we should focus on the
         editor stuff and start making some headway from the other end of the program")
