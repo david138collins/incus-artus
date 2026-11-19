@@ -1198,7 +1198,7 @@ Where the sources disagree. Each version is given with its ref; nothing here is 
 - Palette grading and pixelizing with real control, which David found nowhere else. [wanted] (toy-factory.md:103-105)
 - Not a drawing program (Aseprite does drawing): an image editor's adjustments where every slider moves by itself: "Many times I have sat there moving a slider back and forth". [idea] (toy-factory.md:97-101)
 - The FX Lab and zone designer modelled on the StarCraft editor's triggers, "an intimidating page for designing triggers"; zones extensible without coding through a scripting page with a menu of hooks, much later. [idea] (toy-factory.md:45-47; decisions.md:716-728)
-- Placement fields (ecology, civilization) and behaviours (for entities in the Registrar) are made in the editor, not hardcoded, in creator windows that nest, after StarCraft's trigger editor: "it shouldn't be hardcoded so i can keep expanding the content"; "we may wind up with nesting creator windows for big things like placement fields, or behaviors". [idea 2026-11-19] (decisions.md, the rebuild, 2026-11-19; pictures in `Art/palettes/editor reference/`)
+- Placement fields (ecology, civilization) and behaviours (for entities in the Registrar) are made in the editor, not hardcoded, in creator windows that nest, after StarCraft's trigger editor: "it shouldn't be hardcoded so i can keep expanding the content"; "we may wind up with nesting creator windows for big things like placement fields, or behaviors". [idea 2026-11-19] (decisions.md, the rebuild, 2026-11-19; pictures in `Art/References/editor reference/`)
 
 ### Labs and test worlds
 - A Caves panel, with a test cave at the crosshair. [decided] (caves.md:338-340)

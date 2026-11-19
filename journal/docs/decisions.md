@@ -3881,6 +3881,8 @@ Reference: `Art/quartile minecraft illustration.png`
   and screenshots of old's pages): he took Counsel's examples 2, 3 and 7 as his starting points and edited
   them, and the title bar now carries the build's number. The StarCraft pictures lie in
   `Art/palettes/editor reference/` (Counsel saved them to the old path after the folder had moved).
+  - Moved the same day, on his word ("Yes, move them"), to `Art/References/editor reference/StarCraft triggers
+    (his reference)/`.
 - **The Registrar's frame, his mock-up in progress (2026-11-19)** (David, to Counsel, with the picture and old's
   Registrar beside it): "I can't think of anything the list needs to show except for the name, thumbnails (how many? if it's multiple can they be leafed?) and the relevant tags each block can be found by. And the type, too i guess. the small space above that list can be for the search filter. the middle box is obviously the registry editor and the right is the palette. I'd reserve probably 400 pixels like shown for the palette so it can be immobile, but the size of the 3 box areas on the left can be messed with. Got any ideas?"
   - As drawn: a filter box over the library's list on the left (about 255 wide), the registry editor in the
