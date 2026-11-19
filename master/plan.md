@@ -649,7 +649,7 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
       cells behind a directory, in one buffer; off the screen the same picture as build 208's, 16 to 18% fewer faces
       with the stage, the light 20 MB at 32 chunks of it and nothing on bare land; flown in a bracket with the
       stage on (2026-11-17): the near faces' time on the card 15% less than build 208's way over 20 marks, at no
-      mark dearer. Done enough to go on; his look at builds 208 to 210 owed (the cut and the floor are his by eye)
+      mark dearer. Done enough to go on; his look at builds 208 to 210: "already saw 208 and 210" (2026-11-18), nothing raised (the cut and the floor are his by eye)
     - [x] **Near light:** the near eye's own light, per face, blocky and quantised (the spec); placed lights in 16
           clear steps a block, coloured, flooding through air and stopped by walls, flickering; moving lights (a
           held lantern, effects); caves and interiors dark unless lit ("i want light to be precious")
@@ -744,13 +744,21 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
     - [ ] **Checks owed from assess** (build 225's bracket, 2026-11-18; his word: "make a note of those to add to
           the things we need to check"):
       - [ ] **The far lamps seen in turns:** a quarter of the list each frame, each lamp's answer kept till its
-            turn; about 0.15 ms off high over the spawn, the one mark over his 2 ms
+            turn; about 0.15 ms off high over the spawn, the one mark over his 2 ms. Build 226, its pass mark
+            written
       - [ ] **Whether the near faces grew since build 210:** the same triangles at every mark, dearer on the card
             by one flight of another day (high over the spawn 1.11 to 1.20 ms; thick scatter more); both builds
             flown in one session before anything is looked for
       - [ ] **The game he looks at, measured:** the bracket flew the built-in settings (the curve's near half off,
             rings of 128); one bracket with his launch settings (the near half on, rings of 256 and 320), or with
-            his starting presets once he has saved them
+            his starting presets once he has saved them. Waits on him: "we dont need to save my presets because im
+            not certain about anything eith them yet"
+      - **The loose ends sorted with him** (2026-11-18: "other than that i agree"). Now: the two checks above in
+        one test sitting, the bars' pictures and the grass's edge (Textures), the lamps' strength on dark stone.
+        When the engine is finished out: the curve's far half and the seam, squares fixed to the world, Panini,
+        the rest of placed things in the far view, the near eye's own costs, water's far look, the polish
+        passes, the gate. Then the editor (his word: "after we've tied up the loose ends we should focus on the
+        editor stuff and start making some headway from the other end of the program")
     - [ ] **Listing chunks:** the near eye's processor time is all in listing the chunks in view (0.15 to 0.27 ms a
           frame at 32 chunks, about 1 ms at 64)
     - [x] **Faces turned away** from the eye left out: build 209 (ff0c6b2), the card drops them and a chunk's

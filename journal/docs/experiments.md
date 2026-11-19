@@ -9448,3 +9448,33 @@ far half).
 **When it's taken up** (his word: a stable experimental branch): in a folder of its own with its own build
 folder, main left as it is. The ladder first (a few builds), his look; the box grid for turning only, on the
 nearest band, if he still wants the stair-steps; walking last.
+
+### The loose ends sorted (2026-11-18), and build 226's pass mark: the far lamps seen in turns
+
+**His words,** of Builder's split of the loose ends into "tie up now" and "when we finish the engine": "we dont need
+to save my presets because im not certain about anything eith them yet. already saw 208 and 210. other than that i
+agree." And before it: "i think after we've tied up the loose ends we should focus on the editor stuff and start
+making some headway from the other end of the program."
+
+**Now:** the far lamps seen in turns (build 226); one test sitting (its price; builds 210 and 225 in one session,
+for whether the near faces grew); the bars' side and end pictures and the grass's shared edge; the lamps' strength
+on dark stone. **When the engine is finished out:** the curve's far half and the seam; squares fixed to the world
+(the experimental folder), the near picture on squares with it; Panini; the rest of placed things in the far view;
+the near eye's own costs; water's far look; the polish passes and the open questions; the small flaws written down;
+the gate (4.2 ms at the 99th, the Intel card, his walk through old's world). **Waiting on him:** the game he looks
+at measured, till he has starting presets; pictures for the stage's seven blocks, as he makes them. **Then the
+editor,** from 3.1.
+
+**Build 226's pass mark, before its code.** Seeing the far lamps marches a quarter of the list a frame (lamp k on
+frame k mod 4), each lamp's answer kept on the card till its turn; the whole list in the frame a new list is put on
+the card, so nothing blinks when the list is redone; a lamp behind the eye keeps its answer (the rays are marched
+for the whole half of the world ahead, far wider than the view, so a lamp is seen to again before it can come onto
+the screen). `INCUS_FAR_LAMP_TURNS=1` for every lamp every frame, as to build 225, for measuring against.
+
+- **Off the screen:** the tests pass; the cave's mouth and the woods from the north at night are build 225's
+  pictures (a few pixels of the run-to-run noise allowed), in one frame and after eight.
+- **Flown** (in the test sitting, in turns against `INCUS_FAR_LAMP_TURNS=1`): seeing the far lamps under 0.4 of
+  build 225's at the marks where it showed (0.20 high over the spawn, 0.10 on the plain, 0.13 at the town by the
+  spawn); the card's whole high over the spawn at least 0.1 ms down. **Missed** if the pass is over half of what
+  it was, or the whole isn't down.
+- **By his eye, when he next looks:** the far lamps as they were, none blinking as he walks.
