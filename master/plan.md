@@ -67,9 +67,12 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   faces did grow since build 210 (1.19 against 1.11 high over the spawn), the cause not found; high over the
   spawn was over his 2 ms at build 210 too (2.10), and is 2.37 now. **The bars' pictures are in** (build 227, 2026-11-19: "you can go ahead and
   measure, it looks right"; flown: the near faces about a twentieth dearer, the fragment's bar work being done for
-  every face; high over the spawn 2.42 ms and the town by the spawn 2.01, two marks over his 2 ms; whole blocks'
-  faces skip that work in the next build). **Now:** the grass's shared edge (with that skip, and the far lamps back
-  to every frame), then the lamps' strength on dark stone. **When the engine is finished out:** the curve's far half and the seam, squares fixed to the world,
+  every face; high over the spawn 2.42 ms and the town by the spawn 2.01, two marks over his 2 ms; the fix, whole
+  blocks' faces skipping that work, noted for later by his word: "go ahead. make a note of that fix for later", under
+  2.4 with the near eye's own costs). **The grass's shared edge is moved to the soils** (3.2, Surface; his answer,
+  2026-11-19: "Move it to the soils"; its first picture a placeholder from today's grass side). **Now:** the
+  lamps' strength on dark stone, the last loose end before the editor. The far lamps go back to every frame in
+  whichever build next touches their pass. **When the engine is finished out:** the curve's far half and the seam, squares fixed to the world,
   Panini, the rest of placed things in the far view, the near eye's own costs, water's far look, the polish
   passes, the open questions, and Phase 2's gate. **Waiting on him:** the game he looks at, measured, once he
   has starting presets; pictures for the stage's seven blocks. **Then the editor:** "after we've tied up the

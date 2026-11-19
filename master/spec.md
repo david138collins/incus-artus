@@ -461,6 +461,7 @@ Where the sources disagree. Each version is given with its ref; nothing here is 
 - Block faces are 32×32 PNGs that tile seamlessly. [decided] (decisions.md:489, 549, 553)
 - Random 90° rotation for faces with no "up" (grass tops), switchable per block; random face variants (some logs with knots) picked by position. [decided] (decisions.md:345-346, 554-556)
 - Each soil has its own texture; the grass edge is one shared overlay. [decided] (decisions.md:558)
+- The grass's shared edge is built with the soils, when world generation gives them (plan 3.2, Surface): "Move it to the soils"; its first picture a placeholder cut from today's grass side, till he draws one. [decided 2026-11-19; not built] (decisions.md, the rebuild, 2026-11-19)
 - Thin cut-out lines never vanish in the distance. [decided] (decisions.md:572-573)
 - Textures crisp up close, mipmapped as they shrink, shrinking toward the far colour: "they look good." [decided] (regroup.md:936; handoff.md:27, 48-50)
 - Joined bars are seamless, the texture running across the join; bars wear their own side and end textures (his bar art later). [decided] (quartile.md:72, 191; regroup.md:1024; handoff.md:31-35)

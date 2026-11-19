@@ -3590,6 +3590,19 @@ Reference: `Art/quartile minecraft illustration.png`
     sum and not what the grass's edge costs or what the skip gives back. Put to Builder.
   - **What's left before the editor, as Builder told him:** the grass's shared edge, then the lamps' strength on
     dark stone.
+  - **[DECIDED 2026-11-19] The fix noted for later; the grass's shared edge moved to the soils** (David, to
+    Builder, the same morning; read from the journal and the plan at b7762b1). Of build 227's price and its
+    fix: "go ahead. make a note of that fix for later." So whole blocks' faces skipping the bars' work is not in
+    the next build: it is in plan 2.4 as "The bars' work for whole blocks' faces", with the near eye's own costs,
+    to be flown alone against build 227. Asked of the grass's shared edge (in this world grass is one block over
+    stone, with no soil under it, so a shared overlay would look as today's grass side until world generation
+    gives soils), he chose "Move it to the soils", and for its picture when it's built "Placeholder from grass
+    side". It is under 3.2's Surface now.
+  - *Correction, Counsel:* the two notes above are overtaken the same morning. The next build carries one thing,
+    the lamps' strength on dark stone, so there is no sum to pull apart; the far lamps go back to every frame in
+    whichever build next touches their pass, and this one doesn't. What's left before the editor is the lamps'
+    strength on dark stone alone. Until the fix is built, two marks stay over his 2 ms: high over the spawn
+    2.42 and the town by the spawn 2.01.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
