@@ -9624,3 +9624,7 @@ switch, no control; the wiring unchanged.
 
 **Said to him before he looks:** only stone brick has bars' own pictures (old's placeholders); a bar of any other block
 wears its block's picture as before; whole stone-brick blocks still wear the bar side laid side by side.
+
+**His look at build 227 (2026-11-19),** launched at his build (`INCUS_MARK`), the stage on, rings of 256 and 320, 17
+minutes, no error: "you can go ahead and measure, it looks right". Done enough to go on; the price owed by one flight,
+flown now by his leave.
