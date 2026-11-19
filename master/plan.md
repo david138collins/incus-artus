@@ -742,12 +742,19 @@ unchecked the first time it flies. Marks are data, flown on both cards by one co
           4s at the seam; at g = 2 perhaps 600 MB and the finer rays' time: priced first)
     - [ ] **Checks owed from assess** (build 225's bracket, 2026-11-18; his word: "make a note of those to add to
           the things we need to check"):
-      - [ ] **The far lamps seen in turns:** a quarter of the list each frame, each lamp's answer kept till its
+      - [x] **The far lamps seen in turns:** a quarter of the list each frame, each lamp's answer kept till its
             turn; about 0.15 ms off high over the spawn, the one mark over his 2 ms. Build 226, built: off the
-            screen build 225's pictures but for a few pixels; its price owed by the test sitting
-      - [ ] **Whether the near faces grew since build 210:** the same triangles at every mark, dearer on the card
+            screen build 225's pictures but for a few pixels. **Flown 2026-11-19: missed.** The pass in turns
+            0.21 high over the spawn against 0.19 every frame, 0.083 against 0.10 on the plain; the card's whole
+            the same. The price doesn't follow how many lamps are seen to (633 in the list; a guess: the longest
+            ray's walk). Written down: the turns buy nothing and are put back to every frame by the next build
+            that touches the pass; what the pass's price does follow is not found
+      - [x] **Whether the near faces grew since build 210:** the same triangles at every mark, dearer on the card
             by one flight of another day (high over the spawn 1.11 to 1.20 ms; thick scatter more); both builds
-            flown in one session before anything is looked for
+            flown in one session before anything is looked for. **Flown 2026-11-19: yes, a little.** High over
+            the spawn 1.19 against 1.11 (0.08, 7 in a hundred), the plain and the scatter 5 to 12 in a hundred,
+            the mountain top the same; not the lamps' light (assess's lamps-off flights had it too). The cause
+            not found: builds between 210 and 225 flown by halves, about four more, his to place
       - [ ] **The game he looks at, measured:** the bracket flew the built-in settings (the curve's near half off,
             rings of 128); one bracket with his launch settings (the near half on, rings of 256 and 320), or with
             his starting presets once he has saved them. Waits on him: "we dont need to save my presets because im

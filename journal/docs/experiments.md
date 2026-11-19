@@ -9507,3 +9507,52 @@ the sun: not built, his to place.
 **His choice for trees' shadows (2026-11-18):** "i think we'd do the first, when we come back to the graphics": the
 far light's sweep at a block a column round the eye. In plan 2.4 as "The sun's shadows up close", with the things
 for when the engine is finished out.
+
+### The test sitting at build 226 (2026-11-19): in turns missed its mark; the near faces did grow since 210
+
+**Flown** (his word: "go ahead"), the stage on, the TV unplugged, the laptop left alone: build 226 in turns
+(`logs/flight-1795085046.txt`), every lamp every frame (`INCUS_FAR_LAMP_TURNS=1`, `-1795085933`), in turns again
+(`-1795087248`); then build 210 twice from its own folder (`logs/flight-1795088243.txt`, `-1795089132`, copied from
+`target/worktrees/b210/logs`). The processor's area at 104 degrees at most marks, as in every flight.
+
+**Builder's mistake, said to him:** the sitting as planned had build 210 first and fourth. Both flew an empty world
+("The doorway couldn't open the world": the copy had the world's bake but not `exports/nice25 test`, which the
+doorway opens), and nothing had been run from the copy before the sitting to see that it opened. The folder was
+copied in and build 210 flown twice after the fifth flight, so the two builds are in one session but not turn about;
+the sitting ran 93 minutes against the 85 he was told. A copy of an old build is run once, and its report's first
+lines read, before a sitting is begun.
+
+**Build 226 against its mark (the seeing pass under 0.4 of what it was; the card's whole high over the spawn at
+least 0.1 ms down; missed if the pass is over half): missed.** Seeing the far lamps, the card's clock, medians, ms,
+in turns (two flights) against every lamp every frame:
+
+- the plain and the scatter: 0.082 to 0.085 against 0.098 to 0.101, 0.84 of it;
+- high over the spawn: 0.214 and 0.213 against 0.191, dearer;
+- the town by the spawn: 0.149 and 0.148 against 0.128, dearer; the mountain top 0.088 against 0.081; the hall in
+  the mountain 0.10 either way; over a wood 0.034 against 0.027;
+- the card's whole high over the spawn: 2.364 and 2.370 against 2.363. Nothing.
+
+So the pass's price doesn't follow how many lamps it sees to. The whole list is 633 lamps (the session's log), ten
+groups of threads against three: few enough either way that the card marches them all at once. A guess, not shown:
+the pass takes as long as its longest ray's walk, which is as long in each turn. The pictures are build 225's either
+way, and a lamp's answer is up to four frames old in turns for nothing, so the next build that touches the pass puts
+it back to every lamp every frame unless a use for the turns is found.
+
+**Whether the near faces grew since build 210: yes, a little, and not by the lamps.** The near faces, the card's
+clock, medians, ms, build 226 (three flights) against build 210 (two):
+
+- high over the spawn: 1.185, 1.190, 1.182 against 1.107, 1.105: 0.08 dearer, 7 in a hundred;
+- the plain with his build 0.206 against 0.189; the bare plain 0.188 against 0.178; the scatter at 1000 0.234
+  against 0.215, at 10000 0.37 to 0.38 against 0.33 to 0.35; the scatter of pieces at 10000 0.283 against 0.253;
+  low over the sea 0.24 against 0.22: 5 to 12 in a hundred;
+- the mountain top 0.40 either way; on the ground at the spawn and the scatters at 100000 too loose to say (their
+  own flights 0.1 apart).
+
+Assess's lamps-off flights had the near faces high over the spawn at 1.19 to 1.21 either way, so the growth isn't
+the lamps' light. Its cause isn't found: finding it is builds between 210 and 225 flown by halves, about four more
+builds made and flown. Every other pass the two builds share is the same to a few thousandths (the near cover, the
+far 8 x 8, bringing it up; the x-fader 0.002 dearer).
+
+**High over the spawn, build 210 to build 226, the card's whole 2.10 to 2.37:** seeing the far lamps 0.20 (new), the
+near faces 0.08, the dots 0.005; the far 8 x 8 0.02 less. It was over his 2 ms at build 210 too. What it is made of
+now: the near faces 1.19, the far 8 x 8 0.69, seeing the far lamps 0.21, bringing it up 0.11, the near cover 0.08.
