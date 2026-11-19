@@ -10,6 +10,12 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
 
 ## Where we are
 
+- **Now (2026-11-19):** the engine's loose ends are tied up at build 227 and **the editor is next** (Phase 3), by
+  his word. What it begins with is his to answer, and Builder is asking: tectonics (3.1, his order of 2026-11-16),
+  or the editor's own frame and look first (Windows 95's, drawn by us, to his mock-ups; still a leaning, and
+  unpriced). The engine goes on as it stands: two marks over his 2 ms (high over the spawn 2.42, the town by the
+  spawn 2.01), Phase 2's gate unflown, the game he looks at unmeasured, and a list for "when the engine is
+  finished out" (under 2.4). How it came here is the next bullet.
 - **Working on:** Phase 2, *Restart*, step 2.3, the near eye (experiment 6), from 2026-11-16. Builder is reading
   old's near walk, the Oracle's near eye and near light (third part, sections 3 and 6; second part 4.2) and the
   doorway's answers, to bring David its first step and its pass mark before any code. The near eye is triangles, the
@@ -70,8 +76,9 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   every face; high over the spawn 2.42 ms and the town by the spawn 2.01, two marks over his 2 ms; the fix, whole
   blocks' faces skipping that work, noted for later by his word: "go ahead. make a note of that fix for later", under
   2.4 with the near eye's own costs). **The grass's shared edge is moved to the soils** (3.2, Surface; his answer,
-  2026-11-19: "Move it to the soils"; its first picture a placeholder from today's grass side). **Now:** the
-  lamps' strength on dark stone, the last loose end before the editor. The far lamps go back to every frame in
+  2026-11-19: "Move it to the soils"; its first picture a placeholder from today's grass side). **The lamps'
+  strength on dark stone is dropped** (asked where its slider would go and what it would start at: "dont worry about
+  this one."). **So the loose ends are tied up (2026-11-19).** The far lamps go back to every frame in
   whichever build next touches their pass. **When the engine is finished out:** the curve's far half and the seam, squares fixed to the world,
   Panini, the rest of placed things in the far view, the near eye's own costs, water's far look, the polish
   passes, the open questions, and Phase 2's gate. **Waiting on him:** the game he looks at, measured, once he

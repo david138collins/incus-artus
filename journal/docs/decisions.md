@@ -3603,6 +3603,21 @@ Reference: `Art/quartile minecraft illustration.png`
     whichever build next touches their pass, and this one doesn't. What's left before the editor is the lamps'
     strength on dark stone alone. Until the fix is built, two marks stay over his 2 ms: high over the spawn
     2.42 and the town by the spawn 2.01.
+- **[DECIDED 2026-11-19] The lamps' strength on dark stone dropped; the loose ends tied up; the editor next**
+  (David, to Builder; read from the journal and the plan at 86cc683). Asked where a strength slider for all placed
+  light would go and what it would start at (a lamp at its brightest lights a surface to its colour times 1,
+  daylight about two and a half times, so lamps read dull on dark stone: build 217's note), he answered both:
+  "dont worry about this one." Builder reads it as dropped, and nothing is built.
+  - So the loose ends sorted on 2026-11-18 are tied up: the sitting flown; the bars' pictures in (build 227: "it
+    looks right"); the grass's shared edge moved to the soils; the lamps' strength dropped. Build 227 is the
+    engine's last build before the editor.
+  - **What the engine carries into Phase 3, by his words:** two marks over his 2 ms (high over the spawn 2.42,
+    the town by the spawn 2.01), with their known pieces written down (the bars' work for whole blocks' faces;
+    the far lamps in turns, to go back to every frame; the near faces' growth since build 210, unhunted); the
+    game he looks at unmeasured; Phase 2's gate unflown; and the list for "when the engine is finished out".
+  - **The editor is next** ("after we've tied up the loose ends we should focus on the editor stuff and start
+    making some headway from the other end of the program", 2026-11-18). What it begins with, tectonics (3.1, his
+    order of 2026-11-16) or the editor's own frame and look first, is his to answer; Builder is asking him.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
