@@ -9628,3 +9628,20 @@ wears its block's picture as before; whole stone-brick blocks still wear the bar
 **His look at build 227 (2026-11-19),** launched at his build (`INCUS_MARK`), the stage on, rings of 256 and 320, 17
 minutes, no error: "you can go ahead and measure, it looks right". Done enough to go on; the price owed by one flight,
 flown now by his leave.
+
+**Build 227 flown (2026-11-19, 06:56 to 07:10),** one flight by his leave, the stage on (`logs/flight-1795093824.txt`),
+against build 226's three of the morning's sitting (`-1795085046`, `-1795085933`, `-1795087248`). The near faces, the
+card's clock, medians, ms:
+
+- **Dearer at nearly every mark, by about a twentieth:** the bare plain 0.198 against 0.187 to 0.189; his build 0.214
+  against 0.205 to 0.206; high over the spawn 1.231 against 1.182 to 1.190; the town by the spawn 1.112 against 1.039
+  to 1.073; the cave mouth 0.567 against 0.516 to 0.535; the sea about the same. Outside 226's spread at most marks,
+  so most likely the fragment's new sums and its read of the colour table, done for every face whether a bar's or not
+  (nearly every face on the screen is a whole block's).
+- **The thick scatters dearer still** (at 100,000: 1.30 against 0.95 to 1.06; of pieces 0.98 against 0.70 to 0.81),
+  but the card's clock was held under 2,000 MHz for 1.5 to 1.9 s there in this flight and not in 226's: loose.
+- **High over the spawn, the card's whole:** 2.42 against 2.36 to 2.37.
+
+**What would take it back:** a whole block's face (part 0) needn't read the colour table or lay a bar's picture; the
+read and the sums only where a face is a piece's. Small, and the next build touches the same fragment (the grass's
+edge), so it goes in there and is measured with it.
