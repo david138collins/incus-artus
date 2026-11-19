@@ -3890,6 +3890,16 @@ Reference: `Art/quartile minecraft illustration.png`
     "Regulated" tick box, one thumbnail of 32 x 32.
   - Counsel's ideas in answer are on the shared page (`journal/docs/editor-look.md`, "The Registrar's frame"),
     marked as not his.
+- **The library's list and filter, further; block textures are 32 x 32 (2026-11-19)** (David, to Counsel):
+  "yes, i take the new reference folders you make in art and put them into a folder of reference folders. note our block textures are 32x32."
+  - "could you make a registrar mockup page based on your suggestions, with a single block thumbnail in each entry, it can show a + mark that expands them in a tooltip on hover for blocks with multiple textures?"
+  - "i wonder if the type should be buttons in the filter that switch which is clicked when one is clicked, or unclicks one that is already clicked, in addition to a drop-down menu of other tag types, with a simple 1 deep tree for groups of tags? so you could select a type and a tag and the library will show the results. i think the library should show everything by default right now, but at some point that will become a huge list, so it may be wiser to discard tags, and just use types, and have types be a drop down menu. that would allow us to use different types of thumbnails or text for different types of assets in the library."
+  - "feel free to take a stab at the palette given what we've discussed, and boilerplate in the docker, but i'm focusing on the library list panel right now. if you think there are several good ways to do it, feel free to show me variations of that panel alone."
+  - So: a thumbnail is one texture at its own size; one thumbnail an entry, a plus mark opening the rest in a
+    tooltip. The filter is still being weighed between type buttons with grouped tags, and types alone as a
+    drop-down. Counsel's cube idea falls, since the textures are 32 x 32 and not 16.
+  - Drawn for him the same day (examples 8 and 9 in `Art/References/editor reference/`): the Registrar page
+    whole, and four ways of the library panel. Offers; none answered.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its

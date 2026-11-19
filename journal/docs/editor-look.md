@@ -245,6 +245,26 @@ He rearranged `Art/` on 2026-11-19: his mock-ups are in `Art/95gui mockups/`, th
   unregulated only, with a count); a second view of the list as a grid of thumbnails; the bar between list
   and editor draggable.
 
+- **Later the same day, his words on the list and its filter:**
+  - "note our block textures are 32x32." So a thumbnail of 32 x 32 is a texture at one pixel to one, and Counsel's idea of a small cube
+    falls (it would shrink the textures).
+  - **One thumbnail an entry, with a plus mark** on blocks of several textures, which "expands them in a tooltip
+    on hover" (his).
+  - **The filter, two ways he is weighing:** type as buttons, one held at a time and released by a second click,
+    with a drop-down of tags grouped one level deep, "so you could select a type and a tag"; or no tags at all,
+    "just use types, and have types be a drop down menu", which "would allow us to use different types of
+    thumbnails or text for different types of assets". The library shows everything by default for now.
+  - **Counsel's examples 8 and 9, at his asking, none answered:** the whole Registrar page in his frame (the
+    library; the dock as boilerplate from old's Registrar; a stab at the palette), and four ways of the library
+    panel alone: A, type buttons and a tags drop-down, his large names; B, the same with the tags open as
+    one-level groups with tick boxes; C, types as a drop-down and no tags, short rows whose second line differs
+    by type; D, the list as a grid of thumbnails. The pictures in them are the game's own textures
+    (`old/assets/textures/`); the palette's colours are counted from those textures (115 across thirteen, 19
+    for grass, as old's Registrar says). The tags, each block's type and the counts are stand-ins.
+  - In the palette stab, what answers "not scroll as a whole": a dense view of every colour (a row a hue,
+    darkest to lightest across, two drop-downs for the order), the "Not on a spline" strip and the buttons stay
+    put; only the list of splines scrolls.
+
 ### The pictures, all in `Art/References/editor reference/` (off GitHub; on this machine)
 
 - The control sheets (Ironquill and the plain font, numbered and clean) and the probe's pixel maps (the appendix).
@@ -255,6 +275,8 @@ He rearranged `Art/` on 2026-11-19: his mock-ups are in `Art/95gui mockups/`, th
 - Example 3: World Gen, the Climate tab, folding sections: the same three pictures (contents 529 x 882).
 - Example 4: the F3 debug panel, floating. Example 5: the master palette, crush and curve.
 - Example 6: the Software map, black and magenta, with a card panel. Example 7: the same in the 95 scheme on teal.
+- Example 8: the Registrar page (library, dock, palette). Example 9: four ways of the library panel.
+  (Example 7's picture he took into his own folder as `software map.png`.)
 - Each drawer's source beside its pictures (`*.cs`, run from PowerShell); every edge in them is drawn to
   section 4's recipes, so they are also a worked example of the recipes in code.
 
