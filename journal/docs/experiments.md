@@ -9999,3 +9999,16 @@ the game in a window; Keys... and What's This?; the keyboard in the menus; the P
 **For his look, beside the mark's list:**
 - The tick's and the arrow's columns, which every menu keeps as Windows' do, against his "no dead space".
 - The menus' look: the pressed word, the tick, the dot, the arrow.
+
+### His look at build 229 (2026-11-20)
+
+**His words:** "nice", after eight minutes in it. He had been given the first two steps: the editor on F2 (filling the
+screen above the taskbar in its own frame, with the restore mark and no grip), and the menus (sliding along the row;
+View's two ticks). Builder asked him afterwards:
+- whether he got to the smaller window (moving and sizing it) and F11, offering another launch for them;
+- whether the menus' empty columns stay as Windows has them, or are trimmed where nothing uses them.
+
+**From the session's log** (`logs/session-1795214649.log`; 8 minutes, quit; no warnings or errors): the memory level.
+The launch waited for the processor's area to read 78 degrees, the compile and the tests done before it. It still read
+103 at 2.5 s and 60 s, and 73 to 97 after. So making the world at the start takes it there on its own; the cooling
+spared it a couple of degrees, not more.
