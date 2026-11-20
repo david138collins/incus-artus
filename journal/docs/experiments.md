@@ -9827,3 +9827,122 @@ minutes in (3,442 MB, the world loaded) to the end. The processor's area read 10
 108 s, the release compile and the tests having run just before; 85 to 99 after; the card 69 to 81. From the next
 launch, Counsel's suggestion, taken: the compile and the tests as their own steps, the launch only once the processor's
 area is back under 80 (it read 69 two minutes after 228 closed).
+
+### Build 229's pass mark (2026-11-20): the window ours alone, its frame working, and the menus
+
+**Why now:** the next step after 228, by Builder's order that he let stand, with his answers to her questions for it
+(his words whole in `journal/docs/decisions.md`; the shared page has them as rows):
+- "1. x quits 2. follow windows 3. yes 4. yes": the title bar's X quits the game; the middle button follows Windows 95
+  (the restore mark while the editor fills the screen); her additions to the menus go in; the scales as she put them.
+- "we do need to make sure that the game window doesn't scale inside another window. there should be no wrapper at
+  all, so the entire thing is 95gui. when i maximized it last time, it changed scale." In 228, F11 gave a window in
+  Windows' own frame, and the editor's scale, worked out from the window, fell from 2 to 1 in it.
+- Of the two things Windows 95 hides while a window is maximised: "1 border all around 2 grip gone", then "proceed".
+- At his look at 228: "yes" to the window's black outer line at the right and the bottom.
+
+**What's built** (written before the code):
+
+1. **No wrapper.** The window never wears Windows' own frame, in any mode. Windows 11's rounded corners and its
+   coloured edge are turned off, so the window's edge is the 95 frame's to the pixel.
+2. **The scale comes from the screen, not the window.** Auto is the largest whole number at which the screen holds
+   1,280 x 800 (2 on the laptop), however the window is placed or sized. The game's sheets (the debug panel, the
+   temperatures) follow the same Auto.
+3. **The window's black outer line** at the right and the bottom (his "yes"). The frame is laid out for the window's
+   own size, so everything on the right and the bottom comes in a pixel from 228's places. His pictures are that window
+   a pixel bigger each way, cut short.
+4. **The editor's three ways of being shown,** remembered across F2:
+   - **filling the screen above the taskbar** (maximised). The editor opens this way.
+   - **a smaller window,** moved by its title bar and sized by its edges and the grip. The first time, it's three
+     quarters of the screen, in the middle.
+   - **full screen** (F11), over the taskbar too.
+
+   The game stays borderless full screen, as now. F11 works in the editor only, and does nothing in the game.
+5. **The title bar's buttons,** held down while pressed and acting when let go over them, as Windows' do:
+   - minimise sends the game to the taskbar;
+   - the middle one fills the screen or makes the window smaller. While the editor fills the screen, above the taskbar
+     or full screen, it wears Windows 95's restore mark (two small windows); otherwise the maximise mark (his "follow
+     windows");
+   - the X quits (his "x quits"), as File > Quit and Alt+F4 do.
+
+   A double click on the title bar does what the middle button does.
+6. **While the editor fills the screen:**
+   - its border stays all round, as his pictures (his "border all around");
+   - the grip is gone (his "grip gone"). Builder's reading, written for his eye: the small panes move into the grip's
+     room and "Ready" grows by as much, so nothing is left empty.
+   - It can't be moved or sized then, as in Windows 95.
+7. **The menus,** as Builder sketched them and he took them ("3. yes"). Each word on the menu row opens its menu:
+   - **File:** Return to Game (F2), then a line, then Quit (Alt+F4).
+   - **Edit:** Undo (Ctrl+Z) and Redo (Ctrl+Y), greyed; a line; Settings..., greyed.
+   - **View:** Status Bar and Parameters Panel, each ticked while shown; unticked, its room goes to the rest of the
+     window. Parameters Panel is greyed on the Software map and the Registrar, which have none.
+   - **Window:**
+     - Editor Scale, a menu of its own: Auto, a line, then 1x to 5x, the chosen one marked. A scale too big for the
+       screen to hold the editor's smallest frame is greyed: on the laptop, 4x and 5x.
+     - Panel Scale, greyed until the panel has its first controls (his "4. yes").
+     - A line, then Full Screen (F11), ticked while full screen.
+   - **Help:** What's This? (Shift+F1; his tooltip mode) and Keys..., both greyed until they're built.
+8. **How the menus work,** Windows 95's way for the mouse:
+   - a word clicked opens its menu, its word pressed in;
+   - with one open, the pointer passing onto another word opens that one;
+   - the item under the pointer is lit;
+   - a submenu opens when its item is lit;
+   - a click on an item that works does it and shuts the menu. Greyed items light up but do nothing.
+   - A click anywhere else shuts the menu and does nothing more, and so does Esc.
+   - The menu's shortcut keys work with it shut.
+   - Each item's letter is underlined, as Windows 95 draws them. Opening menus from the keyboard (Alt and the letter) is
+     a convention to ask him about before it goes in.
+9. **How the menus look:** Windows 95's own painter, its numbers as Wine measures them (`dlls/win32u/menu.c`), sized to
+   Ironquill's line as everything else is (the shared page, 6):
+   - the window's raised edge and a pixel of face round the items;
+   - items 19 tall (the line and 4), lines between groups 10 tall, their etched line in the middle;
+   - the words 20 in, a 13-pixel column for the tick before them, the shortcut keys in a column of their own;
+   - a 16-pixel column at the right for the submenu's arrow;
+   - a lit item navy with white words; greyed words white a pixel down and right with grey on top (on navy, grey
+     alone);
+   - the tick, the chosen scale's dot, and the submenu's arrow, as Windows 95 draws them;
+   - a submenu opens beside its item, its first item level with it.
+
+   They aren't on the control sheet, so the pictures off the screen are for his eye first.
+10. **The smallest the window can be made** is where the frame still fits: the title bar, the menu row, and the
+    widest row of tabs in a panel at most half the window.
+11. **The wiring:** the window's lane hears the title bar, the edges and the menus; the new file is on the map.
+
+**Builder's, for his eye:**
+- the restored window's first size and place;
+- that it can't be moved while filling the screen;
+- the double click;
+- the edges' width for sizing: the frame's 4 pixels, and 16 along each side of a corner for its diagonal;
+- the smallest size;
+- the menus' look and behaviour where Windows 95's can't be measured here (the pressed word, the tick, the dot);
+- the Parameters Panel greyed where there's none;
+- nothing of the window's mode or the menus' choices kept from one session to the next.
+
+**The mark:**
+
+- **Tests:**
+  - **His four pictures against the frame** drawn as a smaller window 1,281 x 801, the size his pictures cut short. The
+    same places differ as at 228, by the same counts, and nothing else.
+  - **At 1,280 x 800,** the window's edge is whole all round (the black line at x 1,279 and y 799), and everything on
+    the right and the bottom is a pixel in from 228's.
+  - **Filling the screen against a smaller window:** only the middle button's mark and the status bar's right end
+    differ. There, the grip is gone and the small panes are 14 further right, "Ready" 14 longer.
+  - **The menus by their recipe:** each one's size, items, lines, ticks, greyed words and lit row checked.
+  - **Made-up clicks:**
+    - the menus open, follow the pointer, act and shut;
+    - the title buttons are held, then act only when let go over them;
+    - a double click on the title bar;
+    - the edges and the grip ask for sizing, with the right pointer shown, and only while the window isn't filling the
+      screen;
+    - the scales the screen can't hold are greyed.
+  - All tests pass, and the map is drawn again.
+- **Pictures off the screen** (`screenshots/229/`): the four pages as a smaller window and filling the screen, each menu
+  open, the Editor Scale menu open, a title button held, the status bar and the panel hidden. Looked at before his look.
+- **On the screen, at his look:**
+  - the window has no Windows frame in any of its three ways, nor in the game;
+  - filling the screen stops above the taskbar;
+  - it moves, sizes, minimises, fills and quits;
+  - the scale stays 2 throughout.
+- **The price:** 228's and 229's, owed: one flight, his leave first.
+
+**Not in this build:** the Software map (230); the debug panel's tabs (231 to 234), with the debug panel's own scale;
+the game in a window; Keys... and What's This?; the keyboard in the menus; the Panel Scale's rules.
