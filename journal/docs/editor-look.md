@@ -58,6 +58,10 @@ here in the open.
 | The Registrar's library: Find, a Type drop-down, a Sort drop-down, a count and an "unregulated only" tick over one list; no tags in the filter; rows 40 tall with one 32 x 32 thumbnail, the name, and a second line that differs by type | his picture (`current/registrar.png`: the third of Counsel's four ways, example 9 C) | 2026-11-20 |
 | The toolbar's first pieces, on the menu's row after the page's drop-down: Save, Load, a presets drop-down ("Default"); in the Tectonic Sim also four buttons not yet named, and at the right a Feed slider and a Seed field | his pictures (`current/tectonics.png`, `current/world gen.png`) | 2026-11-20 |
 | Folding sections are the bars as drawn (a plus box and a name on a raised bar) | his picture (`current/world gen.png`) | 2026-11-20 |
+| The wheel does nothing over the Software map | to Builder: "the mouse wheel shouldn't do anything over the software map." | 2026-11-20 |
+| The title's lettering, where it has to be written: Darinia | to Builder: "If you need to write INCUS ARTUS in the upper left, the font is darinia." | 2026-11-20 |
+| Describing text is left out everywhere but the Software map (so the text at the head of the Ocean plates panel goes; the Software map's card keeps its "What it does") | to Builder: "the describing text in general should be omitted, except from the software map." | 2026-11-20 |
+| **Standing: his drawings are compared against the control sheets, and he is asked about every difference**, "in a pixel, a shade, a line, a spacing, etc." Neither the picture nor the sheet wins unasked (this sharpens "his mock-ups overrule this brief", above) | to Builder: "make sure that you compare my drawings against the stylesheets and ask if mine differs from it, in a pixel, a shade, a line, a spacing, etc." | 2026-11-20 |
 
 ### Drawn by Counsel at his asking, not yet answered by him (guesses; nothing here is decided)
 
@@ -241,16 +245,16 @@ does NOT suit: "this pic is the window where you can adjust the stats of units a
 | ~~Whether the editor's scale setting sizes the panel alone or the frame's bars with it~~ | Answered 2026-11-19, with a "probably": each has its own scale in the menu (the row in "Decided by him") |
 | Which panel scales count as unavailable at each editor scale (the rule behind the greying); what "reset" sets the panel's scale to; whether the editor's scale has the debug panel's steps (1x to 5x and Auto); what Auto means for the debug panel; where the debug panel's scale setting sits | Builder to put to him when the menu is built; David |
 | ~~What the wheel does when the pointer is inside a number box~~ | Answered 2026-11-19: it steps the number up or down (the row in "Decided by him") |
-| The wheel's step in a number box (how much one notch changes each setting); whether the new viewports keep old's zooms as they were ("the zoom was ..."), and what the wheel does over the Software map and the other pages' views | Builder to propose from old; David |
-| The Software map: ~~black and magenta as now (example 6), or the 95 scheme on teal (example 7); every wire drawn dimmed, or only the chosen box's~~ answered by his mock-up and his words of 2026-11-20 (the 95 scheme on teal; every wire dark grey behind the boxes, the chosen box's blue on top). Still open: whether a box's describing text stays in its card (his mock-up keeps it, the one place a panel carries such text); his answer to example 10 | David |
+| The wheel's step in a number box (how much one notch changes each setting); whether the new viewports keep old's zooms as they were ("the zoom was ..."), ~~what the wheel does over the Software map~~ (answered 2026-11-20: nothing); what it does over the other pages' views | Builder to propose from old; David |
+| The Software map: ~~black and magenta as now (example 6), or the 95 scheme on teal (example 7); every wire drawn dimmed, or only the chosen box's~~ answered by his mock-up and his words of 2026-11-20 (the 95 scheme on teal; every wire dark grey behind the boxes, the chosen box's blue on top). The card keeps its describing text, by his word of 2026-11-20 ("except from the software map"); example 10 he took whole into his own picture | David |
 | Where the two settings go and what they are called: the game windowed; the scale | David: his mock-ups, or Builder asks |
-| Still wanted from him, by Builder's answer to this brief: ~~the mock-ups as lossless 1,280 x 800 PNGs~~ (they came 2026-11-20, in `Art/95gui mockups/current/`); the title's lettering (a font, or his own picture to cut out: Builder is asking); the toolbar's four unnamed buttons; what fills the status bar's panes; the open menus; which of old's viewport readouts go | David |
+| Still wanted from him, by Builder's answer to this brief: ~~the mock-ups as lossless 1,280 x 800 PNGs~~ (they came 2026-11-20, in `Art/95gui mockups/current/`); ~~the title's lettering~~ (answered 2026-11-20: Darinia; Builder finds his own lettering set closer than the font sets it, below); the toolbar's four unnamed buttons; what fills the status bar's panes; the open menus; which of old's viewport readouts go | David |
 | Screens with less room than 1,280 x 800 | David, near shipping |
 | A smaller font for a floating window's short title bar (Ironquill has one size; Antiquity Print at 13 is his smallest), or the full-height bar | David |
 | Tooltips: old's descriptions run to five lines and a 95 tooltip was one short line: wrapped tooltips, or the texts cut down | David, when it comes up |
 | ~~Folding sections: the bars as drawn, or a tree that shows one section at a time~~ | Answered by his mock-up, 2026-11-20: the bars as drawn |
 | Where the Field size, pixel size and bake controls of old's top bar go in World Gen (Counsel assumed a Main tab) | David |
-| The describing text at the head of the Ocean plates panel in `current/tectonics.png` ("Everything here applies to ocean plates only ..."): left from Counsel's example 2, against his word of 2026-11-19 ("these are unnecessary going forward"). Kept, or a leftover? | David |
+| ~~The describing text at the head of the Ocean plates panel in `current/tectonics.png`: kept, or a leftover?~~ | Answered 2026-11-20: left out ("the describing text in general should be omitted, except from the software map") |
 | "Save" is drawn held down (checkered) in both toolbars: a state it has, or an accident of pasting? | David |
 | The Registrar: the Tags field is still in the dock though the library no longer filters by tags: are tags kept on an asset for later, or gone? | David |
 | Ironquill reaching the build: its licence forbids the font's files in a public repository (a built game may be public). Is the GitHub repository private? Until he says, the sheet stays off GitHub and the game reads it from a folder on this machine (Builder's plan) | David |
@@ -368,6 +372,61 @@ it inside your project's files: a game build" is under "You CAN". `Art/fonts/` a
   its last column and row off the canvas. The check draws our frame for 1,281 x 801 and compares the
   1,280 x 800 the picture has; a real 1,280 x 800 window then has its stretching parts one pixel smaller,
   with the whole raised edge in view.
+
+### His pictures against the control sheet: Builder's comparison (2026-11-20, at his standing word; hers; being put to him)
+
+His word: "make sure that you compare my drawings against the stylesheets and ask if mine differs from it, in a pixel, a shade, a line, a spacing, etc." She compared the four pictures, by pixel, with the Ironquill
+control sheet and its drawer. His answer to each difference goes here as it comes.
+
+**Match the sheet exactly:** the menu row (0 pixels differ over x 0 to 189, rows 24 to 47); the minimise and
+close buttons; every tick box, radio, drop-down button, slider thumb, scroll arrow and the size grip, found
+by search in all four; the panels of the Tectonic Sim, World Gen and the Software map hold only the scheme's
+colours.
+
+**Differ, in his own hand** (all four title bars):
+
+1. The title's three buttons: a 1-pixel navy gap between each (minimise at x 1,225, maximise 1,242, close
+   1,259), where the sheet has the first two touching and 2 pixels before close; his maximise square sits a
+   pixel further right in its button.
+2. The title's lettering is Darinia at 20 pixels, each letter's shape exact, but set closer than the font
+   sets it: 139 wide against 151, every gap 1 pixel where the font gives 2, A and R touching, T over R by 2.
+   She means to take his lettering as a picture.
+
+**Differ between his own pictures:**
+
+3. `tectonics.png` is example 2 with everything from y 52 down moved up 2 rows: the tabs' tops at y 50 where
+   World Gen's are at 52, the chosen tab without its top edge and rounded corners, 2 rows of face under the
+   scrollbar.
+4. The page's drop-down is 128 wide in three pictures and 150 in the Registrar's.
+5. The status bar's small panes: words 4 in on some and 5 in on others (the sheet: 5, and 4 for the first
+   pane); in `tectonics.png` the Tick pane starts at x 1,117, not 1,116.
+
+**Counsel's drawers against the sheet's own drawer** (Counsel's slips, carried into his pictures with the
+examples he took; the sheet is what he chose from):
+
+6. Radio buttons a pixel low beside their words (drawer 3 puts them at y + 2, the sheet at y + 1).
+7. The lists in the Software map's card: rows 16 apart and words 6 in, where the sheet's list box has rows 15
+   apart and words 4 in.
+8. Sliders drawn without tick marks (the sheet has 12 under the channel); number boxes drawn as plain fields
+   (the sheet's no. 12 has the two small arrows).
+9. The Registrar's push buttons 23 tall with words 4 down (the sheet, with Ironquill: 25, words 5 down).
+
+**Left from his first frame:**
+
+10. The viewport's frame in the Tectonic Sim and World Gen is raised, with three bottom-right lines in 808080,
+    3A3A42 and 282830 (the last two outside the scheme), spanning x 555 to 1,277 and y 50 to 772. Counsel's
+    sunken frame in the Software map ends at x 1,275, a pixel short of the title bar's right end, which
+    leaves those lines showing.
+
+**The Tectonic Sim's toolbar, for its own build:**
+
+11. The presets drop-down has lost its right edge; the Feed slider's thumb is 20 tall, not 21; Save is held
+    down with a checker; the buttons are words, 51 x 22, where the sheet's are pictures, 24 x 22.
+
+**One edge case:**
+
+12. His tabs start level with the page's left edge, so a chosen first tab would stick out 2 pixels to the
+    left; the sheet's chosen first tab is level with the edge.
 
 ### The Registrar's frame: his mock-up in progress (2026-11-19)
 

@@ -3944,6 +3944,23 @@ Reference: `Art/quartile minecraft illustration.png`
   - Builder's findings, checked by Counsel against his download: Ironquill's package holds the maker's own
     letter sheet (9 x 15 cells, 196 letters) and its licence forbids the font's files in a public repository
     while allowing them in a built game.
+- **Three answers to Builder's briefing, and a standing word on his drawings (2026-11-20)** (David, to Builder;
+  relayed by her to Counsel):
+  - "the mouse wheel shouldn't do anything over the software map. If you need to write INCUS ARTUS in the upper left, the font is darinia. the describing text in general should be omitted, except from the software map."
+  - "make sure that you compare my drawings against the stylesheets and ask if mine differs from it, in a pixel, a shade, a line, a spacing, etc."
+  - "vscode asked to install c++, was that you? anyways, i did install it."
+  - So: the wheel does nothing over the Software map; the title's lettering, where it must be written, is
+    Darinia; describing text is left out everywhere but the Software map, so the text at the head of the
+    Ocean plates panel goes and the Software map's card keeps its own.
+  - The standing word: his drawings are measured against the control sheets and he is asked about every
+    difference; neither wins unasked. Builder's first comparison, twelve points, is on the shared page
+    (`journal/docs/editor-look.md`, "His pictures against the control sheet"); four of them are slips in
+    Counsel's own drawers that his pictures carried in with the examples he took.
+  - Of the C++ prompt: not Builder's ("nothing I ran asks for it") and not Counsel's (the drawers are compiled
+    by PowerShell with the .NET already on the machine and open nothing in VS Code). What set it off is not
+    known.
+  - Still unanswered from her briefing: egui's F3 panel during the changeover; the debug panel's layout
+    questions; the menus.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
