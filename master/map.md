@@ -58,7 +58,7 @@ flowchart TB
   store_the_camera[("the camera")]
   store_the_clocks[("the clocks")]
   store_the_wiring[("the wiring")]
-  store_the_panel_s_shapes[("the panel's shapes")]
+  store_the_panel_s_sheets[("the panel's sheets")]
   store_the_screen_s_picture[("the screen's picture")]
   store_the_flight_s_report[("the flight's report")]
   store_the_session_s_log[("the session's log")]
@@ -99,15 +99,8 @@ flowchart TB
   pass_putting_the_near_chunks_on_the_card --> store_the_near_faces
   pass_putting_the_near_chunks_on_the_card --> store_the_near_light
   pass_putting_the_near_chunks_on_the_card --> store_the_far_eye_s_look
-  store_the_camera --> pass_laying_out_the_panel
-  store_the_clocks --> pass_laying_out_the_panel
-  store_the_wiring --> pass_laying_out_the_panel
   store_the_temperatures --> pass_laying_out_the_panel
-  store_the_presets --> pass_laying_out_the_panel
-  pass_laying_out_the_panel --> store_the_panel_s_shapes
-  pass_laying_out_the_panel --> store_the_camera
-  pass_laying_out_the_panel --> store_the_far_eye_s_look
-  pass_laying_out_the_panel --> store_the_presets
+  pass_laying_out_the_panel --> store_the_panel_s_sheets
   store_the_camera --> pass_the_far_start
   store_the_far_bricks --> pass_the_far_start
   store_the_far_eye_s_look --> pass_the_far_start
@@ -164,11 +157,12 @@ flowchart TB
   store_the_far_layers --> pass_the_far_lamps
   store_the_camera --> pass_the_far_lamps
   pass_the_far_lamps --> store_the_screen_s_picture
-  store_the_panel_s_shapes --> pass_the_panel
+  store_the_panel_s_sheets --> pass_the_panel
   pass_the_panel --> store_the_screen_s_picture
   store_the_screen_s_picture --> pass_showing_it
   store_the_window_round_the_eye --> pass_measuring
   store_the_temperatures --> pass_measuring
+  store_the_wiring --> pass_measuring
   pass_measuring --> store_the_clocks
   pass_measuring --> store_the_flight_s_report
   store_the_export --> pass_the_doorway
@@ -238,7 +232,7 @@ flowchart TB
 ### hearing the window
 
 - **A pass** in the window, on the processor.
-- **What it is:** Each event: the keys held kept, the mouse turning the camera while it's captured, and F2 (the editor), F3 (the panel), F11 (window or full screen) and Tab (the mouse).
+- **What it is:** Each event: the keys held kept, the mouse turning the camera while it's captured, and F2 (the editor), F3 (the debug panel, in the game), F11 (window or full screen) and Tab (the mouse). The pointer and the left button go to the editor while it's open, else to the debug panel while the mouse is free.
 - **Reads:** none. **Writes:** the keys held and the camera.
 - **Cost, last measured** (`kept logs/flight-1794589790.txt`): on the processor not run.
 - **Files:** src/runner.rs and src/camera.rs.
@@ -286,10 +280,10 @@ flowchart TB
 ### laying out the panel
 
 - **A pass** in the frame, on the processor.
-- **What it is:** The developer panel (F3) and the editor (F2) laid out, and cut into shapes for the card. The panel's Camera page changes how fast the camera flies, its Render page the near and far eyes' looks; each of the two has a preset bar, which saves the page's settings to the presets and loads them back.
-- **Reads:** the camera, the clocks, the wiring, the temperatures and the presets. **Writes:** the panel's shapes, the camera, the far eye's look and the presets.
+- **What it is:** The 95 drawing's sheets laid out, each drawn again on the processor only where what it shows has changed (build 228, egui out): the editor (F2) over the whole screen, its frame as his pictures have it and its pages blank but for their panels, tabs and views; else the debug panel (F3), a floating window with its three tabs, and the temperatures top right. The scale is Auto: the largest whole number at which the screen holds 1,280 x 800.
+- **Reads:** the temperatures. **Writes:** the panel's sheets.
 - **Cost, last measured** (`kept logs/flight-1794589790.txt`): on the processor median 0.016, 95th 0.033, 99th 0.151, worst 0.341.
-- **Files:** src/panel.rs, src/presets.rs, src/editor/mod.rs and src/editor/software_map.rs.
+- **Files:** src/panel.rs, src/editor/mod.rs, src/editor/frame.rs, src/editor/tests.rs, src/gui/mod.rs, src/gui/sheet.rs, src/gui/letters.rs, src/gui/marks.rs, src/gui/parts.rs and src/temperatures.rs.
 
 ### getting the picture
 
@@ -422,10 +416,10 @@ flowchart TB
 ### the panel
 
 - **A pass** in the frame, on the card.
-- **What it is:** The panels drawn over the far eye's picture (the picture cleared to the sky's colour first, where there's no far eye). Recorded on the processor, run on the card.
-- **Reads:** the panel's shapes. **Writes:** the screen's picture.
+- **What it is:** The sheets drawn over the far eye's picture (the picture cleared to the sky's colour first, where there's no far eye): each sent to the card again only when it has changed, and drawn enlarged a whole number of times, every pixel of it a square of the screen's. Recorded on the processor, run on the card.
+- **Reads:** the panel's sheets. **Writes:** the screen's picture.
 - **Cost, last measured** (`kept logs/flight-1794589790.txt`): recording it on the processor median 0.012, 95th 0.025, 99th 0.032, worst 0.429; on the card median 0.001, 95th 0.001, 99th 0.001, worst 0.136.
-- **Files:** src/runner.rs.
+- **Files:** src/runner.rs, src/gui/on_card.rs and src/gui/sheets.wgsl.
 
 ### handing the card its work
 
@@ -447,7 +441,7 @@ flowchart TB
 
 - **A pass** in the frame, on the processor.
 - **What it is:** The frame's length, and the card's times read back from frames it has finished; on a flight, kept for its report, with where the eye is and how far the window's usable regions reach round it. On a flight, once a second, the far layers' longest rays counted by a small pass of its own (the most steps any ray took, and how many took over 256, 384 and 512: the Oracle's step 0). The memory: the game's main memory (Windows' count for its process: in use, the most, and the machine's) once a second on a flight, for each standing's most and the report; the main memory and the card's in the session's log every half minute [David: "begin tracking ram use"].
-- **Reads:** the window round the eye and the temperatures. **Writes:** the clocks and the flight's report.
+- **Reads:** the window round the eye, the temperatures and the wiring. **Writes:** the clocks and the flight's report.
 - **Cost, last measured** (`kept logs/flight-1794589790.txt`): on the processor median 0.009, 95th 0.026, 99th 0.046, worst 0.734.
 - **Files:** src/runner.rs, src/clocks.rs, src/flight.rs, src/memory.rs, src/far_tally.wgsl and src/far_waiting.wgsl.
 
@@ -522,7 +516,7 @@ flowchart TB
 ### reading the temperatures
 
 - **A pass** in the temperatures, on the processor.
-- **What it is:** The CPU area from Windows' thermal zone round the processor (typeperf) and the GPU with its clock (nvidia-smi), about a second a reading, the latest kept; every tenth in the session's log (half a minute). With LibreHardwareMonitor running (as administrator, its web server on), the processor's hottest core, watts and load and the card's watts and load too. Drawn top right whenever the world is shown, flights too (green under 70 °C, yellow under 85, red over): David watches the flights. On a flight, the hottest and the GPU's slowest clock at each standing in its report.
+- **What it is:** The CPU area from Windows' thermal zone round the processor (typeperf) and the GPU with its clock (nvidia-smi), about a second a reading, the latest kept; every tenth in the session's log (half a minute). With LibreHardwareMonitor running (as administrator, its web server on), the processor's hottest core, watts and load and the card's watts and load too. Drawn top right whenever the world is shown, flights too (green under 70 °C, yellow under 85, red over): David watches the flights. In the editor, in small panes at its status bar's right end. On a flight, the hottest and the GPU's slowest clock at each standing in its report.
 - **Reads:** none. **Writes:** the temperatures.
 - **Cost, last measured** (`kept logs/flight-1794589790.txt`): on the processor not run.
 - **Files:** src/temperatures.rs.
@@ -540,14 +534,14 @@ flowchart TB
 
 - **A store** on the processor.
 - **What it is:** Where the eye is (north, east, up, in blocks) and where it looks (facing from north toward east, pitch up from level).
-- **Written by:** hearing the window, going to a mark, flying and laying out the panel. **Read by:** putting the far cells on the card, putting the near chunks on the card, laying out the panel, the far start, listing the near chunks, the near faces, the near water, seeing the far lamps and the far lamps.
+- **Written by:** hearing the window, going to a mark and flying. **Read by:** putting the far cells on the card, putting the near chunks on the card, the far start, listing the near chunks, the near faces, the near water, seeing the far lamps and the far lamps.
 - **Files:** src/camera.rs.
 
 ### the clocks
 
 - **A store** on the processor.
 - **What it is:** The frame's recent lengths, each pass's recent times on the processor, and the card's on the card.
-- **Written by:** measuring. **Read by:** laying out the panel.
+- **Written by:** measuring. **Read by:** none.
 - **Limit:** recent frames kept, a pass, 240.
 - **Limit:** frames on their way back from the card at once, 4.
 - **Files:** src/clocks.rs.
@@ -555,16 +549,16 @@ flowchart TB
 ### the wiring
 
 - **A store** on the processor.
-- **What it is:** This list: every lane, pass and store, fixed in the game. The frame runs in its order; the software map is drawn from it.
-- **Written by:** none. **Read by:** laying out the panel.
+- **What it is:** This list: every lane, pass and store, fixed in the game. The frame runs in its order, the card's clock gives each pass on the card its slot by it, and a flight's report names each pass's cost by it; the editor's Software map is drawn from it (blank since build 228 till its page is built again, build 230).
+- **Written by:** none. **Read by:** measuring.
 - **Files:** src/wiring.rs.
 
-### the panel's shapes
+### the panel's sheets
 
 - **A store** on the processor.
-- **What it is:** The panels cut into shapes for the card (made afresh each frame).
+- **What it is:** The 95 drawing's sheets: the editor's, the debug panel's and the temperatures', each a picture of its own size, four bytes a pixel, drawn again only when what it shows changes; the card holds a copy of each, sent again only then. Its words are Ironquill, read from Art/fonts/Ironquill/ (its licence keeps it off GitHub); the editor's title is his lettering, data/gui/title.png.
 - **Written by:** laying out the panel. **Read by:** the panel.
-- **Files:** src/panel.rs.
+- **Files:** src/gui/sheet.rs, src/gui/on_card.rs and data/gui/title.png.
 
 ### the screen's picture
 
@@ -678,9 +672,9 @@ flowchart TB
 ### the far eye's look
 
 - **A store** on the processor.
-- **What it is:** What David tunes on the Render page (F3): where the levels hand over, where the 4 x 4 and the 2 x 2 fade in, and the sky's weight at a skyline, and the rest of that page; kept in the page's presets.
-- **Written by:** putting the near chunks on the card and laying out the panel. **Read by:** the far start.
-- **Files:** src/far_eye.rs and src/panel.rs.
+- **What it is:** What David tunes on the Render page (F3): where the levels hand over, where the 4 x 4 and the 2 x 2 fade in, and the sky's weight at a skyline, and the rest of that page; kept in the page's presets. (Since build 228 the page is blank till its tab is built again; the game starts on its "default" preset.)
+- **Written by:** putting the near chunks on the card. **Read by:** the far start.
+- **Files:** src/far_eye.rs.
 
 ### the far textures
 
@@ -725,8 +719,8 @@ flowchart TB
 ### the presets
 
 - **A store** on the disk.
-- **What it is:** A page of the panel's settings saved under a name, presets/render/<name>.toml and presets/camera/<name>.toml, plain text. The one named "default" is what the game starts with (the built-in settings till one is saved, and on a flight); a setting a file leaves out keeps its built-in value.
-- **Written by:** laying out the panel. **Read by:** laying out the panel.
+- **What it is:** A page of the panel's settings saved under a name, presets/render/<name>.toml and presets/camera/<name>.toml, plain text. The one named "default" is what the game starts with (the built-in settings till one is saved, and on a flight), read as the window opens, before the frame's first pass; a setting a file leaves out keeps its built-in value. Saved from the debug panel's Camera and Render tabs (their preset bars come back when the tabs are built again: since build 228 nothing saves them).
+- **Written by:** none. **Read by:** none.
 - **Files:** src/presets.rs.
 
 ### the far lamps' list

@@ -176,31 +176,77 @@ fn sensor(text: &str, id: &str) -> Option<f32> {
 }
 
 /// Green while comfortable, yellow when warm, red when hot (old's).
-fn colour(celsius: f32) -> egui::Color32 {
+fn colour(celsius: f32) -> crate::gui::sheet::Colour {
     if celsius < 70.0 {
-        egui::Color32::from_rgb(120, 220, 120)
+        [120, 220, 120, 255]
     } else if celsius < 85.0 {
-        egui::Color32::from_rgb(230, 200, 90)
+        [230, 200, 90, 255]
     } else {
-        egui::Color32::from_rgb(235, 90, 80)
+        [235, 90, 80, 255]
     }
 }
 
-/// The readings drawn in the top right corner, over everything, a dark edge under each so it reads over sky and snow.
-pub fn draw(ctx: &egui::Context, now: Temperatures) {
-    // Each line its degrees, then its watts and load where LibreHardwareMonitor gives them.
+/// The game's lines: each its degrees, then its watts and load where LibreHardwareMonitor gives them; with the degrees
+/// they're coloured by.
+fn lines(now: Temperatures) -> Vec<(String, f32)> {
     let more = |watts: Option<f32>, load: Option<f32>| format!("{}{}", watts.map_or(String::new(), |w| format!("  {w:.0} W")), load.map_or(String::new(), |l| format!("  {l:.0}%")));
-    let lines: Vec<(String, f32)> = [("CPU area", now.cpu_area, String::new()), ("CPU cores", now.cpu_core, more(now.cpu_watts, now.cpu_load)), ("GPU", now.gpu, more(now.gpu_watts, now.gpu_load))]
+    [("CPU area", now.cpu_area, String::new()), ("CPU cores", now.cpu_core, more(now.cpu_watts, now.cpu_load)), ("GPU", now.gpu, more(now.gpu_watts, now.gpu_load))]
         .into_iter()
         .filter_map(|(name, reading, rest)| reading.map(|c| (format!("{name} {c:.0} °C{rest}"), c)))
-        .collect();
-    let painter = ctx.layer_painter(egui::LayerId::new(egui::Order::Foreground, egui::Id::new("temperatures")));
-    let top_right = ctx.content_rect().right_top() + egui::vec2(-10.0, 8.0);
-    for (k, (text, celsius)) in lines.iter().enumerate() {
-        let at = top_right + egui::vec2(0.0, k as f32 * 18.0);
-        painter.text(at + egui::vec2(1.0, 1.0), egui::Align2::RIGHT_TOP, text, egui::FontId::proportional(15.0), egui::Color32::BLACK);
-        painter.text(at, egui::Align2::RIGHT_TOP, text, egui::FontId::proportional(15.0), colour(*celsius));
+        .collect()
+}
+
+/// The editor's: a pane each at its status bar's right end, the degrees only [David, 2026-11-20: "put them at the
+/// bottom bar, to the right"].
+pub fn panes(now: Temperatures) -> Vec<String> {
+    [("CPU area", now.cpu_area), ("cores", now.cpu_core), ("GPU", now.gpu)].into_iter().filter_map(|(name, reading)| reading.map(|c| format!("{name} {c:.0} °C"))).collect()
+}
+
+/// Lines apart over the world (a line of Ironquill and its dark edge, and a little air).
+const PITCH: i32 = 18;
+
+/// The readings over the world, in the top right corner (`at_top_right`): Ironquill, a dark edge under each line so it
+/// reads over sky and snow; drawn again only when they change.
+pub struct Readout {
+    sheet: crate::gui::Sheet,
+    shown: Option<Temperatures>,
+}
+
+impl Readout {
+    pub fn new() -> Self {
+        Self { sheet: crate::gui::Sheet::new(1, 1), shown: None }
     }
+
+    /// Its sheet, as last laid out.
+    pub fn sheet(&self) -> &crate::gui::Sheet {
+        &self.sheet
+    }
+
+    /// Laid out for the reading `now`: drawn again if it has changed.
+    pub fn lay_out(&mut self, now: Temperatures) {
+        if self.shown != Some(now) {
+            let lines = lines(now);
+            let width = lines.iter().map(|(text, _)| crate::gui::letters::width(text)).max().unwrap_or(0) + 1;
+            let height = (lines.len() as i32 * PITCH).max(1);
+            self.sheet.resize(width as u32, height as u32);
+            crate::gui::parts::clear(&mut self.sheet);
+            for (k, (text, celsius)) in lines.iter().enumerate() {
+                let x = width - 1 - crate::gui::letters::width(text);
+                crate::gui::parts::words_over_the_world(&mut self.sheet, x, k as i32 * PITCH, text, colour(*celsius));
+            }
+            self.shown = Some(now);
+        }
+    }
+
+    /// Whether it has anything to show.
+    pub fn shows(&self) -> bool {
+        self.shown.is_some_and(|now| !lines(now).is_empty())
+    }
+}
+
+/// Where the readout goes on a screen `screen` wide, `scale` times over: 10 in from the right and 8 down, as before.
+pub fn at_top_right(screen: (u32, u32), sheet: &crate::gui::Sheet, scale: u32) -> (i32, i32) {
+    (screen.0 as i32 - (10 + sheet.size().0 as i32) * scale as i32, 8 * scale as i32)
 }
 
 #[cfg(test)]

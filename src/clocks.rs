@@ -70,7 +70,8 @@ impl FrameClock {
         seconds
     }
 
-    /// The recent frames' spread.
+    /// The recent frames' spread (the debug panel's Overview shows it, when its tab is built again: plan 3.0).
+    #[allow(dead_code)]
     pub fn recent(&self) -> Spread {
         Spread::of(self.recent.iter().copied())
     }
@@ -185,7 +186,8 @@ impl CardClock {
         frames
     }
 
-    /// Each slot's recent spread, and the card's whole last.
+    /// Each slot's recent spread, and the card's whole last (the Overview's, as above).
+    #[allow(dead_code)]
     pub fn recent(&self) -> Vec<Spread> {
         self.recent.iter().map(|recent| Spread::of(recent.iter().copied())).collect()
     }
@@ -210,13 +212,16 @@ impl PassClock {
         recent.push_back(ms);
     }
 
-    /// A pass's recent spread.
+    /// A pass's recent spread (the Overview's, as above).
+    #[allow(dead_code)]
     pub fn recent(&self, pass: crate::wiring::PassId) -> Spread {
         Spread::of(self.recent[pass as usize].iter().copied())
     }
 }
 
-/// A pass's recent times: on the processor, and on the card if it runs there.
+/// A pass's recent times: on the processor, and on the card if it runs there (the Overview's and the Software map's, when
+/// they're built again: plan 3.0).
+#[allow(dead_code)]
 #[derive(Clone, Copy, Default)]
 pub struct PassTimes {
     pub processor: Spread,

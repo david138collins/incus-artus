@@ -684,7 +684,9 @@ impl FarEye {
     }
 
     /// Whether the Render page's cover-by-faces switch can do anything now: there's a second program, and the march
-    /// once the textures are in is what's marching (the whole march draws by the launch's choice).
+    /// once the textures are in is what's marching (the whole march draws by the launch's choice). (Its switch is greyed
+    /// by it again when the debug panel's Render tab is built again: plan 3.0.)
+    #[allow(dead_code)]
     pub fn faces_switch(&self) -> bool {
         self.one_loaded_other.is_some() && !self.loaded_off && self.atlas.is_some() && self.look.blend >= 1 && self.look.view == 0 && self.rings.iter().all(|ring| ring.textured())
     }

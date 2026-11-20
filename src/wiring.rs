@@ -13,6 +13,10 @@
 //!
 //! The ids below are listed in the same order as their declarations, so each declaration is found by its id; the test
 //! checks they line up.
+//!
+//! (Since build 228 the editor's Software map is blank till its page is built again, build 230, so outside the tests
+//! the game reads only the passes' order and slots: the rest is the map's and `master/map.md`'s.)
+#![cfg_attr(not(test), allow(dead_code))]
 
 /// Where something runs or is held.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -191,7 +195,7 @@ pub const PASSES: [Pass; 32] = [
         name: "hearing the window",
         lane: LaneId::Window,
         on: Where::Processor,
-        what: "Each event: the keys held kept, the mouse turning the camera while it's captured, and F2 (the editor), F3 (the panel), F11 (window or full screen) and Tab (the mouse).",
+        what: "Each event: the keys held kept, the mouse turning the camera while it's captured, and F2 (the editor), F3 (the debug panel, in the game), F11 (window or full screen) and Tab (the mouse). The pointer and the left button go to the editor while it's open, else to the debug panel while the mouse is free.",
         reads: &[],
         writes: &[StoreId::KeysHeld, StoreId::Camera],
         switches: &[],
@@ -257,11 +261,11 @@ pub const PASSES: [Pass; 32] = [
         name: "laying out the panel",
         lane: LaneId::Frame,
         on: Where::Processor,
-        what: "The developer panel (F3) and the editor (F2) laid out, and cut into shapes for the card. The panel's Camera page changes how fast the camera flies, its Render page the near and far eyes' looks; each of the two has a preset bar, which saves the page's settings to the presets and loads them back.",
-        reads: &[StoreId::Camera, StoreId::Clocks, StoreId::Wiring, StoreId::Temperatures, StoreId::Presets],
-        writes: &[StoreId::PanelShapes, StoreId::Camera, StoreId::FarLook, StoreId::Presets],
+        what: "The 95 drawing's sheets laid out, each drawn again on the processor only where what it shows has changed (build 228, egui out): the editor (F2) over the whole screen, its frame as his pictures have it and its pages blank but for their panels, tabs and views; else the debug panel (F3), a floating window with its three tabs, and the temperatures top right. The scale is Auto: the largest whole number at which the screen holds 1,280 x 800.",
+        reads: &[StoreId::Temperatures],
+        writes: &[StoreId::PanelShapes],
         switches: &[],
-        files: &["src/panel.rs", "src/presets.rs", "src/editor/mod.rs", "src/editor/software_map.rs"],
+        files: &["src/panel.rs", "src/editor/mod.rs", "src/editor/frame.rs", "src/editor/tests.rs", "src/gui/mod.rs", "src/gui/sheet.rs", "src/gui/letters.rs", "src/gui/marks.rs", "src/gui/parts.rs", "src/temperatures.rs"],
     },
     Pass {
         id: PassId::GettingThePicture,
@@ -430,11 +434,11 @@ pub const PASSES: [Pass; 32] = [
         name: "the panel",
         lane: LaneId::Frame,
         on: Where::Card,
-        what: "The panels drawn over the far eye's picture (the picture cleared to the sky's colour first, where there's no far eye). Recorded on the processor, run on the card.",
+        what: "The sheets drawn over the far eye's picture (the picture cleared to the sky's colour first, where there's no far eye): each sent to the card again only when it has changed, and drawn enlarged a whole number of times, every pixel of it a square of the screen's. Recorded on the processor, run on the card.",
         reads: &[StoreId::PanelShapes],
         writes: &[StoreId::ScreenPicture],
         switches: &[],
-        files: &["src/runner.rs"],
+        files: &["src/runner.rs", "src/gui/on_card.rs", "src/gui/sheets.wgsl"],
     },
     // Handing over, in its two parts (old's names), so a wait in either shows which it was in [David, 2026-11-12: "go ahead
     // and split it, so later on we can see it and tune it if it ever becomes something that can be improved"].
@@ -466,7 +470,7 @@ pub const PASSES: [Pass; 32] = [
         lane: LaneId::Frame,
         on: Where::Processor,
         what: "The frame's length, and the card's times read back from frames it has finished; on a flight, kept for its report, with where the eye is and how far the window's usable regions reach round it. On a flight, once a second, the far layers' longest rays counted by a small pass of its own (the most steps any ray took, and how many took over 256, 384 and 512: the Oracle's step 0). The memory: the game's main memory (Windows' count for its process: in use, the most, and the machine's) once a second on a flight, for each standing's most and the report; the main memory and the card's in the session's log every half minute [David: \"begin tracking ram use\"].",
-        reads: &[StoreId::FarWindow, StoreId::Temperatures],
+        reads: &[StoreId::FarWindow, StoreId::Temperatures, StoreId::Wiring],
         writes: &[StoreId::Clocks, StoreId::FlightReport],
         switches: &[],
         files: &["src/runner.rs", "src/clocks.rs", "src/flight.rs", "src/memory.rs", "src/far_tally.wgsl", "src/far_waiting.wgsl"],
@@ -564,7 +568,7 @@ pub const PASSES: [Pass; 32] = [
         name: "reading the temperatures",
         lane: LaneId::Temperatures,
         on: Where::Processor,
-        what: "The CPU area from Windows' thermal zone round the processor (typeperf) and the GPU with its clock (nvidia-smi), about a second a reading, the latest kept; every tenth in the session's log (half a minute). With LibreHardwareMonitor running (as administrator, its web server on), the processor's hottest core, watts and load and the card's watts and load too. Drawn top right whenever the world is shown, flights too (green under 70 °C, yellow under 85, red over): David watches the flights. On a flight, the hottest and the GPU's slowest clock at each standing in its report.",
+        what: "The CPU area from Windows' thermal zone round the processor (typeperf) and the GPU with its clock (nvidia-smi), about a second a reading, the latest kept; every tenth in the session's log (half a minute). With LibreHardwareMonitor running (as administrator, its web server on), the processor's hottest core, watts and load and the card's watts and load too. Drawn top right whenever the world is shown, flights too (green under 70 °C, yellow under 85, red over): David watches the flights. In the editor, in small panes at its status bar's right end. On a flight, the hottest and the GPU's slowest clock at each standing in its report.",
         reads: &[],
         writes: &[StoreId::Temperatures],
         switches: &[],
@@ -601,17 +605,17 @@ pub const STORES: [Store; 27] = [
         id: StoreId::Wiring,
         name: "the wiring",
         on: Where::Processor,
-        what: "This list: every lane, pass and store, fixed in the game. The frame runs in its order; the software map is drawn from it.",
+        what: "This list: every lane, pass and store, fixed in the game. The frame runs in its order, the card's clock gives each pass on the card its slot by it, and a flight's report names each pass's cost by it; the editor's Software map is drawn from it (blank since build 228 till its page is built again, build 230).",
         limits: &[],
         files: &["src/wiring.rs"],
     },
     Store {
         id: StoreId::PanelShapes,
-        name: "the panel's shapes",
+        name: "the panel's sheets",
         on: Where::Processor,
-        what: "The panels cut into shapes for the card (made afresh each frame).",
+        what: "The 95 drawing's sheets: the editor's, the debug panel's and the temperatures', each a picture of its own size, four bytes a pixel, drawn again only when what it shows changes; the card holds a copy of each, sent again only then. Its words are Ironquill, read from Art/fonts/Ironquill/ (its licence keeps it off GitHub); the editor's title is his lettering, data/gui/title.png.",
         limits: &[],
-        files: &["src/panel.rs"],
+        files: &["src/gui/sheet.rs", "src/gui/on_card.rs", "data/gui/title.png"],
     },
     Store {
         id: StoreId::ScreenPicture,
@@ -729,9 +733,9 @@ pub const STORES: [Store; 27] = [
         id: StoreId::FarLook,
         name: "the far eye's look",
         on: Where::Processor,
-        what: "What David tunes on the Render page (F3): where the levels hand over, where the 4 x 4 and the 2 x 2 fade in, and the sky's weight at a skyline, and the rest of that page; kept in the page's presets.",
+        what: "What David tunes on the Render page (F3): where the levels hand over, where the 4 x 4 and the 2 x 2 fade in, and the sky's weight at a skyline, and the rest of that page; kept in the page's presets. (Since build 228 the page is blank till its tab is built again; the game starts on its \"default\" preset.)",
         limits: &[],
-        files: &["src/far_eye.rs", "src/panel.rs"],
+        files: &["src/far_eye.rs"],
     },
     Store {
         id: StoreId::FarTextures,
@@ -777,7 +781,7 @@ pub const STORES: [Store; 27] = [
         id: StoreId::Presets,
         name: "the presets",
         on: Where::Disk,
-        what: "A page of the panel's settings saved under a name, presets/render/<name>.toml and presets/camera/<name>.toml, plain text. The one named \"default\" is what the game starts with (the built-in settings till one is saved, and on a flight); a setting a file leaves out keeps its built-in value.",
+        what: "A page of the panel's settings saved under a name, presets/render/<name>.toml and presets/camera/<name>.toml, plain text. The one named \"default\" is what the game starts with (the built-in settings till one is saved, and on a flight), read as the window opens, before the frame's first pass; a setting a file leaves out keeps its built-in value. Saved from the debug panel's Camera and Render tabs (their preset bars come back when the tabs are built again: since build 228 nothing saves them).",
         limits: &[],
         files: &["src/presets.rs"],
     },
@@ -941,7 +945,9 @@ mod tests {
     #[test]
     fn every_store_is_written_or_read_by_a_pass() {
         for store in &STORES {
-            if store.id == StoreId::SessionLog {
+            // (The session's log is everyone's; the presets are read as the window opens, before any pass, and nothing
+            // saves them till the debug panel's preset bars come back.)
+            if store.id == StoreId::SessionLog || store.id == StoreId::Presets {
                 continue;
             }
             assert!(writers(store.id).count() + readers(store.id).count() > 0, "{} has no lines: nothing writes or reads it", store.name);

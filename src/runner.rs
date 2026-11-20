@@ -4,25 +4,29 @@
 //! processor; the card's clock times the passes on the card. The window's events are the other lane: each one is heard
 //! as it comes, and timed too.
 //!
-//! Keys (old's): F2 the editor, F3 the panel, F11 window or full screen, Tab the mouse (`camera.rs` has the flying keys).
-//! The window opens borderless and full screen [David, 2026-11-05: the same direct path to the screen as exclusive
-//! full screen, and alt-tab is instant]; F11 makes it a maximised window and back.
+//! Keys (old's): F2 the editor, F3 the debug panel (in the game), F11 window or full screen, Tab the mouse (`camera.rs`
+//! has the flying keys). The window opens borderless and full screen [David, 2026-11-05: the same direct path to the
+//! screen as exclusive full screen, and alt-tab is instant]; F11 makes it a maximised window and back.
+//!
+//! The editor and the debug panel are the 95 drawing's sheets (`gui/`), laid out on the processor and drawn over the
+//! picture on the card; the mouse's left button reaches them while it's free.
 
 use crate::camera::Camera;
 use crate::card::Card;
-use crate::clocks::{CardClock, FrameClock, PassClock, PassTimes};
+use crate::clocks::{CardClock, FrameClock, PassClock};
 use crate::doorway::Doorway;
 use crate::editor::Editor;
 use crate::far_eye::FarEye;
 use crate::flight::{About, Flight};
+use crate::gui;
 use crate::marks::{Made, Mark};
-use crate::panel::{Panel, Readings};
+use crate::panel::Panel;
 use crate::wiring::{self, LaneId, PassId};
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Instant;
 use winit::application::ApplicationHandler;
-use winit::event::{DeviceEvent, DeviceId, ElementState, KeyEvent, WindowEvent};
+use winit::event::{DeviceEvent, DeviceId, ElementState, KeyEvent, MouseButton, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::window::{CursorGrabMode, Fullscreen, Window, WindowId};
@@ -85,6 +89,9 @@ pub fn run() {
         at_first_mark: false,
         flight,
         temperatures: crate::temperatures::Watch::start(),
+        readout: crate::temperatures::Readout::new(),
+        pointer: None,
+        scale: 1,
         memory_read: None,
         memory_logged: None,
         tally_at: None,
@@ -98,28 +105,19 @@ struct Running {
     window: Arc<Window>,
     card: Card,
     card_clock: Option<CardClock>,
-    egui_ctx: egui::Context,
-    egui_state: egui_winit::State,
-    egui_renderer: egui_wgpu::Renderer,
-    /// The panels' textures to let go of once a frame has been handed over.
-    to_free: Vec<egui::TextureId>,
+    /// The 95 drawing's sheets on the card.
+    sheets: gui::on_card::OnCard,
     /// The screen's refresh rate, a second.
     refresh: f32,
     /// The far eye (none if the doorway couldn't open the world).
     far: Option<FarEye>,
     /// The near eye (none without a far eye, or with `INCUS_NEAR=0`).
     near: Option<crate::near_eye::NearEye>,
-    /// The card's memory, as last asked (once a second while a panel shows it), and when.
-    memory: Option<(f64, f64)>,
-    memory_at: Option<Instant>,
 }
 
 /// What a frame's passes hand on to the passes after them.
 #[derive(Default)]
 struct FrameWork {
-    /// The panels cut into shapes for the card, and their size on the screen.
-    jobs: Vec<egui::ClippedPrimitive>,
-    pixels_per_point: f32,
     /// The screen's picture to draw on, and the card's work for it.
     texture: Option<wgpu::SurfaceTexture>,
     encoder: Option<wgpu::CommandEncoder>,
@@ -152,8 +150,12 @@ struct Runner {
     /// The mark the game starts at, and whether it's gone there yet.
     first_mark: usize,
     at_first_mark: bool,
-    /// The temperatures, read on a thread of their own (none if `INCUS_TEMPERATURES=0`).
+    /// The temperatures, read on a thread of their own (none if `INCUS_TEMPERATURES=0`), and drawn over the world.
     temperatures: Option<crate::temperatures::Watch>,
+    readout: crate::temperatures::Readout,
+    /// Where the mouse's pointer is on the screen (its pixels), and the sheets' scale (Auto) as last laid out.
+    pointer: Option<(f64, f64)>,
+    scale: u32,
     /// When the main memory was last read (once a second on a flight), and last put in the session's log (every half
     /// minute).
     memory_read: Option<Instant>,
@@ -173,12 +175,7 @@ impl Runner {
         let window = Arc::new(event_loop.create_window(attributes).expect("a window"));
         let card = Card::new(window.clone(), self.flight.is_some());
         let card_clock = CardClock::new(&card.device, &card.queue, wiring::card_passes().count());
-        let egui_ctx = egui::Context::default();
-        // No selecting the panels' text by dragging [David, 2026-11-12: "i can start highlighting text in the panel, and
-        // it never lets go"].
-        egui_ctx.all_styles_mut(|style| style.interaction.selectable_labels = false);
-        let egui_state = egui_winit::State::new(egui_ctx.clone(), egui::ViewportId::ROOT, &window, Some(window.scale_factor() as f32), None, Some(card.device.limits().max_texture_dimension_2d as usize));
-        let egui_renderer = egui_wgpu::Renderer::new(&card.device, card.config.format, egui_wgpu::RendererOptions::default());
+        let sheets = gui::on_card::OnCard::new(&card.device, card.config.format);
         let refresh = window.current_monitor().and_then(|monitor| monitor.refresh_rate_millihertz()).map_or(60.0, |millihertz| millihertz as f32 / 1000.0);
         log::info!("The window: {} x {}, the screen {refresh:.0} a second", card.config.width, card.config.height);
         // The far eye, its cells summed on the loading lane nearest the first mark first, on all but two of the
@@ -214,20 +211,13 @@ impl Runner {
         if let Some(near) = &mut near {
             near.look = preset.near;
         }
-        self.panel.near_spare = preset.near;
-        self.running = Some(Running { window, card, card_clock, egui_ctx, egui_state, egui_renderer, to_free: Vec::new(), refresh, far, near, memory: None, memory_at: None });
+        self.running = Some(Running { window, card, card_clock, sheets, refresh, far, near });
     }
 
     /// The mouse captured for flying, or let go for the panels.
     fn capture(&mut self, captured: bool) {
         let Some(running) = &self.running else { return };
         if captured {
-            // Whatever box of the panels was being typed in is left, so its keys are the camera's again.
-            running.egui_ctx.memory_mut(|memory| {
-                if let Some(typed_in) = memory.focused() {
-                    memory.surrender_focus(typed_in);
-                }
-            });
             let grabbed = running.window.set_cursor_grab(CursorGrabMode::Locked).or_else(|_| running.window.set_cursor_grab(CursorGrabMode::Confined));
             if let Err(error) = grabbed {
                 log::warn!("The mouse couldn't be captured: {error}");
@@ -244,13 +234,14 @@ impl Runner {
     fn pressed(&mut self, key: KeyCode) {
         match key {
             KeyCode::F2 => {
-                self.editor.open = !self.editor.open;
+                self.editor.toggle();
                 if self.editor.open {
                     self.capture(false);
                     self.held.clear();
                 }
             }
-            KeyCode::F3 => self.panel.visible = !self.panel.visible,
+            // The debug panel is the game's only [David, 2026-11-20: "the debug panel should not appear in the editor"].
+            KeyCode::F3 if !self.editor.open => self.panel.visible = !self.panel.visible,
             KeyCode::F11 => {
                 if let Some(running) = &self.running {
                     if running.window.fullscreen().is_some() {
@@ -270,16 +261,6 @@ impl Runner {
             }
             _ => {}
         }
-    }
-
-    /// Each pass's recent times, by its id.
-    fn pass_times(&self) -> (Vec<PassTimes>, Option<crate::clocks::Spread>) {
-        let card = self.running.as_ref().and_then(|running| running.card_clock.as_ref()).map(CardClock::recent);
-        let times = wiring::PASSES
-            .iter()
-            .map(|pass| PassTimes { processor: self.pass_clock.recent(pass.id), card: wiring::card_slot(pass.id).and_then(|slot| card.as_ref().and_then(|card| card.get(slot).copied())) })
-            .collect();
-        (times, card.and_then(|card| card.last().copied()))
     }
 
     /// A pass ran from `started` till now, on the processor.
@@ -305,7 +286,7 @@ impl Runner {
                 PassId::Flying => self.flying(started),
                 PassId::PuttingTheFarCellsOnTheCard => self.putting_the_far_cells_on_the_card(),
                 PassId::PuttingTheNearChunksOnTheCard => self.putting_the_near_chunks_on_the_card(),
-                PassId::LayingOutThePanel => self.laying_out_the_panel(&mut work),
+                PassId::LayingOutThePanel => self.laying_out_the_panel(),
                 PassId::GettingThePicture => self.getting_the_picture(&mut work),
                 PassId::TheFarStart => self.the_far_start(&mut work),
                 PassId::ListingTheNearChunks => self.listing_the_near_chunks(&mut work),
@@ -563,56 +544,34 @@ impl Runner {
         true
     }
 
-    fn laying_out_the_panel(&mut self, work: &mut FrameWork) -> bool {
-        // The figures are worked out only when a panel shows them (not on a flight, where they'd be measured too).
-        let (times, card_whole, frame) = if self.panel.visible || self.editor.open {
-            let (times, card_whole) = self.pass_times();
-            (times, card_whole, self.frame_clock.recent())
+    /// The sheets laid out and drawn where anything they show has changed: the editor over the whole screen when it's
+    /// open; else the debug panel if it's shown, and the temperatures over the world.
+    fn laying_out_the_panel(&mut self) -> bool {
+        let Some(running) = &self.running else { return false };
+        let screen = (running.card.config.width, running.card.config.height);
+        self.scale = gui::auto_scale(screen);
+        let heat = self.temperatures.as_ref().map(crate::temperatures::Watch::latest);
+        if self.editor.open {
+            // (The window's size in the sheet's pixels, rounded up: a screen that isn't a whole number of them is
+            // covered to its last pixel.)
+            let size = (screen.0.div_ceil(self.scale), screen.1.div_ceil(self.scale));
+            self.editor.lay_out(size, heat.map(crate::temperatures::panes).unwrap_or_default());
         } else {
-            (vec![PassTimes::default(); wiring::PASSES.len()], None, crate::clocks::Spread::default())
-        };
-        let Some(running) = &mut self.running else { return false };
-        if (self.panel.visible || self.editor.open) && running.memory_at.is_none_or(|at| at.elapsed().as_secs_f32() >= 1.0) {
-            running.memory = running.card.memory();
-            running.memory_at = Some(Instant::now());
-        }
-        let ctx = running.egui_ctx.clone();
-        ctx.begin_pass(running.egui_state.take_egui_input(&running.window));
-        self.editor.show(&ctx, &times);
-        let readings = Readings {
-            card: &running.card.description,
-            picture: (running.card.config.width, running.card.config.height),
-            present: running.card.config.present_mode,
-            refresh: running.refresh,
-            frame,
-            passes: &times,
-            card_whole,
-            camera: self.camera,
-            captured: self.captured,
-            memory: running.memory,
-            blends: running.far.as_ref().map_or([true, false], FarEye::blends),
-            faces_switch: running.far.as_ref().is_some_and(FarEye::faces_switch),
-            near: running.near.as_ref().map(|near| near.counts),
-            far: running.far.as_ref().map_or("none".to_string(), FarEye::state),
-        };
-        self.panel.show(&ctx, &readings, running.far.as_mut().map(|far| &mut far.look), running.near.as_mut().map(|near| &mut near.look), &mut self.camera.pace, &mut self.camera.fov);
-        // The temperatures, top right, always, flights too [David: "while you are running tests, i am sitting here
-        // watching, and id like to know what the temps are at while watching"].
-        if let Some(watch) = &self.temperatures {
-            crate::temperatures::draw(&ctx, watch.latest());
-        }
-        let output = ctx.end_pass();
-        running.egui_state.handle_platform_output(&running.window, output.platform_output);
-        work.jobs = ctx.tessellate(output.shapes, output.pixels_per_point);
-        work.pixels_per_point = output.pixels_per_point;
-        // The panels' textures go to the card now, whether or not this frame gets a picture to draw on, so none is lost.
-        for (id, deltas) in &output.textures_delta.set {
-            for delta in deltas {
-                running.egui_renderer.update_texture(&running.card.device, &running.card.queue, *id, delta);
+            if self.panel.visible {
+                self.panel.lay_out();
+            }
+            // The temperatures, top right, always, flights too [David: "while you are running tests, i am sitting here
+            // watching, and id like to know what the temps are at while watching"].
+            if let Some(heat) = heat {
+                self.readout.lay_out(heat);
             }
         }
-        running.to_free.extend(output.textures_delta.free.iter().copied());
         true
+    }
+
+    /// Where the debug panel is on the screen (its pixels).
+    fn panel_at(&self) -> (i32, i32) {
+        (crate::panel::AT.0 * self.scale as i32, crate::panel::AT.1 * self.scale as i32)
     }
 
     /// The screen's next picture (lost or out of date, after a resize or a minimise: set up again, and tried next frame).
@@ -634,17 +593,29 @@ impl Runner {
         }
     }
 
+    /// The sheets drawn over the picture (cleared to the sky's colour first where no far eye drew it).
     fn the_panel(&mut self, work: &mut FrameWork) -> bool {
+        let panel_at = self.panel_at();
         let Some(running) = &mut self.running else { return false };
         let (Some(texture), Some(encoder)) = (&work.texture, &mut work.encoder) else { return false };
+        let screen = (running.card.config.width, running.card.config.height);
+        let scale = self.scale;
+        let mut sheets = Vec::new();
+        if self.editor.open {
+            sheets.push(gui::on_card::Placed { sheet: self.editor.sheet(), at: (0, 0), scale });
+        } else {
+            if self.panel.visible {
+                sheets.push(gui::on_card::Placed { sheet: self.panel.sheet(), at: panel_at, scale });
+            }
+            if self.readout.shows() {
+                let sheet = self.readout.sheet();
+                sheets.push(gui::on_card::Placed { sheet, at: crate::temperatures::at_top_right(screen, sheet, scale), scale });
+            }
+        }
         let view = texture.texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let screen = egui_wgpu::ScreenDescriptor { size_in_pixels: [running.card.config.width, running.card.config.height], pixels_per_point: work.pixels_per_point };
-        work.commands = running.egui_renderer.update_buffers(&running.card.device, &running.card.queue, encoder, &work.jobs, &screen);
         let load = if work.far_drew { wgpu::LoadOp::Load } else { wgpu::LoadOp::Clear(SKY) };
-        let attachment = wgpu::RenderPassColorAttachment { view: &view, depth_slice: None, resolve_target: None, ops: wgpu::Operations { load, store: wgpu::StoreOp::Store } };
-        let timestamp_writes = wiring::card_slot(PassId::ThePanel).and_then(|slot| running.card_clock.as_ref().and_then(|clock| clock.render_pass(slot)));
-        let pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor { label: Some(wiring::pass(PassId::ThePanel).name), color_attachments: &[Some(attachment)], timestamp_writes, ..Default::default() });
-        running.egui_renderer.render(&mut pass.forget_lifetime(), &work.jobs, &screen);
+        let timestamps = wiring::card_slot(PassId::ThePanel).and_then(|slot| running.card_clock.as_ref().and_then(|clock| clock.render_pass(slot)));
+        running.sheets.draw(&running.card.device, &running.card.queue, encoder, &view, screen, &sheets, load, timestamps, wiring::pass(PassId::ThePanel).name);
         true
     }
 
@@ -656,9 +627,6 @@ impl Runner {
         }
         work.commands.push(encoder.finish());
         running.card.queue.submit(work.commands.drain(..));
-        for id in running.to_free.drain(..) {
-            running.egui_renderer.free_texture(&id);
-        }
         true
     }
 
@@ -748,20 +716,6 @@ impl ApplicationHandler for Runner {
         }
         // "Hearing the window", the window lane's pass.
         let started = Instant::now();
-        // The panels hear the window while the mouse is free, but never Tab (it would move the panel's focus to a
-        // button, which Space would then press while flying).
-        let is_tab = matches!(&event, WindowEvent::KeyboardInput { event: KeyEvent { physical_key: PhysicalKey::Code(KeyCode::Tab), .. }, .. });
-        // A mouse button let go always reaches them, even while flying, so nothing they started (a drag) is left held.
-        let let_go = matches!(&event, WindowEvent::MouseInput { state: ElementState::Released, .. });
-        if (!self.captured || let_go)
-            && !is_tab
-            && let Some(running) = &mut self.running
-        {
-            let _ = running.egui_state.on_window_event(&running.window, &event);
-        }
-        // While a box of the panels is typed in (a preset's name), its letters aren't the camera's: only the keys that
-        // open and close things are heard.
-        let typing = !self.captured && self.running.as_ref().is_some_and(|running| running.egui_ctx.egui_wants_keyboard_input());
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
             WindowEvent::Resized(size) => {
@@ -774,8 +728,33 @@ impl ApplicationHandler for Runner {
                 self.capture(false);
                 self.held.clear();
             }
+            // The pointer, for the sheets: the editor's list follows it.
+            WindowEvent::CursorMoved { position, .. } => {
+                self.pointer = Some((position.x, position.y));
+                if self.editor.open {
+                    self.editor.moved(gui::on_sheet((position.x, position.y), (0, 0), self.scale));
+                }
+            }
+            WindowEvent::CursorLeft { .. } => self.pointer = None,
+            // The left button: the editor's when it's open; else the debug panel's while the mouse is free (let go, the
+            // panel hears it always, so nothing it started is left held).
+            WindowEvent::MouseInput { state, button: MouseButton::Left, .. } => {
+                if let Some(pointer) = self.pointer {
+                    if self.editor.open {
+                        if state == ElementState::Pressed {
+                            self.editor.pressed(gui::on_sheet(pointer, (0, 0), self.scale));
+                        }
+                    } else if self.panel.visible {
+                        let at = gui::on_sheet(pointer, self.panel_at(), self.scale);
+                        match state {
+                            ElementState::Pressed if !self.captured && self.panel.holds(at) => self.panel.pressed(at),
+                            ElementState::Released => self.panel.released(at),
+                            _ => {}
+                        }
+                    }
+                }
+            }
             WindowEvent::KeyboardInput { event: KeyEvent { physical_key: PhysicalKey::Code(key), state, repeat, .. }, .. } => match state {
-                ElementState::Pressed if typing && !matches!(key, KeyCode::F2 | KeyCode::F3 | KeyCode::F11 | KeyCode::Tab) => {}
                 ElementState::Pressed => {
                     self.held.insert(key);
                     if !repeat {

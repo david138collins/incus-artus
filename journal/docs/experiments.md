@@ -9749,3 +9749,60 @@ control sheet, and his answers to the questions after them, are on the shared pa
 - the scales' menus;
 - tooltips, and What's This?;
 - the text-entry box, and the clipboard.
+
+### Build 228 built (unflown): egui out; the editor's frame and the debug panel drawn by us; checked against his pictures
+
+**Built as the mark says, with three changes made on the way, each in the open:**
+
+- **His word during the build (2026-11-20),** on the tabs: "you dont need so much spacing between names and bars, and
+  it doesnt necessarily need to be quite so wide"; "just go a shade denser were nothing touches within 2px". Asked
+  which, he answered: "Tabs, generally all rows should be as dense as possible and you can narrow the whole by about a
+  quarter". So:
+  - each tab is its name's ink, 2 clear of its edges each side (the sheet gave 7 a side);
+  - the status bar's small panes are the same, their words 2 clear of their line and of the grip;
+  - the debug panel is a quarter narrower than example 4: 303 wide, not 404. "The whole" was read as the debug panel:
+    its tabs were what he'd been looking at, and its width was Counsel's example's, not his. He may yet mean the
+    editor's tabbed panel.
+- **The drop-down sits 10 after "Help", not 12:** his pictures have it there, though the menu's words are 12 apart.
+  The first comparison caught it 2 pixels off.
+- **The Registrar is drawn blank, no panes:** his picture's three panes don't follow the sheet (the left one raised on
+  three sides and open on the right, the panes split by 2-pixel bars). They're for his ruling when the page is built
+  (3.3).
+
+**The mark:**
+
+- **His four pictures against the frame drawn at 1,280 x 800** (`editor::tests`): every pixel that differs is in a place
+  named with the ruling or the build that makes it differ, and **none differs anywhere else**, on all four. The places,
+  and how many pixels in each (Tectonic Sim, World Gen, Software map, Registrar):
+  - the minimise bar centred: 4, 4, 4, 4;
+  - the build's number: 46 each;
+  - the pages blank, with their tabs and frames by his rulings: all of the page area;
+  - the views' frames pulled in to 1,276 ("pull it in"): 723, 723, 723, 0;
+  - the small panes, which come with their pages: 671, 447, 389, 342.
+  - Then each page's own:
+    - Tectonic Sim's and World Gen's top bars (Save, Load, their presets and the rest), which come with their pages:
+      8,024 and 3,138;
+    - World Gen's message ("Compiled in ...") and the Software map's (the chosen box's), which come with their pages:
+      315 and 716;
+    - the Software map's drop-down, whose right edge his picture lost: 44;
+    - the Registrar's drop-down, 150 in his picture: 809.
+
+  So the window's edge, the title bar (his lettering, the buttons), the menu row and its underlines, the drop-down, the
+  line, the status bar's long pane and "Ready", the grip and every gap between are his pictures' to the pixel.
+  **Met.**
+- **By their recipes:**
+  - the tabs: none rising; the row 2 under the line; each name's ink 2 clear of its edges; the chosen one over its
+    neighbours' edges by 2, nowhere past the row's ends, its foot open;
+  - the small panes' words 2 clear;
+  - the views' and the board's frames thick and sunk, ending at 1,276 and 772, 2 above the status bar.
+
+  **Met.**
+- **Made-up clicks:** the drop-down opens, its list follows the pointer and changes the page; a press elsewhere shuts
+  it; a tab pressed is chosen; the debug panel's close button, let go on it, shuts the panel, and let go elsewhere
+  doesn't. **Met.**
+- **All tests pass.** The map is drawn again: the wiring's passes "laying out the panel" and "the panel" say what they do
+  now, and the new files are on it.
+- **Pictures off the screen** (`screenshots/228/`): the four pages, the list open, and the debug panel. Looked at
+  before his look; nothing to mend.
+- **Two warnings stay,** as before this build: methods and a field only tests use (`near_eye.rs`, `textures.rs`).
+- **The price:** owed, one flight, his leave first.

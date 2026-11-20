@@ -25,8 +25,8 @@ pub struct Textures {
     pub bars: Vec<u32>,
 }
 
-/// A PNG as red, green, blue and opacity, a byte each.
-fn read_png(path: &std::path::Path) -> Option<(u32, u32, Vec<u8>)> {
+/// A PNG as red, green, blue and opacity, a byte each (the 95 drawing reads its pictures and its font's sheet with it).
+pub(crate) fn read_png(path: &std::path::Path) -> Option<(u32, u32, Vec<u8>)> {
     let bytes = std::fs::read(path).ok()?;
     let mut decoder = png::Decoder::new(std::io::Cursor::new(bytes));
     decoder.set_transformations(png::Transformations::normalize_to_color8());

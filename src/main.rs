@@ -9,9 +9,11 @@
 //! - `card`: choosing the graphics card and setting it up to draw to the window.
 //! - `clocks`: the frame's clock (how long each frame takes) and the card's (how long each of its passes takes).
 //! - `camera`: the flying camera, in the game's axes.
-//! - `panel`: the developer panel (F3), drawn over the picture.
+//! - `gui`: the 95 drawing: the editor's and the game's windows drawn by us in Windows 95's look, as sheets of pixels
+//!   the card shows enlarged a whole number of times.
+//! - `panel`: the debug panel (F3), a floating window over the game.
 //! - `presets`: a page of the panel's settings saved under a name and loaded back; "default" is what the game starts with.
-//! - `editor`: the editor (F2), its pages reached by the drop-down at the top; the software map is the first.
+//! - `editor`: the editor (F2), a window of its own, its pages reached by the drop-down in its top bar.
 //! - `doorway`: the one piece that answers "what's here?" a tile at a time (the export behind it now).
 //! - `far`: the far cells, summed from the doorway's columns (cubes of 32 and every level above), on the loading lane.
 //! - `bricks`: the far cells on the card, as bricks.
@@ -36,6 +38,7 @@ mod far_eye;
 mod far_light;
 mod far_ring;
 mod flight;
+mod gui;
 mod marks;
 mod memory;
 mod panel;

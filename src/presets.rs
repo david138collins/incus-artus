@@ -13,6 +13,9 @@
 //! The preset named "default" is what the game starts with (`start`). Till one is saved the built-in settings are the
 //! default, and "default" is always in the Load list: the way back to it [his choice of two: "From the Load list
 //! only"; the dot only shows].
+//!
+//! Since build 228 (egui out) the bar isn't drawn: it comes back, drawn by us, on the debug panel's Camera and Render
+//! tabs. Till then the game still starts on each page's "default" preset, and `Bar` keeps what the bar does.
 
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -42,6 +45,8 @@ pub struct RenderPreset {
 }
 
 impl RenderPreset {
+    /// The settings as they are, as a preset (the Render tab's bar saves it, when it's drawn again).
+    #[cfg_attr(not(test), allow(dead_code))]
     pub fn of(near: &NearLook, far: &FarLook) -> Self {
         Self { near: NearLook { lantern: false, ..*near }, far: *far }
     }
@@ -67,7 +72,8 @@ pub fn clean_name(name: &str) -> String {
     name.trim().chars().map(|c| if c == ' ' { '_' } else { c }).filter(|c| c.is_ascii_alphanumeric() || *c == '-' || *c == '_').collect()
 }
 
-/// The names of the presets saved in a folder, in alphabetical order.
+/// The names of the presets saved in a folder, in alphabetical order (the bar's Load list, when it's drawn again).
+#[allow(dead_code)]
 fn saved(folder: &Path) -> Vec<String> {
     let mut names: Vec<String> = std::fs::read_dir(folder)
         .into_iter()
@@ -83,6 +89,7 @@ fn saved(folder: &Path) -> Vec<String> {
 
 /// A setting as the file shows it: a number kept in single precision is written as the shortest number that reads back
 /// to it (0.05, not 0.05000000074505806).
+#[cfg_attr(not(test), allow(dead_code))]
 fn tidy(value: &mut toml::Value) {
     match value {
         toml::Value::Float(number) => {
@@ -100,6 +107,7 @@ fn tidy(value: &mut toml::Value) {
     }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 fn save<T: Serialize>(folder: &Path, name: &str, value: &T) -> Result<PathBuf, String> {
     std::fs::create_dir_all(folder).map_err(|error| error.to_string())?;
     let mut settings = toml::Value::try_from(value).map_err(|error| error.to_string())?;
@@ -138,7 +146,8 @@ pub fn start<T: DeserializeOwned + Default>(root: &Path, category: &str, flight:
     }
 }
 
-/// A page's preset bar, and what it remembers between frames.
+/// A page's preset bar, and what it remembers between frames (not drawn since build 228: see above).
+#[cfg_attr(not(test), allow(dead_code))]
 pub struct Bar<T> {
     folder: PathBuf,
     /// What's in the name box: "default" to begin with where there is one (so Ctrl+S saves over it straight away, as
@@ -153,6 +162,7 @@ pub struct Bar<T> {
     looked: Option<Instant>,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 impl<T: Serialize + DeserializeOwned + Default + PartialEq + Clone> Bar<T> {
     /// The bar for `category`, its presets in `root/<category>/`.
     pub fn new(root: &Path, category: &str) -> Self {
@@ -217,60 +227,6 @@ impl<T: Serialize + DeserializeOwned + Default + PartialEq + Clone> Bar<T> {
         }
     }
 
-    /// The bar: the dot (green while `value` is exactly the default), the name box, Save, the Load list and the
-    /// folder's button; greyed where `there` is false (nothing to save or load). True when a preset was loaded into
-    /// `value` this frame.
-    pub fn show(&mut self, ui: &mut egui::Ui, value: &mut T, there: bool) -> bool {
-        let on = self.on_default(value);
-        let saved_default = self.default_file.is_some();
-        let (dot, colour) = if on { ("● default", egui::Color32::from_rgb(120, 230, 120)) } else { ("○ default", egui::Color32::from_gray(110)) };
-        ui.add(egui::Label::new(egui::RichText::new(dot).color(colour)).selectable(false).sense(egui::Sense::hover())).on_hover_text(match (on, saved_default) {
-            (true, true) => "These settings are exactly the \"default\" preset.",
-            (true, false) => "These settings are the built-in ones. No \"default\" preset is saved for this page yet: save one under the name \"default\" and the game starts with it.",
-            (false, true) => "Changed from the \"default\" preset. Load… \"default\" goes back to it; saving under the name \"default\" makes these the default.",
-            (false, false) => "Changed from the built-in settings. Load… \"default\" goes back to them; saving under the name \"default\" makes these the default.",
-        });
-        let mut picked = None;
-        let mut save_now = false;
-        // (It wraps onto a second line in a narrow panel, rather than forcing the panel wider.)
-        ui.horizontal_wrapped(|ui| {
-            ui.label("Preset:");
-            ui.add(egui::TextEdit::singleline(&mut self.name).desired_width(110.0).hint_text("name"))
-                .on_hover_text("Ctrl+S saves under this name (while the mouse is free). A preset named \"default\" is what the game starts with.");
-            let clean = clean_name(&self.name);
-            let taken = !clean.is_empty() && self.folder.join(format!("{clean}.toml")).exists();
-            save_now = ui.add_enabled(there && !clean.is_empty(), egui::Button::new(if taken { "Save (replace)" } else { "Save" })).clicked();
-            ui.add_enabled_ui(there, |ui| {
-                egui::ComboBox::from_id_salt(("preset load", self.folder.as_os_str())).selected_text("Load…").show_ui(ui, |ui| {
-                    let mut names = saved(&self.folder);
-                    let built_in = !names.iter().any(|name| name == DEFAULT);
-                    if built_in {
-                        names.insert(0, DEFAULT.to_string());
-                    }
-                    for name in names {
-                        let shown = if built_in && name == DEFAULT { "default (built in)".to_string() } else { name.clone() };
-                        if ui.selectable_label(false, shown).clicked() {
-                            picked = Some(name);
-                        }
-                    }
-                });
-            });
-            if ui.small_button("Folder").on_hover_text("Open the presets' folder").clicked() {
-                let _ = std::fs::create_dir_all(&self.folder);
-                if let Err(error) = std::process::Command::new("explorer").arg(&self.folder).spawn() {
-                    self.status = Some(format!("Couldn't open the folder: {error}"));
-                }
-            }
-        });
-        if save_now {
-            self.save_named(value);
-        }
-        let loaded = picked.is_some_and(|name| self.load_named(&name, value));
-        if let Some(status) = &self.status {
-            ui.small(status);
-        }
-        loaded
-    }
 }
 
 #[cfg(test)]
