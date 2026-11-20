@@ -9806,3 +9806,24 @@ control sheet, and his answers to the questions after them, are on the shared pa
   before his look; nothing to mend.
 - **Two warnings stay,** as before this build: methods and a field only tests use (`near_eye.rs`, `textures.rs`).
 - **The price:** owed, one flight, his leave first.
+
+### His look at build 228 (2026-11-20)
+
+**His words,** to Builder's three questions: "1. dont worry about it right now 2. yes 3. yes". In order:
+
+1. **"The whole",** the debug panel narrowed to 303 or the editor's tabbed panel: "dont worry about it right now". The
+   debug panel stays at 303 as built, and the question rests.
+2. **The 2 pixels under the menus' line** (the tabs and the Software map's board 2 below the etched line, Builder's
+   reading of his "keep at least a 2 pixel border between elements"): "yes".
+3. **The black outer line on the window's right and bottom:** "yes". His pictures are a 1,281 x 801 window cut short
+   at 1,280 x 800, so they lack it; drawn whole, everything on the right and the bottom comes in a pixel. It comes
+   with the frame's next build.
+
+The rest of 228 (the frame, the four blank pages, the drop-down and tabs, the debug panel) drew no word, and is done
+enough to go on.
+
+**From the session's log** (`logs/session-1795194177.log`; 95 minutes, quit; no warnings): the memory level from two
+minutes in (3,442 MB, the world loaded) to the end. The processor's area read 105 degrees at 3 s and 61 s and 104 at
+108 s, the release compile and the tests having run just before; 85 to 99 after; the card 69 to 81. From the next
+launch, Counsel's suggestion, taken: the compile and the tests as their own steps, the launch only once the processor's
+area is back under 80 (it read 69 two minutes after 228 closed).
