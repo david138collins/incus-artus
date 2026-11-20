@@ -12,7 +12,7 @@ they overrule anything here.
 
 What is measured here is marked *measured*; what is Counsel's suggestion or a thing nobody has tried is marked so.
 
-## Where we stand (the shared page, kept by Counsel; last brought up to date 2026-11-19)
+## Where we stand (the shared page, kept by Counsel; last brought up to date 2026-11-20)
 
 David, 2026-11-19: "At this point, i'd like for you to reach out to builder and put together a doc with what
 we've decided for you to go off of as i work up these mockups, so you two are on the same page starting now."
@@ -49,6 +49,15 @@ here in the open.
 | The mouse wheel scrolls the panel, unless the pointer is inside a number box | to Counsel: "additionally note i need the mousewheel to scroll the panel unless the mouse is inside a number box." | 2026-11-19 |
 | The wheel, by where the pointer is: over a number box it steps the number up or down; elsewhere in the panel it scrolls the panel; in the viewport of the Tectonic Sim or World Gen it zooms. In old the zoom was pixels per chunk in the Tectonic Sim, and 1/2x, 1x, 2x, 4x, 8x in World Gen | to Counsel: "oh, when its over a number box, it increments/decrements. otherwise, when its in the panel, it scrolls the panel. when its in the viewport, for tectonics or world gen, it zooms. the zoom was pixels per chunk in tectonics, and 1/2x, 1x, 2x, 4x, 8x for the world gen." | 2026-11-19 |
 | A thorough set of mock-ups is on its way | to Builder: "i am working on a thorough set of mockups now that should make it easy for you." | 2026-11-19 |
+| **The mock-ups are handed to Builder: four pictures** (the Registrar, the Software map, the Tectonic Sim's Ocean plates, World Gen's Climate), in `Art/95gui mockups/current/`, to be studied "for the rules and conventions" | to Builder: "please take a moment to study these for the rules and conventions." | 2026-11-20 |
+| **The first job is egui out:** the debug panel replaced, and the Software map | to Builder: "lets start the day by kicking e-gui to the curb ... we'll just get started by replacing the debug panel, as you see fit, using tabs and the collapsing sections, as well as the software map." | 2026-11-20 |
+| The debug panel's layout is Builder's, with tabs and folding sections (this overtakes his word of 2026-11-19 that a mock-up of his own would come first) | "as you see fit, using tabs and the collapsing sections" | 2026-11-20 |
+| Pages begin as blank panels in the window; buttons and features go in one at a time | to Builder: "we'll start with blank panels in the window, and add buttons and features one at a time." | 2026-11-20 |
+| Old's parameters come across one by one, each weighed, the process remade to reach the same results, more refined | to Builder: "all the parameters and variables from the old incus will be evaluated singly alongside a recreative process that should get the same results, just mroe refined." | 2026-11-20 |
+| The Software map: the 95 scheme on teal; every module the same white box, in groups; every wire dark grey behind the boxes; the clicked box's wires blue and on top; a card panel on the left | to Counsel, then his picture (`current/software map.png`, Counsel's example 10 taken whole) | 2026-11-20 |
+| The Registrar's library: Find, a Type drop-down, a Sort drop-down, a count and an "unregulated only" tick over one list; no tags in the filter; rows 40 tall with one 32 x 32 thumbnail, the name, and a second line that differs by type | his picture (`current/registrar.png`: the third of Counsel's four ways, example 9 C) | 2026-11-20 |
+| The toolbar's first pieces, on the menu's row after the page's drop-down: Save, Load, a presets drop-down ("Default"); in the Tectonic Sim also four buttons not yet named, and at the right a Feed slider and a Seed field | his pictures (`current/tectonics.png`, `current/world gen.png`) | 2026-11-20 |
+| Folding sections are the bars as drawn (a plus box and a name on a raised bar) | his picture (`current/world gen.png`) | 2026-11-20 |
 
 ### Drawn by Counsel at his asking, not yet answered by him (guesses; nothing here is decided)
 
@@ -122,6 +131,11 @@ here in the open.
   the control sheet; C2, the controls working, the text-entry box among them; D, the viewports. Then the debug
   panel from its own mock-up, and egui out of `Cargo.toml`.
 - **She builds nothing until his mock-ups come.**
+- **They came on 2026-11-20, and his word that day changes her order:** the first job is egui out, the debug
+  panel and the Software map, where her order above had the debug panel last. She is briefing him ("give me
+  a briefing on how we'll carry out the replacement, any details i should be deciding on, and how you're going
+  to set up our windows95 drawing") and builds nothing until he answers it. Her new order is hers to write
+  here once he has.
 
 ### The master palette in the Registrar: his direction (2026-11-19; a contemplation, its words may shift)
 
@@ -217,12 +231,17 @@ does NOT suit: "this pic is the window where you can adjust the stats of units a
 | The wheel's step in a number box (how much one notch changes each setting); whether the new viewports keep old's zooms as they were ("the zoom was ..."), and what the wheel does over the Software map and the other pages' views | Builder to propose from old; David |
 | The Software map: ~~black and magenta as now (example 6), or the 95 scheme on teal (example 7); every wire drawn dimmed, or only the chosen box's~~ answered by his mock-up and his words of 2026-11-20 (the 95 scheme on teal; every wire dark grey behind the boxes, the chosen box's blue on top). Still open: whether a box's describing text stays in its card (his mock-up keeps it, the one place a panel carries such text); his answer to example 10 | David |
 | Where the two settings go and what they are called: the game windowed; the scale | David: his mock-ups, or Builder asks |
-| Still wanted from him, by Builder's answer to this brief: the mock-ups as lossless 1,280 x 800 PNGs in `Art/References/editor reference/`; the title font; the toolbar's five buttons; what fills the status bar's panes; the open menus and the Tectonic Sim page; which of old's viewport readouts go | David |
+| Still wanted from him, by Builder's answer to this brief: ~~the mock-ups as lossless 1,280 x 800 PNGs~~ (they came 2026-11-20, in `Art/95gui mockups/current/`); the title's lettering (a font, or his own picture to cut out: Builder is asking); the toolbar's four unnamed buttons; what fills the status bar's panes; the open menus; which of old's viewport readouts go | David |
 | Screens with less room than 1,280 x 800 | David, near shipping |
 | A smaller font for a floating window's short title bar (Ironquill has one size; Antiquity Print at 13 is his smallest), or the full-height bar | David |
 | Tooltips: old's descriptions run to five lines and a 95 tooltip was one short line: wrapped tooltips, or the texts cut down | David, when it comes up |
-| Folding sections: the bars as drawn, or a tree that shows one section at a time | David |
+| ~~Folding sections: the bars as drawn, or a tree that shows one section at a time~~ | Answered by his mock-up, 2026-11-20: the bars as drawn |
 | Where the Field size, pixel size and bake controls of old's top bar go in World Gen (Counsel assumed a Main tab) | David |
+| The describing text at the head of the Ocean plates panel in `current/tectonics.png` ("Everything here applies to ocean plates only ..."): left from Counsel's example 2, against his word of 2026-11-19 ("these are unnecessary going forward"). Kept, or a leftover? | David |
+| "Save" is drawn held down (checkered) in both toolbars: a state it has, or an accident of pasting? | David |
+| The Registrar: the Tags field is still in the dock though the library no longer filters by tags: are tags kept on an asset for later, or gone? | David |
+| Ironquill reaching the build: its licence forbids the font's files in a public repository (a built game may be public). Is the GitHub repository private? Until he says, the sheet stays off GitHub and the game reads it from a folder on this machine (Builder's plan) | David |
+| The debug panel: its tabs and sections (Builder to propose from today's F3 panel and example 4); its title bar's font; where its scale setting sits | Builder to propose; David |
 | The rest are in section 13 | |
 
 ### His mock-ups: `Art/95gui mockups/` (his own folder, from 2026-11-19; in progress, not yet handed over)
@@ -240,6 +259,81 @@ He rearranged `Art/` on 2026-11-19: his mock-ups are in `Art/95gui mockups/`, th
 - The title bar now carries the build's number at its right, before the buttons ("Build 238").
 - That he took examples 2, 3 and 7 into his folder says they are his starting points, not that every part of
   them is answered: until he hands a mock-up over, what is unanswered above stays unanswered.
+
+### Handed over 2026-11-20: `Art/95gui mockups/current/` (four pictures; they are the specification)
+
+His words to Builder with them (relayed by her; whole in `journal/docs/decisions.md`, the rebuild, 2026-11-20):
+"Good morning builder! lets start the day by kicking e-gui to the curb. please take a moment to study these for the rules and conventions. we'll just get started by replacing the debug panel, as you see fit, using tabs and the collapsing sections, as well as the software map. please ask any questions about something you're not sure of, and give me a briefing on how we'll carry out the replacement, any details i should be deciding on, and how you're going to set up our windows95 drawing. we'll start with blank panels in the window, and add buttons and features one at a time. all the parameters and variables from the old incus will be evaluated singly alongside a recreative process that should get the same results, just mroe refined."
+
+What each shows, as Counsel reads it (where this page and a picture differ, the picture wins):
+
+- **All four:** the title bar with "INCUS ARTUS" in lettering of his own and "Build 238" before the three
+  buttons; the menus (File, Edit, View, Window, Help) and, on the same row, the page's drop-down as a true
+  drop-down with its arrow button; a status bar of a wide pane and two small ones.
+- **`software map.png`:** Counsel's example 10 taken whole (only the page's drop-down differs). So the group
+  captions, the arrowheads, the dotted focus line, navy for the blue and 404040 for the grey, which were
+  Counsel's stand-ins yesterday, are in his picture now.
+- **`registrar.png`:** the library in the third of the four ways (example 9 C): "Find", "Type" ("All types"),
+  "Sort" ("Name"), "412 of 412 shown", an "unregulated only" tick; rows 40 tall. The dock and the palette as
+  example 8 had them.
+- **`tectonics.png`:** the Ocean plates tab of five (Main settings, Plate settings, Land plates, Ocean plates,
+  Simulation), two-line settings in group boxes, the panel's scrollbar; the toolbar with Save, Load, the
+  presets drop-down, four unnamed buttons, Feed and Seed.
+- **`world gen.png`:** the Climate tab of six (Main, Landmass, Topography, Climate, Mineralogy, Interpreter), a
+  "Show over the map" drop-down over folding sections, greyed settings where they don't apply; the toolbar
+  with Save, Load and the presets drop-down.
+
+### The handover: what the four pictures don't show (Counsel, 2026-11-20, as he asked: "a prompt from you about any details i forgot")
+
+**1. Left in the pictures that isn't his choice. Ask him; don't copy it.**
+
+- **The viewports' pictures** in the Tectonic Sim and World Gen are pasted from old: the magenta ring and
+  line, "YOU ARE HERE", the stray dark columns at the right edge. The viewport's own frame is the clean sunken
+  one of the Software map's picture. What goes inside is old's final viewports with the leftover readouts
+  dropped (his word of 2026-11-19); which readouts go is open.
+- **The window's frame is cut one pixel short** at the right and the bottom in all four (Builder's finding;
+  the same in the picture he pasted to Counsel: the last column and row are the grey 808080, the black outer
+  line is off the canvas). Build the whole raised edge to section 4's recipe.
+- **Every number, name and count** is a stand-in: the values in the fields, the seed, the splines' names,
+  "412", "115 colours", the times under "Now", and "Build 238" itself (the engine's last build is 227).
+- **The describing text** at the head of the Ocean plates panel, and **"Save" drawn held down**: both are in
+  the Open table above. The Software map's card keeps its "What it does" text: that one is in his own
+  picture of the page and is the one place a panel carries such text.
+
+**2. Behaviour, decided by him, that no picture can show** (each is a row in "Decided by him" with his words):
+
+- The wheel by where the pointer is: over a number box it steps the number; elsewhere in the panel it scrolls
+  the panel; in the Tectonic Sim's or World Gen's viewport it zooms.
+- Mouseover information in yellow tooltips; no describing text in the panels.
+- A control that doesn't apply is greyed, never hidden (as the two greyed settings in `world gen.png`).
+- One program, F2 both ways; the editor windowed above the taskbar in our own title bar and borders, F11
+  full screen for the editor only; the game borderless full screen, with a setting to window it in the frame.
+- The scales: probably two in the editor's menu (the editor's and the panel's), the debug panel's own
+  (1x to 5x and Auto); whole numbers only, every pixel a whole pixel.
+- The tabbed panel fixed on the left, between a half and a quarter of the width; the viewport square at
+  1,280 x 800 and free to change shape when the window is resized.
+- Our own text placer and text-entry box, for the editor and the game.
+- **The Software map:** a click on any box, pass or store, turns its wires blue and brings them on top, turns
+  the boxes it is wired to navy, and fills the card on the left; the name box's drop-down jumps to any box;
+  the boxes are laid out from the code's own list (`src/wiring.rs`) and wrap to the width, so the page keeps
+  itself true as the code changes. Example 10c is a store chosen.
+- **The Registrar:** block textures are 32 x 32 and a thumbnail is one of them at one pixel to one; the plus
+  mark on an entry of several textures shows the rest in a tooltip on hover; asset types are hardcoded; the
+  palette's box on the right is fixed at 400 wide and must not scroll as a whole (only the list of splines
+  scrolls); "the size of the 3 box areas on the left can be messed with".
+
+**3. The measures behind the look** (further down this brief): the palette (section 3), the edges (4), the
+marks (5 and the appendix), the sizes with Ironquill (6), the controls he picked (7). Ironquill at 15 pixels,
+at x2 for a large name (the Registrar's "Grass"), never bold.
+
+**4. Still his to decide.** The Open table above; the ones today's job touches are the debug panel's rows,
+the wheel over the Software map, the menus' contents, the status bar's panes and the title's lettering.
+
+**Checked by Counsel, of Builder's findings:** Ironquill's package (in his Downloads, `ironquill-fonts.zip`;
+not in `Art/fonts/`) holds `Ironquill.png`, a sheet of white letters, 16 a row in cells of 9 x 15, 196
+letters, with `Ironquill.fnt` giving each letter's place and width, so no sheet has to be made. Its
+`LICENSE.txt`: "Put the font files in a public repository (GitHub and similar)" is under "You CAN'T"; "Ship
+it inside your project's files: a game build" is under "You CAN". `Art/fonts/` already stays off GitHub.
 
 ### The Registrar's frame: his mock-up in progress (2026-11-19)
 

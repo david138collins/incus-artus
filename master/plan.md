@@ -24,7 +24,13 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   running again better than before", which "should be enough content to finish the engine with"; then "the next
   hurdle is getting some gameplay going" (4.1's first slice, below). "Enough content", by his answer the same
   day: "the placer and ecology at a minimum is in", so the near view, the crossover and the continuous-resolution
-  spline are tuned against real detail. So the engine's finishing-out comes after 3.4.
+  spline are tuned against real detail. So the engine's finishing-out comes after 3.4. **2026-11-20: the
+  mock-ups came.** He handed Builder four pictures (`Art/95gui mockups/current/`: the Registrar, the Software
+  map, the Tectonic Sim's Ocean plates, World Gen's Climate) and named the first job: egui out, "replacing the
+  debug panel, as you see fit, using tabs and the collapsing sections, as well as the software map"; "we'll
+  start with blank panels in the window, and add buttons and features one at a time", and old's parameters
+  "evaluated singly". Builder is briefing him and builds nothing until he answers; what the pictures don't show
+  is on the shared page ("The handover").
 - **Working on:** Phase 2, *Restart*, step 2.3, the near eye (experiment 6), from 2026-11-16. Builder is reading
   old's near walk, the Oracle's near eye and near light (third part, sections 3 and 6; second part 4.2) and the
   doorway's answers, to bring David its first step and its pass mark before any code. The near eye is triangles, the

@@ -3926,6 +3926,24 @@ Reference: `Art/quartile minecraft illustration.png`
   - Drawn for him the same day as example 10 (`Art/References/editor reference/`), on his own picture: an
     offer, not yet answered. What in it is Counsel's and not his is listed on the shared page
     (`journal/docs/editor-look.md`, "The Software map").
+- **The mock-ups handed to Builder; the first job is egui out (2026-11-20)** (David, to Builder, with four
+  pictures pasted: the Registrar, the Software map, the Tectonic Sim's Ocean plates, World Gen's Climate; they
+  match `Art/95gui mockups/current/`. Relayed by her to Counsel the same morning): "Good morning builder! lets start the day by kicking e-gui to the curb. please take a moment to study these for the rules and conventions. we'll just get started by replacing the debug panel, as you see fit, using tabs and the collapsing sections, as well as the software map. please ask any questions about something you're not sure of, and give me a briefing on how we'll carry out the replacement, any details i should be deciding on, and how you're going to set up our windows95 drawing. we'll start with blank panels in the window, and add buttons and features one at a time. all the parameters and variables from the old incus will be evaluated singly alongside a recreative process that should get the same results, just mroe refined."
+  - So: the first job is the debug panel and the Software map in the 95 look, and egui out. The debug panel's
+    layout is Builder's ("as you see fit, using tabs and the collapsing sections"), which overtakes his word of
+    2026-11-19 that a mock-up of his own would come first. Pages begin blank and controls go in one at a time.
+    Old's parameters are weighed one by one, not carried across whole.
+  - Builder is briefing him and builds nothing until he answers.
+  - What the pictures decide, as Counsel reads them: the Software map is Counsel's example 10 taken whole;
+    the Registrar's library is the third of the four ways drawn (types as a drop-down, a Sort drop-down, no
+    tags in the filter, short rows); the toolbar begins with Save, Load and a presets drop-down, and in the
+    Tectonic Sim four unnamed buttons, a Feed slider and a Seed field; folding sections are the bars as drawn.
+  - Counsel's handover for Builder, as he asked on 2026-11-19 ("a prompt from you about any details i
+    forgot"), is on the shared page: `journal/docs/editor-look.md`, "The handover: what the four pictures
+    don't show".
+  - Builder's findings, checked by Counsel against his download: Ironquill's package holds the maker's own
+    letter sheet (9 x 15 cells, 196 letters) and its licence forbids the font's files in a public repository
+    while allowing them in a built game.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
