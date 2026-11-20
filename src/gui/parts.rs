@@ -1,7 +1,9 @@
 //! The pieces windows are made of, each drawn once here for the editor and the game: the window's thick frame, the
-//! title bar and its buttons, the menu's words, the drop-down and its list, the line cut in, tabs and their page, the
-//! greyed scrollbar, the thick sunk frame, the status bar's panes and the grip. Their sizes are the shared page's (6),
-//! measured on the control sheet and his pictures; where they differ, his ruling (named where it's used).
+//! title bar and its buttons, the menu's words and the menus they open, the drop-down and its list, the line cut in,
+//! tabs and their page, the greyed scrollbar, the thick sunk frame, the status bar's panes and the grip. Their sizes are
+//! the shared page's (6), measured on the control sheet and his pictures; where they differ, his ruling (named where
+//! it's used). The menus aren't on the sheet: they're Windows 95's own painter, its numbers as Wine measures them
+//! (`dlls/win32u/menu.c`), sized to Ironquill's line as everything else is.
 
 use super::letters::{self, BASE, LINE};
 use super::marks;
@@ -33,6 +35,18 @@ const TAB_EDGE: i32 = 2;
 const PANE_LINE: i32 = 1;
 /// The grip's corner.
 pub const GRIP: i32 = 14;
+/// A menu's items from its edge: the window's raised edge and a pixel of face (Wine's MENU_MARGIN).
+pub const MENU_MARGIN: i32 = 3;
+/// A menu item's height: the line and 4 (Windows': the larger of the words and 2, and the menu's letters and 4).
+pub const MENU_ITEM: i32 = LINE + 4;
+/// A line between a menu's groups: half a menu button (Windows' SM_CYMENUSIZE, the line and 5, halved), its etched
+/// line in the middle.
+pub const MENU_LINE: i32 = (LINE + 5) / 2;
+/// A menu's column for ticks (Windows' SM_CXMENUCHECK), at its items' left; the words 4 after it.
+const TICK_COLUMN: i32 = 13;
+const BEFORE_WORDS: i32 = TICK_COLUMN + 4;
+/// A menu's column for a submenu's arrow, at its items' right (kept in every menu, as Windows keeps it).
+const ARROW_COLUMN: i32 = 16;
 
 /// A rectangle on a sheet: its top left and its size.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
@@ -54,7 +68,8 @@ impl Rect {
 }
 
 /// A window `w` x `h` at `x`, `y`: Windows' thick frame (its raised edge, then two rows of face) and the face inside.
-/// It may run past the sheet: his pictures are 1,281 x 801 windows cut a pixel short at the right and the bottom.
+/// (His pictures are 1,281 x 801 windows cut a pixel short at the right and the bottom; the editor's window is laid
+/// out whole, its black outer line showing [David, at his look at build 228: "yes"].)
 pub fn window(sheet: &mut Sheet, x: i32, y: i32, w: i32, h: i32) {
     sheet.fill(x, y, w, h, FACE);
     sheet.edge(x, y, w, h, Edge::RaisedWindow);
@@ -69,6 +84,8 @@ pub fn title_bar(sheet: &mut Sheet, x: i32, y: i32, w: i32) {
 pub enum TitleButton {
     Minimise,
     Maximise,
+    /// The middle button while the window fills the screen: it makes it smaller.
+    Restore,
     Close,
 }
 
@@ -80,6 +97,7 @@ pub fn title_button(sheet: &mut Sheet, x: i32, y: i32, which: TitleButton, held:
     let (rows, at): (&[&str], (i32, i32)) = match which {
         TitleButton::Minimise => (&marks::MINIMISE, marks::MINIMISE_AT),
         TitleButton::Maximise => (&marks::MAXIMISE, marks::MAXIMISE_AT),
+        TitleButton::Restore => (&marks::RESTORE, marks::RESTORE_AT),
         TitleButton::Close => (&marks::CLOSE, marks::CLOSE_AT),
     };
     let pushed = i32::from(held);
@@ -97,6 +115,139 @@ pub fn menu_words(sheet: &mut Sheet, x: i32, y: i32, words: &[&str]) -> i32 {
         at += width + WORDS_APART;
     }
     at
+}
+
+/// Each word's place on the menu row from `x` (its words' start), the row's top at `y`: the part a click opens, 6
+/// either side of its words so neighbours meet, and the row's height less 1 (Windows' SM_CYMENU - 1).
+pub fn menu_word_places(x: i32, y: i32, words: &[&str]) -> Vec<Rect> {
+    let mut at = x;
+    words
+        .iter()
+        .map(|word| {
+            let width = letters::width(word);
+            let place = Rect::new(at - WORDS_APART / 2, y, width + WORDS_APART, MENU - 1);
+            at += width + WORDS_APART;
+            place
+        })
+        .collect()
+}
+
+/// A word on the menu row with its menu open: pressed in, a one-line sunken ring round its place (Windows 95's).
+pub fn menu_word_pressed(sheet: &mut Sheet, place: Rect) {
+    sheet.edge(place.x, place.y, place.w, place.h, Edge::SunkenOneLine);
+}
+
+/// Words with the letter after '&' underlined (the letter Alt picks), their line's top left at `x`, `y`: how wide.
+pub fn words_marked(sheet: &mut Sheet, x: i32, y: i32, text: &str, colour: Colour) -> i32 {
+    let plain = text.replacen('&', "", 1);
+    let width = letters::draw(sheet, x, y, &plain, colour);
+    if let Some(at) = text.find('&')
+        && let Some(letter) = text[at + 1..].chars().next()
+    {
+        sheet.fill(x + letters::width(&text[..at]), y + BASE + 1, letters::width(&letter.to_string()), 1, colour);
+    }
+    width
+}
+
+/// What's before a menu item's words.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Tick {
+    None,
+    /// Ticked (shown, or on).
+    Tick,
+    /// The one chosen of several.
+    Dot,
+}
+
+/// A line of a menu: an item (its words, the letter after '&' underlined; its shortcut keys; whether it works; its
+/// tick; whether it opens a submenu), or the etched line between groups.
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub enum MenuLine {
+    Item { words: &'static str, keys: &'static str, works: bool, tick: Tick, submenu: bool },
+    Line,
+}
+
+impl MenuLine {
+    fn height(&self) -> i32 {
+        match self {
+            MenuLine::Item { .. } => MENU_ITEM,
+            MenuLine::Line => MENU_LINE,
+        }
+    }
+}
+
+/// The widest of a menu's words and of its keys.
+fn menu_columns(lines: &[MenuLine]) -> (i32, i32) {
+    lines.iter().fold((0, 0), |(words, keys), line| match line {
+        MenuLine::Item { words: w, keys: k, .. } => (words.max(letters::width(&w.replacen('&', "", 1))), keys.max(letters::width(k))),
+        MenuLine::Line => (words, keys),
+    })
+}
+
+/// A menu's size: its edge and margin round its items; across, the tick's column, the widest words, the keys' column
+/// if any item has keys (12 after the words, as the menu row's words are apart), and the arrow's column.
+pub fn menu_size(lines: &[MenuLine]) -> (i32, i32) {
+    let (words, keys) = menu_columns(lines);
+    let keys = if keys > 0 { WORDS_APART + keys } else { 0 };
+    (2 * MENU_MARGIN + BEFORE_WORDS + words + keys + ARROW_COLUMN, 2 * MENU_MARGIN + lines.iter().map(MenuLine::height).sum::<i32>())
+}
+
+/// Each of a menu's lines: its top from the menu's top, and its height.
+pub fn menu_rows(lines: &[MenuLine]) -> Vec<(i32, i32)> {
+    let mut at = MENU_MARGIN;
+    lines
+        .iter()
+        .map(|line| {
+            let row = (at, line.height());
+            at += row.1;
+            row
+        })
+        .collect()
+}
+
+/// A menu at `x`, `y`: the window's raised edge, a pixel of face, its lines; `lit`, the item under the pointer, navy
+/// across with its words white. A greyed item's words are white a pixel down and right with grey over them, as
+/// Windows 95 greys them; lit, grey alone.
+pub fn menu(sheet: &mut Sheet, x: i32, y: i32, lines: &[MenuLine], lit: Option<usize>) {
+    let (w, h) = menu_size(lines);
+    window(sheet, x, y, w, h);
+    let (words_width, _) = menu_columns(lines);
+    let (ix, iw) = (x + MENU_MARGIN, w - 2 * MENU_MARGIN);
+    for (k, (line, (top, height))) in lines.iter().zip(menu_rows(lines)).enumerate() {
+        let iy = y + top;
+        match line {
+            MenuLine::Line => {
+                sheet.fill(ix + 1, iy + height / 2, iw - 2, 1, SHADOW);
+                sheet.fill(ix + 1, iy + height / 2 + 1, iw - 2, 1, WHITE);
+            }
+            MenuLine::Item { words, keys, works, tick, submenu } => {
+                let lit = lit == Some(k);
+                if lit {
+                    sheet.fill(ix, iy, iw, height, NAVY);
+                }
+                let item = |sheet: &mut Sheet, dx: i32, dy: i32, colour: Colour| {
+                    let tick_y = iy + (height - TICK_COLUMN) / 2;
+                    match tick {
+                        Tick::Tick => sheet.glyph(ix + marks::TICK_AT.0 + dx, tick_y + marks::TICK_AT.1 + dy, &marks::TICK, colour),
+                        Tick::Dot => sheet.glyph(ix + marks::DOT_AT.0 + dx, tick_y + marks::DOT_AT.1 + dy, &marks::DOT, colour),
+                        Tick::None => {}
+                    }
+                    let ty = iy + (height - LINE) / 2 + dy;
+                    words_marked(sheet, ix + BEFORE_WORDS + dx, ty, words, colour);
+                    if !keys.is_empty() {
+                        letters::draw(sheet, ix + BEFORE_WORDS + words_width + WORDS_APART + dx, ty, keys, colour);
+                    }
+                    if *submenu {
+                        sheet.glyph(ix + iw - ARROW_COLUMN + marks::SUBMENU_AT.0 + dx, iy + marks::SUBMENU_AT.1 + dy, &marks::SUBMENU, colour);
+                    }
+                };
+                if !works && !lit {
+                    item(sheet, 1, 1, WHITE);
+                }
+                item(sheet, 0, 0, if !works { SHADOW } else if lit { WHITE } else { BLACK });
+            }
+        }
+    }
 }
 
 /// A field `w` wide at `x`, `y`: sunken, white, its words 5 in.
@@ -239,9 +390,9 @@ pub fn pane(sheet: &mut Sheet, x: i32, y: i32, w: i32, text: &str, words: i32) {
 }
 
 /// A small pane for `text` in a row of them (the status bar's right end): its ink 2 clear of the pane's line each side,
-/// and, in the last one, 2 clear of the grip's corner too. Its width, and its words' pen from its left.
-pub fn small_pane(text: &str, last: bool) -> (i32, i32) {
-    (ink_width(text) + 2 * (PANE_LINE + CLEARANCE) + if last { GRIP } else { 0 }, PANE_LINE + CLEARANCE - letters::ink(text).0)
+/// and, in the one by the grip, 2 clear of the grip's corner too. Its width, and its words' pen from its left.
+pub fn small_pane(text: &str, by_the_grip: bool) -> (i32, i32) {
+    (ink_width(text) + 2 * (PANE_LINE + CLEARANCE) + if by_the_grip { GRIP } else { 0 }, PANE_LINE + CLEARANCE - letters::ink(text).0)
 }
 
 /// The grip, `GRIP` square, its top left at `x`, `y`.

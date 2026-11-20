@@ -232,7 +232,7 @@ flowchart TB
 ### hearing the window
 
 - **A pass** in the window, on the processor.
-- **What it is:** Each event: the keys held kept, the mouse turning the camera while it's captured, and F2 (the editor), F3 (the debug panel, in the game), F11 (window or full screen) and Tab (the mouse). The pointer and the left button go to the editor while it's open, else to the debug panel while the mouse is free.
+- **What it is:** Each event: the keys held kept, the mouse turning the camera while it's captured, and F2 (the editor, back as it was left: filling the screen above the taskbar, smaller, or full screen; the game borderless full screen), F3 (the debug panel, in the game), F11 (the editor full screen), Esc (its menu shut) and Tab (the mouse). The pointer and the left button go to the editor while it's open (its menus; its title buttons, acting when let go on them; its title bar and edges, where Windows moves and sizes the window, the pointer's shape showing which way), else to the debug panel while the mouse is free. The window never wears Windows' own frame (build 229).
 - **Reads:** none. **Writes:** the keys held and the camera.
 - **Cost, last measured** (`kept logs/flight-1794589790.txt`): on the processor not run.
 - **Files:** src/runner.rs and src/camera.rs.
@@ -280,10 +280,10 @@ flowchart TB
 ### laying out the panel
 
 - **A pass** in the frame, on the processor.
-- **What it is:** The 95 drawing's sheets laid out, each drawn again on the processor only where what it shows has changed (build 228, egui out): the editor (F2) over the whole screen, its frame as his pictures have it and its pages blank but for their panels, tabs and views; else the debug panel (F3), a floating window with its three tabs, and the temperatures top right. The scale is Auto: the largest whole number at which the screen holds 1,280 x 800.
+- **What it is:** The 95 drawing's sheets laid out, each drawn again on the processor only where what it shows has changed (build 228, egui out): the editor (F2) over the whole window, its frame as his pictures have it (the restore mark and no grip while it fills the screen), its menus (build 229) and its pages blank but for their panels, tabs and views; else the debug panel (F3), a floating window with its three tabs, and the temperatures top right. The scale is Auto from the screen, never the window: the largest whole number at which it holds 1,280 x 800; or the editor's own, chosen in its Window menu. The window kept no smaller than the editor's smallest frame.
 - **Reads:** the temperatures. **Writes:** the panel's sheets.
 - **Cost, last measured** (`kept logs/flight-1794589790.txt`): on the processor median 0.016, 95th 0.033, 99th 0.151, worst 0.341.
-- **Files:** src/panel.rs, src/editor/mod.rs, src/editor/frame.rs, src/editor/tests.rs, src/gui/mod.rs, src/gui/sheet.rs, src/gui/letters.rs, src/gui/marks.rs, src/gui/parts.rs and src/temperatures.rs.
+- **Files:** src/panel.rs, src/editor/mod.rs, src/editor/frame.rs, src/editor/menus.rs, src/editor/tests.rs, src/gui/mod.rs, src/gui/sheet.rs, src/gui/letters.rs, src/gui/marks.rs, src/gui/parts.rs and src/temperatures.rs.
 
 ### getting the picture
 

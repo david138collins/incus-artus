@@ -163,6 +163,17 @@ impl Sheet {
         }
     }
 
+    /// A mark's rows at `x`, `y` in one colour, wherever they aren't a space (a menu's tick, in its words' colour).
+    pub fn glyph(&mut self, x: i32, y: i32, rows: &[&str], colour: Colour) {
+        for (j, row) in rows.iter().enumerate() {
+            for (i, letter) in row.chars().enumerate() {
+                if letter != ' ' {
+                    self.px(x + i as i32, y + j as i32, colour);
+                }
+            }
+        }
+    }
+
     /// A picture (red, green, blue and opacity, a byte each, `width` across) at `x`, `y`, in `colour` wherever it's there.
     pub fn stamp(&mut self, x: i32, y: i32, width: u32, rgba: &[u8], colour: Colour) {
         for (k, pixel) in rgba.chunks_exact(4).enumerate() {

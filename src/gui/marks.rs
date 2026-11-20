@@ -12,6 +12,11 @@ pub const MINIMISE_AT: (i32, i32) = (5, 10);
 pub const MAXIMISE: [&str; 9] = ["KKKKKKKKKK", "KKKKKKKKKK", "K        K", "K        K", "K        K", "K        K", "K        K", "K        K", "KKKKKKKKKK"];
 pub const MAXIMISE_AT: (i32, i32) = (3, 3);
 
+/// The restore mark (two small windows), at (4, 3): Windows 95's, worn by the middle button while the window fills the
+/// screen [David, 2026-11-20: "follow windows"]; centred across as the others, its top level with the maximise mark's.
+pub const RESTORE: [&str; 9] = ["  KKKKKK", "  KKKKKK", "  K    K", "KKKKKK K", "KKKKKK K", "K    KKK", "K    K  ", "K    K  ", "KKKKKK  "];
+pub const RESTORE_AT: (i32, i32) = (4, 3);
+
 /// The close mark, at (4, 4): centred both ways.
 pub const CLOSE: [&str; 8] = ["KK    KK", "KKK  KKK", " KKKKKK ", "  KKKK  ", "  KKKK  ", " KKKKKK ", "KKK  KKK", "KK    KK"];
 pub const CLOSE_AT: (i32, i32) = (4, 4);
@@ -25,6 +30,19 @@ pub const DROP_DOWN_AT: (i32, i32) = (4, 7);
 pub const UP_GREYED: [&str; 5] = ["   S   ", "  SSS  ", " SSSSS ", "SSSSSSS", " WWWWWWW"];
 pub const DOWN_GREYED: [&str; 5] = ["SSSSSSS ", " SSSSSWW", "  SSSWW ", "   SWW  ", "    W   "];
 pub const ARROW_AT: (i32, i32) = (4, 6);
+
+/// A menu's tick, at (3, 3) in its 13 x 13 column: the check box's tick (the shared page's appendix), drawn in the
+/// words' colour.
+pub const TICK: [&str; 7] = ["      K", "     KK", "K   KKK", "KK KKK ", "KKKKK  ", " KKK   ", "  K    "];
+pub const TICK_AT: (i32, i32) = (3, 3);
+
+/// A menu's dot for the one chosen of several (the scales), at (4, 4) in the same column.
+pub const DOT: [&str; 6] = [" KKKK ", "KKKKKK", "KKKKKK", "KKKKKK", "KKKKKK", " KKKK "];
+pub const DOT_AT: (i32, i32) = (4, 4);
+
+/// A submenu's arrow, at (6, 6) in its 16-pixel column at the item's right.
+pub const SUBMENU: [&str; 7] = ["K   ", "KK  ", "KKK ", "KKKK", "KKK ", "KK  ", "K   "];
+pub const SUBMENU_AT: (i32, i32) = (6, 6);
 
 /// The grip in the status bar's corner, 14 x 14.
 pub const GRIP: [&str; 14] = [

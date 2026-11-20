@@ -9946,3 +9946,56 @@ area is back under 80 (it read 69 two minutes after 228 closed).
 
 **Not in this build:** the Software map (230); the debug panel's tabs (231 to 234), with the debug panel's own scale;
 the game in a window; Keys... and What's This?; the keyboard in the menus; the Panel Scale's rules.
+
+### Build 229 built (unflown): the window ours alone, its frame working, and the menus; checked off the screen
+
+**Built as the mark says.** What the mark left to the build, chosen in the open:
+
+- **The smallest frame** is 739 x 136 of the editor's pixels (1,478 x 272 on the screen at 2x). The widest row of tabs,
+  the Tectonic Sim's, sets its width: the row must fit a panel at most half the window. On the laptop's room above the
+  taskbar that holds 1x to 3x, as the mark said.
+- **Which scales the screen can hold** is reckoned from the room above the taskbar: the window's size when it last
+  filled it, and the whole screen's size till then.
+- **A double click** is two presses within half a second and 2 pixels of each other, Windows' own.
+- **The menus:**
+  - their shortcut keys are in a column 12 after the widest words;
+  - every menu keeps the tick's column at its left and the arrow's at its right, as Windows does, even where no item
+    uses them;
+  - the item letters underlined are each item's first: Return, Quit, Undo, Redo, Settings, Status Bar, Parameters
+    Panel, Editor Scale, Panel Scale, Full Screen, What's This?, Keys, Auto, 1x to 5x.
+- **Windows' own moving and sizing:** the window has no frame of Windows' own, but winit keeps the styles Windows needs
+  to move and size it and to fill the room above the taskbar. The title bar and the edges hand the press to Windows.
+- **The middle button from full screen** gives the smaller window (Windows 95 had no full screen to go back to). F11
+  goes back to the window it came from.
+
+**The mark:**
+
+- **His four pictures against the frame** drawn as the 1,281 x 801 window they cut short: the same places differ as at
+  228, by the same counts, and nothing else on all four. The one exception is the build's number, 38 pixels now that
+  its digits are 229's. **Met.**
+- **At 1,280 x 800** the window's edge is whole: the black line at x 1,279 and y 799, grey inside it. Everything at the
+  bottom right is the cut window's a pixel in, and the top left is as it was. **Met.**
+- **Filling the screen against a smaller window:** only the middle button (the restore mark) and the status bar's
+  right end differ. There the small panes are 14 further right, to the pixel, and the grip is gone. **Met.** To prove
+  the test bites, the grip was kept on while filling: the test failed, and the line was put back.
+- **The menus by their recipe:** each one under its word, the word pressed in, the window's raised edge, items 19 tall,
+  lines 10 with the etched line a pixel in from each side, the lit item navy across, the words 20 in, greyed words grey
+  over white, and the Editor Scale's menu beside its item, its first item level. **Met.**
+- **Made-up clicks:** all as the mark says. **Met.**
+  - The menus open, follow the pointer from word to word, light items (not lines) and act. Greyed items do nothing.
+  - The scales' menu opens on its item and chooses 3x; 4x is greyed and does nothing.
+  - A press elsewhere shuts the menu and does nothing more, as does Esc.
+  - The title buttons act only when let go on them, and pop up off them.
+  - A double click on the title bar fills the screen; too slow, it moves the window.
+  - The edges size the window with their pointer, and nothing does while it fills the screen.
+- **All tests pass** (75, and the 2 ignored as before), and the map is drawn again.
+- **Pictures off the screen** (`screenshots/229/`): each page as a smaller window and filling the screen, each menu
+  open, the Editor Scale's menu, the close button held, the status bar and the panel hidden. Looked at, the menus and
+  buttons at 4x: nothing to mend.
+- **On the screen:** at his look.
+- **Two warnings stay,** as before this build.
+- **The price:** owed, 228's and 229's, one flight, his leave first.
+
+**For his look, beside the mark's list:**
+- The tick's and the arrow's columns, which every menu keeps as Windows' do, against his "no dead space".
+- The menus' look: the pressed word, the tick, the dot, the arrow.
