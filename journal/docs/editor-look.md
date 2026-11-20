@@ -338,6 +338,20 @@ here in the open.
   it did differ: at about 105 s, 92 C against 228's 104. She keeps the habit, since it costs him little. A
   cooler start would be a change to the loading (fewer threads making the world at the start), his call; it
   has not been proposed to him by her.
+- **Build 230, the Software map: his "proceed", and her two questions (2026-11-20; hers; unanswered).** His
+  "proceed" came in reply to her last message and did not answer her two questions on 229 (the smaller
+  window and F11; the menus' empty columns): 229's line stays unticked and the columns stay as Windows has
+  them.
+  1. The boxes, three ways, drawn from `master/map.md`'s chart (59 boxes, 105 wires), nothing chosen, every
+     wire 404040 behind (`Art/References/editor reference/choices 4 - the Software map's boxes
+     (2026-11-20).png`). A, his: a box is its name plus 14 (7 a side), boxes 8 apart, rows 10 apart, caption
+     to the first row 18, last row to the next caption 32; checked by her against his picture, the first box
+     and the first caption to the pixel, the frame group wrapping at the same places. B, the boxes tight: a
+     box is its words' ink plus 8 (the 2-pixel sunken edge, then 2 clear each side), 6 narrower than his; his
+     gaps kept. C, everything 2 apart: the map fits the top 320 of 715, but the boxes hide most wires. Hers,
+     and Counsel's: B, his 2-pixel rule for the boxes, the gaps kept because the wires show in them.
+  2. The status bar: his picture has "32 passes" and "27 stores" at the right end, where the temperatures
+     now go by his ruling. Hers, and Counsel's: the counts first, then the temperatures.
 
 ### The master palette in the Registrar: his direction (2026-11-19; a contemplation, its words may shift)
 
@@ -449,6 +463,7 @@ does NOT suit: "this pic is the window where you can adjust the stats of units a
 | The menus' tick column and arrow column, kept by Windows even where nothing in the menu uses them: as Windows has them, or trimmed where unused (his "no dead space")? Until he answers they stay | David; Builder has asked |
 | Build 229: whether he got to the smaller window (moving, sizing) and F11; another launch offered | David; Builder has asked |
 | The start's heat: the CPU area reads 103 to 105 C for the first minute of every launch, while the world is made, whatever it read before. Left as it is, or the world made on fewer threads at the start (a slower load)? | David, if he wants it looked at; not proposed by Builder |
+| Build 230's two questions (under "Builder's plan"): the Software map's boxes as he drew them (A), tight with his gaps (B) or everything 2 apart (C); the counts and the temperatures in its status bar | David; Builder has asked |
 | For later, Counsel's: once presets can be saved, what an X that quits does about unsaved work | David, when saving is built |
 | The Registrar's panes in `current/registrar.png` against the sheet: the left pane raised on three sides with none on the right; the panes split by 2-pixel bars with odd caps (x 260 to 261, 875 to 876). Found by Builder; the page is blank until then | Builder to put to him when the Registrar is built (3.3); David |
 | ~~Her row 3, the first tab when chosen; whether a chosen tab grows~~ ~~Her row 10, the page's drop-down's width~~ | Answered 2026-11-20: "make it not get taller, just be up front as re the borders between neighbors"; 128 |
