@@ -29,8 +29,13 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   map, the Tectonic Sim's Ocean plates, World Gen's Climate) and named the first job: egui out, "replacing the
   debug panel, as you see fit, using tabs and the collapsing sections, as well as the software map"; "we'll
   start with blank panels in the window, and add buttons and features one at a time", and old's parameters
-  "evaluated singly". Builder is briefing him and builds nothing until he answers; what the pictures don't show
-  is on the shared page ("The handover").
+  "evaluated singly". What the pictures don't show is on the shared page ("The handover"). **He answered her
+  briefing and her comparison of his pictures with the control sheet the same day:** egui goes all at once
+  ("you can just get rid of it all at once ... we can just start with the new system when you're ready"); the
+  debug panel is in the game only; the menus begin with File, Edit and Window as he named them. Her order
+  now (proposed): build 228, egui out, with the frame, the blank pages, a blank floating debug panel and the
+  temperatures; 229, the frame working, and the menus; 230, the Software map; 231 to 234, the debug panel's
+  tabs. Nothing is built yet; two of her ten rows and four follow-ups wait on him (the shared page, Open).
 - **Working on:** Phase 2, *Restart*, step 2.3, the near eye (experiment 6), from 2026-11-16. Builder is reading
   old's near walk, the Oracle's near eye and near light (third part, sections 3 and 6; second part 4.2) and the
   doorway's answers, to bring David its first step and its pass mark before any code. The near eye is triangles, the

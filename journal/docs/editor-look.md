@@ -62,6 +62,18 @@ here in the open.
 | The title's lettering, where it has to be written: Darinia | to Builder: "If you need to write INCUS ARTUS in the upper left, the font is darinia." | 2026-11-20 |
 | Describing text is left out everywhere but the Software map (so the text at the head of the Ocean plates panel goes; the Software map's card keeps its "What it does") | to Builder: "the describing text in general should be omitted, except from the software map." | 2026-11-20 |
 | **Standing: his drawings are compared against the control sheets, and he is asked about every difference**, "in a pixel, a shade, a line, a spacing, etc." Neither the picture nor the sheet wins unasked (this sharpens "his mock-ups overrule this brief", above) | to Builder: "make sure that you compare my drawings against the stylesheets and ask if mine differs from it, in a pixel, a shade, a line, a spacing, etc." | 2026-11-20 |
+| The title's three buttons are his: a pixel of navy between each, the marks evenly spaced inside (Builder: his minimise bar sits 2 from the left of its face and 4 from the right, so she centres it and tells him; the square and the X as drawn) | to Builder: "1. go with mine, with the boxes evenly spaced and the icons evenly spaced inside the boxes." | 2026-11-20 |
+| The Tectonic Sim's panel sits at World Gen's height, and its chosen tab gets its top edge back | to Builder: "2. conform to world gen height"; "2b. replace the lost edge" | 2026-11-20 |
+| Sliders carry three tick marks: one at each end and one at the centre (neither the picture's none nor the sheet's twelve) | to Builder: "3. please a tik mark only at the ends and the center of the sliders." | 2026-11-20 |
+| Number boxes are plain, without the small arrows. A click in one selects its whole contents, typing replaces them, and Enter keeps the number and leaves the box | to Builder: "3b. no arrows, scroll wheel or typing is enough. speaking of which, clicking in the number box, should highlight the contents, and enter should 'leave' the number box as is, so you can click, enter numbers, press enter. some programs have annoying behaviors where you click in there and always get a cursor after the decimal or in the middle and have to fuss with it or get used to just clicking and pressing ctrl+a to select it all." | 2026-11-20 |
+| Radio buttons sit where the sheet puts them (y + 1) | to Builder: "4. go with default" | 2026-11-20 |
+| Lists: rows 15 apart, words 4 in (the sheet's) | to Builder: "5. go with 15 and 4" | 2026-11-20 |
+| **Standing: everything as tight as it can go, by one consistent logic for gaps and borders; no dead space, nothing unnecessary on screen** | to Builder: "we should always squeeze things as tight as possible while maintaining a consistent logic for gaps and borders. we don't want dead space or anything unnecessary on the screen." | 2026-11-20 |
+| The viewport's frame is his (raised: white, light and face at top and left; 808080, 3A3A42, 282830 at bottom and right). The magenta is the viewport's own picture, an exception to the 95 style. Two pixel follow-ups and one of shade are under Open | to Builder: "6 go with my version. obviously the magenta is part of the actual viewport which is an exception to our 95 style." | 2026-11-20 |
+| Whatever a display shows is centred in it, in the status bar and in the second bar from the top | to Builder: "7. just center anything in those displays in the bottom bar or in the 2nd from top bar" | 2026-11-20 |
+| **egui goes all at once**; the new system from the first build (this overtakes "today's F3 panel stays until then", 2026-11-19) | to Builder: "you can just get rid of it all at once, there's no need to go in and use it except to check it in the near future, so we can just start with the new system when you're ready." | 2026-11-20 |
+| The debug panel is in the game only, never in the editor. Builder's suggestions for it taken: it starts from example 4, with its scale and "game in a window" on its Overview tab | to Builder: "the debug panel should not appear in the editor, it should just be in the game. yes, go with your suggestions for it." | 2026-11-20 |
+| The menus, to start: File has Return to game and Quit; Edit has Settings, greyed; Window has the scale and windowed menus. A tooltip mode: the cursor becomes a question mark, tooltips show over everything, any key ends it (put as a question; its menu not named). Builder is to suggest what else could live in the menus instead of elsewhere, to save space | to Builder: "for the menus, i know we don't have much to put in there now, but yeah, try to suggest things to me that can go there instead of somewhere else, to save space. return to game and quit under file, greyed out 'settings' under edit, the scale and windowed menus under window, and tooltip mode that turns the cursor into a question mark to reveal tooltips over everything, any key to exit? im sure they'll fill up over time." | 2026-11-20 |
 
 ### Drawn by Counsel at his asking, not yet answered by him (guesses; nothing here is decided)
 
@@ -153,6 +165,25 @@ here in the open.
 - The handover's other questions (the wheel over the Software map, the debug panel's title bar font, the
   Ocean plates' describing text, Save held down, the Tags field) she will put to him at the build each
   belongs to, one or two at a time.
+- **He answered the briefing on 2026-11-20** (his words are in "Decided by him", above): 1, egui out all at
+  once; 2, Darinia (she takes his lettering as a picture); 3, the debug panel in the game only, her suggestions
+  taken; 4, the menus as he named them; 5 stands as she put it. He may want to look at the old panel "in the
+  near future": she is offering to run build 227 from a folder of its own, the way `old/` runs.
+- **Her order now, since egui goes at once (proposed; his only word on it is "start with the new system when
+  you're ready"):** build 228, egui out, with the frame, the blank pages, the blank floating debug panel and
+  the temperatures; 229, the frame working, and the menus; 230, the Software map; 231 to 234, the debug
+  panel's tabs. Nothing is built or committed yet.
+- **Her suggestions for the menus, put to him at his asking (hers; unanswered):** Help > What's This?
+  (Shift+F1) for his tooltip mode; Help > Keys...; View > Status Bar and Settings Panel, ticked; File > Save
+  Preset (Ctrl+S) and Save Preset As..., instead of the top bars' Save and Load; Edit > Undo and Redo, greyed
+  until built.
+- **Her follow-ups, put to him the same day (unanswered; they are rows under Open):** (a) her rows 3 and 10,
+  which his numbered picture left out; (b) his viewport frame's outer dark line on the right is at x 1,277, a
+  pixel past where everything else ends (1,276), while the bottom keeps its 2-pixel gap: hers, pull it in to
+  1,276; and his Software map has the same two dark lines just outside its sunken frame: hers, drop them
+  there, the sunken frame reaching 1,276; (c) the temperatures, which egui draws and so go with it: in the
+  game they stay top right in our own letters; in the editor, hers, a pane at the right end of the status bar;
+  (d) tooltips outside his mode: her reading is none at all; inside it, a click ends the mode as well.
 
 ### The master palette in the Registrar: his direction (2026-11-19; a contemplation, its words may shift)
 
@@ -243,22 +274,28 @@ does NOT suit: "this pic is the window where you can adjust the stats of units a
 |---|---|
 | ~~Which panel "the scale of the panel" is~~ | Answered 2026-11-19: the parameters panel on the left, inside the editor; the debug panel has its own (the row above in "Decided by him") |
 | ~~Whether the editor's scale setting sizes the panel alone or the frame's bars with it~~ | Answered 2026-11-19, with a "probably": each has its own scale in the menu (the row in "Decided by him") |
-| Which panel scales count as unavailable at each editor scale (the rule behind the greying); what "reset" sets the panel's scale to; whether the editor's scale has the debug panel's steps (1x to 5x and Auto); what Auto means for the debug panel; where the debug panel's scale setting sits | Builder to put to him when the menu is built; David |
+| Which panel scales count as unavailable at each editor scale (the rule behind the greying); what "reset" sets the panel's scale to; whether the editor's scale has the debug panel's steps (1x to 5x and Auto); what Auto means for the debug panel; ~~where the debug panel's scale setting sits~~ (answered 2026-11-20: its Overview tab) | Builder to put to him when the menu is built; David |
 | ~~What the wheel does when the pointer is inside a number box~~ | Answered 2026-11-19: it steps the number up or down (the row in "Decided by him") |
 | The wheel's step in a number box (how much one notch changes each setting); whether the new viewports keep old's zooms as they were ("the zoom was ..."), ~~what the wheel does over the Software map~~ (answered 2026-11-20: nothing); what it does over the other pages' views | Builder to propose from old; David |
 | The Software map: ~~black and magenta as now (example 6), or the 95 scheme on teal (example 7); every wire drawn dimmed, or only the chosen box's~~ answered by his mock-up and his words of 2026-11-20 (the 95 scheme on teal; every wire dark grey behind the boxes, the chosen box's blue on top). The card keeps its describing text, by his word of 2026-11-20 ("except from the software map"); example 10 he took whole into his own picture | David |
-| Where the two settings go and what they are called: the game windowed; the scale | David: his mock-ups, or Builder asks |
-| Still wanted from him, by Builder's answer to this brief: ~~the mock-ups as lossless 1,280 x 800 PNGs~~ (they came 2026-11-20, in `Art/95gui mockups/current/`); ~~the title's lettering~~ (answered 2026-11-20: Darinia; Builder finds his own lettering set closer than the font sets it, below); the toolbar's four unnamed buttons; what fills the status bar's panes; the open menus; which of old's viewport readouts go | David |
+| ~~Where the two settings go: the game windowed; the scale~~ | Answered 2026-11-20: the editor's "scale and windowed menus under window"; the debug panel's scale and "game in a window" on its Overview tab ("yes, go with your suggestions for it"). What each is called on screen is still his |
+| Still wanted from him, by Builder's answer to this brief: ~~the mock-ups as lossless 1,280 x 800 PNGs~~ (they came 2026-11-20, in `Art/95gui mockups/current/`); ~~the title's lettering~~ (answered 2026-11-20: Darinia; Builder finds his own lettering set closer than the font sets it, below); the toolbar's four unnamed buttons; what fills the status bar's panes; ~~the open menus~~ (begun 2026-11-20: File, Edit and Window as he named them; the rest as they fill); which of old's viewport readouts go | David |
 | Screens with less room than 1,280 x 800 | David, near shipping |
 | A smaller font for a floating window's short title bar (Ironquill has one size; Antiquity Print at 13 is his smallest), or the full-height bar | David |
-| Tooltips: old's descriptions run to five lines and a 95 tooltip was one short line: wrapped tooltips, or the texts cut down | David, when it comes up |
+| Tooltips: old's descriptions run to five lines and a 95 tooltip was one short line: wrapped tooltips, or the texts cut down. His tooltip mode of 2026-11-20 (a question-mark cursor that shows tooltips over everything) is where they will show: which menu it sits in; whether any tooltip shows outside it (Builder reads none); whether a click ends it as well as a key | David; Builder has asked |
 | ~~Folding sections: the bars as drawn, or a tree that shows one section at a time~~ | Answered by his mock-up, 2026-11-20: the bars as drawn |
 | Where the Field size, pixel size and bake controls of old's top bar go in World Gen (Counsel assumed a Main tab) | David |
 | ~~The describing text at the head of the Ocean plates panel in `current/tectonics.png`: kept, or a leftover?~~ | Answered 2026-11-20: left out ("the describing text in general should be omitted, except from the software map") |
 | "Save" is drawn held down (checkered) in both toolbars: a state it has, or an accident of pasting? | David |
 | The Registrar: the Tags field is still in the dock though the library no longer filters by tags: are tags kept on an asset for later, or gone? | David |
 | Ironquill reaching the build: its licence forbids the font's files in a public repository (a built game may be public). Is the GitHub repository private? Until he says, the sheet stays off GitHub and the game reads it from a folder on this machine (Builder's plan) | David |
-| The debug panel: its tabs and sections (Builder to propose from today's F3 panel and example 4); its title bar's font; where its scale setting sits | Builder to propose; David |
+| The debug panel: its tabs and sections (Builder to propose from today's F3 panel and example 4, which he took as the start, 2026-11-20); its title bar's font; ~~where its scale setting sits~~ (its Overview tab) | Builder to propose; David |
+| Her rows 3 and 10, left out of his numbered picture: the first tab when chosen (hers: start the row of tabs 2 pixels in); the page's drop-down's width (hers: 128 everywhere) | David; Builder has asked again |
+| His viewport frame, kept by his word of 2026-11-20: the outer dark line on the right at x 1,277, a pixel past everything else (Builder: pull it in to 1,276); the same two dark lines outside the Software map's sunken frame (Builder: drop them there) | David; Builder has asked |
+| His viewport frame's two dark shades, 3A3A42 and 282830, are not in the 95 scheme or his `95.gpl` (they came with his first frame). His answer spoke of the magenta: were the two shades shown to him as a difference, and does he keep them or take the scheme's 808080 and black? Counsel's question, by his standing word ("a shade") | David; Counsel has asked Builder whether her picture showed it |
+| The temperatures in the editor, once egui (which draws them) is gone (Builder: a pane at the right end of the status bar; in the game they stay top right in our letters) | David; Builder has asked |
+| Builder's suggestions for the menus (under "Builder's plan") | David |
+| "The 2nd from top bar": Builder reads it as the bar under the title bar, where the page's drop-down, the presets and the Seed sit; so words in a drop-down or a field there would be centred too, where the sheet sets them from the left. To be shown to him at the build | Builder to show; David |
 | The rest are in section 13 | |
 
 ### His mock-ups: `Art/95gui mockups/` (his own folder, from 2026-11-19; in progress, not yet handed over)
@@ -373,7 +410,7 @@ it inside your project's files: a game build" is under "You CAN". `Art/fonts/` a
   1,280 x 800 the picture has; a real 1,280 x 800 window then has its stretching parts one pixel smaller,
   with the whole raised edge in view.
 
-### His pictures against the control sheet: Builder's comparison (2026-11-20, at his standing word; hers; being put to him)
+### His pictures against the control sheet: Builder's comparison (2026-11-20, at his standing word; hers; his answers at its end)
 
 His word: "make sure that you compare my drawings against the stylesheets and ask if mine differs from it, in a pixel, a shade, a line, a spacing, etc." She compared the four pictures, by pixel, with the Ironquill
 control sheet and its drawer. His answer to each difference goes here as it comes.
@@ -447,6 +484,31 @@ recommendation beside each is hers, not his word):
 Not in her table, noted for their own pages: the Tectonic Sim's toolbar (point 11) and the Registrar's buttons
 (point 9). The title's lettering (point 2) she told him she will take as his picture. She told him that
 points 6 to 9 came through Counsel's drawers and are not choices of his.
+
+**His answers, 2026-11-20.** He numbered by her picture, `yours-against-the-style-sheet.png` (1, 2, 2b, 3, 3b,
+4, 5, 6, 7), not by the table; the mapping is hers. His words are whole in "Decided by him" and in
+`journal/docs/decisions.md`.
+
+| His number | Her row | The point | His answer | What it comes to |
+|---|---|---|---|---|
+| 1 | 1 | 1 | "go with mine, with the boxes evenly spaced and the icons evenly spaced inside the boxes" | his: the buttons a pixel apart; the minimise bar centred (in his drawing 2 from the left of its face, 4 from the right); the square and the X as drawn |
+| 2 | 2, first half | 3 | "conform to world gen height" | the Tectonic Sim's panel at World Gen's height |
+| 2b | 2, second half | 3 | "replace the lost edge" | the chosen tab's top edge back |
+| 3 | 4 | 8 | "a tik mark only at the ends and the center of the sliders" | three tick marks; the sheet's recipe for one (1 x 3, black, 2 below the thumb) fits the 50-pixel two-line setting, by her measure |
+| 3b | 5 | 8 | "no arrows, scroll wheel or typing is enough" | plain number boxes; a click selects all, Enter keeps and leaves |
+| 4 | 6 | 6 | "go with default" | the sheet's radio buttons |
+| 5 | 7 | 7 | "go with 15 and 4" | the sheet's lists; and his standing rule on tightness |
+| 6 | 8 | 10 | "go with my version" | his raised frame; follow-ups under Open |
+| 7 | 9 | 5 | "just center anything in those displays" | words centred in the status bar's panes and the second bar's displays |
+| (none) | 3 | 12 | not in the picture | unanswered; asked again |
+| (none) | 10 | 4 | not in the picture | unanswered; asked again |
+
+Where the answers fell against the recommendations: with Builder on her rows 1, 2, 5, 6 and 7; his own on 4
+(three ticks, where she and Counsel both came to none), on 8 (his frame, where both said the sheet's) and on 9
+(centred, where both said 5 in). Checked by Counsel on `current/tectonics.png`: the minimise bar at x 1,229 to
+1,234 in a face of x 1,227 to 1,238; the square with 1 clear row above and 2 below; the frame's rings at x 555
+to 557 (FFFFFF, DFDFDF, C0C0C0) and x 1,275 to 1,277 (808080, 3A3A42, 282830), the same at y 50 to 52 and
+770 to 772.
 
 ### The Registrar's frame: his mock-up in progress (2026-11-19)
 
@@ -763,6 +825,11 @@ The standing habits apply to every piece of it: where each setting, control, win
 called is asked of him first; a control that doesn't apply yet is greyed, never hidden; nothing visible is a
 stand-in he didn't choose. The pages already named: Software map, Tectonic Sim, World Gen, Registrar, reached by
 a drop-down at the top (`master/spec.md`, the Editor Suite).
+
+The first conventions he has given (2026-11-20): a click in a number box selects its whole contents, typing
+replaces them, and Enter keeps the number and leaves the box ("some programs have annoying behaviors where you
+click in there and always get a cursor after the decimal or in the middle"); the wheel steps a number box and
+does nothing over the Software map; a tooltip mode with a question-mark cursor.
 
 An idea beside it, not asked for: a small desktop window before the game starts, "like dungeon keeper did".
 

@@ -3961,6 +3961,47 @@ Reference: `Art/quartile minecraft illustration.png`
     known.
   - Still unanswered from her briefing: egui's F3 panel during the changeover; the debug panel's layout
     questions; the menus.
+- **His rulings on the comparison and on Builder's briefing (2026-11-20)** (David, to Builder; relayed by
+  her to Counsel). He numbered by her picture, `yours-against-the-style-sheet.png`, not by her table:
+  - "on the yours-against-the-style sheet,"
+  - "1. go with mine, with the boxes evenly spaced and the icons evenly spaced inside the boxes."
+  - "2. conform to world gen height"
+  - "2b. replace the lost edge"
+  - "3. please a tik mark only at the ends and the center of the sliders."
+  - "3b. no arrows, scroll wheel or typing is enough. speaking of which, clicking in the number box, should highlight the contents, and enter should 'leave' the number box as is, so you can click, enter numbers, press enter. some programs have annoying behaviors where you click in there and always get a cursor after the decimal or in the middle and have to fuss with it or get used to just clicking and pressing ctrl+a to select it all."
+  - "4. go with default"
+  - "5. go with 15 and 4, we should always squeeze things as tight as possible while maintaining a consistent logic for gaps and borders. we don't want dead space or anything unnecessary on the screen."
+  - "6 go with my version. obviously the magenta is part of the actual viewport which is an exception to our 95 style."
+  - "7. just center anything in those displays in the bottom bar or in the 2nd from top bar"
+  - "you can just get rid of it all at once, there's no need to go in and use it except to check it in the near future, so we can just start with the new system when you're ready."
+  - "the debug panel should not appear in the editor, it should just be in the game. yes, go with your suggestions for it."
+  - "for the menus, i know we don't have much to put in there now, but yeah, try to suggest things to me that can go there instead of somewhere else, to save space. return to game and quit under file, greyed out 'settings' under edit, the scale and windowed menus under window, and tooltip mode that turns the cursor into a question mark to reveal tooltips over everything, any key to exit? im sure they'll fill up over time."
+  - "is there any question that i missed?"
+  - So, on the comparison (the mapping to her rows is Builder's; the table is on the shared page,
+    `journal/docs/editor-look.md`, "His pictures against the control sheet"): the title's buttons are his,
+    a pixel apart, the marks centred; the Tectonic Sim's panel at World Gen's height with the chosen tab's top
+    edge back; sliders with three tick marks, the two ends and the centre; number boxes plain, a click
+    selecting the whole contents and Enter keeping the number and leaving the box; the sheet's radio buttons;
+    lists 15 apart and 4 in; his own viewport frame; words centred in the status bar's panes and the second
+    bar's displays.
+  - A standing rule in his answer 5: everything as tight as it can go, by a consistent logic for gaps and
+    borders, with no dead space and nothing unnecessary on screen.
+  - So, on the briefing: egui goes all at once and the new system starts from the first build (this overtakes
+    his word of 2026-11-19 that today's F3 panel stays until ours is ready); the debug panel is in the game
+    only, never in the editor, starting from Counsel's example 4 with its scale and "game in a window" on its
+    Overview tab; the menus start with Return to game and Quit under File, Settings greyed under Edit, the
+    scale and windowed menus under Window; a tooltip mode he put as a question; and Builder is to suggest what
+    else can live in the menus to save space.
+  - Not answered, and asked again by Builder: her rows 3 (the first tab when chosen) and 10 (the page's
+    drop-down's width), which her picture left out. To his "is there any question that i missed?": those two,
+    and her follow-ups on his frame's outer line, the temperatures in the editor, and tooltips outside his
+    mode (all on the shared page, Open).
+  - Against the recommendations: he went his own way on the sliders (three ticks, where Builder and Counsel
+    both came to none), the viewport's frame (his, where both said the sheet's) and the status bar's panes
+    (centred, where both said 5 in).
+  - Counsel's question, by his standing word on shades: his frame's two dark lines are 3A3A42 and 282830,
+    outside the 95 scheme, and his answer spoke of the magenta. Whether he saw those two shades as a
+    difference is being asked of Builder.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
