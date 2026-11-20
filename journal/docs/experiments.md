@@ -9658,3 +9658,94 @@ what it would start at (a lamp at its brightest lights a surface to its colour t
 times, so on dark stone lamps read dull: build 217's note), his answer to both: "dont worry about this one." Dropped;
 nothing built. So the loose ends sorted on 2026-11-18 are tied up, and the editor is next by his word ("after we've
 tied up the loose ends we should focus on the editor stuff").
+
+### Build 228's pass mark (2026-11-20): egui out; the editor's frame and the debug panel drawn by us, their pages blank
+
+**Why now:** the editor is next, and his first job for it, handing over his four pictures (`Art/95gui
+mockups/current/`): "lets start the day by kicking e-gui to the curb ... we'll just get started by replacing the debug
+panel, as you see fit, using tabs and the collapsing sections, as well as the software map ... we'll start with blank
+panels in the window, and add buttons and features one at a time". egui goes all at once: "you can just get rid of it
+all at once ... we can just start with the new system when you're ready". His rulings on his pictures against the
+control sheet, and his answers to the questions after them, are on the shared page (`journal/docs/editor-look.md`,
+"Where we stand"). This build draws what they decide for the frame.
+
+**What's built** (written before the code):
+
+1. **egui out.** egui, egui-wgpu and egui-winit leave `Cargo.toml`. With them go the old F3 panel, the old Software
+   map, the preset bars' drawing and egui's drawing of the temperatures. The game still starts on each page's "default"
+   preset; the bars come back with the debug panel's Camera and Render tabs.
+2. **The 95 drawing, built once for the editor and the game** (`src/gui/`). A *sheet* is a picture of a window, drawn
+   on the processor at its own size and shown by the card enlarged a whole number of times, every pixel square; it goes
+   to the card again only when it changes. With it:
+   - the 95 scheme's colours, and Windows' edges;
+   - the marks: the title buttons', the drop-down's arrow, the scrollbar's arrows greyed, the grip;
+   - Ironquill laid from its letter sheet, read from `Art/fonts/Ironquill/` (its licence keeps the font's files off
+     GitHub, so they're never committed);
+   - his title lettering as he drew it (Darinia, closer set than the font sets it), as a picture: `data/gui/title.png`.
+   - The scale is Auto: the largest whole number at which the screen holds 1,280 x 800. That's 2 on the laptop, so the
+     editor is his pictures to the pixel.
+3. **The editor's frame (F2)**, laid out for the window's size as his pictures are at 1,280 x 800:
+   - the window's edge;
+   - the title bar: his lettering, "Build 228", and his three buttons, 1 pixel apart, the minimise bar centred;
+   - the menu row: File, Edit, View, Window and Help, each first letter underlined; the page drop-down, 128 wide; the
+     etched line under it;
+   - the status bar, 2 pixels below everything above it: "Ready" in its long pane, the temperatures in small panes at
+     its right end (words centred), and the grip.
+   - The pages, blank:
+     - **Tectonic Sim** and **World Gen:** the panel with its tabs, named as in his pictures. None rises; the chosen
+       one is drawn over its neighbours' edges, and reaches nowhere past the panel's own. The row starts 2 pixels under
+       the line. The page is blank, its scrollbar greyed, its bottom level with the viewport frame's. The viewport is
+       in the thick sunk frame (the sunken edge, then two grey), empty.
+     - **Software map:** the card's panel blank; the map's board in the same frame, empty, its scrollbar greyed.
+     - **Registrar:** the page blank. Its three panes differ from the sheet in ways to put to him when the page is
+       built (3.3).
+   - What works: the drop-down opens its list and changes the page. The list is Windows 95's, its rows 15 apart and
+     their words 4 in by his ruling on lists. A tab clicked is chosen. Not yet: the menus, the title buttons, dragging or
+     sizing the window, and F11 (as today).
+4. **The debug panel (F3), in the game only**, from Counsel's example 4:
+   - a floating window at the top left, in Windows' thick frame;
+   - its title bar: "Debug  [F3]" in Ironquill, and its close button;
+   - tabs Overview, Camera and Render (none rising), each page blank;
+   - laid out by his rules (2 pixels between things, nothing loose), scale Auto.
+   - F3 or the close button shuts it. It's hidden on a flight, as now.
+5. **The temperatures:** in the game, top right as now, flights too, in Ironquill with their colours and dark edge as
+   now. In the editor, in the status bar's small panes at its right end.
+6. **The wiring:** the passes "laying out the panel" and "the panel" say what they do now, and the new files are on the
+   map (`master/map.md` drawn again).
+
+**The mark:**
+
+- **Tests:**
+  - **His four pictures against the frame**, drawn on the processor at 1,280 x 800. Every pixel matches, except in
+    places the test names, each with the ruling or the build step that makes it differ:
+    - the minimise bar, centred;
+    - the build's number;
+    - the pages blank;
+    - the tabs and the frames, by his rulings;
+    - the Tectonic Sim's top bar, the small panes and the Registrar's panes, which come with their pages.
+
+    The rest is checked to the pixel: the window's edge, the title bar, the menu row, the drop-down, the line, the
+    status bar's panes, "Ready", the grip and every gap between.
+  - **The tabs and the frames** drawn by his rulings are checked by their recipes, and Ironquill's words to the pixel
+    where his pictures have them.
+  - **Made-up clicks:** the drop-down opens and changes the page, a tab is chosen, and the debug panel's close button
+    shuts it.
+  - All tests pass, and the map is drawn again.
+- **Pictures, off the screen:** the four pages and the debug panel written to `screenshots/`, laid beside his pictures
+  for my own look first.
+- **The price:** what the panel's two passes cost on a flight against build 227's, flown as the game flies (the panel
+  hidden, the temperatures drawn). Said after one flight, his leave asked first.
+- **For his look, not mine to judge:**
+  - the frame on F2, with its four pages through the drop-down;
+  - the debug panel on F3;
+  - the temperatures, in the game and the editor;
+  - the 2 pixels under the menus' line, my reading of his rule.
+
+**Not in this build:**
+- the frame working (dragging, sizing, above the taskbar, F11, the title buttons) and the menus: build 229;
+- the Software map: 230;
+- the debug panel's tabs filled, one tab a build: 231 to 234;
+- every page's settings, and the Tectonic Sim's top bar;
+- the scales' menus;
+- tooltips, and What's This?;
+- the text-entry box, and the clipboard.
