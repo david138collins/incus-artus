@@ -80,6 +80,10 @@ here in the open.
 | **The viewport's frame is Windows 95's thick border frame in the standard colours, the same on the Tectonic Sim and World Gen** whatever picture is inside (this overtakes "go with my version"). Sharpened by his answer 7, the next row but one: sunk, and on the Software map's board as well; Builder's A and B, both raised, fall away | to Builder: "6. im not sure what i was trying to do, but derive win95's thick borderframe logic and use the standard colors, make sure its the same between the tectonics and the world gen, even though they show different pictures" | 2026-11-20 |
 | A chosen tab is no taller than the rest; it is drawn in front of its neighbours' borders (Builder: covering 2 pixels of each; where it has no neighbour it doesn't reach out, so the row stays at x 4 and "2 pixels in" falls away) | to Builder: "1. make it not get taller, just be up front as re the borders between neighbors." | 2026-11-20 |
 | **One frame for the three views: thick and sunk**, on the Software map's board, the Tectonic Sim's viewport and World Gen's (against Builder's and Counsel's, who had the Software map keep its plain sunken frame). Which order its rings go in is under Open | to Builder: "7. make it thick frame, sunk, on both the software map board, the tectonic viewport, and the world gen viewport." | 2026-11-20 |
+| The thick sunk frame's rings: the sunken edge outside, then two face rings (S/W, K/L, face, face) | picked in Builder's question box: "Sunken edge outside (Recommended)" | 2026-11-20 |
+| **Standing: at least 2 pixels between elements** (with his rule of the same day, as tight as possible: so 2 is the gap wherever nothing else sets it). Builder's reading of it for the row of tabs, told to him: the row moves up 2 (tabs at y 50 to 70, the page from 71), leaving exactly 2 pixels of face (48 and 49) under the menus' etched line, the same as above the frames; this reverses "conform to world gen height" for the row | asked whether the row should move up 2: "keep at least a 2 pixel border between elements" | 2026-11-20 |
+| The status bar has 2 pixels of spacing round it, as a panel set into the window. Builder's reading, told to him: the page's bottom comes down to y 772, level with the frames, leaving 773 and 774 above the status bar, as on its other sides | asked whether the page's bottom should come down 2: "give the bottom bar 2 pixels of spacing where its a panel element integrated into the window." | 2026-11-20 |
+| The debug panel starts as example 4 draws it, by his approval of Builder's suggestions: "Debug [F3]" in Ironquill on its title bar; tabs Overview, Camera and Render, none rising (his tab rule) | to Builder: "yes, go with your suggestions for it." | 2026-11-20 |
 
 ### Drawn by Counsel at his asking, not yet answered by him (guesses; nothing here is decided)
 
@@ -239,6 +243,12 @@ here in the open.
     face, S/W, K/L), which reads as the ordinary sunken frame with a wider gap. All three boxes run y 50 to
     772; the views x 555 to 1,276 (inside 714 x 715); the board x 306 to 1,276 (inside 963 x 715, its
     scrollbar inside the frame).
+- **He answered the three the same day, in a question box** (his words in "Decided by him"): the row up 2 and
+  the page's bottom to 772 by her readings of his two spacing answers, told to him as readings; the sunken
+  edge outside, picked.
+- **Everything build 228 needs is decided (2026-11-20).** She writes 228's pass mark, then builds, and tells
+  Counsel before she hands him a launch. Open for later builds: tooltips outside his mode (her 5), her menu
+  suggestions, and numbers typed past a slider's ends.
 
 ### The master palette in the Registrar: his direction (2026-11-19; a contemplation, its words may shift)
 
@@ -336,7 +346,7 @@ does NOT suit: "this pic is the window where you can adjust the stats of units a
 | ~~Where the two settings go: the game windowed; the scale~~ | Answered 2026-11-20: the editor's "scale and windowed menus under window"; the debug panel's scale and "game in a window" on its Overview tab ("yes, go with your suggestions for it"). What each is called on screen is still his |
 | Still wanted from him, by Builder's answer to this brief: ~~the mock-ups as lossless 1,280 x 800 PNGs~~ (they came 2026-11-20, in `Art/95gui mockups/current/`); ~~the title's lettering~~ (answered 2026-11-20: Darinia; Builder finds his own lettering set closer than the font sets it, below); the toolbar's four unnamed buttons; what fills the status bar's panes; ~~the open menus~~ (begun 2026-11-20: File, Edit and Window as he named them; the rest as they fill); which of old's viewport readouts go | David |
 | Screens with less room than 1,280 x 800 | David, near shipping |
-| A smaller font for a floating window's short title bar (Ironquill has one size; Antiquity Print at 13 is his smallest), or the full-height bar | David |
+| ~~A smaller font for a floating window's short title bar (Ironquill has one size; Antiquity Print at 13 is his smallest), or the full-height bar~~ | Answered for the debug panel 2026-11-20, by his approval of example 4: Ironquill on its title bar. Open again if another floating window wants a shorter bar |
 | Tooltips: old's descriptions run to five lines and a 95 tooltip was one short line: wrapped tooltips, or the texts cut down. His tooltip mode of 2026-11-20 (a question-mark cursor that shows tooltips over everything) is where they will show: which menu it sits in; whether any tooltip shows outside it (Builder reads none); whether a click ends it as well as a key | David; Builder has asked |
 | ~~Folding sections: the bars as drawn, or a tree that shows one section at a time~~ | Answered by his mock-up, 2026-11-20: the bars as drawn |
 | Where the Field size, pixel size and bake controls of old's top bar go in World Gen (Counsel assumed a Main tab) | David |
@@ -344,16 +354,16 @@ does NOT suit: "this pic is the window where you can adjust the stats of units a
 | "Save" is drawn held down (checkered) in both toolbars: a state it has, or an accident of pasting? | David |
 | The Registrar: the Tags field is still in the dock though the library no longer filters by tags: are tags kept on an asset for later, or gone? | David |
 | Ironquill reaching the build: its licence forbids the font's files in a public repository (a built game may be public). Is the GitHub repository private? Until he says, the sheet stays off GitHub and the game reads it from a folder on this machine (Builder's plan) | David |
-| The debug panel: its tabs and sections (Builder to propose from today's F3 panel and example 4, which he took as the start, 2026-11-20); its title bar's font; ~~where its scale setting sits~~ (its Overview tab) | Builder to propose; David |
+| The debug panel: its tabs and sections (Builder to propose from today's F3 panel and example 4, which he took as the start, 2026-11-20); ~~its title bar's font~~ (Ironquill, as example 4); ~~where its scale setting sits~~ (its Overview tab); its first tabs Overview, Camera and Render | Builder to propose; David |
 | ~~Her row 3, the first tab when chosen; whether a chosen tab grows~~ ~~Her row 10, the page's drop-down's width~~ | Answered 2026-11-20: "make it not get taller, just be up front as re the borders between neighbors"; 128 |
 | ~~His viewport frame's outer dark line on the right at x 1,277; the two dark lines outside the Software map's sunken frame~~ | Answered 2026-11-20: "pull it in, replace them" |
 | ~~His viewport frame's two dark shades, 3A3A42 and 282830, outside the 95 scheme: kept, or the scheme's?~~ | Answered 2026-11-20: the standard colours ("im not sure what i was trying to do, but derive win95's thick borderframe logic and use the standard colors") |
 | ~~The temperatures in the editor, once egui (which draws them) is gone~~ | Answered 2026-11-20: "put them at the bottom bar, to the right." |
 | ~~The viewport's frame, which drawing: A or B~~ | Overtaken 2026-11-20 by his answer 7 ("thick frame, sunk"): both were raised |
 | ~~The Software map's view: its plain sunken frame, or one frame for all three (Counsel's question; Builder's question 7)~~ | Answered 2026-11-20: one frame, "thick frame, sunk, on both the software map board, the tectonic viewport, and the world gen viewport" (Builder and Counsel had both said keep it plain sunken) |
-| The thick sunk frame's order of rings: the sunken edge outside and two face rings inside (Builder's, and Counsel's: the face rings then show as a ledge round the picture, so the frame reads thick), or two face rings outside and the sunken edge against the picture (the face rings then merge with the window's face and it reads as a plain sunken frame set further in) | David; Builder has shown him |
-| The row of tabs, now that nothing rises: up 2, to y 50 to 70 (Builder's, and Counsel's, by his rule of no dead space; it reverses "conform to world gen height" of the same morning for the row), or left where World Gen has it with 2 empty rows above | David; Builder has shown him |
-| The page's bottom: down from y 770 to 772, level with the frame's (Builder's, and Counsel's) | David; Builder has shown him |
+| ~~The thick sunk frame's order of rings~~ | Answered 2026-11-20: the sunken edge outside, then two face rings |
+| ~~The row of tabs, now that nothing rises: up 2, or left with 2 empty rows above~~ | Answered 2026-11-20: "keep at least a 2 pixel border between elements"; read by Builder as up 2, which leaves exactly 2. His to object to when he sees build 228 |
+| ~~The page's bottom: down from y 770 to 772~~ | Answered 2026-11-20: "give the bottom bar 2 pixels of spacing where its a panel element integrated into the window."; read by Builder as down to 772 |
 | The menus as Builder sketched them to him (under "Builder's plan"); her additions to the number box (Esc restores, a click elsewhere keeps, a second click places the cursor) | David, if he objects |
 | "The 2nd from top bar": Builder reads it as the bar under the title bar, and told him her reading, "answer only if wrong": words centred in the status bar's small panes and in the Seed box; the "Ready" pane left; drop-downs' words left, in line with their lists | David, if he objects |
 | The rest are in section 13 | |

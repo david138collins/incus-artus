@@ -4035,6 +4035,23 @@ Reference: `Art/quartile minecraft illustration.png`
     whether the row of tabs moves up 2 now that nothing rises (which would reverse "conform to world gen
     height" of the same morning, for the row); whether the page's bottom comes down 2 to the frame's; and
     the order of the thick sunk frame's rings (the sunken edge outside two face rings, or inside them).
+- **Two spacing rules and the frame's rings (2026-11-20)** (David, in Builder's question box; relayed by her
+  to Counsel; her question, then his answer):
+  - "Now that a chosen tab no longer rises, there are 2 empty rows of grey above the row of tabs. Should the row move up 2 pixels, so the tops of the tabs line up with the top of the viewport frame?" His answer: "keep at least a 2 pixel border between elements"
+  - "In both your pictures, the tab page's bottom edge stops 2 pixels above the bottom of the viewport frame. Should it come down 2 so the two line up?" His answer: "give the bottom bar 2 pixels of spacing where its a panel element integrated into the window."
+  - "The thick sunken frame for the Software map, Tectonic Sim and World Gen: which way round should it be?" His answer, picked: "Sunken edge outside (Recommended)"
+  - Two standing rules: at least 2 pixels between elements; and the status bar, as a panel set into the
+    window, has 2 pixels of spacing. With his rule of the same day (as tight as possible, one logic for gaps
+    and borders), 2 pixels is the gap wherever nothing else sets it.
+  - He did not say yes or no to moving the row or the page's bottom; he gave the rule. Builder's readings,
+    told to him as readings: the row of tabs moves up 2 (tabs at y 50 to 70, the page from 71), which leaves
+    exactly 2 pixels of face under the menus' line and reverses "conform to world gen height" of that
+    morning for the row; the page's bottom comes down to y 772, level with the frames, leaving 2 pixels above
+    the status bar. He sees both in build 228 and can object there.
+  - The frame on the three views: the sunken edge outside, then two face rings.
+  - With this, everything build 228 needs is decided, by Builder's count. The debug panel starts as Counsel's
+    example 4 draws it ("yes, go with your suggestions for it"): "Debug [F3]" in Ironquill on its title bar,
+    tabs Overview, Camera and Render, none rising.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
