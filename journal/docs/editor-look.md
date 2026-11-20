@@ -93,6 +93,8 @@ here in the open.
 | The menus take Builder's additions: Edit > Undo (Ctrl+Z) and Redo (Ctrl+Y); View > Status Bar and Parameters Panel, ticks that hide or show; Help > What's This? (Shift+F1), which is his tooltip mode, and Keys.... Anything not working yet is greyed | to her third: "3. yes" | 2026-11-20 |
 | Editor Scale: Auto and 1x to 5x, a scale the screen can't hold greyed. Panel Scale: greyed until the panel has its first controls, its rules settled with him then | to her fourth: "4. yes" | 2026-11-20 |
 | **No wrapper: Windows' own frame never shows round ours, in any mode; the whole window is 95. And the scale never changes with the window's mode or size.** Builder's account of what he saw in 228: F11 gave a maximised window with Windows' title bar, and Auto, worked out from the window's size, fell from 2x to 1x; in 229 Auto comes from the screen's full size | to Builder: "we do need to make sure that the game window doesn't scale inside another window. there should be no wrapper at all, so the entire thing is 95gui. when i maximized it last time, it changed scale." | 2026-11-20 |
+| While the editor fills the screen (maximised above the taskbar, or by F11) its border stays all round, with the black line, as his pictures have it; not Windows 95's way of pushing it past the screen's edges | to Builder: "1 border all around" | 2026-11-20 |
+| While the editor fills the screen the size grip is gone; a smaller window keeps it. What fills its place he didn't say: Builder's reading, from her question and in 229's pass mark, is that the small panes move 14 into its room and "Ready" is 14 longer; his to object to at the look | to Builder: "2 grip gone"; then "proceed" | 2026-11-20 |
 
 ### Drawn by Counsel at his asking, not yet answered by him (guesses; nothing here is decided)
 
@@ -303,6 +305,39 @@ here in the open.
   double-click on the title bar to fill the screen, the smallest size. Two things he will see: windowed
   above the taskbar the editor is shorter than his pictures by the taskbar's height (F11 gives the full
   1,280 x 800); and F11 works only in the editor until the game has its windowed setting.
+- **Build 229 built (3ac63d6, hers; pass mark df165f3; her entry in `journal/docs/experiments.md`).** What
+  is in it, by her account:
+  - No Windows frame in any mode; Windows 11's rounded corners and coloured edge are off. Auto's scale comes
+    from the screen, never the window. The black outer line is in.
+  - Three ways of being shown: filling the screen above the taskbar; a smaller window (the first time, three
+    quarters of the screen, centred); full screen (F11, the editor only). F2 brings it back the way it was
+    left.
+  - The title buttons act when let go on them; the middle one wears the restore mark while the editor fills
+    the screen; the X quits. The title bar moves the window, and a double click on it fills the screen or
+    makes it smaller. The edges and the grip size it, with the matching pointer. None of that works while it
+    fills the screen.
+  - While it fills the screen: the border stays, the grip goes, and the small panes move 14 into its room.
+  - The menus as he took them. Working: Return to Game, Quit, Status Bar, Parameters Panel (greyed on the
+    Software map and the Registrar), Editor Scale (Auto, 1x to 5x; 4x and 5x greyed on the laptop), Full
+    Screen. Greyed: Undo, Redo, Settings..., Panel Scale, What's This?, Keys.... Drawn by Windows 95's
+    recipe, with Wine's numbers sized to Ironquill's line.
+  - The smallest frame is 739 x 136 sheet pixels.
+  - Tests: all pass (75, 2 ignored). His pictures differ only in 228's ruled places.
+  - Two things she raises at his look: every menu keeps Windows' tick column and arrow column even where
+    nothing uses them, against his "no dead space"; and the menus' look itself.
+- **His look at build 229, 2026-11-20** (her entry "His look at build 229" in `journal/docs/experiments.md`,
+  5f8255e): "nice", after eight minutes in it. He had been given the first two steps: F2 (the editor filling
+  the screen above the taskbar in its own frame, the restore mark, no grip), then the menus (sliding along
+  the row, and View's two ticks). It is his only word on 229 so far. She has asked him two things: whether
+  he got to the smaller window (moving, sizing) and F11, with another launch offered; and the menus' empty
+  columns. The plan's line for 229 stays unticked until he says, since it names drag, resize, maximise and
+  F11. The session: 8 minutes, quit, no warnings or errors, memory level (`logs/session-1795214649.log`).
+- **The cooler launch, tried at 229, and what it showed (corrected in the open: Counsel's suggestion above
+  took little off the peak).** She launched with the CPU area at 78 C; it still read 103 C at 2.5 s and at
+  60 s, against 228's 105 and 105. So the making of the world at the start takes it past 100 by itself. Where
+  it did differ: at about 105 s, 92 C against 228's 104. She keeps the habit, since it costs him little. A
+  cooler start would be a change to the loading (fewer threads making the world at the start), his call; it
+  has not been proposed to him by her.
 
 ### The master palette in the Registrar: his direction (2026-11-19; a contemplation, its words may shift)
 
@@ -410,7 +445,10 @@ does NOT suit: "this pic is the window where you can adjust the stats of units a
 | Ironquill reaching the build: its licence forbids the font's files in a public repository (a built game may be public). Is the GitHub repository private? Until he says, the sheet stays off GitHub and the game reads it from a folder on this machine (Builder's plan) | David |
 | The debug panel: its tabs and sections (Builder to propose from today's F3 panel and example 4, which he took as the start, 2026-11-20); ~~its title bar's font~~ (Ironquill, as example 4); ~~where its scale setting sits~~ (its Overview tab); its first tabs Overview, Camera and Render | Builder to propose; David |
 | ~~Build 229's four questions: the title bar's X; the middle button's mark; her additions to the menus; the scales~~ | Answered 2026-11-20: "1. x quits 2. follow windows 3. yes 4. yes" |
-| Two things Windows 95 hides while a window is maximised, which his pictures show (only while the editor fills the screen, above the taskbar or by F11; a smaller window keeps both). The border: Windows pushes it past the screen's edges, the title bar touching the top; Builder's, and Counsel's: keep his border all round, as his pictures have it and by his "yes" to the black line. The size grip: Windows hides it; Builder's, and Counsel's: hide it and move the small panes 14 into its room, "Ready" 14 longer, so nothing is left empty (Windows' own way leaves the 14 empty in the last pane). Her picture: `Art/References/editor reference/choices 3 - the border and the grip while the editor fills the screen (2026-11-20).png` | David; Builder has asked, before 229's pass mark |
+| ~~Two things Windows 95 hides while a window is maximised, which his pictures show: the border and the size grip~~ | Answered 2026-11-20: "1 border all around 2 grip gone" |
+| The menus' tick column and arrow column, kept by Windows even where nothing in the menu uses them: as Windows has them, or trimmed where unused (his "no dead space")? Until he answers they stay | David; Builder has asked |
+| Build 229: whether he got to the smaller window (moving, sizing) and F11; another launch offered | David; Builder has asked |
+| The start's heat: the CPU area reads 103 to 105 C for the first minute of every launch, while the world is made, whatever it read before. Left as it is, or the world made on fewer threads at the start (a slower load)? | David, if he wants it looked at; not proposed by Builder |
 | For later, Counsel's: once presets can be saved, what an X that quits does about unsaved work | David, when saving is built |
 | The Registrar's panes in `current/registrar.png` against the sheet: the left pane raised on three sides with none on the right; the panes split by 2-pixel bars with odd caps (x 260 to 261, 875 to 876). Found by Builder; the page is blank until then | Builder to put to him when the Registrar is built (3.3); David |
 | ~~Her row 3, the first tab when chosen; whether a chosen tab grows~~ ~~Her row 10, the page's drop-down's width~~ | Answered 2026-11-20: "make it not get taller, just be up front as re the borders between neighbors"; 128 |

@@ -4087,6 +4087,20 @@ Reference: `Art/quartile minecraft illustration.png`
     and a scale that doesn't change when the window is maximised. What he saw in 228, by Builder's account:
     F11 gave a maximised window under Windows' title bar, and Auto, taken from the window's size, fell from
     2x to 1x. In 229 Auto is taken from the screen's full size.
+- **The border and the grip while the editor fills the screen (2026-11-20)** (David, to Builder; relayed by
+  her to Counsel): "1 border all around 2 grip gone", then "proceed"
+  - To her two questions on what Windows 95 hides in a maximised window. The border stays all round, with
+    the black line, as his pictures have it. The size grip goes while the editor fills the screen; a smaller
+    window keeps both.
+  - He didn't say what fills the grip's place. Builder's reading, which was in her question: the small panes
+    move 14 into its room and "Ready" is 14 longer. It is in 229's pass mark as hers, open to his objection.
+  - "proceed" is his go for build 229.
+- **His look at build 229 (2026-11-20)** (David, to Builder; relayed by her to Counsel): "nice"
+  - After eight minutes in it, having been given two steps: F2, the editor filling the screen above the
+    taskbar in its own frame; then the menus. Build 229 (3ac63d6) is the window ours alone: no Windows frame
+    in any mode, the scale taken from the screen, the menus working.
+  - It is his only word on 229 so far. Whether he reached the smaller window and F11, and what he wants of
+    the menus' empty columns, Builder has asked.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
