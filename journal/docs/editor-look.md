@@ -88,6 +88,11 @@ here in the open.
 | "Narrow the whole by about a quarter": read by Builder as the debug panel, 303 wide in 228 where example 4 had 404 (the width was Counsel's example's, not his). He may mean the editor's tabbed panel (549, his own drawing): she points it out at his look. **At the look he chose neither** ("dont worry about it right now"): the debug panel stays 303 as built and the question rests | to Builder: "you can narrow the whole by about a quarter" | 2026-11-20 |
 | The 2 pixels under the menus' etched line stand: the tabs and the Software map's board sit 2 below it (Builder's reading of "keep at least a 2 pixel border between elements", confirmed) | at his look at build 228, to her second point: "yes" | 2026-11-20 |
 | The window gets its black outer line on the right and bottom, which his pictures lack (they are a 1,281 x 801 window cut to 1,280 x 800); drawn whole, everything on the right and bottom comes in a pixel. In build 229 | at his look at build 228, to her third point: "yes" | 2026-11-20 |
+| The X on the editor's title bar quits, the same as File > Quit and Alt+F4 | to Builder's first question for 229: "1. x quits" | 2026-11-20 |
+| The middle button follows Windows: the restore mark (two small windows) while the editor fills the screen, the maximise mark once the window is smaller | to her second: "2. follow windows" | 2026-11-20 |
+| The menus take Builder's additions: Edit > Undo (Ctrl+Z) and Redo (Ctrl+Y); View > Status Bar and Parameters Panel, ticks that hide or show; Help > What's This? (Shift+F1), which is his tooltip mode, and Keys.... Anything not working yet is greyed | to her third: "3. yes" | 2026-11-20 |
+| Editor Scale: Auto and 1x to 5x, a scale the screen can't hold greyed. Panel Scale: greyed until the panel has its first controls, its rules settled with him then | to her fourth: "4. yes" | 2026-11-20 |
+| **No wrapper: Windows' own frame never shows round ours, in any mode; the whole window is 95. And the scale never changes with the window's mode or size.** Builder's account of what he saw in 228: F11 gave a maximised window with Windows' title bar, and Auto, worked out from the window's size, fell from 2x to 1x; in 229 Auto comes from the screen's full size | to Builder: "we do need to make sure that the game window doesn't scale inside another window. there should be no wrapper at all, so the entire thing is 95gui. when i maximized it last time, it changed scale." | 2026-11-20 |
 
 ### Drawn by Counsel at his asking, not yet answered by him (guesses; nothing here is decided)
 
@@ -277,7 +282,8 @@ here in the open.
   once the build's commit is in; she launches when the CPU area reads under 80 C and tells him the wait. 228's
   log read 105 C at 3 s and 61 s and 104 C at 108 s, the compile running straight into the making of the
   world, the same pattern as 104 C on 2026-11-18.
-- **Build 229's four questions, put to him 2026-11-20 (hers; unanswered; nothing built):**
+- **Build 229's four questions, put to him 2026-11-20 (hers; answered the same day: "1. x quits 2. follow
+  windows 3. yes 4. yes", in "Decided by him"; nothing built):**
   1. The X on the editor's title bar. Hers: it quits, Windows 95's way, the same as File > Quit and Alt+F4.
      The other way: it returns to the game, like F2.
   2. The middle button while the editor fills the screen above the taskbar. Hers: Windows 95's restore mark
@@ -387,7 +393,7 @@ does NOT suit: "this pic is the window where you can adjust the stats of units a
 |---|---|
 | ~~Which panel "the scale of the panel" is~~ | Answered 2026-11-19: the parameters panel on the left, inside the editor; the debug panel has its own (the row above in "Decided by him") |
 | ~~Whether the editor's scale setting sizes the panel alone or the frame's bars with it~~ | Answered 2026-11-19, with a "probably": each has its own scale in the menu (the row in "Decided by him") |
-| Which panel scales count as unavailable at each editor scale (the rule behind the greying); what "reset" sets the panel's scale to; whether the editor's scale has the debug panel's steps (1x to 5x and Auto); what Auto means for the debug panel; ~~where the debug panel's scale setting sits~~ (answered 2026-11-20: its Overview tab) | Builder to put to him when the menu is built; David |
+| Which panel scales count as unavailable at each editor scale (the rule behind the greying); what "reset" sets the panel's scale to; ~~whether the editor's scale has the debug panel's steps (1x to 5x and Auto)~~ (answered 2026-11-20: yes, Auto from the screen's full size; the panel's rules wait for its first controls); what Auto means for the debug panel; ~~where the debug panel's scale setting sits~~ (answered 2026-11-20: its Overview tab) | Builder to put to him when the menu is built; David |
 | ~~What the wheel does when the pointer is inside a number box~~ | Answered 2026-11-19: it steps the number up or down (the row in "Decided by him") |
 | The wheel's step in a number box (how much one notch changes each setting); whether the new viewports keep old's zooms as they were ("the zoom was ..."), ~~what the wheel does over the Software map~~ (answered 2026-11-20: nothing); what it does over the other pages' views | Builder to propose from old; David |
 | The Software map: ~~black and magenta as now (example 6), or the 95 scheme on teal (example 7); every wire drawn dimmed, or only the chosen box's~~ answered by his mock-up and his words of 2026-11-20 (the 95 scheme on teal; every wire dark grey behind the boxes, the chosen box's blue on top). The card keeps its describing text, by his word of 2026-11-20 ("except from the software map"); example 10 he took whole into his own picture | David |
@@ -395,7 +401,7 @@ does NOT suit: "this pic is the window where you can adjust the stats of units a
 | Still wanted from him, by Builder's answer to this brief: ~~the mock-ups as lossless 1,280 x 800 PNGs~~ (they came 2026-11-20, in `Art/95gui mockups/current/`); ~~the title's lettering~~ (answered 2026-11-20: Darinia; Builder finds his own lettering set closer than the font sets it, below); the toolbar's four unnamed buttons; what fills the status bar's panes; ~~the open menus~~ (begun 2026-11-20: File, Edit and Window as he named them; the rest as they fill); which of old's viewport readouts go | David |
 | Screens with less room than 1,280 x 800 | David, near shipping |
 | ~~A smaller font for a floating window's short title bar (Ironquill has one size; Antiquity Print at 13 is his smallest), or the full-height bar~~ | Answered for the debug panel 2026-11-20, by his approval of example 4: Ironquill on its title bar. Open again if another floating window wants a shorter bar |
-| Tooltips: old's descriptions run to five lines and a 95 tooltip was one short line: wrapped tooltips, or the texts cut down. His tooltip mode of 2026-11-20 (a question-mark cursor that shows tooltips over everything) is where they will show: which menu it sits in; whether any tooltip shows outside it (Builder reads none); whether a click ends it as well as a key | David; Builder has asked |
+| Tooltips: old's descriptions run to five lines and a 95 tooltip was one short line: wrapped tooltips, or the texts cut down. His tooltip mode of 2026-11-20 (a question-mark cursor that shows tooltips over everything) is where they will show: ~~which menu it sits in~~ (Help > What's This?, Shift+F1, 2026-11-20); whether any tooltip shows outside it (Builder reads none); whether a click ends it as well as a key | David; Builder has asked |
 | ~~Folding sections: the bars as drawn, or a tree that shows one section at a time~~ | Answered by his mock-up, 2026-11-20: the bars as drawn |
 | Where the Field size, pixel size and bake controls of old's top bar go in World Gen (Counsel assumed a Main tab) | David |
 | ~~The describing text at the head of the Ocean plates panel in `current/tectonics.png`: kept, or a leftover?~~ | Answered 2026-11-20: left out ("the describing text in general should be omitted, except from the software map") |
@@ -403,7 +409,9 @@ does NOT suit: "this pic is the window where you can adjust the stats of units a
 | The Registrar: the Tags field is still in the dock though the library no longer filters by tags: are tags kept on an asset for later, or gone? | David |
 | Ironquill reaching the build: its licence forbids the font's files in a public repository (a built game may be public). Is the GitHub repository private? Until he says, the sheet stays off GitHub and the game reads it from a folder on this machine (Builder's plan) | David |
 | The debug panel: its tabs and sections (Builder to propose from today's F3 panel and example 4, which he took as the start, 2026-11-20); ~~its title bar's font~~ (Ironquill, as example 4); ~~where its scale setting sits~~ (its Overview tab); its first tabs Overview, Camera and Render | Builder to propose; David |
-| Build 229's four questions (under "Builder's plan"): what the title bar's X does; the middle button's mark when the editor fills the screen; her additions to the menus; the scales' lists and what Auto is. Counsel agrees with hers on all four | David; Builder has asked |
+| ~~Build 229's four questions: the title bar's X; the middle button's mark; her additions to the menus; the scales~~ | Answered 2026-11-20: "1. x quits 2. follow windows 3. yes 4. yes" |
+| The status bar's size grip while the editor fills the screen: Windows 95 hides it in a maximised window; his pictures fill the screen with the grip drawn | David; Builder to ask before 229's pass mark |
+| For later, Counsel's: once presets can be saved, what an X that quits does about unsaved work | David, when saving is built |
 | The Registrar's panes in `current/registrar.png` against the sheet: the left pane raised on three sides with none on the right; the panes split by 2-pixel bars with odd caps (x 260 to 261, 875 to 876). Found by Builder; the page is blank until then | Builder to put to him when the Registrar is built (3.3); David |
 | ~~Her row 3, the first tab when chosen; whether a chosen tab grows~~ ~~Her row 10, the page's drop-down's width~~ | Answered 2026-11-20: "make it not get taller, just be up front as re the borders between neighbors"; 128 |
 | ~~His viewport frame's outer dark line on the right at x 1,277; the two dark lines outside the Software map's sunken frame~~ | Answered 2026-11-20: "pull it in, replace them" |
@@ -414,7 +422,7 @@ does NOT suit: "this pic is the window where you can adjust the stats of units a
 | ~~The thick sunk frame's order of rings~~ | Answered 2026-11-20: the sunken edge outside, then two face rings |
 | ~~The row of tabs, now that nothing rises: up 2, or left with 2 empty rows above~~ | Answered 2026-11-20: "keep at least a 2 pixel border between elements"; read by Builder as up 2, which leaves exactly 2. Confirmed at his look at build 228: "yes" |
 | ~~The page's bottom: down from y 770 to 772~~ | Answered 2026-11-20: "give the bottom bar 2 pixels of spacing where its a panel element integrated into the window."; read by Builder as down to 772 |
-| The menus as Builder sketched them to him (under "Builder's plan"); her additions to the number box (Esc restores, a click elsewhere keeps, a second click places the cursor) | David, if he objects |
+| ~~The menus as Builder sketched them to him~~ (taken 2026-11-20: "3. yes"); her additions to the number box (Esc restores, a click elsewhere keeps, a second click places the cursor) | David, if he objects |
 | "The 2nd from top bar": Builder reads it as the bar under the title bar, and told him her reading, "answer only if wrong": words centred in the status bar's small panes and in the Seed box; the "Ready" pane left; drop-downs' words left, in line with their lists | David, if he objects |
 | The rest are in section 13 | |
 

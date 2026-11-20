@@ -4072,6 +4072,21 @@ Reference: `Art/quartile minecraft illustration.png`
     in build 229.
   - He said nothing on anything else in 228. Build 228 (f9a8376) is the first without egui: the editor's
     frame and the debug panel drawn by us.
+- **Build 229's four answers, and no wrapper (2026-11-20)** (David, to Builder; relayed by her to Counsel):
+  - "1. x quits"
+  - "2. follow windows"
+  - "3. yes"
+  - "4. yes"
+  - "we do need to make sure that the game window doesn't scale inside another window. there should be no wrapper at all, so the entire thing is 95gui. when i maximized it last time, it changed scale."
+  - To her four questions, in order: the X on the editor's title bar quits; the middle button shows Windows
+    95's restore mark while the editor fills the screen and the maximise mark otherwise; her additions to the
+    menus go in (Undo and Redo under Edit; Status Bar and Parameters Panel under View; What's This? and
+    Keys... under Help), so his tooltip mode is Help > What's This?; Editor Scale has Auto and 1x to 5x,
+    and Panel Scale stays greyed until the panel has controls.
+  - His last paragraph is a rule: nothing of Windows' own frame round ours in any mode, the whole window 95,
+    and a scale that doesn't change when the window is maximised. What he saw in 228, by Builder's account:
+    F11 gave a maximised window under Windows' title bar, and Auto, taken from the window's size, fell from
+    2x to 1x. In 229 Auto is taken from the screen's full size.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
