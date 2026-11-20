@@ -277,6 +277,26 @@ here in the open.
   once the build's commit is in; she launches when the CPU area reads under 80 C and tells him the wait. 228's
   log read 105 C at 3 s and 61 s and 104 C at 108 s, the compile running straight into the making of the
   world, the same pattern as 104 C on 2026-11-18.
+- **Build 229's four questions, put to him 2026-11-20 (hers; unanswered; nothing built):**
+  1. The X on the editor's title bar. Hers: it quits, Windows 95's way, the same as File > Quit and Alt+F4.
+     The other way: it returns to the game, like F2.
+  2. The middle button while the editor fills the screen above the taskbar. Hers: Windows 95's restore mark
+     (two small windows), and the maximise mark once the window is smaller; his pictures show the maximise
+     mark. The border stays in view either way, by his "yes" to the black line (Windows 95 would push it off
+     the screen's edges).
+  3. The menus, what he named and her additions (starred): File: Return to Game (F2), Quit (Alt+F4). Edit:
+     Settings..., Undo* (Ctrl+Z), Redo* (Ctrl+Y). View: Status Bar*, Parameters Panel* (ticks that hide or
+     show). Window: Editor Scale, Panel Scale (each a submenu), Full Screen (F11). Help: What's This?*
+     (Shift+F1, his tooltip mode), Keys...*. Anything not working yet is greyed. Hers: take all the starred
+     ones, which also places his tooltip mode. Her question 5 (tooltips outside the mode) waits for the
+     build that brings tooltips.
+  4. The scales. Editor Scale: Auto and 1x to 5x, the debug panel's list; Auto is the largest whole scale at
+     which 1,280 x 800 fits the screen; a scale too large for the screen to hold the frame is greyed. Panel
+     Scale: greyed until the panel has its first controls, its rules settled with him then.
+- **Hers for 229's pass mark, told to him as hers:** the drag, resizing by the edges and the grip,
+  double-click on the title bar to fill the screen, the smallest size. Two things he will see: windowed
+  above the taskbar the editor is shorter than his pictures by the taskbar's height (F11 gives the full
+  1,280 x 800); and F11 works only in the editor until the game has its windowed setting.
 
 ### The master palette in the Registrar: his direction (2026-11-19; a contemplation, its words may shift)
 
@@ -383,6 +403,7 @@ does NOT suit: "this pic is the window where you can adjust the stats of units a
 | The Registrar: the Tags field is still in the dock though the library no longer filters by tags: are tags kept on an asset for later, or gone? | David |
 | Ironquill reaching the build: its licence forbids the font's files in a public repository (a built game may be public). Is the GitHub repository private? Until he says, the sheet stays off GitHub and the game reads it from a folder on this machine (Builder's plan) | David |
 | The debug panel: its tabs and sections (Builder to propose from today's F3 panel and example 4, which he took as the start, 2026-11-20); ~~its title bar's font~~ (Ironquill, as example 4); ~~where its scale setting sits~~ (its Overview tab); its first tabs Overview, Camera and Render | Builder to propose; David |
+| Build 229's four questions (under "Builder's plan"): what the title bar's X does; the middle button's mark when the editor fills the screen; her additions to the menus; the scales' lists and what Auto is. Counsel agrees with hers on all four | David; Builder has asked |
 | The Registrar's panes in `current/registrar.png` against the sheet: the left pane raised on three sides with none on the right; the panes split by 2-pixel bars with odd caps (x 260 to 261, 875 to 876). Found by Builder; the page is blank until then | Builder to put to him when the Registrar is built (3.3); David |
 | ~~Her row 3, the first tab when chosen; whether a chosen tab grows~~ ~~Her row 10, the page's drop-down's width~~ | Answered 2026-11-20: "make it not get taller, just be up front as re the borders between neighbors"; 128 |
 | ~~His viewport frame's outer dark line on the right at x 1,277; the two dark lines outside the Software map's sunken frame~~ | Answered 2026-11-20: "pull it in, replace them" |
