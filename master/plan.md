@@ -18,7 +18,11 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   decided, what is only drawn and what is open on the editor is one shared page, kept by Counsel and worked from
   by Builder: "Where we stand", at the head of `journal/docs/editor-look.md`. The engine goes on as it stands: two marks over his 2 ms (high over the spawn 2.42, the town by the
   spawn 2.01), Phase 2's gate unflown, the game he looks at unmeasured, and a list for "when the engine is
-  finished out" (under 2.4). How it came here is the next bullet.
+  finished out" (under 2.4). How it came here is the next bullet. **The road from here, his words of
+  2026-11-19:** his mock-ups go to Builder "with a prompt from you about any details i forgot", and what lies
+  "beyond the overall setup" he works out with her; "tectonics, world gen, the registrar, and beyond up and
+  running again better than before", which "should be enough content to finish the engine with"; then "the next
+  hurdle is getting some gameplay going" (4.1's first slice, below).
 - **Working on:** Phase 2, *Restart*, step 2.3, the near eye (experiment 6), from 2026-11-16. Builder is reading
   old's near walk, the Oracle's near eye and near light (third part, sections 3 and 6; second part 4.2) and the
   doorway's answers, to bring David its first step and its pass mark before any code. The near eye is triangles, the
@@ -909,6 +913,9 @@ way, because it gets pretty crowded, so we'll use space a little better" (2026-1
 - [ ] **4.1 The game's systems,** in the order `master/spec.md` gives, once David has cut it. First, by his word
       (2026-11-16): "players, items, and animals, ideally through the editor gui entirely"; he needn't be a player in
       the game "until we get up to the point of cutting down a tree"
+  - [ ] **The first slice, named by him 2026-11-19** ("the next hurdle", after the editor's pages run again and
+        the engine is finished out): "a deer to hunt, tree to cut down, make a fire, eat, sleep, make stone spear
+        and wood club, add one enemy to fight with"
 
 ---
 

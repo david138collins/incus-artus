@@ -289,6 +289,11 @@ He rearranged `Art/` on 2026-11-19: his mock-ups are in `Art/95gui mockups/`, th
 - Builder prices and builds from his mock-ups and section 4's recipes, a pass mark first as always, and asks him
   where each control goes and what it is called before placing it.
 - Either of us who hears a word of his on the editor passes it to the other whole.
+- **The handover, his words of 2026-11-19:** "i think what in gonna wind up doing is making the mockups as best as i can, handing them to builder with a prompt from you about any details i forgot, and then letting builder go from there and micromanaging anything beyond the overall setup with her." So when he
+  hands the mock-ups over, Counsel writes the prompt that goes with them: what the pictures don't show (the
+  decided rows above, the behaviour, the sizes and recipes) and what is still open. Past the overall setup, the
+  details are his and Builder's, worked out between them as she builds; she passes his words to Counsel for
+  the record, as before.
 
 
 ## 1. What he wants, in his words

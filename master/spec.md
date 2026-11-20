@@ -717,6 +717,7 @@ Where the sources disagree. Each version is given with its ref; nothing here is 
 - Alloys, with recipes: bronze, hard bronze, black bronze, brass, sterling silver, iron, steel. [decided] (vision.md:630)
 - Stone tools: crude flint or stone tools nobody would buy, needed if you leave the path you wake on. [idea] (vision.md:474-475)
 - The club is the first weapon you craft. [idea] (vision.md:476)
+- The first gameplay, as he names it: "a deer to hunt, tree to cut down, make a fire, eat, sleep, make stone spear and wood club, add one enemy to fight with". So the first weapons made are a stone spear and a wood club. [wanted 2026-11-19] (decisions.md, the rebuild, 2026-11-19)
 - An item's strength comes from quality, material and encrusting: "item quality, material, encrusting will make a big deal to the items strength". [idea] (vision.md:866-869)
 - Quality decides most of an item's worth within a material; the material sets the range: "poorly made adamantine or mithril weapons will still obviously be better". [idea] (vision.md:883-891)
 - Adamantine and mithril exist as top materials. [idea] (vision.md:884-885)

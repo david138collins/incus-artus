@@ -3900,6 +3900,19 @@ Reference: `Art/quartile minecraft illustration.png`
     drop-down. Counsel's cube idea falls, since the textures are 32 x 32 and not 16.
   - Drawn for him the same day (examples 8 and 9 in `Art/References/editor reference/`): the Registrar page
     whole, and four ways of the library panel. Offers; none answered.
+- **How the editor is handed over, and the road after it (2026-11-19)** (David, to Counsel):
+  - "i think what in gonna wind up doing is making the mockups as best as i can, handing them to builder with a prompt from you about any details i forgot, and then letting builder go from there and micromanaging anything beyond the overall setup with her."
+  - "im excited. i feel like graphics is there when i need it and can get my brain around the whole thing and have spent more time looking at it and crystallizing my wants. the win95 work has been really fun in comparison to literally over a week of grueling test flights and technically demanding ideas."
+  - "in the meantime ill get tectonics, world gen, the registrar, and beyond up and running again better than before, and the win95 gives me love when i look at it. that should be enough content to finish the engine with. after that, the next hurdle is getting some gameplay going; a deer to hunt, tree to cut down, make a fire, eat, sleep, make stone spear and wood club, add one enemy to fight with."
+  - So, the handover: his mock-ups go to Builder with a prompt written by Counsel, listing what the pictures
+    don't show; from there she builds, and what lies beyond the overall setup he works out with her directly.
+  - The road: the editor's pages running again (tectonics, world gen, the Registrar "and beyond"), "better
+    than before"; with that content the engine is finished out; then the first gameplay, which he names: a deer
+    to hunt, a tree to cut down, a fire to make, eating, sleeping, a stone spear and a wood club, one enemy to
+    fight.
+  - Counsel's reading, not his words: "enough content to finish the engine with" means the engine's remaining
+    work (the list under 2.4, the marks over 2 ms, Phase 2's gate) is done against a world made in the new
+    editor, not against old's exported one. To be checked with him when the time comes.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
