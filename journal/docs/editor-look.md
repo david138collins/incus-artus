@@ -77,7 +77,9 @@ here in the open.
 | The page's drop-down is 128 wide on every page | to Builder: "2. 128" | 2026-11-20 |
 | The viewport's frame ends at x 1,276 on the right, level with everything else; the Software map's two dark lines outside its sunken frame are replaced (Builder's reading, put to him "say if not": they become the window's grey and the sunken frame runs to 1,276) | to Builder: "3. pull it in, replace them" | 2026-11-20 |
 | The temperatures in the editor sit at the right end of the status bar (in the game they stay top right, in our letters) | to Builder: "4. put them at the bottom bar, to the right." | 2026-11-20 |
-| **The viewport's frame is Windows 95's thick border frame in the standard colours, the same on the Tectonic Sim and World Gen** whatever picture is inside (this overtakes "go with my version"; which of Builder's two drawings of it, A or B, is under Open) | to Builder: "6. im not sure what i was trying to do, but derive win95's thick borderframe logic and use the standard colors, make sure its the same between the tectonics and the world gen, even though they show different pictures" | 2026-11-20 |
+| **The viewport's frame is Windows 95's thick border frame in the standard colours, the same on the Tectonic Sim and World Gen** whatever picture is inside (this overtakes "go with my version"). Sharpened by his answer 7, the next row but one: sunk, and on the Software map's board as well; Builder's A and B, both raised, fall away | to Builder: "6. im not sure what i was trying to do, but derive win95's thick borderframe logic and use the standard colors, make sure its the same between the tectonics and the world gen, even though they show different pictures" | 2026-11-20 |
+| A chosen tab is no taller than the rest; it is drawn in front of its neighbours' borders (Builder: covering 2 pixels of each; where it has no neighbour it doesn't reach out, so the row stays at x 4 and "2 pixels in" falls away) | to Builder: "1. make it not get taller, just be up front as re the borders between neighbors." | 2026-11-20 |
+| **One frame for the three views: thick and sunk**, on the Software map's board, the Tectonic Sim's viewport and World Gen's (against Builder's and Counsel's, who had the Software map keep its plain sunken frame). Which order its rings go in is under Open | to Builder: "7. make it thick frame, sunk, on both the software map board, the tectonic viewport, and the world gen viewport." | 2026-11-20 |
 
 ### Drawn by Counsel at his asking, not yet answered by him (guesses; nothing here is decided)
 
@@ -222,6 +224,21 @@ here in the open.
     window's own edge, rings from outside in L/K, W/S, face, face; the picture inside 714 x 715. B: the
     raised edge and one face ring (W/K, L/S, face), a pixel thinner and nearer his drawing; the picture
     inside 716 x 717.
+- **His answers to 1 and 7, the same day, and her second picture** (`Art/References/editor reference/choices 2 - the tab in front, the row up 2, the sunk frame (2026-11-20).png`;
+  hers; awaiting his word on three things):
+  - The tab, as she drew it from his answer: the chosen tab as tall as the rest, in front of its neighbours'
+    edges, covering 2 pixels of each.
+  - With nothing rising, the 2 rows above the tabs are empty. Hers: move the row up 2 (tabs at y 50 to 70, the
+    page from 71), where his Tectonic Sim drawing had them, the tabs' tops in line with the frame's top. This
+    reverses his "conform to world gen height" of that morning for the row, since the rise it made room for
+    is gone.
+  - The page's bottom is at y 770 in both pictures, 2 above the frame's 772. Hers: take it down to 772, so
+    both sit 2 pixels above the status bar.
+  - "Thick frame, sunk", two readings: hers, the sunken edge outside and then two face rings (S/W, K/L, face,
+    face), the thick frame's own order with its edge sunk; or two face rings and then the sunken edge (face,
+    face, S/W, K/L), which reads as the ordinary sunken frame with a wider gap. All three boxes run y 50 to
+    772; the views x 555 to 1,276 (inside 714 x 715); the board x 306 to 1,276 (inside 963 x 715, its
+    scrollbar inside the frame).
 
 ### The master palette in the Registrar: his direction (2026-11-19; a contemplation, its words may shift)
 
@@ -328,12 +345,15 @@ does NOT suit: "this pic is the window where you can adjust the stats of units a
 | The Registrar: the Tags field is still in the dock though the library no longer filters by tags: are tags kept on an asset for later, or gone? | David |
 | Ironquill reaching the build: its licence forbids the font's files in a public repository (a built game may be public). Is the GitHub repository private? Until he says, the sheet stays off GitHub and the game reads it from a folder on this machine (Builder's plan) | David |
 | The debug panel: its tabs and sections (Builder to propose from today's F3 panel and example 4, which he took as the start, 2026-11-20); its title bar's font; ~~where its scale setting sits~~ (its Overview tab) | Builder to propose; David |
-| Her row 3, the first tab when chosen: he asked back whether a chosen tab should grow at all ("it should just leaf to the front of any adjacent tabs"). Three ways drawn by Builder (her plan, above): Windows' way where he drew the row; Windows' way with the row 2 pixels in (hers, and Counsel's); not growing. ~~Her row 10, the page's drop-down's width~~ (answered 2026-11-20: 128) | David; Builder has shown him |
+| ~~Her row 3, the first tab when chosen; whether a chosen tab grows~~ ~~Her row 10, the page's drop-down's width~~ | Answered 2026-11-20: "make it not get taller, just be up front as re the borders between neighbors"; 128 |
 | ~~His viewport frame's outer dark line on the right at x 1,277; the two dark lines outside the Software map's sunken frame~~ | Answered 2026-11-20: "pull it in, replace them" |
 | ~~His viewport frame's two dark shades, 3A3A42 and 282830, outside the 95 scheme: kept, or the scheme's?~~ | Answered 2026-11-20: the standard colours ("im not sure what i was trying to do, but derive win95's thick borderframe logic and use the standard colors") |
 | ~~The temperatures in the editor, once egui (which draws them) is gone~~ | Answered 2026-11-20: "put them at the bottom bar, to the right." |
-| The viewport's frame, which drawing: A, Windows 95's thick frame as the window's own edge (four rings; the picture inside 714 x 715), or B, the raised edge and one face ring (three rings; 716 x 717). Builder's and Counsel's: A, which is his words to the letter | David; Builder has shown him |
-| The Software map's view keeps its sunken frame (Counsel's example 10, which he took) while the Tectonic Sim's and World Gen's views take the thick frame: two kinds of frame for the pages' views. Left so, or one frame for all three? Counsel's question, by his rule of one logic for borders. Put to him by Builder as her question 7. Hers, and Counsel's on hearing it: keep the Software map's view sunken, since it scrolls and holds a scrollbar and Windows 95 sets anything that scrolls in a sunken edge; so the logic is by kind, the thick frame for a page's picture and the sunken one for a scrolling view. The other way offered: the thick frame on all three | David; Builder has asked |
+| ~~The viewport's frame, which drawing: A or B~~ | Overtaken 2026-11-20 by his answer 7 ("thick frame, sunk"): both were raised |
+| ~~The Software map's view: its plain sunken frame, or one frame for all three (Counsel's question; Builder's question 7)~~ | Answered 2026-11-20: one frame, "thick frame, sunk, on both the software map board, the tectonic viewport, and the world gen viewport" (Builder and Counsel had both said keep it plain sunken) |
+| The thick sunk frame's order of rings: the sunken edge outside and two face rings inside (Builder's, and Counsel's: the face rings then show as a ledge round the picture, so the frame reads thick), or two face rings outside and the sunken edge against the picture (the face rings then merge with the window's face and it reads as a plain sunken frame set further in) | David; Builder has shown him |
+| The row of tabs, now that nothing rises: up 2, to y 50 to 70 (Builder's, and Counsel's, by his rule of no dead space; it reverses "conform to world gen height" of the same morning for the row), or left where World Gen has it with 2 empty rows above | David; Builder has shown him |
+| The page's bottom: down from y 770 to 772, level with the frame's (Builder's, and Counsel's) | David; Builder has shown him |
 | The menus as Builder sketched them to him (under "Builder's plan"); her additions to the number box (Esc restores, a click elsewhere keeps, a second click places the cursor) | David, if he objects |
 | "The 2nd from top bar": Builder reads it as the bar under the title bar, and told him her reading, "answer only if wrong": words centred in the status bar's small panes and in the Seed box; the "Ready" pane left; drop-downs' words left, in line with their lists | David, if he objects |
 | The rest are in section 13 | |
@@ -539,9 +559,9 @@ table; the mapping is hers. His words are whole in "Decided by him" and in
 | 3b | 5 | 8 | "no arrows, scroll wheel or typing is enough" | plain number boxes; a click selects all, Enter keeps and leaves |
 | 4 | 6 | 6 | "go with default" | the sheet's radio buttons |
 | 5 | 7 | 7 | "go with 15 and 4" | the sheet's lists; and his standing rule on tightness |
-| 6 | 8 | 10 | "go with my version"; later the same day, "derive win95's thick borderframe logic and use the standard colors" | Windows 95's thick frame in the standard colours, the same on both pages, ending at x 1,276; A or B under Open |
+| 6 | 8 | 10 | "go with my version"; later the same day, "derive win95's thick borderframe logic and use the standard colors" | Windows 95's thick frame in the standard colours, ending at x 1,276; then, by his answer 7, sunk and on all three views; its order of rings under Open |
 | 7 | 9 | 5 | "just center anything in those displays" | words centred in the status bar's panes and the second bar's displays |
-| (none) | 3 | 12 | asked again: "i don't think a chosen tab should 'grow', should it?" | open; three ways drawn for him |
+| (none) | 3 | 12 | asked again: "i don't think a chosen tab should 'grow', should it?"; then "make it not get taller, just be up front as re the borders between neighbors" | the chosen tab no taller, in front of its neighbours' edges; the row's height under Open |
 | (none) | 10 | 4 | asked again: "128" | 128 on every page |
 
 Where the answers fell against the recommendations: with Builder on her rows 1, 2, 5, 6 and 7; his own on 4
@@ -607,6 +627,8 @@ to 557 (FFFFFF, DFDFDF, C0C0C0) and x 1,275 to 1,277 (808080, 3A3A42, 282830), t
   his numbered answers of that day refer to.
 - `choices - the chosen tab and the viewport frame (2026-11-20).png`: Builder's picture of the first tab three
   ways and the viewport's frame two ways (A and B) beside his own.
+- `choices 2 - the tab in front, the row up 2, the sunk frame (2026-11-20).png`: Builder's picture from his
+  answers 1 and 7: the tab in front and no taller, the row of tabs up 2 or left, the thick sunk frame two ways.
 - Each drawer's source beside its pictures (`*.cs`, run from PowerShell); every edge in them is drawn to
   section 4's recipes, so they are also a worked example of the recipes in code.
 

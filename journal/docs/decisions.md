@@ -4021,6 +4021,20 @@ Reference: `Art/quartile minecraft illustration.png`
     his own pictures already draw it); 5, tooltips outside his mode, which waits for the menus; and which of
     Builder's two drawings of the thick frame he picks (A, four rings, as the window's own edge; B, three).
     Her picture: `Art/References/editor reference/choices - the chosen tab and the viewport frame (2026-11-20).png`.
+- **The chosen tab and the one frame (2026-11-20)** (David, to Builder; relayed by her to Counsel; his answers
+  to her questions 1 and 7):
+  - "1. make it not get taller, just be up front as re the borders between neighbors."
+  - "7. make it thick frame, sunk, on both the software map board, the tectonic viewport, and the world gen viewport."
+  - So: a chosen tab is no taller than the others and is drawn in front of its neighbours' borders. Windows 95
+    raises it 2 pixels, and his own pictures drew it raised; this is his choice against both.
+  - So: one frame for the three views, thick and sunk, on the Software map's board and the two viewports.
+    Builder and Counsel had both said to keep the Software map's plain sunken frame (a scrolling view); he
+    chose one frame for all. It sharpens his answer 6 in the entry above (the thick border frame, standard
+    colours) and sets aside Builder's drawings A and B, which were both raised.
+  - Left open by these, drawn by Builder in `Art/References/editor reference/choices 2 - the tab in front, the row up 2, the sunk frame (2026-11-20).png`:
+    whether the row of tabs moves up 2 now that nothing rises (which would reverse "conform to world gen
+    height" of the same morning, for the row); whether the page's bottom comes down 2 to the frame's; and
+    the order of the thick sunk frame's rings (the sunken edge outside two face rings, or inside them).
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its
