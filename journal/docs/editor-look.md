@@ -69,11 +69,15 @@ here in the open.
 | Radio buttons sit where the sheet puts them (y + 1) | to Builder: "4. go with default" | 2026-11-20 |
 | Lists: rows 15 apart, words 4 in (the sheet's) | to Builder: "5. go with 15 and 4" | 2026-11-20 |
 | **Standing: everything as tight as it can go, by one consistent logic for gaps and borders; no dead space, nothing unnecessary on screen** | to Builder: "we should always squeeze things as tight as possible while maintaining a consistent logic for gaps and borders. we don't want dead space or anything unnecessary on the screen." | 2026-11-20 |
-| The viewport's frame is his (raised: white, light and face at top and left; 808080, 3A3A42, 282830 at bottom and right). The magenta is the viewport's own picture, an exception to the 95 style. Two pixel follow-ups and one of shade are under Open | to Builder: "6 go with my version. obviously the magenta is part of the actual viewport which is an exception to our 95 style." | 2026-11-20 |
+| ~~The viewport's frame is his (raised: white, light and face at top and left; 808080, 3A3A42, 282830 at bottom and right).~~ **Overtaken by his own word later the same day** (the frame's row below). Standing from it: the magenta is the viewport's own picture, an exception to the 95 style | to Builder: "6 go with my version. obviously the magenta is part of the actual viewport which is an exception to our 95 style." | 2026-11-20 |
 | Whatever a display shows is centred in it, in the status bar and in the second bar from the top | to Builder: "7. just center anything in those displays in the bottom bar or in the 2nd from top bar" | 2026-11-20 |
 | **egui goes all at once**; the new system from the first build (this overtakes "today's F3 panel stays until then", 2026-11-19) | to Builder: "you can just get rid of it all at once, there's no need to go in and use it except to check it in the near future, so we can just start with the new system when you're ready." | 2026-11-20 |
 | The debug panel is in the game only, never in the editor. Builder's suggestions for it taken: it starts from example 4, with its scale and "game in a window" on its Overview tab | to Builder: "the debug panel should not appear in the editor, it should just be in the game. yes, go with your suggestions for it." | 2026-11-20 |
 | The menus, to start: File has Return to game and Quit; Edit has Settings, greyed; Window has the scale and windowed menus. A tooltip mode: the cursor becomes a question mark, tooltips show over everything, any key ends it (put as a question; its menu not named). Builder is to suggest what else could live in the menus instead of elsewhere, to save space | to Builder: "for the menus, i know we don't have much to put in there now, but yeah, try to suggest things to me that can go there instead of somewhere else, to save space. return to game and quit under file, greyed out 'settings' under edit, the scale and windowed menus under window, and tooltip mode that turns the cursor into a question mark to reveal tooltips over everything, any key to exit? im sure they'll fill up over time." | 2026-11-20 |
+| The page's drop-down is 128 wide on every page | to Builder: "2. 128" | 2026-11-20 |
+| The viewport's frame ends at x 1,276 on the right, level with everything else; the Software map's two dark lines outside its sunken frame are replaced (Builder's reading, put to him "say if not": they become the window's grey and the sunken frame runs to 1,276) | to Builder: "3. pull it in, replace them" | 2026-11-20 |
+| The temperatures in the editor sit at the right end of the status bar (in the game they stay top right, in our letters) | to Builder: "4. put them at the bottom bar, to the right." | 2026-11-20 |
+| **The viewport's frame is Windows 95's thick border frame in the standard colours, the same on the Tectonic Sim and World Gen** whatever picture is inside (this overtakes "go with my version"; which of Builder's two drawings of it, A or B, is under Open) | to Builder: "6. im not sure what i was trying to do, but derive win95's thick borderframe logic and use the standard colors, make sure its the same between the tectonics and the world gen, even though they show different pictures" | 2026-11-20 |
 
 ### Drawn by Counsel at his asking, not yet answered by him (guesses; nothing here is decided)
 
@@ -203,6 +207,21 @@ here in the open.
     stays left, as the message line; drop-downs keep their words left, in line with their lists.
   - His spacing rule as standing.
 - She writes build 228's pass mark and starts once he has answered 1 to 6.
+- **His answers to the six, 2026-11-20** (his words are in "Decided by him" and `journal/docs/decisions.md`):
+  1 came back as a question, "i don't think a chosen tab should 'grow', should it? it should just leaf to the
+  front of any adjacent tabs", and she is answering it with a picture; 2, 128; 3, "pull it in, replace
+  them"; 4, the status bar's right end; 5, not answered, and she has told him it can wait until the menus
+  are built; 6, Windows 95's thick border frame in the standard colours, the same on both pages.
+- **Her picture of the two choices left** (`Art/References/editor reference/choices - the chosen tab and the viewport frame (2026-11-20).png`;
+  hers; awaiting his pick):
+  - The chosen tab. In Windows 95 it does grow: 2 pixels taller and covering 2 pixels of each neighbour,
+    which is how it comes to the front; his own pictures already draw it so (Climate, Ocean plates). Three
+    ways for the first tab: Windows' way with the row where he drew it (the first tab pokes past the panel's
+    edge); Windows' way with the row 2 pixels in (hers); not growing.
+  - The viewport's frame, both at x 555 to 1,276, y 50 to 772. A (hers): the thick frame, the same as the
+    window's own edge, rings from outside in L/K, W/S, face, face; the picture inside 714 x 715. B: the
+    raised edge and one face ring (W/K, L/S, face), a pixel thinner and nearer his drawing; the picture
+    inside 716 x 717.
 
 ### The master palette in the Registrar: his direction (2026-11-19; a contemplation, its words may shift)
 
@@ -309,10 +328,12 @@ does NOT suit: "this pic is the window where you can adjust the stats of units a
 | The Registrar: the Tags field is still in the dock though the library no longer filters by tags: are tags kept on an asset for later, or gone? | David |
 | Ironquill reaching the build: its licence forbids the font's files in a public repository (a built game may be public). Is the GitHub repository private? Until he says, the sheet stays off GitHub and the game reads it from a folder on this machine (Builder's plan) | David |
 | The debug panel: its tabs and sections (Builder to propose from today's F3 panel and example 4, which he took as the start, 2026-11-20); its title bar's font; ~~where its scale setting sits~~ (its Overview tab) | Builder to propose; David |
-| Her rows 3 and 10, left out of his numbered picture: the first tab when chosen (hers: start the row of tabs 2 pixels in); the page's drop-down's width (hers: 128 everywhere) | David; Builder has asked again |
-| His viewport frame, kept by his word of 2026-11-20: the outer dark line on the right at x 1,277, a pixel past everything else (Builder: pull it in to 1,276); the same two dark lines outside the Software map's sunken frame (Builder: drop them there) | David; Builder has asked |
-| His viewport frame's two dark shades, 3A3A42 and 282830, are not in the 95 scheme or his `95.gpl` (they came with his first frame). His answer spoke of the magenta: were the two shades shown to him as a difference, and does he keep them or take the scheme's 808080 and black? Counsel's question, by his standing word ("a shade"). Builder's table had said it and her picture's caption had not; she has put it to him as her question 6 (hers: keep them; otherwise black for both) | David; Builder has asked |
-| The temperatures in the editor, once egui (which draws them) is gone (Builder: a pane at the right end of the status bar; in the game they stay top right in our letters) | David; Builder has asked |
+| Her row 3, the first tab when chosen: he asked back whether a chosen tab should grow at all ("it should just leaf to the front of any adjacent tabs"). Three ways drawn by Builder (her plan, above): Windows' way where he drew the row; Windows' way with the row 2 pixels in (hers, and Counsel's); not growing. ~~Her row 10, the page's drop-down's width~~ (answered 2026-11-20: 128) | David; Builder has shown him |
+| ~~His viewport frame's outer dark line on the right at x 1,277; the two dark lines outside the Software map's sunken frame~~ | Answered 2026-11-20: "pull it in, replace them" |
+| ~~His viewport frame's two dark shades, 3A3A42 and 282830, outside the 95 scheme: kept, or the scheme's?~~ | Answered 2026-11-20: the standard colours ("im not sure what i was trying to do, but derive win95's thick borderframe logic and use the standard colors") |
+| ~~The temperatures in the editor, once egui (which draws them) is gone~~ | Answered 2026-11-20: "put them at the bottom bar, to the right." |
+| The viewport's frame, which drawing: A, Windows 95's thick frame as the window's own edge (four rings; the picture inside 714 x 715), or B, the raised edge and one face ring (three rings; 716 x 717). Builder's and Counsel's: A, which is his words to the letter | David; Builder has shown him |
+| The Software map's view keeps its sunken frame (Counsel's example 10, which he took) while the Tectonic Sim's and World Gen's views take the thick frame: two kinds of frame for the pages' views. Left so, or one frame for all three? Counsel's question, by his rule of one logic for borders | David; Counsel has asked Builder to put it with A or B |
 | The menus as Builder sketched them to him (under "Builder's plan"); her additions to the number box (Esc restores, a click elsewhere keeps, a second click places the cursor) | David, if he objects |
 | "The 2nd from top bar": Builder reads it as the bar under the title bar, and told him her reading, "answer only if wrong": words centred in the status bar's small panes and in the Seed box; the "Ready" pane left; drop-downs' words left, in line with their lists | David, if he objects |
 | The rest are in section 13 | |
@@ -518,10 +539,10 @@ table; the mapping is hers. His words are whole in "Decided by him" and in
 | 3b | 5 | 8 | "no arrows, scroll wheel or typing is enough" | plain number boxes; a click selects all, Enter keeps and leaves |
 | 4 | 6 | 6 | "go with default" | the sheet's radio buttons |
 | 5 | 7 | 7 | "go with 15 and 4" | the sheet's lists; and his standing rule on tightness |
-| 6 | 8 | 10 | "go with my version" | his raised frame; follow-ups under Open |
+| 6 | 8 | 10 | "go with my version"; later the same day, "derive win95's thick borderframe logic and use the standard colors" | Windows 95's thick frame in the standard colours, the same on both pages, ending at x 1,276; A or B under Open |
 | 7 | 9 | 5 | "just center anything in those displays" | words centred in the status bar's panes and the second bar's displays |
-| (none) | 3 | 12 | not in the picture | unanswered; asked again |
-| (none) | 10 | 4 | not in the picture | unanswered; asked again |
+| (none) | 3 | 12 | asked again: "i don't think a chosen tab should 'grow', should it?" | open; three ways drawn for him |
+| (none) | 10 | 4 | asked again: "128" | 128 on every page |
 
 Where the answers fell against the recommendations: with Builder on her rows 1, 2, 5, 6 and 7; his own on 4
 (three ticks, where she and Counsel both came to none), on 8 (his frame, where both said the sheet's) and on 9
@@ -584,6 +605,8 @@ to 557 (FFFFFF, DFDFDF, C0C0C0) and x 1,275 to 1,277 (808080, 3A3A42, 282830), t
   (Example 7's picture he took into his own folder as `software map.png`.)
 - `comparison - yours against the style sheet (2026-11-20).png`: Builder's picture of the differences, the one
   his numbered answers of that day refer to.
+- `choices - the chosen tab and the viewport frame (2026-11-20).png`: Builder's picture of the first tab three
+  ways and the viewport's frame two ways (A and B) beside his own.
 - Each drawer's source beside its pictures (`*.cs`, run from PowerShell); every edge in them is drawn to
   section 4's recipes, so they are also a worked example of the recipes in code.
 

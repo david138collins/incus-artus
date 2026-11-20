@@ -4002,6 +4002,25 @@ Reference: `Art/quartile minecraft illustration.png`
   - Counsel's question, by his standing word on shades: his frame's two dark lines are 3A3A42 and 282830,
     outside the 95 scheme, and his answer spoke of the magenta. Whether he saw those two shades as a
     difference is being asked of Builder.
+- **His answers to Builder's six questions (2026-11-20)** (David, to Builder; relayed by her to Counsel;
+  he answered by her numbers and skipped 5):
+  - "1. i don't think a chosen tab should 'grow', should it? it should just leaf to the front of any adjacent tabs."
+  - "2. 128"
+  - "3. pull it in, replace them"
+  - "4. put them at the bottom bar, to the right."
+  - "6. im not sure what i was trying to do, but derive win95's thick borderframe logic and use the standard colors, make sure its the same between the tectonics and the world gen, even though they show different pictures"
+  - So: the page's drop-down is 128 wide on every page; the viewport frame's right edge comes in to x 1,276
+    and the Software map's two dark lines are replaced; the temperatures in the editor sit at the right end of
+    the status bar.
+  - **Corrected in the open:** the entry above has the viewport's frame as his own, with its two dark shades.
+    His answer 6 here overtakes that the same day: the frame is Windows 95's thick border frame in the
+    standard colours, the same on the Tectonic Sim and World Gen whatever picture is inside. What stands from
+    the earlier answer: the magenta is the viewport's own picture, an exception to the 95 style.
+  - Still open: 1, which he answered with a question of his own (whether a chosen tab should grow; Builder
+    has drawn him three ways, Windows 95's being that it does, 2 pixels taller and 2 over each neighbour, as
+    his own pictures already draw it); 5, tooltips outside his mode, which waits for the menus; and which of
+    Builder's two drawings of the thick frame he picks (A, four rings, as the window's own edge; B, three).
+    Her picture: `Art/References/editor reference/choices - the chosen tab and the viewport frame (2026-11-20).png`.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its

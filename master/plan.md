@@ -35,7 +35,7 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   debug panel is in the game only; the menus begin with File, Edit and Window as he named them. Her order
   now (proposed): build 228, egui out, with the frame, the blank pages, a blank floating debug panel and the
   temperatures; 229, the frame working, and the menus; 230, the Software map; 231 to 234, the debug panel's
-  tabs. Nothing is built yet; two of her ten rows and four follow-ups wait on him (the shared page, Open).
+  tabs. Nothing is built yet; what still waits on him is on the shared page, under Open.
 - **Working on:** Phase 2, *Restart*, step 2.3, the near eye (experiment 6), from 2026-11-16. Builder is reading
   old's near walk, the Oracle's near eye and near light (third part, sections 3 and 6; second part 4.2) and the
   doorway's answers, to bring David its first step and its pass mark before any code. The near eye is triangles, the
