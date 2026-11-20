@@ -428,6 +428,26 @@ examples he took; the sheet is what he chose from):
 12. His tabs start level with the page's left edge, so a chosen first tab would stick out 2 pixels to the
     left; the sheet's chosen first tab is level with the edge.
 
+**As Builder put them to him: a table of ten rows** (he will most likely answer by her rows; her
+recommendation beside each is hers, not his word):
+
+| Her row | The difference | The point above | She recommended |
+|---|---|---|---|
+| 1 | The title buttons' gaps and the maximise square | 1 | his |
+| 2 | The Tectonic Sim's panel 2 pixels high, its chosen tab's top lost | 3 | World Gen's |
+| 3 | The first tab when chosen | 12 | start the row of tabs 2 pixels in |
+| 4 | Sliders without tick marks | 8 | no ticks |
+| 5 | Number boxes without arrows | 8 | plain, since the wheel steps the number |
+| 6 | Radio buttons a pixel low | 6 | the sheet's |
+| 7 | Lists 16 apart and 6 in | 7 | the sheet's (she first said the picture's, and changed it since it wasn't his choice) |
+| 8 | The viewport's frame | 10 | the sheet's sunken frame |
+| 9 | The status bar's small panes | 5 | the sheet's 5 in |
+| 10 | The page's drop-down's width | 4 | 128 everywhere |
+
+Not in her table, noted for their own pages: the Tectonic Sim's toolbar (point 11) and the Registrar's buttons
+(point 9). The title's lettering (point 2) she told him she will take as his picture. She told him that
+points 6 to 9 came through Counsel's drawers and are not choices of his.
+
 ### The Registrar's frame: his mock-up in progress (2026-11-19)
 
 `Art/95gui mockups/registrar.png`. Three boxes side by side under the bars, outlined in magenta as placeholders:
