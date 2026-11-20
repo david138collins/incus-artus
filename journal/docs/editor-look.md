@@ -173,17 +173,36 @@ here in the open.
   you're ready"):** build 228, egui out, with the frame, the blank pages, the blank floating debug panel and
   the temperatures; 229, the frame working, and the menus; 230, the Software map; 231 to 234, the debug
   panel's tabs. Nothing is built or committed yet.
-- **Her suggestions for the menus, put to him at his asking (hers; unanswered):** Help > What's This?
-  (Shift+F1) for his tooltip mode; Help > Keys...; View > Status Bar and Settings Panel, ticked; File > Save
-  Preset (Ctrl+S) and Save Preset As..., instead of the top bars' Save and Load; Edit > Undo and Redo, greyed
-  until built.
-- **Her follow-ups, put to him the same day (unanswered; they are rows under Open):** (a) her rows 3 and 10,
-  which his numbered picture left out; (b) his viewport frame's outer dark line on the right is at x 1,277, a
-  pixel past where everything else ends (1,276), while the bottom keeps its 2-pixel gap: hers, pull it in to
-  1,276; and his Software map has the same two dark lines just outside its sunken frame: hers, drop them
-  there, the sunken frame reaching 1,276; (c) the temperatures, which egui draws and so go with it: in the
-  game they stay top right in our own letters; in the editor, hers, a pane at the right end of the status bar;
-  (d) tooltips outside his mode: her reading is none at all; inside it, a click ends the mode as well.
+- **The menus as she sketched them to him (hers where starred; unanswered):** File: Return to game (F2),
+  Quit (Alt+F4). Edit: Settings... greyed; Undo* (Ctrl+Z) and Redo* (Ctrl+Y), greyed. View: Status Bar* and
+  Parameters Panel*, ticked. Window: Editor scale, Panel scale, Full screen (F11). Help: What's This?*
+  (Shift+F1), his tooltip mode; Keys...*. Later, maybe: Save Preset (Ctrl+S) and Save Preset As... under
+  File instead of the top bars' Save and Load, decided when the Tectonic Sim is built. The game's "in a
+  window" stays on the debug panel's Overview.
+- **Her six questions to him, numbered as he saw them (his answers will come back by these numbers;
+  unanswered; each is hers until he answers):**
+  1. Her row 3, the first tab when chosen. Hers: start the row of tabs 2 pixels in.
+  2. Her row 10, the page's drop-down's width. Hers: 128 everywhere.
+  3. His frame's two pixels: its outer line on the right at x 1,277, one past everything else (hers: pull it
+     to 1,276, so the picture inside is 716 wide); and the Software map's two dark lines (hers: leftovers,
+     drop them, the sunken frame to 1,276).
+  4. The temperatures in the editor. Hers: a pane at the right end of the status bar; in the game they stay
+     top right, in our letters.
+  5. Tooltips outside his mode. Hers: none; inside it, a click also ends the mode, without pressing anything.
+  6. The frame's shades, 3A3A42 and 282830: keep them (hers, as she reads "go with my version"), or black for
+     both, the nearest in the scheme. Put after Counsel's question: her table's row 8 had told him "raised,
+     three dark lines, two in shades outside the scheme", but the picture's item 6 was captioned only "the
+     viewport's frame, bottom right corner", and he answered by the picture.
+- **What she told him she takes as he said, "answer only if wrong" (her readings; his to object to):**
+  - The minimise bar centred, 1 pixel right of his drawing; the square and the X as drawn.
+  - Three tick marks drawn like the sheet's; nothing moves.
+  - The number box: his click, type, Enter; and, hers, Esc restores the old number, a click elsewhere keeps
+    what was typed, and a second click places the cursor. What happens to a number typed past a slider's
+    ends is held for the number box's build.
+  - The centring: words centred in the status bar's small panes and in the Seed box; the long "Ready" pane
+    stays left, as the message line; drop-downs keep their words left, in line with their lists.
+  - His spacing rule as standing.
+- She writes build 228's pass mark and starts once he has answered 1 to 6.
 
 ### The master palette in the Registrar: his direction (2026-11-19; a contemplation, its words may shift)
 
@@ -292,10 +311,10 @@ does NOT suit: "this pic is the window where you can adjust the stats of units a
 | The debug panel: its tabs and sections (Builder to propose from today's F3 panel and example 4, which he took as the start, 2026-11-20); its title bar's font; ~~where its scale setting sits~~ (its Overview tab) | Builder to propose; David |
 | Her rows 3 and 10, left out of his numbered picture: the first tab when chosen (hers: start the row of tabs 2 pixels in); the page's drop-down's width (hers: 128 everywhere) | David; Builder has asked again |
 | His viewport frame, kept by his word of 2026-11-20: the outer dark line on the right at x 1,277, a pixel past everything else (Builder: pull it in to 1,276); the same two dark lines outside the Software map's sunken frame (Builder: drop them there) | David; Builder has asked |
-| His viewport frame's two dark shades, 3A3A42 and 282830, are not in the 95 scheme or his `95.gpl` (they came with his first frame). His answer spoke of the magenta: were the two shades shown to him as a difference, and does he keep them or take the scheme's 808080 and black? Counsel's question, by his standing word ("a shade") | David; Counsel has asked Builder whether her picture showed it |
+| His viewport frame's two dark shades, 3A3A42 and 282830, are not in the 95 scheme or his `95.gpl` (they came with his first frame). His answer spoke of the magenta: were the two shades shown to him as a difference, and does he keep them or take the scheme's 808080 and black? Counsel's question, by his standing word ("a shade"). Builder's table had said it and her picture's caption had not; she has put it to him as her question 6 (hers: keep them; otherwise black for both) | David; Builder has asked |
 | The temperatures in the editor, once egui (which draws them) is gone (Builder: a pane at the right end of the status bar; in the game they stay top right in our letters) | David; Builder has asked |
-| Builder's suggestions for the menus (under "Builder's plan") | David |
-| "The 2nd from top bar": Builder reads it as the bar under the title bar, where the page's drop-down, the presets and the Seed sit; so words in a drop-down or a field there would be centred too, where the sheet sets them from the left. To be shown to him at the build | Builder to show; David |
+| The menus as Builder sketched them to him (under "Builder's plan"); her additions to the number box (Esc restores, a click elsewhere keeps, a second click places the cursor) | David, if he objects |
+| "The 2nd from top bar": Builder reads it as the bar under the title bar, and told him her reading, "answer only if wrong": words centred in the status bar's small panes and in the Seed box; the "Ready" pane left; drop-downs' words left, in line with their lists | David, if he objects |
 | The rest are in section 13 | |
 
 ### His mock-ups: `Art/95gui mockups/` (his own folder, from 2026-11-19; in progress, not yet handed over)
@@ -485,8 +504,9 @@ Not in her table, noted for their own pages: the Tectonic Sim's toolbar (point 1
 (point 9). The title's lettering (point 2) she told him she will take as his picture. She told him that
 points 6 to 9 came through Counsel's drawers and are not choices of his.
 
-**His answers, 2026-11-20.** He numbered by her picture, `yours-against-the-style-sheet.png` (1, 2, 2b, 3, 3b,
-4, 5, 6, 7), not by the table; the mapping is hers. His words are whole in "Decided by him" and in
+**His answers, 2026-11-20.** He numbered by her picture (1, 2, 2b, 3, 3b, 4, 5, 6, 7; kept as
+`Art/References/editor reference/comparison - yours against the style sheet (2026-11-20).png`), not by the
+table; the mapping is hers. His words are whole in "Decided by him" and in
 `journal/docs/decisions.md`.
 
 | His number | Her row | The point | His answer | What it comes to |
@@ -562,6 +582,8 @@ to 557 (FFFFFF, DFDFDF, C0C0C0) and x 1,275 to 1,277 (808080, 3A3A42, 282830), t
 - Example 10: the Software map with every module a box in its group, grey wires behind and the chosen box's in
   blue on top (10b nothing chosen, 10c a store chosen); its drawer is `software map drawer 3 (grouped boxes).cs`.
   (Example 7's picture he took into his own folder as `software map.png`.)
+- `comparison - yours against the style sheet (2026-11-20).png`: Builder's picture of the differences, the one
+  his numbered answers of that day refer to.
 - Each drawer's source beside its pictures (`*.cs`, run from PowerShell); every edge in them is drawn to
   section 4's recipes, so they are also a worked example of the recipes in code.
 
