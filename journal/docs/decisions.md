@@ -3913,6 +3913,11 @@ Reference: `Art/quartile minecraft illustration.png`
   - Counsel's reading, not his words: "enough content to finish the engine with" means the engine's remaining
     work (the list under 2.4, the marks over 2 ms, Phase 2's gate) is done against a world made in the new
     editor, not against old's exported one. To be checked with him when the time comes.
+  - **Checked with him the same day, and made exact:** "yes enough content means the placer and ecology at a minimum is in so i have detail to refine the niew vier and crossover and continuous resolution spline tuning against"
+    ("niew vier": the near view). So the engine is finished out once the placer and ecology, at the least, are
+    in (3.3 and 3.4), so that there is detail in the world to tune the near view, the crossover and the
+    continuous-resolution spline against. Counsel's reading above stands, with that as its mark.
+  - And of selling it, a hope and not yet a plan: "hopefully between claude and david we can run a campaign that generates enough buzz to move units".
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its

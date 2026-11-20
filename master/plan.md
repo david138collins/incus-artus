@@ -22,7 +22,9 @@ Started 2026-11-11 from the Oracle's review (`journal/vision/oracle-review.md`, 
   2026-11-19:** his mock-ups go to Builder "with a prompt from you about any details i forgot", and what lies
   "beyond the overall setup" he works out with her; "tectonics, world gen, the registrar, and beyond up and
   running again better than before", which "should be enough content to finish the engine with"; then "the next
-  hurdle is getting some gameplay going" (4.1's first slice, below).
+  hurdle is getting some gameplay going" (4.1's first slice, below). "Enough content", by his answer the same
+  day: "the placer and ecology at a minimum is in", so the near view, the crossover and the continuous-resolution
+  spline are tuned against real detail. So the engine's finishing-out comes after 3.4.
 - **Working on:** Phase 2, *Restart*, step 2.3, the near eye (experiment 6), from 2026-11-16. Builder is reading
   old's near walk, the Oracle's near eye and near light (third part, sections 3 and 6; second part 4.2) and the
   doorway's answers, to bring David its first step and its pass mark before any code. The near eye is triangles, the
