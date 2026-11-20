@@ -136,6 +136,19 @@ here in the open.
   a briefing on how we'll carry out the replacement, any details i should be deciding on, and how you're going
   to set up our windows95 drawing") and builds nothing until he answers it. Her new order is hers to write
   here once he has.
+- **Her order as briefed to him, 2026-11-20 (proposed; not yet his go):** build 228 the bare frame; 229 the
+  frame's behaviour; 230 the Software map; 231 to 234 the debug panel, a tab at a time; 235 egui out.
+- **What she asked him in the briefing** (his answers will be set down above as they come):
+  1. Keep egui's F3 panel working until ours has everything, or go blank from the first build?
+  2. The title's lettering: cut from his picture, or a font he names?
+  3. The debug panel from example 4 as a starting point: does it also float over the editor, and may its
+     scale setting and the game-windowed setting sit on its Overview tab?
+  4. The menus to start: Exit under File; the two scales and Full screen under View; Game (F2) and Debug
+     panel (F3) under Window; Edit and Help greyed.
+  5. The Software map exactly as his picture, the hover tooltips gone since the card replaces them.
+- The handover's other questions (the wheel over the Software map, the debug panel's title bar font, the
+  Ocean plates' describing text, Save held down, the Tags field) she will put to him at the build each
+  belongs to, one or two at a time.
 
 ### The master palette in the Registrar: his direction (2026-11-19; a contemplation, its words may shift)
 
@@ -270,6 +283,8 @@ What each shows, as Counsel reads it (where this page and a picture differ, the 
 - **All four:** the title bar with "INCUS ARTUS" in lettering of his own and "Build 238" before the three
   buttons; the menus (File, Edit, View, Window, Help) and, on the same row, the page's drop-down as a true
   drop-down with its arrow button; a status bar of a wide pane and two small ones.
+  - *Corrected by Builder, 2026-11-20:* that holds for three of the pictures. The Tectonic Sim's has three
+    small panes: "Land 23%" (x 1,048 to 1,113), "Tick 4,812" (1,118 to 1,182), "N 204, E 88" (1,187 to 1,268).
 - **`software map.png`:** Counsel's example 10 taken whole (only the page's drop-down differs). So the group
   captions, the arrowheads, the dotted focus line, navy for the blue and 404040 for the grey, which were
   Counsel's stand-ins yesterday, are in his picture now.
@@ -334,6 +349,25 @@ not in `Art/fonts/`) holds `Ironquill.png`, a sheet of white letters, 16 a row i
 letters, with `Ironquill.fnt` giving each letter's place and width, so no sheet has to be made. Its
 `LICENSE.txt`: "Put the font files in a public repository (GitHub and similar)" is under "You CAN'T"; "Ship
 it inside your project's files: a game build" is under "You CAN". `Art/fonts/` already stays off GitHub.
+
+**Measured by Builder the same day** (hers; the second also by Counsel):
+
+- Ironquill's own sheet gives the same letters as the drawers' text, pixel for pixel: four of the pictures'
+  texts laid from `Ironquill.png` with the `.fnt`'s widths at the drawer's places differ from his pictures in
+  0 pixels. The `.fnt` has no kerning pairs and the sheet's alpha is 0 or 255 only. So text can be inside
+  the pixel-for-pixel checks, and the drawers' measures carry over as they are (a box as wide as its name
+  plus 14).
+- `current/software map.png` is example 10 except the page's drop-down (x 192 to 317, y 25 to 46: 563
+  pixels, the same count by Counsel's own comparison). The title bar and the menus' words are identical in
+  all four pictures and in `blank.png`.
+- `blank.png`'s body is his older working frame (teal, magenta dividers, old's toolbar buttons): it is not a
+  specification of a blank page.
+- One more stray from old: a row of 282830 at y 772, under the viewport's sunken frame, in the Software
+  map's picture (Counsel saw the same row in the picture he pasted).
+- **How she will test the frame against the cut-short pictures:** they read as a window of 1,281 x 801 with
+  its last column and row off the canvas. The check draws our frame for 1,281 x 801 and compares the
+  1,280 x 800 the picture has; a real 1,280 x 800 window then has its stretching parts one pixel smaller,
+  with the whole raised edge in view.
 
 ### The Registrar's frame: his mock-up in progress (2026-11-19)
 
