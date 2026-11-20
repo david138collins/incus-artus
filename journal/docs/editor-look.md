@@ -75,6 +75,20 @@ here in the open.
     dark teal, the one colour outside the scheme.
   - Counsel's own in them, not his: white for the wires a pass writes; the folding of lanes; a click in the
     Reads or Writes list jumping to that store; the times (stand-ins from a flight).
+  - **His direction of 2026-11-20, on his own mock-up of the page** (the 95 scheme on teal, the card panel as
+    example 7 had it, the lanes' windows blanked out and only the stores' white boxes left): "Can you redo the software map page with the modules all in the grouped boxes like these? the lines can be dark gray and behind the boxes, until one is clicked, at which point its lines become blue and on top"
+    So: every module the same white sunken box as the stores; the boxes in groups; every wire dark grey and
+    behind the boxes; a click turns that box's wires blue and brings them on top. The lanes as small windows
+    with title bars, and the passes as push buttons, fall with it.
+  - **Example 10, at that asking, not yet answered** (drawn onto his picture; only the map's own area repainted):
+    five groups under white captions (the four lanes by name and when they run, then the stores), the boxes in
+    wrapped rows in the order the code lists them; 103 wires in a dark grey (404040) from box to box behind
+    them; the chosen box navy with a dotted focus line, the boxes it is wired to navy, its wires navy and two
+    pixels wide from edge to edge over everything, an arrowhead the way the data goes. 10b is the map with
+    nothing chosen, 10c with a store chosen (a store's wires are the passes that read or write it).
+    Counsel's own in it, not his: the captions and their words; the arrowheads; the focus line; navy for
+    "blue" (the selection's own colour, the only blue in his `95.gpl`); the grey's exact value (404040; the
+    scheme's own 808080 read as pink against the teal).
 - In all of them the arrangement, the numbers, and in the palette the splines' names and the menu's words are
   Counsel's stand-ins.
 
@@ -201,7 +215,7 @@ does NOT suit: "this pic is the window where you can adjust the stats of units a
 | Which panel scales count as unavailable at each editor scale (the rule behind the greying); what "reset" sets the panel's scale to; whether the editor's scale has the debug panel's steps (1x to 5x and Auto); what Auto means for the debug panel; where the debug panel's scale setting sits | Builder to put to him when the menu is built; David |
 | ~~What the wheel does when the pointer is inside a number box~~ | Answered 2026-11-19: it steps the number up or down (the row in "Decided by him") |
 | The wheel's step in a number box (how much one notch changes each setting); whether the new viewports keep old's zooms as they were ("the zoom was ..."), and what the wheel does over the Software map and the other pages' views | Builder to propose from old; David |
-| The Software map: black and magenta as now (example 6), or the 95 scheme on teal (example 7); every wire drawn dimmed, or only the chosen box's; whether a box's describing text stays in its card, the one place a panel would carry such text | David |
+| The Software map: ~~black and magenta as now (example 6), or the 95 scheme on teal (example 7); every wire drawn dimmed, or only the chosen box's~~ answered by his mock-up and his words of 2026-11-20 (the 95 scheme on teal; every wire dark grey behind the boxes, the chosen box's blue on top). Still open: whether a box's describing text stays in its card (his mock-up keeps it, the one place a panel carries such text); his answer to example 10 | David |
 | Where the two settings go and what they are called: the game windowed; the scale | David: his mock-ups, or Builder asks |
 | Still wanted from him, by Builder's answer to this brief: the mock-ups as lossless 1,280 x 800 PNGs in `Art/References/editor reference/`; the title font; the toolbar's five buttons; what fills the status bar's panes; the open menus and the Tectonic Sim page; which of old's viewport readouts go | David |
 | Screens with less room than 1,280 x 800 | David, near shipping |
@@ -276,6 +290,8 @@ He rearranged `Art/` on 2026-11-19: his mock-ups are in `Art/95gui mockups/`, th
 - Example 4: the F3 debug panel, floating. Example 5: the master palette, crush and curve.
 - Example 6: the Software map, black and magenta, with a card panel. Example 7: the same in the 95 scheme on teal.
 - Example 8: the Registrar page (library, dock, palette). Example 9: four ways of the library panel.
+- Example 10: the Software map with every module a box in its group, grey wires behind and the chosen box's in
+  blue on top (10b nothing chosen, 10c a store chosen); its drawer is `software map drawer 3 (grouped boxes).cs`.
   (Example 7's picture he took into his own folder as `software map.png`.)
 - Each drawer's source beside its pictures (`*.cs`, run from PowerShell); every edge in them is drawn to
   section 4's recipes, so they are also a worked example of the recipes in code.
