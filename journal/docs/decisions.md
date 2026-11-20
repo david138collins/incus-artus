@@ -4052,6 +4052,26 @@ Reference: `Art/quartile minecraft illustration.png`
   - With this, everything build 228 needs is decided, by Builder's count. The debug panel starts as Counsel's
     example 4 draws it ("yes, go with your suggestions for it"): "Debug [F3]" in Ironquill on its title bar,
     tabs Overview, Camera and Render, none rising.
+- **Denser rows (2026-11-20)** (David, to Builder while build 228 was being built; relayed by her to
+  Counsel):
+  - "you dont need so much spacing between names and bars, and it doesnt necessarily need to be quite so wide"
+  - "just go a shade denser were nothing touches within 2px"
+  - Asked by Builder, in a question box, which names and bars (tabs, status panes, the Software map's boxes,
+    or the debug panel's width): "Tabs, generally all rows should be as dense as possible and you can narrow the whole by about a quarter"
+  - A standing rule: every row as dense as possible, nothing touching within 2 pixels. It joins his two of
+    the same day (as tight as possible by one logic; at least 2 pixels between elements).
+  - Builder's readings, built into 228: a tab is its name's ink plus 2 clear of its edges on each side, where
+    the sheet gave 7; the status bar's small panes the same; the Software map's boxes to follow at 230. "The
+    whole" she read as the debug panel, 303 wide where Counsel's example 4 had 404; he may mean the editor's
+    tabbed panel, and she points it out at his look.
+- **His look at build 228 (2026-11-20)** (David, to Builder; relayed by her to Counsel): "1. dont worry about it right now 2. yes 3. yes"
+  - To her three points, in order. 1, whether "narrow the whole by about a quarter" meant the debug panel or
+    the editor's tabbed panel: he chose neither; the debug panel stays 303 wide as built and the question
+    rests. 2, the 2 pixels under the menus' line (her reading of "keep at least a 2 pixel border between
+    elements"): yes. 3, the window's black outer line on the right and bottom, which his pictures lack: yes,
+    in build 229.
+  - He said nothing on anything else in 228. Build 228 (f9a8376) is the first without egui: the editor's
+    frame and the debug panel drawn by us.
 - **[DECIDED 2026-11-13] Light read from the cell: the sun's steps snap** (David, to Builder, asked whether the sun's
   steps should fade or snap, and whether shadows should be live while he drags the sun's slider): "i think we should
   try snapping light from one of 16 levels every time the sun has moved a 16th of the day, and smooth it only if its

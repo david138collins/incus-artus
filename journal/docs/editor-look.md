@@ -84,6 +84,10 @@ here in the open.
 | **Standing: at least 2 pixels between elements** (with his rule of the same day, as tight as possible: so 2 is the gap wherever nothing else sets it). Builder's reading of it for the row of tabs, told to him: the row moves up 2 (tabs at y 50 to 70, the page from 71), leaving exactly 2 pixels of face (48 and 49) under the menus' etched line, the same as above the frames; this reverses "conform to world gen height" for the row | asked whether the row should move up 2: "keep at least a 2 pixel border between elements" | 2026-11-20 |
 | The status bar has 2 pixels of spacing round it, as a panel set into the window. Builder's reading, told to him: the page's bottom comes down to y 772, level with the frames, leaving 773 and 774 above the status bar, as on its other sides | asked whether the page's bottom should come down 2: "give the bottom bar 2 pixels of spacing where its a panel element integrated into the window." | 2026-11-20 |
 | The debug panel starts as example 4 draws it, by his approval of Builder's suggestions: "Debug [F3]" in Ironquill on its title bar; tabs Overview, Camera and Render, none rising (his tab rule) | to Builder: "yes, go with your suggestions for it." | 2026-11-20 |
+| **Standing: every row as dense as possible, nothing touching within 2 pixels.** Tabs first. Builder's readings, built into 228: a tab is its name's ink plus 2 clear of its two-pixel edges on each side (the sheet gave 7 a side); the status bar's small panes have their words 2 clear of their line and the last pane 2 clear of the grip; the Software map's boxes are to follow at build 230 (his own picture draws them 7 a side: his to be asked there) | to Builder, during the build of 228: "you dont need so much spacing between names and bars, and it doesnt necessarily need to be quite so wide"; "just go a shade denser were nothing touches within 2px"; asked which names and bars: "Tabs, generally all rows should be as dense as possible and you can narrow the whole by about a quarter" | 2026-11-20 |
+| "Narrow the whole by about a quarter": read by Builder as the debug panel, 303 wide in 228 where example 4 had 404 (the width was Counsel's example's, not his). He may mean the editor's tabbed panel (549, his own drawing): she points it out at his look. **At the look he chose neither** ("dont worry about it right now"): the debug panel stays 303 as built and the question rests | to Builder: "you can narrow the whole by about a quarter" | 2026-11-20 |
+| The 2 pixels under the menus' etched line stand: the tabs and the Software map's board sit 2 below it (Builder's reading of "keep at least a 2 pixel border between elements", confirmed) | at his look at build 228, to her second point: "yes" | 2026-11-20 |
+| The window gets its black outer line on the right and bottom, which his pictures lack (they are a 1,281 x 801 window cut to 1,280 x 800); drawn whole, everything on the right and bottom comes in a pixel. In build 229 | at his look at build 228, to her third point: "yes" | 2026-11-20 |
 
 ### Drawn by Counsel at his asking, not yet answered by him (guesses; nothing here is decided)
 
@@ -249,6 +253,30 @@ here in the open.
 - **Everything build 228 needs is decided (2026-11-20).** She writes 228's pass mark, then builds, and tells
   Counsel before she hands him a launch. Open for later builds: tooltips outside his mode (her 5), her menu
   suggestions, and numbers typed past a slider's ends.
+- **Build 228's pass mark** is in `journal/docs/experiments.md` (812312d, hers). Two things in it that are
+  hers, not his word:
+  - The Registrar is drawn blank in 228: an empty page, no panes. His picture's panes don't follow the
+    sheet: the left pane has a raised edge on three sides and none on the right, and the panes are split by
+    2-pixel bars with odd caps (x 260 to 261 and 875 to 876). She puts those to him when the page is built
+    (3.3), not now.
+  - The debug panel takes example 4's place and size (at 16, 16; 404 x 432), but its inside follows his
+    rules of 2026-11-20 and not the example's 4-pixel margins: the tabs 2 pixels under the title bar, and
+    the page flush with the window's own grey band, as the editor's pages are.
+- **Build 228 built (f9a8376, hers; her entry "Build 228 built" in `journal/docs/experiments.md`).** His
+  words during the build made the tabs and the status bar's panes denser and the debug panel 303 wide (rows
+  in "Decided by him"). The page's drop-down sits 10 pixels after "Help", as in his pictures (her first
+  drawing had 12). Her comparison: on all four pictures every differing pixel is in a place named with its
+  ruling, and none differs anywhere else; all 68 tests pass.
+- **His look at build 228, 2026-11-20** (her entry "His look at build 228" in `journal/docs/experiments.md`,
+  9dc9464): "1. dont worry about it right now 2. yes 3. yes" to her three points, in order: whether "the whole" was the debug
+  panel or the tabbed panel; the 2 pixels under the menus' line; the window's black outer line on the right
+  and bottom. He said nothing on anything else in 228. The session ran 95 minutes and closed normally, no
+  warnings or errors (`logs/session-1795194177.log`). Next is 229, the frame working and the menus: she is
+  reading this page for what it still needs from him before its pass mark.
+- **Launches from 229 on (hers, at Counsel's suggestion):** the compile and the tests run as their own steps
+  once the build's commit is in; she launches when the CPU area reads under 80 C and tells him the wait. 228's
+  log read 105 C at 3 s and 61 s and 104 C at 108 s, the compile running straight into the making of the
+  world, the same pattern as 104 C on 2026-11-18.
 
 ### The master palette in the Registrar: his direction (2026-11-19; a contemplation, its words may shift)
 
@@ -355,6 +383,7 @@ does NOT suit: "this pic is the window where you can adjust the stats of units a
 | The Registrar: the Tags field is still in the dock though the library no longer filters by tags: are tags kept on an asset for later, or gone? | David |
 | Ironquill reaching the build: its licence forbids the font's files in a public repository (a built game may be public). Is the GitHub repository private? Until he says, the sheet stays off GitHub and the game reads it from a folder on this machine (Builder's plan) | David |
 | The debug panel: its tabs and sections (Builder to propose from today's F3 panel and example 4, which he took as the start, 2026-11-20); ~~its title bar's font~~ (Ironquill, as example 4); ~~where its scale setting sits~~ (its Overview tab); its first tabs Overview, Camera and Render | Builder to propose; David |
+| The Registrar's panes in `current/registrar.png` against the sheet: the left pane raised on three sides with none on the right; the panes split by 2-pixel bars with odd caps (x 260 to 261, 875 to 876). Found by Builder; the page is blank until then | Builder to put to him when the Registrar is built (3.3); David |
 | ~~Her row 3, the first tab when chosen; whether a chosen tab grows~~ ~~Her row 10, the page's drop-down's width~~ | Answered 2026-11-20: "make it not get taller, just be up front as re the borders between neighbors"; 128 |
 | ~~His viewport frame's outer dark line on the right at x 1,277; the two dark lines outside the Software map's sunken frame~~ | Answered 2026-11-20: "pull it in, replace them" |
 | ~~His viewport frame's two dark shades, 3A3A42 and 282830, outside the 95 scheme: kept, or the scheme's?~~ | Answered 2026-11-20: the standard colours ("im not sure what i was trying to do, but derive win95's thick borderframe logic and use the standard colors") |
@@ -362,7 +391,7 @@ does NOT suit: "this pic is the window where you can adjust the stats of units a
 | ~~The viewport's frame, which drawing: A or B~~ | Overtaken 2026-11-20 by his answer 7 ("thick frame, sunk"): both were raised |
 | ~~The Software map's view: its plain sunken frame, or one frame for all three (Counsel's question; Builder's question 7)~~ | Answered 2026-11-20: one frame, "thick frame, sunk, on both the software map board, the tectonic viewport, and the world gen viewport" (Builder and Counsel had both said keep it plain sunken) |
 | ~~The thick sunk frame's order of rings~~ | Answered 2026-11-20: the sunken edge outside, then two face rings |
-| ~~The row of tabs, now that nothing rises: up 2, or left with 2 empty rows above~~ | Answered 2026-11-20: "keep at least a 2 pixel border between elements"; read by Builder as up 2, which leaves exactly 2. His to object to when he sees build 228 |
+| ~~The row of tabs, now that nothing rises: up 2, or left with 2 empty rows above~~ | Answered 2026-11-20: "keep at least a 2 pixel border between elements"; read by Builder as up 2, which leaves exactly 2. Confirmed at his look at build 228: "yes" |
 | ~~The page's bottom: down from y 770 to 772~~ | Answered 2026-11-20: "give the bottom bar 2 pixels of spacing where its a panel element integrated into the window."; read by Builder as down to 772 |
 | The menus as Builder sketched them to him (under "Builder's plan"); her additions to the number box (Esc restores, a click elsewhere keeps, a second click places the cursor) | David, if he objects |
 | "The 2nd from top bar": Builder reads it as the bar under the title bar, and told him her reading, "answer only if wrong": words centred in the status bar's small panes and in the Seed box; the "Ready" pane left; drop-downs' words left, in line with their lists | David, if he objects |
